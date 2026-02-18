@@ -1,0 +1,30 @@
+# macOS / editors
+.DS_Store
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local data / outputs (do not version)
+data/
+data_*/
+research/reports/
+release_bundle_*/
+*_bundle_*/
+_bundle_tmp/
+_tmp_*/
+*.zip
+
+# Logs
+*.log
+*.err
+
+# Virtual env / node
+.venv/
+venv/
+node_modules/
+
+# Large artifacts / patches from experiments
+*.bak_*
