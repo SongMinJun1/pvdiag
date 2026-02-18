@@ -342,6 +342,166 @@ def build_vbin_map_from_train(
     diag["panels_assigned"] = int(len(vbin_map))
     return vbin_map, diag
 
+
+def mark_run_segments(
+    df: pd.DataFrame,
+    key_col: str,
+    date_col: str,
+    cond_col: str,
+    min_len: int,
+    out_col: str,
+) -> pd.DataFrame:
+    """Mark whole consecutive-true segments when run length >= min_len."""
+    df[out_col] = False
+    if min_len <= 1:
+        df[out_col] = df[cond_col].fillna(False).astype(bool)
+        return df
+
+    df = df.sort_values([key_col, date_col]).copy()
+    for pid, g in df.groupby(key_col, sort=False):
+        idxs = g.index.to_list()
+        flags = g[cond_col].fillna(False).astype(bool).to_list()
+
+        start = None
+        run_len = 0
+        for k, flag in enumerate(flags + [False]):  # sentinel
+            if flag:
+                if start is None:
+                    start = k
+                    run_len = 1
+                else:
+                    run_len += 1
+            else:
+                if start is not None and run_len >= int(min_len):
+                    seg_idxs = idxs[start : start + run_len]
+                    df.loc[seg_idxs, out_col] = True
+                start = None
+                run_len = 0
+    return df
+
+
+def compute_vdrop_labels(df: pd.DataFrame, params: dict[str, Any]) -> pd.DataFrame:
+    """Single SSOT for critical-like labels.
+
+    Output columns (defined exactly once here):
+      - critical_like_raw / critical_like_suspect_raw
+      - critical_like_eff / critical_like / critical_like_suspect / critical_like_suspect_eff
+      - critical_like_legacy / critical_source / vdrop_trust
+    """
+    out = df.copy()
+    args = params["args"]
+    tuning_level = str(params.get("tuning_level", "p2")).lower().strip()
+
+    def _bool_col(name: str) -> pd.Series:
+        if name not in out.columns:
+            return pd.Series(False, index=out.index)
+        s = pd.to_numeric(out[name], errors="coerce").fillna(0.0)
+        return s.ne(0)
+
+    def _num_col(name: str) -> pd.Series:
+        if name in out.columns:
+            return pd.to_numeric(out[name], errors="coerce")
+        return pd.Series(np.nan, index=out.index, dtype=float)
+
+    v_ref_ok = _bool_col("v_ref_ok")
+    data_bad = _bool_col("data_bad")
+    group_off_like = _bool_col("group_off_like")
+    mid_peer_ok = _num_col("mid_peer") >= float(args.mid_peer_alive_thr)
+
+    # V-drop hit evidence (trust-agnostic): preserve legacy guard set used in existing vdrop_condition_post.
+    v_drop = _num_col("v_drop")
+    mid_i = _num_col("mid_i_ratio")
+    mid_r = _num_col("mid_ratio")
+    vdrop_hit_any = (
+        v_drop.notna()
+        & np.isfinite(v_drop.to_numpy(dtype=float))
+        & (v_drop >= float(args.v_drop_thr))
+        & mid_i.notna()
+        & (mid_i >= float(args.mid_i_ratio_healthy_thr))
+        & mid_r.notna()
+        & (mid_r >= float(args.critical_mid_ratio_min))
+        & (mid_r <= float(args.critical_mid_ratio_max))
+    )
+
+    out["critical_like_raw"] = (vdrop_hit_any & v_ref_ok).astype(int)
+    out["critical_like_suspect_raw"] = (vdrop_hit_any & (~v_ref_ok)).astype(int)
+
+    # Legacy fallback semantics are preserved for p2 only.
+    legacy_hit = pd.Series(False, index=out.index)
+    if tuning_level == "p2":
+        use_vdrop = v_ref_ok & np.isfinite(v_drop.to_numpy(dtype=float))
+        cov_mid = _num_col("coverage_mid").fillna(0.0)
+        mid_v = _num_col("mid_v_ratio")
+        legacy_hit = (
+            (~data_bad)
+            & mid_peer_ok
+            & (~use_vdrop)
+            & (cov_mid >= float(args.coverage_min))
+            & mid_v.notna()
+            & (mid_v <= float(args.mid_v_ratio_critical_thr))
+            & (mid_i >= float(args.mid_i_ratio_healthy_thr))
+            & (mid_r >= float(args.critical_mid_ratio_min))
+            & (mid_r <= float(args.critical_mid_ratio_max))
+        )
+    out["critical_like_legacy"] = legacy_hit.astype(int)
+
+    # Effective labels (after quality + group-off gates) are defined once here.
+    eff_vdrop = (
+        (out["critical_like_raw"].astype(int) == 1)
+        & (~data_bad)
+        & mid_peer_ok
+        & (~group_off_like)
+    )
+    eff_legacy = (
+        legacy_hit.astype(bool)
+        & (~group_off_like)
+    )
+    out["critical_like_eff"] = (eff_vdrop | eff_legacy).astype(bool)
+    out["critical_like"] = out["critical_like_eff"].astype(bool)
+
+    out["critical_like_suspect"] = (
+        (out["critical_like_suspect_raw"].astype(int) == 1)
+        & (~data_bad)
+        & mid_peer_ok
+        & (~group_off_like)
+        & (~out["critical_like_eff"].astype(bool))
+    ).astype(bool)
+    out["critical_like_suspect_eff"] = out["critical_like_suspect"].astype(bool)
+
+    out["vdrop_trust"] = v_ref_ok.astype(int)
+
+    # Source is set once: legacy > vdrop > vdrop_suspect precedence.
+    out["critical_source"] = "none"
+    out.loc[out["critical_like_suspect"].astype(bool), "critical_source"] = "vdrop_suspect"
+    out.loc[out["critical_like_eff"].astype(bool) & (~legacy_hit.astype(bool)), "critical_source"] = "vdrop"
+    out.loc[legacy_hit.astype(bool) & out["critical_like_eff"].astype(bool), "critical_source"] = "legacy"
+
+    return out
+
+
+def _max_run_by_panel(df: pd.DataFrame, flag_col: str) -> pd.DataFrame:
+    """Compute max consecutive-day run length per panel for a boolean/int flag."""
+    tmp = df[["panel_id", "date", flag_col]].copy()
+    tmp[flag_col] = pd.to_numeric(tmp[flag_col], errors="coerce").fillna(0).astype(int)
+    tmp = tmp.sort_values(["panel_id", "date"])
+
+    runs = []
+    for pid, g in tmp.groupby("panel_id", sort=False):
+        vals = g[flag_col].to_numpy(dtype=int)
+        best = 0
+        cur = 0
+        for v in vals:
+            if v == 1:
+                cur += 1
+                if cur > best:
+                    best = cur
+            else:
+                cur = 0
+        runs.append((pid, int(best)))
+    return pd.DataFrame(runs, columns=["panel_id", f"{flag_col}_max_run"]).sort_values(
+        f"{flag_col}_max_run", ascending=False
+    )
+
 # ======== DTW & Hampel Score Helpers =========
 
 def dtw_distance(curve: np.ndarray, ref: np.ndarray, band: int | None = None) -> float:
@@ -1351,26 +1511,12 @@ def main():
 
 
                 # Placeholders (computed post-merge)
-
                 v_ref = np.nan
-
                 v_ref_span = np.nan
-
                 n_ref = np.nan
-
                 n_total = np.nan
-
                 v_ref_ok = False
-
-                vdrop_trust = 0
-
                 v_drop = np.nan
-
-                critical_like = 0
-
-                critical_like_suspect = 0
-
-                critical_source = ""
 
 
                 # Assemble output row with required fields
@@ -1378,11 +1524,7 @@ def main():
                     {
                         "date": extract_date_from_filename(fname),
                         "panel_id": str(pid),
-                        "critical_source": critical_source,
                         "v_ref_ok": v_ref_ok,
-                        "vdrop_trust": vdrop_trust,
-                        "critical_like_raw": int(critical_like),
-                        "critical_like_suspect_raw": int(critical_like_suspect),
                         "v_drop": v_drop,
                         "v_ref": v_ref,
                         "v_ref_span": v_ref_span,
@@ -1425,15 +1567,6 @@ def main():
     out["date"] = pd.to_datetime(out["date"], errors="coerce").dt.normalize()
     out["drop_time"] = pd.to_datetime(out["drop_time"], errors="coerce")
 
-    # ---- Preserve raw critical labels from row assembly (do not overwrite later) ----
-    if "critical_like_raw" not in out.columns and "critical_like" in out.columns:
-        out["critical_like_raw"] = out["critical_like"]
-    if "critical_like_suspect_raw" not in out.columns and "critical_like_suspect" in out.columns:
-        out["critical_like_suspect_raw"] = out["critical_like_suspect"]
-
-    out["critical_like_raw"] = pd.to_numeric(out.get("critical_like_raw", 0), errors="coerce").fillna(0).astype(int)
-    out["critical_like_suspect_raw"] = pd.to_numeric(out.get("critical_like_suspect_raw", 0), errors="coerce").fillna(0).astype(int)
-
     cov_min = float(args.coverage_min)
     tuning_level = str(getattr(args, "tuning_level", "p2")).lower().strip()
     if tuning_level not in {"p0", "p1", "p2"}:
@@ -1474,40 +1607,6 @@ def main():
     # n_total = number of unique panels per (date, group_key). Always recompute from the raw rows
     # so it is never missing even when v_ref is unavailable.
     out["n_total"] = out.groupby(["date", "group_key"])["panel_id"].transform("nunique").astype(float)
-
-    def mark_run_segments(df: pd.DataFrame, key_col: str, date_col: str, cond_col: str, min_len: int, out_col: str) -> pd.DataFrame:
-        """Mark whole consecutive-true segments when run length >= min_len.
-
-        - df must contain key_col/date_col/cond_col.
-        - Returns df with boolean out_col.
-        - Uses date order per key.
-        """
-        df[out_col] = False
-        if min_len <= 1:
-            df[out_col] = df[cond_col].fillna(False).astype(bool)
-            return df
-
-        df = df.sort_values([key_col, date_col]).copy()
-        for pid, g in df.groupby(key_col, sort=False):
-            idxs = g.index.to_list()
-            flags = g[cond_col].fillna(False).astype(bool).to_list()
-
-            start = None
-            run_len = 0
-            for k, flag in enumerate(flags + [False]):  # sentinel
-                if flag:
-                    if start is None:
-                        start = k
-                        run_len = 1
-                    else:
-                        run_len += 1
-                else:
-                    if start is not None and run_len >= int(min_len):
-                        seg_idxs = idxs[start : start + run_len]
-                        df.loc[seg_idxs, out_col] = True
-                    start = None
-                    run_len = 0
-        return df
 
     # If this script is re-run in an interactive environment, or if the dataframe is
     # processed twice by accident, prior merge artifacts can remain and cause pandas
@@ -1660,27 +1759,6 @@ def main():
                     # no_ref: reference not available or too small (ops visibility)
                     out["no_ref"] = out["v_ref"].isna() | (~n_ok)
 
-                    # ---- FINAL trust-gated critical labels (must use post-merge v_ref_ok) ----
-                    # Raw columns capture the initial vdrop hit logic before the final v_ref is merged.
-                    # After v_ref_ok is recomputed here (post-merge), we MUST re-derive the effective labels
-                    # so that v_ref_ok==0 can never leak into confirmed critical_like.
-                    out["critical_like_raw"] = pd.to_numeric(out.get("critical_like_raw", 0), errors="coerce").fillna(0).astype(int)
-                    out["critical_like_suspect_raw"] = pd.to_numeric(out.get("critical_like_suspect_raw", 0), errors="coerce").fillna(0).astype(int)
-                    v_ok = out["v_ref_ok"].fillna(False).astype(bool)
-                    out["critical_like_eff"] = (out["critical_like_raw"].astype(int) & v_ok.astype(int)).astype(int)
-                    out["critical_like_suspect_eff"] = (((out["critical_like_raw"] | out["critical_like_suspect_raw"]).astype(int) & (~v_ok).astype(int))).astype(int)
-                    # Exported labels must follow *_eff
-                    out["critical_like"] = out["critical_like_eff"].astype(int)
-                    out["critical_like_suspect"] = out["critical_like_suspect_eff"].astype(int)
-
-                    # Keep critical_source consistent with the gated labels
-                    if "critical_source" in out.columns:
-                        out.loc[out["critical_like"] == 0, "critical_source"] = out.loc[out["critical_like"] == 0, "critical_source"].where(
-                            out["critical_like_suspect"] == 1, ""
-                        )
-                        out.loc[out["critical_like_suspect"] == 1, "critical_source"] = "vdrop_suspect"
-                        out.loc[out["critical_like"] == 1, "critical_source"] = "vdrop"
-
                     # Drop merge helper columns (including any suffixed variants)
                     drop_cols = []
                     for c in [
@@ -1718,42 +1796,6 @@ def main():
                     # Safety: n_total must never be missing.
                     out["n_total"] = out.groupby(["date", "group_key"])["panel_id"].transform("nunique").astype(float)
 
-                    # ---- Recompute V-drop hit evidence AFTER v_drop is finalized (post-merge) ----
-                    # Earlier row-assembly critical_like_*_raw can be stale because v_drop/v_ref/v_ref_ok
-                    # may change after merge/robust reference computation. From here onward, we define
-                    # the authoritative vdrop-hit evidence based on FINAL v_drop and guard features.
-                    vdrop_condition_post = (
-                        out["v_drop"].notna()
-                        & (out["v_drop"].astype(float) >= float(args.v_drop_thr))
-                        & out["mid_i_ratio"].notna()
-                        & (out["mid_i_ratio"].astype(float) >= float(args.mid_i_ratio_healthy_thr))
-                        & out["mid_ratio"].notna()
-                        & (out["mid_ratio"].astype(float) >= float(args.critical_mid_ratio_min))
-                        & (out["mid_ratio"].astype(float) <= float(args.critical_mid_ratio_max))
-                    )
-                    # ---- Authoritative critical labels based on FINAL v_drop and v_ref_ok ----
-                    # Define critical_like / suspect strictly from FINAL v_drop and v_ref_ok.
-                    # This keeps labels stable when eval-loop vdrop computation is removed.
-                    v_hit = pd.Series(vdrop_condition_post, index=out.index).fillna(False).astype(bool)
-                    v_ok = out["v_ref_ok"].fillna(False).astype(bool)
-                    out["critical_like"] = (v_hit & v_ok).astype(int)
-                    out["critical_like_suspect"] = (v_hit & (~v_ok)).astype(int)
-                    out["critical_like_raw"] = out["critical_like"].astype(int)
-                    out["critical_like_suspect_raw"] = out["critical_like_suspect"].astype(int)
-                    out["critical_like_eff"] = out["critical_like"].astype(int)
-                    out["critical_like_suspect_eff"] = out["critical_like_suspect"].astype(int)
-                    if "critical_source" in out.columns:
-                        # Only clear vdrop-related sources; keep other sources intact.
-                        out.loc[out["critical_source"].isin(["vdrop", "vdrop_suspect"]), "critical_source"] = ""
-                        out.loc[out["critical_like_suspect"] == 1, "critical_source"] = "vdrop_suspect"
-                        out.loc[out["critical_like"] == 1, "critical_source"] = "vdrop"
-
-
-                    # Overwrite raw evidence columns with the authoritative post-merge hit.
-                    # Raw means: hit regardless of trust; trust split is applied later via v_ref_ok.
-                    out["critical_like_raw"] = vdrop_condition_post.astype(int)
-                    out["critical_like_suspect_raw"] = vdrop_condition_post.astype(int)
-
     out["state_dead"] = (
         (~out["data_bad"])
         & (out["mid_peer"] >= float(args.mid_peer_alive_thr))
@@ -1765,101 +1807,8 @@ def main():
     # p1: +group_off_like gate (still no critical/shadow/EWS)
     # p2: full (critical_like + group_off_like + downstream refinement)
 
-    # Defaults (safe placeholders)
-    # Keep *_raw as immutable evidence columns; compute *_eff for downstream gating/run counts.
-    # IMPORTANT (P2 trust-gate): recomputed v_ref_ok after v_ref merge MUST be enforced.
-    # This prevents low-trust rows (v_ref_ok==0) from being counted as confirmed critical.
-
-    # Ensure boolean dtype
-    out["v_ref_ok"] = out.get("v_ref_ok", False).fillna(False).astype(bool)
-
-    # Start from raw evidence columns
-    out["critical_like_raw"] = pd.to_numeric(out.get("critical_like_raw", 0), errors="coerce").fillna(0).astype(int)
-    out["critical_like_suspect_raw"] = pd.to_numeric(out.get("critical_like_suspect_raw", 0), errors="coerce").fillna(0).astype(int)
-
-    # Any vdrop-hit evidence (authoritative post-merge raw; duplicated into *_suspect_raw by design)
-    _vdrop_hit_any = (out["critical_like_raw"] == 1)
-
-    # Enforce trust-gate on the *final* v_ref_ok (post-merge)
-    out["critical_like_eff"] = (_vdrop_hit_any & (out["v_ref_ok"].fillna(False).astype(bool))).astype(bool)
-    out["critical_like_suspect_eff"] = (_vdrop_hit_any & (~out["v_ref_ok"].fillna(False).astype(bool))).astype(bool)
-
-    # Export final integer labels for downstream reporting/run-count
-
-    out["critical_like"] = out["critical_like_eff"].astype(int)
-    out["critical_like_suspect"] = out["critical_like_suspect_eff"].astype(int)
-
-    # ---- P2 trust-gate: finalize trust flag + source labels, and assert no-leak ----
-    # NOTE: v_ref_ok can be recomputed after v_ref merge; the exported trust flag must reflect FINAL v_ref_ok.
-    out["vdrop_trust"] = out["v_ref_ok"].fillna(False).astype(bool).astype(int)
-
-    # Keep a single, consistent source label at export time.
-    # (Earlier row assembly may have written "vdrop" even for suspect rows.)
-    if "critical_source" not in out.columns:
-        out["critical_source"] = ""
-
-    out.loc[(out["critical_like"] == 1), "critical_source"] = "vdrop"
-    out.loc[(out["critical_like_suspect"] == 1), "critical_source"] = "vdrop_suspect"
-
-    # Hard safety: confirmed must NEVER exist when v_ref_ok == 0
-    # (segment-labeling or any earlier step must not be able to re-introduce confirmed rows)
-    _leak_mask = (out["v_ref_ok"].fillna(False).astype(bool) == False) & (out["critical_like"].astype(int) == 1)
-    _leak_n = int(_leak_mask.sum())
-    if _leak_n > 0:
-        # Force-correct and surface loudly in logs.
-        out.loc[_leak_mask, "critical_like"] = 0
-        out.loc[_leak_mask, "critical_like_eff"] = False
-        out.loc[_leak_mask, "critical_source"] = "vdrop_suspect"
-        out.loc[_leak_mask, "critical_like_suspect"] = 1
-        out.loc[_leak_mask, "critical_like_suspect_eff"] = True
-        print(f"[WARN] leak fixed: v_ref_ok==0 but critical_like==1 rows={_leak_n} (forced to suspect)")
-
-    # Sanity print (always)
-    print(f"[CHK] leak_critical_like_when_v_ref_ok0 = {int(((out['v_ref_ok'].fillna(False).astype(bool)==False) & (out['critical_like'].astype(int)==1)).sum())}")
-    out.loc[(out["critical_like"] == 0) & (out["critical_like_suspect"] == 0), "critical_source"] = ""
-
-    # ---- Legacy critical guard ----
-    # Some older code paths may label critical-like using absolute mid_v_ratio thresholds and set
-    # critical_source="legacy". These MUST NOT leak into the vdrop-based confirmed/suspect pipeline.
-    # We keep them in a separate column for analysis, but exclude them from confirmed/suspect run counts.
-    if "critical_source" in out.columns:
-        legacy_mask = out["critical_source"].astype(str) == "legacy"
-        out["critical_like_legacy"] = legacy_mask.astype(int)
-        # Exclude legacy from vdrop confirmed/suspect labels
-        out.loc[legacy_mask, "critical_like"] = 0
-        out.loc[legacy_mask, "critical_like_suspect"] = 0
-        # Keep source empty for exported vdrop pipeline (legacy can be inspected via critical_like_legacy)
-        out.loc[legacy_mask, "critical_source"] = ""
-    else:
-        out["critical_like_legacy"] = 0
-
-    # ---- Hard safety: confirmed vs suspect must be mutually exclusive and trust-gated ----
-    # Any vdrop-hit evidence (either confirmed-raw or suspect-raw)
-    _vdrop_hit_any = (out["critical_like_raw"] == 1) | (out["critical_like_suspect_raw"] == 1)
-
-    # Enforce mutual exclusivity (belt-and-suspenders)
-    out.loc[out["critical_like_suspect"] == 1, "critical_like"] = 0
-
-    # If any leak remains, force-fix then hard fail so we never ship inconsistent CSVs.
-    _leak = int(((out["critical_like"].astype(int) == 1) & (~out["v_ref_ok"].fillna(False).astype(bool))).sum())
-    if _leak > 0:
-        print(f"[WARN] P2 trust-gate leak detected: critical_like==1 with v_ref_ok==0 (n={_leak}). Forcing fix + raising.")
-        # confirmed must be trust-ok only
-        out.loc[~out["v_ref_ok"], "critical_like"] = 0
-        # suspect should capture any vdrop-hit evidence when trust is not ok
-        out.loc[_vdrop_hit_any & (~out["v_ref_ok"]), "critical_like_suspect"] = 1
-        out.loc[(out["critical_like"] == 1), "critical_source"] = "vdrop"
-        out.loc[(out["critical_like_suspect"] == 1), "critical_source"] = "vdrop_suspect"
-        out.loc[(out["critical_like"] == 0) & (out["critical_like_suspect"] == 0), "critical_source"] = ""
-        raise AssertionError("P2 trust-gate leak: confirmed critical must imply v_ref_ok==True")
-
-    # Final assert (should always be zero)
-    assert int(((out["critical_like"] == 1) & (~out["v_ref_ok"])).sum()) == 0
-    assert int(((out["critical_like"] == 1) & (out["critical_like_suspect"] == 1)).sum()) == 0
-
-    # ---- P2 ops visibility: why a row is low-trust (suspect) ----
-    # Provide a deterministic reason string derived from FINAL (post-merge) trust-gate components.
-    # This does NOT change any labels; it only improves report interpretability.
+    # ---- Ops visibility: why a row is low-trust (suspect) ----
+    # Derived from FINAL (post-merge) trust-gate components.
     if "vdrop_trust_reason" not in out.columns:
         out["vdrop_trust_reason"] = ""
 
@@ -1892,77 +1841,7 @@ def main():
         # Never fail the pipeline due to a diagnostics column.
         out["vdrop_trust_reason"] = ""
 
-    # Hard assert (log-only): confirmed critical must NEVER leak when v_ref_ok==0
-    try:
-        leak = int(out.loc[(~out["v_ref_ok"].fillna(False).astype(bool)), "critical_like"].sum())
-        if leak != 0:
-            print(f"[WARN] leak_critical_like_when_v_ref_ok0 = {leak} (should be 0). Check for later overwrites.")
-        else:
-            print("[OK] leak_critical_like_when_v_ref_ok0 = 0")
-    except Exception as _e:
-        print(f"[WARN] leak check failed: {_e}")
-
-    # ---- Reports: confirmed vs suspect (P2 finishing step) ----
-    def _max_run_by_panel(df: pd.DataFrame, flag_col: str) -> pd.DataFrame:
-        """Compute max consecutive-day run length per panel for a boolean/int flag."""
-        tmp = df[["panel_id", "date", flag_col]].copy()
-        tmp[flag_col] = pd.to_numeric(tmp[flag_col], errors="coerce").fillna(0).astype(int)
-        tmp = tmp.sort_values(["panel_id", "date"])
-
-        # group-wise streak counting
-        runs = []
-        for pid, g in tmp.groupby("panel_id", sort=False):
-            vals = g[flag_col].to_numpy(dtype=int)
-            best = 0
-            cur = 0
-            for v in vals:
-                if v == 1:
-                    cur += 1
-                    if cur > best:
-                        best = cur
-                else:
-                    cur = 0
-            runs.append((pid, int(best)))
-        out_run = pd.DataFrame(runs, columns=["panel_id", f"{flag_col}_max_run"]).sort_values(f"{flag_col}_max_run", ascending=False)
-        return out_run
-
-    try:
-        if tuning_level == "p2":
-            rep_confirm = _max_run_by_panel(out, "critical_like")
-            rep_suspect = _max_run_by_panel(out, "critical_like_suspect")
-
-            # Attach basic context for top rows
-            def _attach_ctx(df_run: pd.DataFrame, flag_col: str) -> pd.DataFrame:
-                top_pids = df_run.loc[df_run[f"{flag_col}_max_run"] > 0, "panel_id"].astype(str).tolist()
-                if not top_pids:
-                    return df_run
-                sub = out[out["panel_id"].astype(str).isin(top_pids)].copy()
-                sub = sub.sort_values(["panel_id", "date"])
-                # take last seen context per panel
-                ctx = (sub.groupby("panel_id").tail(1)[["panel_id", "group_key_ref", "n_ref", "n_total", "v_ref_span", "mid_peer", "mid_ratio", "mid_v_ratio", "v_drop"]]
-                       .copy())
-                return df_run.merge(ctx, on="panel_id", how="left")
-
-            rep_confirm_ctx = _attach_ctx(rep_confirm, "critical_like")
-            rep_suspect_ctx = _attach_ctx(rep_suspect, "critical_like_suspect")
-
-            # Save two reports (log_dir and out_dir)
-            try:
-                rep_confirm_ctx.to_csv(log_dir / "report_critical_confirmed_runs.csv", index=False)
-                rep_suspect_ctx.to_csv(log_dir / "report_critical_suspect_runs.csv", index=False)
-                rep_confirm_ctx.to_csv(out_dir / "report_critical_confirmed_runs.csv", index=False)
-                rep_suspect_ctx.to_csv(out_dir / "report_critical_suspect_runs.csv", index=False)
-                print("[OK] wrote reports: report_critical_confirmed_runs.csv / report_critical_suspect_runs.csv")
-            except Exception as _e:
-                print(f"[WARN] failed to write critical reports: {_e}")
-
-            # Console TOP (confirmed only + suspect only)
-            print("\n[TOP] critical_like confirmed max_run (TOP40)")
-            print(rep_confirm.head(40).to_string(index=False))
-            print("\n[TOP] critical_like SUSPECT max_run (TOP40)")
-            print(rep_suspect.head(40).to_string(index=False))
-    except Exception as _e:
-        print(f"[WARN] critical report generation failed: {_e}")
+    # critical labels are finalized after group_off_like is known.
 
     out["group_off_date"] = False
     out["group_off_like"] = False
@@ -2062,17 +1941,6 @@ def main():
             if "no_ref" in out.columns:
                 out.loc[go_mask, "no_ref"] = True
 
-        # ---- Effective critical labels (use for run counts / reports) ----
-        # confirmed: vdrop_hit AND v_ref_ok (already encoded in critical_like_raw) AND not group-off AND not data_bad
-        # suspect:   vdrop_hit AND (not v_ref_ok) (already encoded in critical_like_suspect_raw) AND not group-off AND not data_bad
-        out["critical_like_eff"] = (
-            out["critical_like_raw"].astype(int) == 1
-        ) & (~out["group_off_like"].astype(bool)) & (~out["data_bad"].astype(bool))
-
-        out["critical_like_suspect_eff"] = (
-            out["critical_like_suspect_raw"].astype(int) == 1
-        ) & (~out["group_off_like"].astype(bool)) & (~out["data_bad"].astype(bool))
-
     # Effective dead for panel-fault confirmation
     # p0: no group_off gating
     # p1/p2: exclude group_off_like days
@@ -2081,9 +1949,14 @@ def main():
     else:
         out["state_dead_eff"] = out["state_dead"].astype(bool) & (~out["group_off_like"].astype(bool))
 
-    # Backward-compatible alias for outputs
-    out["critical_like"] = out["critical_like_eff"].astype(bool)
-    out["critical_like_suspect"] = out["critical_like_suspect_eff"].astype(bool)
+    # Final critical labels (SSOT): define once after group_off_like is known.
+    out = compute_vdrop_labels(
+        out,
+        {
+            "args": args,
+            "tuning_level": tuning_level,
+        },
+    )
 
     # dead streak and confirmed fault (always computed)
     out = out.sort_values(["panel_id", "date"])
@@ -2103,47 +1976,12 @@ def main():
     # Mark whole dead-like segments when they reach the minimum length (ops-friendly)
     out = mark_run_segments(out, key_col="panel_id", date_col="date", cond_col="state_dead_eff", min_len=int(args.dead_days), out_col="confirmed_fault")
 
-    # ---- Critical-like (V-drop with healthy-ish I) ----
-    # Enabled only at p2 stage.
+    # ---- Critical-like (V-drop sustained run) ----
     out["crit_streak"] = 0
     out["critical_fault"] = False
-    # Track which rule produced critical_like for audit/debug
-    out["critical_source"] = "none"  # one of: none|vdrop|legacy
 
     if tuning_level == "p2":
-        # Prefer relative v_drop vs per-(date, group_key) v_ref when available.
-        # Fallback to legacy absolute threshold only when v_ref is missing/unusable.
-        use_vdrop = out["v_ref_ok"].astype(bool) & np.isfinite(out["v_drop"])
-
-        crit_by_vdrop = (
-            (~out["data_bad"])
-            & (out["mid_peer"] >= float(args.mid_peer_alive_thr))
-            & use_vdrop
-            & (out["v_drop"] >= float(args.v_drop_thr))
-            & (out["mid_i_ratio"] >= float(args.mid_i_ratio_healthy_thr))
-            & (out["mid_ratio"] >= float(args.critical_mid_ratio_min))
-            & (out["mid_ratio"] <= float(args.critical_mid_ratio_max))
-        )
-
-        crit_by_legacy = (
-            (~out["data_bad"])
-            & (out["mid_peer"] >= float(args.mid_peer_alive_thr))
-            & (~use_vdrop)
-            & (out["coverage_mid"].fillna(0.0) >= float(args.coverage_min))
-            & (out["mid_v_ratio"] <= float(args.mid_v_ratio_critical_thr))
-            & (out["mid_i_ratio"] >= float(args.mid_i_ratio_healthy_thr))
-            & (out["mid_ratio"] >= float(args.critical_mid_ratio_min))
-            & (out["mid_ratio"] <= float(args.critical_mid_ratio_max))
-        )
-
-        # Label the source rule used for critical_like (helps explain v_ref_ok split)
-        out.loc[crit_by_vdrop.fillna(False), "critical_source"] = "vdrop"
-        out.loc[crit_by_legacy.fillna(False), "critical_source"] = "legacy"
-
-        out["critical_like"] = crit_by_vdrop | crit_by_legacy
-        out["critical_like_eff"] = out["critical_like"].astype(bool) & (~out["group_off_like"].astype(bool))
-
-        # ---- Critical-like streak (V-drop sustained) ----
+        # ---- Critical-like streak ----
         crit_streak = []
         current_panel = None
         cnt = 0
@@ -2198,6 +2036,85 @@ def main():
         out["final_fault"] = out["confirmed_fault"] | out["critical_confirmed"]
     else:
         out["final_fault"] = out["confirmed_fault"]
+
+    # Sanity checks for critical label consistency after single-pass SSOT assignment.
+    try:
+        bad_overlap = int(
+            (
+                out["critical_like_raw"].astype(bool)
+                & out["critical_like_suspect_raw"].astype(bool)
+            ).sum()
+        )
+        if bad_overlap > 0:
+            raise AssertionError(
+                f"critical raw overlap detected (n={bad_overlap}); raw and suspect_raw must be exclusive"
+            )
+
+        # Legacy path may legitimately bypass v_ref_ok; trust check applies to non-legacy rows only.
+        leak_nonlegacy = int(
+            (
+                out["critical_like_eff"].astype(bool)
+                & (~out["v_ref_ok"].fillna(False).astype(bool))
+                & (~out["critical_like_legacy"].astype(bool))
+            ).sum()
+        )
+        if leak_nonlegacy > 0:
+            raise AssertionError(
+                f"non-legacy critical leak detected with v_ref_ok==0 (n={leak_nonlegacy})"
+            )
+        print(f"[CHK] critical_raw_overlap = {bad_overlap}, nonlegacy_vref_leak = {leak_nonlegacy}")
+    except Exception as _e:
+        raise
+
+    # ---- Reports: confirmed vs suspect (after final critical labels are fixed) ----
+    try:
+        if tuning_level == "p2":
+            rep_confirm = _max_run_by_panel(out, "critical_like")
+            rep_suspect = _max_run_by_panel(out, "critical_like_suspect")
+
+            def _attach_ctx(df_run: pd.DataFrame, flag_col: str) -> pd.DataFrame:
+                top_pids = df_run.loc[df_run[f"{flag_col}_max_run"] > 0, "panel_id"].astype(str).tolist()
+                if not top_pids:
+                    return df_run
+                sub = out[out["panel_id"].astype(str).isin(top_pids)].copy()
+                sub = sub.sort_values(["panel_id", "date"])
+                ctx = (
+                    sub.groupby("panel_id")
+                    .tail(1)[
+                        [
+                            "panel_id",
+                            "group_key_ref",
+                            "n_ref",
+                            "n_total",
+                            "v_ref_span",
+                            "mid_peer",
+                            "mid_ratio",
+                            "mid_v_ratio",
+                            "v_drop",
+                        ]
+                    ]
+                    .copy()
+                )
+                return df_run.merge(ctx, on="panel_id", how="left")
+
+            rep_confirm_ctx = _attach_ctx(rep_confirm, "critical_like")
+            rep_suspect_ctx = _attach_ctx(rep_suspect, "critical_like_suspect")
+
+            try:
+                rep_confirm_ctx.to_csv(log_dir / "report_critical_confirmed_runs.csv", index=False)
+                rep_suspect_ctx.to_csv(log_dir / "report_critical_suspect_runs.csv", index=False)
+                rep_confirm_ctx.to_csv(out_dir / "report_critical_confirmed_runs.csv", index=False)
+                rep_suspect_ctx.to_csv(out_dir / "report_critical_suspect_runs.csv", index=False)
+                print("[OK] wrote reports: report_critical_confirmed_runs.csv / report_critical_suspect_runs.csv")
+            except Exception as _e:
+                print(f"[WARN] failed to write critical reports: {_e}")
+
+            print("\n[TOP] critical_like confirmed max_run (TOP40)")
+            print(rep_confirm.head(40).to_string(index=False))
+            print("\n[TOP] critical_like SUSPECT max_run (TOP40)")
+            print(rep_suspect.head(40).to_string(index=False))
+    except Exception as _e:
+        print(f"[WARN] critical report generation failed: {_e}")
 
     # helper flags for daily fault-like events and degraded candidates
     fault_sustain = 90            # minutes of sustained low ratio to consider the day fault-like
