@@ -2037,6 +2037,71 @@ def main():
     else:
         out["final_fault"] = out["confirmed_fault"]
 
+    # ---- Online diagnosis dates (panel-wise first confirmed day) ----
+    # Keep date normalization explicit before first-true day extraction.
+    out["date"] = pd.to_datetime(out["date"], errors="coerce").dt.normalize()
+
+    dead_days_thr = int(args.dead_days)
+    critical_days_thr = int(args.critical_days)
+
+    out["dead_diag_on_day"] = (
+        out["state_dead_eff"].fillna(False).astype(bool)
+        & (pd.to_numeric(out["dead_streak"], errors="coerce").fillna(0) >= dead_days_thr)
+    )
+    dead_diag_first = (
+        out.loc[out["dead_diag_on_day"], ["panel_id", "date"]]
+        .groupby("panel_id", sort=False)["date"]
+        .min()
+    )
+    out["dead_diag_date"] = out["panel_id"].map(dead_diag_first)
+
+    if tuning_level == "p2":
+        out["critical_diag_on_day"] = (
+            out["critical_like_eff"].fillna(False).astype(bool)
+            & (pd.to_numeric(out["crit_streak"], errors="coerce").fillna(0) >= critical_days_thr)
+        )
+        critical_diag_first = (
+            out.loc[out["critical_diag_on_day"], ["panel_id", "date"]]
+            .groupby("panel_id", sort=False)["date"]
+            .min()
+        )
+        out["critical_diag_date"] = out["panel_id"].map(critical_diag_first)
+    else:
+        out["critical_diag_on_day"] = False
+        out["critical_diag_date"] = pd.NaT
+        critical_diag_first = pd.Series(dtype="datetime64[ns]")
+
+    out["diagnosis_date_online"] = pd.concat(
+        [
+            pd.to_datetime(out["dead_diag_date"], errors="coerce"),
+            pd.to_datetime(out["critical_diag_date"], errors="coerce"),
+        ],
+        axis=1,
+    ).min(axis=1)
+
+    final_fault_first = (
+        out.loc[out["final_fault"].fillna(False).astype(bool), ["panel_id", "date"]]
+        .groupby("panel_id", sort=False)["date"]
+        .min()
+    )
+    panel_diag = pd.DataFrame({"panel_id": out["panel_id"].astype(str).drop_duplicates()})
+    panel_diag["dead_diag_date"] = panel_diag["panel_id"].map(dead_diag_first)
+    panel_diag["critical_diag_date"] = panel_diag["panel_id"].map(critical_diag_first)
+    panel_diag["diagnosis_date_online"] = pd.concat(
+        [
+            pd.to_datetime(panel_diag["dead_diag_date"], errors="coerce"),
+            pd.to_datetime(panel_diag["critical_diag_date"], errors="coerce"),
+        ],
+        axis=1,
+    ).min(axis=1)
+    panel_diag["final_fault_first_date"] = panel_diag["panel_id"].map(final_fault_first)
+    panel_diag["dead_days"] = dead_days_thr
+    panel_diag["critical_days"] = critical_days_thr
+    panel_diag["tuning_level"] = tuning_level
+    panel_diag_path = out_dir / "ae_simple_panel_diagnosis.csv"
+    panel_diag.to_csv(panel_diag_path, index=False, encoding="utf-8-sig")
+    print(f"[OK] wrote output: {panel_diag_path} (n={len(panel_diag)})")
+
     # Sanity checks for critical label consistency after single-pass SSOT assignment.
     try:
         bad_overlap = int(
@@ -2258,7 +2323,9 @@ def main():
         # n_total will be inserted after n_ref or after v_ref-related cols below
         "no_ref", "v_drop",
         "state_dead", "state_dead_eff", "dead_streak", "confirmed_fault",
+        "dead_diag_on_day", "dead_diag_date",
         "critical_like", "critical_like_eff", "crit_streak", "critical_fault", "critical_source",
+        "critical_diag_on_day", "critical_diag_date", "diagnosis_date_online",
         "critical_confirmed", "critical_suspect", "final_fault",
         "group_off_date", "group_off_like", "group_off_group",
         "fault_like_day", "degraded_candidate", "shadow_like_basic", "shadow_like",
