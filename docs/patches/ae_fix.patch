@@ -1,0 +1,164 @@
+--- pv_ae/pv_autoencoder_dayAE.py
++++ pv_ae/pv_autoencoder_dayAE.py
+@@
+ import argparse
+ import json
+ import pathlib
++import re
+ from typing import Dict, Any, Tuple, List
+@@
+ # ========= 유틸 =========
+ 
++_DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
++
++def extract_date_from_filename(fname: str) -> pd.Timestamp:
++    """Extract first YYYY-MM-DD from filename and return normalized Timestamp.
++    Returns pd.NaT when not found / parse fails.
++    """
++    m = _DATE_RE.search(str(fname))
++    if not m:
++        return pd.NaT
++    return pd.to_datetime(m.group(1), errors="coerce").normalize()
++
+ def find_col(df: pd.DataFrame, *names: str) -> str:
+     """CSV 컬럼 이름이 조금씩 달라도 비슷한 걸 찾아주는 헬퍼."""
+     low = {c.lower(): c for c in df.columns}
+     for n in names:
+@@
+ def load_day_curves(csv_path: pathlib.Path, daylight_frac: float = 0.10, peer_eps: float = 1e-6, use_log_ratio: bool = False) -> Dict[str, np.ndarray]:
+@@
+-    # Build per-group peer medians to avoid false anomalies from heterogeneous strings
+-    cols = [str(c) for c in P_use.columns]
+-    group_cols: Dict[str, List[str]] = {}
+-    for c in cols:
+-        group_cols.setdefault(panel_group_key(c), []).append(c)
++    # Build per-group peer medians to avoid false anomalies from heterogeneous strings
++    # IMPORTANT: keep original column labels for safe DataFrame indexing (do not index by str(...) blindly).
++    group_cols: Dict[str, List[Any]] = {}
++    for pid in P_use.columns:
++        pid_s = str(pid)
++        group_cols.setdefault(panel_group_key(pid_s), []).append(pid)
+@@
+-        curves[pid] = to_fixed_length(ratio, 96)
++        curves[pid_s] = to_fixed_length(ratio, 96)
+@@
+ def compute_event_features(
+@@
+-    peerP_site = P.median(axis=1)
++    peerP_site = P.median(axis=1)
++    peerV_site = V.median(axis=1)
++    peerI_site = I.median(axis=1)
+     if len(peerP_site) == 0 or np.nanmax(peerP_site.values) <= 0:
+         return {}
+@@
+-    cols = [str(c) for c in P.columns]
+-    group_cols: Dict[str, List[str]] = {}
+-    for c in cols:
+-        group_cols.setdefault(panel_group_key(c), []).append(c)
++    group_cols: Dict[str, List[Any]] = {}
++    for pid in P.columns:
++        pid_s = str(pid)
++        group_cols.setdefault(panel_group_key(pid_s), []).append(pid)
+@@
+-        if len(peerV_by_group[gk]) == 0 or np.nanmax(peerV_by_group[gk].values) <= 0:
+-            peerV_by_group[gk] = peerP_by_group[gk].copy()
+-        if len(peerI_by_group[gk]) == 0 or np.nanmax(peerI_by_group[gk].values) <= 0:
+-            peerI_by_group[gk] = pd.Series(1.0, index=peerP_site.index)
++        if len(peerV_by_group[gk]) == 0 or np.nanmax(peerV_by_group[gk].values) <= 0:
++            # DO NOT fallback to power baseline (unit mismatch). Use site-level V median if available.
++            if len(peerV_site) > 0 and np.nanmax(peerV_site.values) > 0:
++                peerV_by_group[gk] = peerV_site.copy()
++            else:
++                peerV_by_group[gk] = pd.Series(np.nan, index=peerP_site.index)
++        if len(peerI_by_group[gk]) == 0 or np.nanmax(peerI_by_group[gk].values) <= 0:
++            # Prefer site-level I median; fallback to 1.0 only when everything is missing.
++            if len(peerI_site) > 0 and np.nanmax(peerI_site.values) > 0:
++                peerI_by_group[gk] = peerI_site.copy()
++            else:
++                peerI_by_group[gk] = pd.Series(1.0, index=peerP_site.index)
+@@
+-        peerP = peerP_by_group.get(gk, peerP_site)
+-        peerV = peerV_by_group.get(gk, peerP)
+-        peerI = peerI_by_group.get(gk, pd.Series(1.0, index=peerP_site.index))
++        peerP = peerP_by_group.get(gk, peerP_site)
++        peerV = peerV_by_group.get(gk, peerV_site)
++        peerI = peerI_by_group.get(gk, peerI_site)
+@@
+-            out[pid] = {
++            out[pid_s] = {
+@@
+-                "seg_count": 0,
+-                "total_low_mins": 0,
+-                "min_ratio": nanmean_or(r_day, default=0.0),
+-                "p10_ratio": nanmean_or(r_day, default=0.0),
+-                "p50_ratio": nanmean_or(r_day, default=0.0),
+-                "low_area": 0.0,
++                "seg_count": int(seg_count),
++                "total_low_mins": int(total_low_mins),
++                "min_ratio": float(min_ratio),
++                "p10_ratio": float(p10_ratio),
++                "p50_ratio": float(p50_ratio),
++                "low_area": float(low_area),
+             }
+             continue
+@@
+-            out[pid] = {
++            out[pid_s] = {
+@@
+-                "seg_count": 0,
+-                "total_low_mins": 0,
+-                "min_ratio": nanmean_or(r_day, default=0.0),
+-                "p10_ratio": nanmean_or(r_day, default=0.0),
+-                "p50_ratio": nanmean_or(r_day, default=0.0),
+-                "low_area": 0.0,
++                "seg_count": int(seg_count),
++                "total_low_mins": int(total_low_mins),
++                "min_ratio": float(min_ratio),
++                "p10_ratio": float(p10_ratio),
++                "p50_ratio": float(p50_ratio),
++                "low_area": float(low_area),
+             }
+             continue
+@@
+-        out[pid] = {
++        out[pid_s] = {
+@@
+ def main():
+@@
+     def in_range(p: pathlib.Path, s: str, e: str) -> bool:
+@@
+-        import re
+-
+-        m = re.search(r"(\d{4}-\d{2}-\d{2})", p.name)
+-        if not m:
+-            return False
+-        try:
+-            d = pd.to_datetime(m.group(1), errors="coerce")
+-            sdt = pd.to_datetime(s, errors="coerce")
+-            edt = pd.to_datetime(e, errors="coerce")
+-        except Exception:
+-            return False
+-        if pd.isna(d) or pd.isna(sdt) or pd.isna(edt):
+-            return False
+-        return (d >= sdt) and (d <= edt)
++        d = extract_date_from_filename(p.name)
++        if pd.isna(d):
++            return False
++        sdt = pd.to_datetime(s, errors="coerce").normalize()
++        edt = pd.to_datetime(e, errors="coerce").normalize()
++        if pd.isna(sdt) or pd.isna(edt):
++            return False
++        return (d >= sdt) and (d <= edt)
+@@
+-                ev = ev_map.get(pid, {})
++                ev = ev_map.get(str(pid), {})
+@@
+-                        "date": fname[:10],
+-                        "panel_id": pid,
++                        "date": extract_date_from_filename(fname),
++                        "panel_id": str(pid),
+@@
+-                    n_ref_avail = out["n_ref"].copy()
+                     v_ref_min_n = int(getattr(args, "v_ref_min_n", 6))
+-                    required_n = n_ref_avail.apply(lambda x: max(2, min(v_ref_min_n, int(x))) if pd.notna(x) else v_ref_min_n)
++                    required_n = out["n_total"].apply(lambda x: max(2, min(v_ref_min_n, int(x))) if pd.notna(x) else v_ref_min_n)
