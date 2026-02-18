@@ -2346,10 +2346,7 @@ def main():
                 idx = len(OUT_COLS)
         OUT_COLS.insert(idx, "n_total")
 
-    # Save output CSV with explicit columns ordering
-    out_path = out_dir / "ae_simple_scores.csv"
-    out.to_csv(out_path, index=False, columns=[c for c in OUT_COLS if c in out.columns])
-    print(f"[OK] wrote output: {out_path} (n={len(out)})")
+    # Final save is performed once at the end of main().
 
     q = float(args.ews_quantile)
     k_sigma = float(args.ews_k_sigma)
@@ -2801,9 +2798,13 @@ def main():
     except Exception as e:
         print("[WARN] failed to write panel alarm summary:", e)
 
-    suffix = "" if tuning_level == "p2" else f"_{tuning_level}"
-    out_path = out_dir / f"ae_simple_scores{suffix}.csv"
-    out.to_csv(out_path, index=False, encoding="utf-8-sig")
+    out_path = out_dir / "ae_simple_scores.csv"
+    out.to_csv(
+        out_path,
+        index=False,
+        encoding="utf-8-sig",
+        columns=[c for c in OUT_COLS if c in out.columns],
+    )
 
     meta = {
         "args": vars(args),
@@ -2812,6 +2813,7 @@ def main():
         "eval_files": [p.name for p in eval_files],
     }
     meta["tuning_level"] = tuning_level
+    suffix = "" if tuning_level == "p2" else f"_{tuning_level}"
     meta_path = out_dir / f"ae_simple_meta{suffix}.json"
     meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
