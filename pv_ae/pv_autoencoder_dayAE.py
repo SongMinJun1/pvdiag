@@ -1391,6 +1391,101 @@ def _setup_paths(args, seed: int):
     return data_dir, out_dir, log_dir, site, train_files, eval_files
 
 
+def _detect_group_off(out: pd.DataFrame, args) -> pd.DataFrame:
+    # ---- Group-off / string-off like event detection (group_key-level) ----
+    # What we observed in Gangui:
+    # - Only ~10~15% of site panels are dead-like on those days,
+    # - but within specific group_key (string-like groups), dead_frac can be 50~80%.
+    # Site-level detection is too coarse; it can over-gate unrelated panels.
+    #
+    # New behavior:
+    # - Detect OFF-like events per (date, group_key)
+    # - Mark only those panels in the affected group_key as group_off_like
+    # - Keep group_off_date as a convenience (any group-off group on that date)
+    out["group_off_group"] = False  # row-level: panel belongs to a group_key flagged as OFF-like on that date
+
+    flagged_pairs: set[tuple[pd.Timestamp, str]] = set()
+
+    # For each group_key, track previous day's dead-set to compute Jaccard stability
+    prev_dead_set_by_gk: Dict[str, set] = {}
+    prev_date_by_gk: Dict[str, pd.Timestamp] = {}
+    prev_candidate_by_gk: Dict[str, bool] = {}
+
+    # Iterate by date then by group_key
+    for d in sorted(out["date"].dropna().unique()):
+        gd = out[out["date"] == d]
+        for gk, gg in gd.groupby("group_key"):
+            # dead-like set within good data only (within this group)
+            dead_set = set(
+                gg.loc[(~gg["data_bad"].astype(bool)) & (gg["state_dead"].astype(bool)), "panel_id"].astype(str).tolist()
+            )
+            n_dead = len(dead_set)
+            n_total = int(gg["panel_id"].nunique())
+            frac = (n_dead / n_total) if n_total > 0 else 0.0
+
+            # Candidate definition is applied per-group now.
+            candidate = (
+                (n_dead >= int(args.group_off_min_panels))
+                & (frac >= float(args.group_off_min_frac))
+                & (frac <= float(args.group_off_max_frac))
+            )
+
+            confirmed_today = False
+
+            # Allow single-day labeling when explicitly enabled
+            if candidate and bool(args.group_off_allow_single_day):
+                confirmed_today = True
+
+            # Consecutive-day stability check (Jaccard)
+            if candidate and prev_candidate_by_gk.get(gk, False):
+                prev_dead = prev_dead_set_by_gk.get(gk)
+                if prev_dead is not None:
+                    inter = len(dead_set & prev_dead)
+                    union = len(dead_set | prev_dead)
+                    jacc = (inter / union) if union > 0 else 0.0
+                    if jacc >= float(args.group_off_jaccard):
+                        confirmed_today = True
+                        # also mark previous day as group-off for this group_key
+                        prev_d = prev_date_by_gk.get(gk)
+                        if prev_d is not None:
+                            flagged_pairs.add((prev_d, gk))
+
+            if confirmed_today:
+                flagged_pairs.add((d, gk))
+
+            # update trackers
+            prev_dead_set_by_gk[gk] = dead_set
+            prev_date_by_gk[gk] = d
+            prev_candidate_by_gk[gk] = bool(candidate)
+
+    if flagged_pairs:
+        # row-level membership in flagged (date, group_key)
+        pair_series = list(zip(out["date"], out["group_key"]))
+        out["group_off_group"] = [((dd, ggk) in flagged_pairs) for (dd, ggk) in pair_series]
+
+    # convenience flag: any group-off group exists on that date
+    group_dates = {dd for (dd, _gk) in flagged_pairs}
+    out["group_off_date"] = out["date"].isin(group_dates)
+
+    # group_off_like is now precise: only dead-like panels in the flagged group_key
+    out["group_off_like"] = (
+        out["group_off_group"].astype(bool)
+        & (~out["data_bad"].astype(bool))
+        & out["state_dead"].astype(bool)
+    )
+    # --- P1/P2 safety: group_off_like must never contribute to V-drop/critical signals ---
+    # Rationale: group/string OFF events can produce apparent V-drop rows and confuse downstream checks.
+    # We keep group_off_like as its own category and mask V-drop-related fields on those rows.
+    go_mask = out["group_off_like"].fillna(False).astype(bool)
+    if go_mask.any():
+        out.loc[go_mask, "v_drop"] = np.nan
+        out.loc[go_mask, "v_ref_ok"] = False
+        # keep ops visibility: treat as no usable reference for these rows
+        if "no_ref" in out.columns:
+            out.loc[go_mask, "no_ref"] = True
+    return out
+
+
 def main():
     args = parse_args()
 
@@ -1872,98 +1967,7 @@ def main():
     out["group_off_group"] = False
 
     if tuning_level in {"p1", "p2"}:
-        # ---- Group-off / string-off like event detection (group_key-level) ----
-        # What we observed in Gangui:
-        # - Only ~10~15% of site panels are dead-like on those days,
-        # - but within specific group_key (string-like groups), dead_frac can be 50~80%.
-        # Site-level detection is too coarse; it can over-gate unrelated panels.
-        #
-        # New behavior:
-        # - Detect OFF-like events per (date, group_key)
-        # - Mark only those panels in the affected group_key as group_off_like
-        # - Keep group_off_date as a convenience (any group-off group on that date)
-
-        out["group_off_group"] = False  # row-level: panel belongs to a group_key flagged as OFF-like on that date
-
-        flagged_pairs: set[tuple[pd.Timestamp, str]] = set()
-
-        # For each group_key, track previous day's dead-set to compute Jaccard stability
-        prev_dead_set_by_gk: Dict[str, set] = {}
-        prev_date_by_gk: Dict[str, pd.Timestamp] = {}
-        prev_candidate_by_gk: Dict[str, bool] = {}
-
-        # Iterate by date then by group_key
-        for d in sorted(out["date"].dropna().unique()):
-            gd = out[out["date"] == d]
-            for gk, gg in gd.groupby("group_key"):
-                # dead-like set within good data only (within this group)
-                dead_set = set(
-                    gg.loc[(~gg["data_bad"].astype(bool)) & (gg["state_dead"].astype(bool)), "panel_id"].astype(str).tolist()
-                )
-                n_dead = len(dead_set)
-                n_total = int(gg["panel_id"].nunique())
-                frac = (n_dead / n_total) if n_total > 0 else 0.0
-
-                # Candidate definition is applied per-group now.
-                candidate = (
-                    (n_dead >= int(args.group_off_min_panels))
-                    & (frac >= float(args.group_off_min_frac))
-                    & (frac <= float(args.group_off_max_frac))
-                )
-
-                confirmed_today = False
-
-                # Allow single-day labeling when explicitly enabled
-                if candidate and bool(args.group_off_allow_single_day):
-                    confirmed_today = True
-
-                # Consecutive-day stability check (Jaccard)
-                if candidate and prev_candidate_by_gk.get(gk, False):
-                    prev_dead = prev_dead_set_by_gk.get(gk)
-                    if prev_dead is not None:
-                        inter = len(dead_set & prev_dead)
-                        union = len(dead_set | prev_dead)
-                        jacc = (inter / union) if union > 0 else 0.0
-                        if jacc >= float(args.group_off_jaccard):
-                            confirmed_today = True
-                            # also mark previous day as group-off for this group_key
-                            prev_d = prev_date_by_gk.get(gk)
-                            if prev_d is not None:
-                                flagged_pairs.add((prev_d, gk))
-
-                if confirmed_today:
-                    flagged_pairs.add((d, gk))
-
-                # update trackers
-                prev_dead_set_by_gk[gk] = dead_set
-                prev_date_by_gk[gk] = d
-                prev_candidate_by_gk[gk] = bool(candidate)
-
-        if flagged_pairs:
-            # row-level membership in flagged (date, group_key)
-            pair_series = list(zip(out["date"], out["group_key"]))
-            out["group_off_group"] = [((dd, ggk) in flagged_pairs) for (dd, ggk) in pair_series]
-
-        # convenience flag: any group-off group exists on that date
-        group_dates = {dd for (dd, _gk) in flagged_pairs}
-        out["group_off_date"] = out["date"].isin(group_dates)
-
-        # group_off_like is now precise: only dead-like panels in the flagged group_key
-        out["group_off_like"] = (
-            out["group_off_group"].astype(bool)
-            & (~out["data_bad"].astype(bool))
-            & out["state_dead"].astype(bool)
-        )
-        # --- P1/P2 safety: group_off_like must never contribute to V-drop/critical signals ---
-        # Rationale: group/string OFF events can produce apparent V-drop rows and confuse downstream checks.
-        # We keep group_off_like as its own category and mask V-drop-related fields on those rows.
-        go_mask = out["group_off_like"].fillna(False).astype(bool)
-        if go_mask.any():
-            out.loc[go_mask, "v_drop"] = np.nan
-            out.loc[go_mask, "v_ref_ok"] = False
-            # keep ops visibility: treat as no usable reference for these rows
-            if "no_ref" in out.columns:
-                out.loc[go_mask, "no_ref"] = True
+        out = _detect_group_off(out, args)
 
     # Effective dead for panel-fault confirmation
     # p0: no group_off gating
