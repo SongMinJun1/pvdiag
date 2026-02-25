@@ -28,3 +28,4 @@ node_modules/
 
 # Large artifacts / patches from experiments
 *.bak_*
+_share/
