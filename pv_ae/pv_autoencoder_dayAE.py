@@ -133,6 +133,46 @@ def _safe_report_write(df: pd.DataFrame, path: pathlib.Path, label: str, **kwarg
         print(f"[WARN] failed to write {label}: {e}")
         return False
 
+
+_EV_DEFAULTS: dict[str, Any] = {
+    "drop_time": "",
+    "sustain_mins": 0,
+    "recovered": False,
+    "last_ratio": np.nan,
+    "last_peer": np.nan,
+    "mid_ratio": np.nan,
+    "mid_peer": np.nan,
+    "mid_v_ratio": np.nan,
+    "mid_i_ratio": np.nan,
+    "coverage": np.nan,
+    "co_drop_frac": np.nan,
+    "recovered_any": False,
+    "recovered_sustained": False,
+    "re_drop": False,
+    "coverage_mid": np.nan,
+    "seg_count": 0,
+    "total_low_mins": 0,
+    "min_ratio": np.nan,
+    "p10_ratio": np.nan,
+    "p50_ratio": np.nan,
+    "low_area": np.nan,
+}
+
+
+def _extract_event_values(ev: dict[str, Any]) -> dict[str, Any]:
+    vals: dict[str, Any] = {}
+    for key, default in _EV_DEFAULTS.items():
+        raw = ev.get(key, default)
+        if isinstance(default, bool):
+            vals[key] = bool(raw)
+        elif isinstance(default, int):
+            vals[key] = int(raw)
+        elif isinstance(default, float):
+            vals[key] = float(raw)
+        else:
+            vals[key] = raw
+    return vals
+
 # ======== 1D k-means (k=2) and train-only vbin builder ========
 
 def kmeans_1d_2(x: np.ndarray, iters: int = 20) -> tuple[float, float, float]:
@@ -1773,27 +1813,7 @@ def main():
                 recon_err = float(np.mean((curve - rec) ** 2))
 
                 ev = ev_map.get(str(pid), {})
-                drop_time = ev.get("drop_time", "")
-                sustain_mins = int(ev.get("sustain_mins", 0))
-                recovered = bool(ev.get("recovered", False))
-                last_ratio = float(ev.get("last_ratio", np.nan))
-                last_peer = float(ev.get("last_peer", np.nan))
-                mid_ratio = float(ev.get("mid_ratio", np.nan))
-                mid_peer = float(ev.get("mid_peer", np.nan))
-                mid_v_ratio = float(ev.get("mid_v_ratio", np.nan))
-                mid_i_ratio = float(ev.get("mid_i_ratio", np.nan))
-                coverage = float(ev.get("coverage", np.nan))
-                co_drop_frac = float(ev.get("co_drop_frac", np.nan))
-                recovered_any = bool(ev.get("recovered_any", False))
-                recovered_sustained = bool(ev.get("recovered_sustained", False))
-                re_drop = bool(ev.get("re_drop", False))
-                coverage_mid = float(ev.get("coverage_mid", np.nan))
-                seg_count = int(ev.get("seg_count", 0))
-                total_low_mins = int(ev.get("total_low_mins", 0))
-                min_ratio = float(ev.get("min_ratio", np.nan))
-                p10_ratio = float(ev.get("p10_ratio", np.nan))
-                p50_ratio = float(ev.get("p50_ratio", np.nan))
-                low_area = float(ev.get("low_area", np.nan))
+                ev_vals = _extract_event_values(ev)
 
                 is_ae_abn = recon_err >= ae_thr_ae
                 is_ae_strong = recon_err >= (args.recon_mult * ae_thr_ae)
@@ -1838,32 +1858,32 @@ def main():
                         "group_key_ref": group_key_ref,
                         "recon_error": recon_err,
                         "ae_thr_used": ae_thr_ae,
-                        "drop_time": drop_time,
-                        "sustain_mins": sustain_mins,
-                        "recovered": recovered,
-                        "last_ratio": last_ratio,
-                        "last_peer": last_peer,
-                        "mid_ratio": mid_ratio,
-                        "mid_peer": mid_peer,
-                        "mid_v_ratio": mid_v_ratio,
-                        "mid_i_ratio": mid_i_ratio,
-                        "coverage": coverage,
-                        "co_drop_frac": co_drop_frac,
+                        "drop_time": ev_vals["drop_time"],
+                        "sustain_mins": ev_vals["sustain_mins"],
+                        "recovered": ev_vals["recovered"],
+                        "last_ratio": ev_vals["last_ratio"],
+                        "last_peer": ev_vals["last_peer"],
+                        "mid_ratio": ev_vals["mid_ratio"],
+                        "mid_peer": ev_vals["mid_peer"],
+                        "mid_v_ratio": ev_vals["mid_v_ratio"],
+                        "mid_i_ratio": ev_vals["mid_i_ratio"],
+                        "coverage": ev_vals["coverage"],
+                        "co_drop_frac": ev_vals["co_drop_frac"],
                         "is_ae_abn": bool(is_ae_abn),
                         "is_ae_strong": bool(is_ae_strong),
                         "source_csv": fname,
                         "dtw_dist": dtw,
                         "hs_score": hs,
-                        "recovered_any": recovered_any,
-                        "recovered_sustained": recovered_sustained,
-                        "re_drop": re_drop,
-                        "coverage_mid": coverage_mid,
-                        "seg_count": seg_count,
-                        "total_low_mins": total_low_mins,
-                        "min_ratio": min_ratio,
-                        "p10_ratio": p10_ratio,
-                        "p50_ratio": p50_ratio,
-                        "low_area": low_area,
+                        "recovered_any": ev_vals["recovered_any"],
+                        "recovered_sustained": ev_vals["recovered_sustained"],
+                        "re_drop": ev_vals["re_drop"],
+                        "coverage_mid": ev_vals["coverage_mid"],
+                        "seg_count": ev_vals["seg_count"],
+                        "total_low_mins": ev_vals["total_low_mins"],
+                        "min_ratio": ev_vals["min_ratio"],
+                        "p10_ratio": ev_vals["p10_ratio"],
+                        "p50_ratio": ev_vals["p50_ratio"],
+                        "low_area": ev_vals["low_area"],
                     }
                 )
 
