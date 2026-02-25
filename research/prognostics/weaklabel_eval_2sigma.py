@@ -290,6 +290,72 @@ def bootstrap_ci(
     return pd.DataFrame(rows)
 
 
+def bootstrap_delta_ci(
+    df: pd.DataFrame,
+    plus_col: str,
+    base_col: str,
+    k: int,
+    b_iters: int,
+    block_days: int,
+    seed: int,
+) -> pd.DataFrame:
+    dates = np.array(sorted(df["date"].dropna().unique()))
+    cols_need = {"y", "date", plus_col, base_col}
+    if len(dates) == 0 or not cols_need.issubset(set(df.columns)):
+        return pd.DataFrame(columns=["delta", "metric", "boot_mean", "ci95_lo", "ci95_hi"])
+
+    by_date = {d: g for d, g in df.groupby("date", sort=False)}
+    rng = np.random.default_rng(seed)
+
+    d_ap: list[float] = []
+    d_prec: list[float] = []
+    d_lift: list[float] = []
+
+    for _ in range(int(b_iters)):
+        sampled_dates = bootstrap_sample_dates(dates, block_days=block_days, rng=rng)
+        parts = [by_date[d] for d in sampled_dates if d in by_date]
+        if not parts:
+            continue
+        bs = pd.concat(parts, ignore_index=True)
+
+        m_plus = eval_one_score(bs, plus_col, k)
+        m_base = eval_one_score(bs, base_col, k)
+
+        ap_plus = m_plus["avg_precision"]
+        ap_base = m_base["avg_precision"]
+        pr_plus = m_plus["precision@K(W)"]
+        pr_base = m_base["precision@K(W)"]
+        lf_plus = m_plus["lift"]
+        lf_base = m_base["lift"]
+
+        if np.isfinite(ap_plus) and np.isfinite(ap_base):
+            d_ap.append(float(ap_plus - ap_base))
+        if np.isfinite(pr_plus) and np.isfinite(pr_base):
+            d_prec.append(float(pr_plus - pr_base))
+        if np.isfinite(lf_plus) and np.isfinite(lf_base):
+            d_lift.append(float(lf_plus - lf_base))
+
+    def _row(metric: str, arr: list[float]) -> dict[str, float]:
+        a = np.array(arr, dtype=float)
+        if a.size == 0:
+            return {"delta": f"{plus_col} - {base_col}", "metric": metric, "boot_mean": np.nan, "ci95_lo": np.nan, "ci95_hi": np.nan}
+        return {
+            "delta": f"{plus_col} - {base_col}",
+            "metric": metric,
+            "boot_mean": float(np.nanmean(a)),
+            "ci95_lo": float(np.nanpercentile(a, 2.5)),
+            "ci95_hi": float(np.nanpercentile(a, 97.5)),
+        }
+
+    return pd.DataFrame(
+        [
+            _row("dAP", d_ap),
+            _row("dPrec", d_prec),
+            _row("dLift", d_lift),
+        ]
+    )
+
+
 def make_walk_cutoffs(base_cutoff: pd.Timestamp, month_offsets: list[int]) -> list[pd.Timestamp]:
     cuts = []
     for m in month_offsets:
@@ -307,6 +373,7 @@ def fmt_float(x: float) -> str:
 
 def write_onepage(
     path: Path,
+    out_dir: Path,
     site: str,
     cutoff: pd.Timestamp,
     k: int,
@@ -351,10 +418,47 @@ def write_onepage(
                     f"{fmt_float(r['precision@K'])} | {fmt_float(r['lift'])} |"
                 )
     lines.append("")
+    lines.append("## Delta 요약 (plus − v_drop)")
+    lines.append("")
+    lines.append("| W | metric | boot_mean | ci95_lo | ci95_hi |")
+    lines.append("|---:|---|---:|---:|---:|")
+
+    d_ap_ok = []
+    for w in ws:
+        p = out_dir / f"CI_BOOTSTRAP_delta_test_W{int(w)}_K{int(k)}.csv"
+        if not p.is_file():
+            continue
+        ddf = pd.read_csv(p, encoding="utf-8-sig")
+        for metric in ["dAP", "dPrec", "dLift"]:
+            r = ddf[ddf["metric"] == metric]
+            if r.empty:
+                continue
+            rr = r.iloc[0]
+            lines.append(
+                f"| {int(w)} | {metric} | {fmt_float(rr.get('boot_mean', np.nan))} | "
+                f"{fmt_float(rr.get('ci95_lo', np.nan))} | {fmt_float(rr.get('ci95_hi', np.nan))} |"
+            )
+            if metric == "dAP":
+                lo = pd.to_numeric(pd.Series([rr.get("ci95_lo", np.nan)]), errors="coerce").iloc[0]
+                d_ap_ok.append((int(w), bool(np.isfinite(lo) and lo > 0)))
+
+    lines.append("")
+    if d_ap_ok:
+        sig_ws = [str(w) for (w, ok) in d_ap_ok if ok]
+        if sig_ws:
+            lines.append(
+                f"- 결론: W={','.join(sig_ws)}에서 dAP CI 하한이 0보다 커 AP 개선이 통계적으로 유의하다."
+            )
+        else:
+            lines.append("- 결론: 본 실행에서는 W=7/14/30 모두 dAP CI 하한이 0보다 크지 않아 AP 개선의 통계적 유의성을 단정하기 어렵다.")
+    else:
+        lines.append("- 결론: delta 부트스트랩 파일이 없어 dAP 유의성 판정 불가.")
+    lines.append("")
     lines.append("## 생성 파일")
     lines.append("- `SENSITIVITY_D2D3_test_metrics.csv`")
     lines.append("- `WALKFORWARD_cutoffs_W14_K20.csv` (W/K는 실행 인자에 따라 달라짐)")
     lines.append("- `CI_BOOTSTRAP_test_W{W}_K{K}.csv`")
+    lines.append("- `CI_BOOTSTRAP_delta_test_W{W}_K{K}.csv`")
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -406,6 +510,20 @@ def main() -> None:
                 ci.to_csv(ci_path, index=False, encoding="utf-8-sig")
                 print(f"[OK] wrote {ci_path}")
 
+                if ("risk_vdrop_plus_7d" in ev.columns) and ("v_drop" in ev.columns):
+                    delta = bootstrap_delta_ci(
+                        ev,
+                        plus_col="risk_vdrop_plus_7d",
+                        base_col="v_drop",
+                        k=int(args.K),
+                        b_iters=int(args.B),
+                        block_days=int(args.block_days),
+                        seed=int(args.seed) + 1000 + int(w),
+                    )
+                    d_path = out_dir / f"CI_BOOTSTRAP_delta_test_W{int(w)}_K{int(args.K)}.csv"
+                    delta.to_csv(d_path, index=False, encoding="utf-8-sig")
+                    print(f"[OK] wrote {d_path}")
+
     sens = pd.DataFrame(sensitivity_rows)
     sens_path = out_dir / "SENSITIVITY_D2D3_test_metrics.csv"
     sens.to_csv(sens_path, index=False, encoding="utf-8-sig")
@@ -442,6 +560,7 @@ def main() -> None:
     onepage_path = out_dir / f"RESULTS_2SIGMA_{str(args.site).upper()}_ONEPAGE.md"
     write_onepage(
         onepage_path,
+        out_dir=out_dir,
         site=str(args.site),
         cutoff=cutoff,
         k=int(args.K),
