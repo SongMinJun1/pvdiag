@@ -423,7 +423,7 @@ def write_onepage(
     lines.append("| W | metric | boot_mean | ci95_lo | ci95_hi |")
     lines.append("|---:|---|---:|---:|---:|")
 
-    d_ap_ok = []
+    d_ap_judge: dict[int, str] = {}
     for w in ws:
         p = out_dir / f"CI_BOOTSTRAP_delta_test_W{int(w)}_K{int(k)}.csv"
         if not p.is_file():
@@ -440,17 +440,36 @@ def write_onepage(
             )
             if metric == "dAP":
                 lo = pd.to_numeric(pd.Series([rr.get("ci95_lo", np.nan)]), errors="coerce").iloc[0]
-                d_ap_ok.append((int(w), bool(np.isfinite(lo) and lo > 0)))
+                hi = pd.to_numeric(pd.Series([rr.get("ci95_hi", np.nan)]), errors="coerce").iloc[0]
+                if np.isfinite(lo) and lo > 0:
+                    d_ap_judge[int(w)] = "better"
+                elif np.isfinite(hi) and hi < 0:
+                    d_ap_judge[int(w)] = "worse"
+                else:
+                    d_ap_judge[int(w)] = "inconclusive"
 
     lines.append("")
-    if d_ap_ok:
-        sig_ws = [str(w) for (w, ok) in d_ap_ok if ok]
-        if sig_ws:
-            lines.append(
-                f"- 결론: W={','.join(sig_ws)}에서 dAP CI 하한이 0보다 커 AP 개선이 통계적으로 유의하다."
-            )
+    if d_ap_judge:
+        for w in sorted(d_ap_judge.keys()):
+            j = d_ap_judge[w]
+            if j == "better":
+                msg = "유의하게 plus가 더 좋음"
+            elif j == "worse":
+                msg = "유의하게 plus가 더 나쁨"
+            else:
+                msg = "유의성 단정 불가"
+            lines.append(f"- 판정(W={w}): {msg}")
+
+        lines.append("")
+        judgments = [d_ap_judge[w] for w in sorted(d_ap_judge.keys())]
+        if all(j == "worse" for j in judgments):
+            lines.append("- 요약 결론: W=7/14/30 모두에서 plus가 유의하게 더 나빠, AP 기준 유의한 악화로 판단된다.")
+        elif all(j == "better" for j in judgments):
+            lines.append("- 요약 결론: W=7/14/30 모두에서 plus가 유의하게 더 좋아, AP 기준 유의한 개선으로 판단된다.")
+        elif any(j == "better" for j in judgments) and any(j == "worse" for j in judgments):
+            lines.append("- 요약 결론: W별 판정이 개선/악화로 혼재되어 단일 방향 결론을 내리기 어렵다.")
         else:
-            lines.append("- 결론: 본 실행에서는 W=7/14/30 모두 dAP CI 하한이 0보다 크지 않아 AP 개선의 통계적 유의성을 단정하기 어렵다.")
+            lines.append("- 요약 결론: 일부 W에서만 유의하며 나머지는 유의성 단정 불가다.")
     else:
         lines.append("- 결론: delta 부트스트랩 파일이 없어 dAP 유의성 판정 불가.")
     lines.append("")
