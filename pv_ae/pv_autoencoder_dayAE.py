@@ -1257,27 +1257,8 @@ def parse_args():
     return ap.parse_args()
 
 
-def main():
-    args = parse_args()
-
-    # ---- Reproducibility ----
-    seed = int(getattr(args, "seed", 42))
-    np.random.seed(seed)
-    try:
-        import random
-        random.seed(seed)
-    except Exception:
-        pass
-    try:
-        torch.manual_seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(seed)
-        # Best-effort determinism (may have perf impact)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
-    except Exception:
-        pass
-
+def _setup_paths(args, seed: int):
+    """Resolve input/output/log paths and split train/eval files by filename date."""
     # ---- Portable path resolution (project-root relative) ----
     script_path = pathlib.Path(__file__).resolve()
     project_root = script_path.parents[1]  # pvdiag/
@@ -1389,6 +1370,32 @@ def main():
         raise RuntimeError(
             f"no eval files in range: {args.eval_start} ~ {args.eval_end} (pattern={args.pattern})"
         )
+
+    return data_dir, out_dir, log_dir, site, train_files, eval_files
+
+
+def main():
+    args = parse_args()
+
+    # ---- Reproducibility ----
+    seed = int(getattr(args, "seed", 42))
+    np.random.seed(seed)
+    try:
+        import random
+        random.seed(seed)
+    except Exception:
+        pass
+    try:
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+        # Best-effort determinism (may have perf impact)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    except Exception:
+        pass
+
+    data_dir, out_dir, log_dir, site, train_files, eval_files = _setup_paths(args, seed)
 
     # ===== Build train-only voltage-bin map (vbin) for stable group references =====
     # This prevents mixed-string designs from inflating v_ref_span and forcing legacy critical.
