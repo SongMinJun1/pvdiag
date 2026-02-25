@@ -1486,6 +1486,182 @@ def _detect_group_off(out: pd.DataFrame, args) -> pd.DataFrame:
     return out
 
 
+def _compute_ews(out: pd.DataFrame, args) -> pd.DataFrame:
+    q = float(args.ews_quantile)
+    k_sigma = float(args.ews_k_sigma)
+
+    out["ews_month"] = out["date"].dt.month
+
+    # Pre-allocate causal baseline columns (for transparency/debugging)
+    out["mid_base_mean"] = np.nan
+    out["mid_base_std"] = np.nan
+    out["dtw_base_mean"] = np.nan
+    out["dtw_base_std"] = np.nan
+    out["hs_base_mean"] = np.nan
+    out["hs_base_std"] = np.nan
+
+    # Causal conditions (filled date-by-date)
+    cond_var = pd.Series(False, index=out.index)
+    cond_dtw = pd.Series(False, index=out.index)
+    cond_hs = pd.Series(False, index=out.index)
+
+    # eventA 빈도: 최근 7일 중 절반 이상 event_A 발생 (행 단위로 바로 계산 가능)
+    cond_evt = out["ews_eventA_freq_7d"] >= 0.5
+
+    # Date-by-date causal thresholds/baselines
+    for d in sorted(out["date"].dropna().unique()):
+        mask_d = out["date"] == d
+        past = out.loc[out["date"] < d]
+
+        # If no past, leave conditions as False for this date
+        if past.empty:
+            continue
+
+        # Global (site-wide) thresholds from past only
+        def _past_thr(series: pd.Series, qq: float) -> float:
+            vals = series.to_numpy()
+            if np.isfinite(vals).any():
+                return float(np.nanquantile(vals, qq))
+            return np.nan
+
+        var_thr = _past_thr(past["ews_mid_var_7d"], q)
+        dtw_thr = _past_thr(past["ews_dtw_mean_7d"], q)
+        hs_thr = _past_thr(past["ews_hs_mean_7d"], q)
+
+        # Panel×Month baseline from past only
+        base = (
+            past.groupby(["panel_id", "ews_month"])[
+                ["ews_mid_var_7d", "ews_dtw_mean_7d", "ews_hs_mean_7d"]
+            ]
+            .agg(["mean", "std"])
+        )
+
+        # Helper to fetch baseline stats for current rows
+        def _get_base(metric: str, stat: str) -> pd.Series:
+            s = base[(metric, stat)]
+            # align by (panel_id, ews_month)
+            key = list(zip(out.loc[mask_d, "panel_id"], out.loc[mask_d, "ews_month"]))
+            return pd.Series([s.get(k, np.nan) for k in key], index=out.index[mask_d])
+
+        # Fill baseline columns for this date (debug visibility)
+        out.loc[mask_d, "mid_base_mean"] = _get_base("ews_mid_var_7d", "mean")
+        out.loc[mask_d, "mid_base_std"] = _get_base("ews_mid_var_7d", "std")
+        out.loc[mask_d, "dtw_base_mean"] = _get_base("ews_dtw_mean_7d", "mean")
+        out.loc[mask_d, "dtw_base_std"] = _get_base("ews_dtw_mean_7d", "std")
+        out.loc[mask_d, "hs_base_mean"] = _get_base("ews_hs_mean_7d", "mean")
+        out.loc[mask_d, "hs_base_std"] = _get_base("ews_hs_mean_7d", "std")
+
+        # Apply both gates (global quantile + seasonal baseline) using past-only statistics
+        if np.isfinite(var_thr) and var_thr > 0:
+            cv = out.loc[mask_d, "ews_mid_var_7d"] >= var_thr
+        else:
+            cv = pd.Series(False, index=out.index[mask_d])
+        mid_thr_base = out.loc[mask_d, "mid_base_mean"] + k_sigma * out.loc[mask_d, "mid_base_std"].fillna(0.0)
+        cv = cv & out.loc[mask_d, "mid_base_mean"].notna() & (out.loc[mask_d, "ews_mid_var_7d"] >= mid_thr_base)
+        cond_var.loc[mask_d] = cv.fillna(False)
+
+        if np.isfinite(dtw_thr) and dtw_thr > 0:
+            cd = out.loc[mask_d, "ews_dtw_mean_7d"] >= dtw_thr
+        else:
+            cd = pd.Series(False, index=out.index[mask_d])
+        dtw_thr_base = out.loc[mask_d, "dtw_base_mean"] + k_sigma * out.loc[mask_d, "dtw_base_std"].fillna(0.0)
+        cd = cd & out.loc[mask_d, "dtw_base_mean"].notna() & (out.loc[mask_d, "ews_dtw_mean_7d"] >= dtw_thr_base)
+        cond_dtw.loc[mask_d] = cd.fillna(False)
+
+        if np.isfinite(hs_thr) and hs_thr > 0:
+            ch = out.loc[mask_d, "ews_hs_mean_7d"] >= hs_thr
+        else:
+            ch = pd.Series(False, index=out.index[mask_d])
+        hs_thr_base = out.loc[mask_d, "hs_base_mean"] + k_sigma * out.loc[mask_d, "hs_base_std"].fillna(0.0)
+        ch = ch & out.loc[mask_d, "hs_base_mean"].notna() & (out.loc[mask_d, "ews_hs_mean_7d"] >= hs_thr_base)
+        cond_hs.loc[mask_d] = ch.fillna(False)
+
+    # 패널-날짜별로 high 신호 개수 계산 (4개 중 2개 이상)
+    signal_count = (
+        cond_var.astype(int)
+        + cond_evt.astype(int)
+        + cond_dtw.astype(int)
+        + cond_hs.astype(int)
+    )
+
+    # data_bad가 아니고, high 신호가 2개 이상인 날을 "잠정 전조 신호"로 본다.
+    pre_ews = (~out["data_bad"]) & (signal_count >= 2)
+
+    # 4) 연속성 조건: 같은 패널에서 5일 이상 연속 pre_ews가 유지되면 EWS 경고로 확정 (방안 C)
+    out["ews_runlen"] = compute_run_streak(out["panel_id"], pre_ews)
+
+    out["ews_warning"] = False
+    out.loc[pre_ews & (out["ews_runlen"] >= 5), "ews_warning"] = True
+
+    # 이미 고장 확정(final_fault)인 날은 EWS 경고는 별도로 끈다
+    out.loc[out["final_fault"], "ews_warning"] = False
+    return out
+
+
+def _compute_site_events(out: pd.DataFrame) -> pd.DataFrame:
+    # ===== Site event day (soft/hard) + reason =====
+    # Goal: protect ops from site-wide irradiance/weather/comm events.
+    # Uses only per-day aggregates available in `out`.
+    def _site_event_reason_for_day(g: pd.DataFrame) -> tuple[bool, bool, str]:
+        reasons = []
+
+        # 1) peer energy collapse proxy (mid_peer very low)
+        mid_peer_med = float(np.nanmedian(g["mid_peer"].to_numpy())) if len(g) else np.nan
+        if np.isfinite(mid_peer_med) and mid_peer_med < 0.35:
+            reasons.append("peer_peak_low")
+
+        # 2) widespread low concurrence proxy
+        co_med = float(np.nanmedian(g["co_drop_frac"].fillna(0.0).to_numpy())) if len(g) else 0.0
+        if np.isfinite(co_med) and co_med >= 0.45:
+            reasons.append("co_drop_surge")
+
+        # 3) degraded surge
+        deg_frac = float(np.mean(g["degraded_candidate"].fillna(False).to_numpy(dtype=bool))) if len(g) else 0.0
+        if deg_frac >= 0.35:
+            reasons.append("degraded_ratio_surge")
+
+        # 4) shadow-like surge
+        sh_frac = float(np.mean(g["shadow_like"].fillna(False).to_numpy(dtype=bool))) if len(g) else 0.0
+        if sh_frac >= 0.35:
+            reasons.append("shadow_like_surge")
+
+        soft = len(reasons) > 0
+
+        # hard condition: peer collapse OR extreme concurrence OR extreme surge
+        hard = False
+        if ("peer_peak_low" in reasons) or (co_med >= 0.60) or (deg_frac >= 0.60):
+            hard = True
+
+        return soft, hard, ";".join(reasons)
+
+    # compute day-wise flags (pandas groupby.apply FutureWarning-safe)
+    def _day_flags_apply(df: pd.DataFrame) -> pd.DataFrame:
+        try:
+            # pandas newer versions
+            return df.groupby("date", group_keys=False).apply(
+                lambda g: pd.Series(
+                    _site_event_reason_for_day(g),
+                    index=["site_event_soft", "site_event_hard", "site_event_reason"],
+                ),
+                include_groups=False,
+            )
+        except TypeError:
+            # pandas older versions (no include_groups)
+            return df.groupby("date", group_keys=False).apply(
+                lambda g: pd.Series(
+                    _site_event_reason_for_day(g),
+                    index=["site_event_soft", "site_event_hard", "site_event_reason"],
+                )
+            )
+
+    day_flags = _day_flags_apply(out)
+    out = out.merge(day_flags, left_on="date", right_index=True, how="left")
+    out["site_event_soft"] = out["site_event_soft"].fillna(False).astype(bool)
+    out["site_event_hard"] = out["site_event_hard"].fillna(False).astype(bool)
+    out["site_event_reason"] = out["site_event_reason"].fillna("").astype(str)
+    return out
+
+
 def main():
     args = parse_args()
 
@@ -2352,176 +2528,8 @@ def main():
 
     # Final save is performed once at the end of main().
 
-    q = float(args.ews_quantile)
-    k_sigma = float(args.ews_k_sigma)
-
-    out["ews_month"] = out["date"].dt.month
-
-    # Pre-allocate causal baseline columns (for transparency/debugging)
-    out["mid_base_mean"] = np.nan
-    out["mid_base_std"] = np.nan
-    out["dtw_base_mean"] = np.nan
-    out["dtw_base_std"] = np.nan
-    out["hs_base_mean"] = np.nan
-    out["hs_base_std"] = np.nan
-
-    # Causal conditions (filled date-by-date)
-    cond_var = pd.Series(False, index=out.index)
-    cond_dtw = pd.Series(False, index=out.index)
-    cond_hs = pd.Series(False, index=out.index)
-
-    # eventA 빈도: 최근 7일 중 절반 이상 event_A 발생 (행 단위로 바로 계산 가능)
-    cond_evt = out["ews_eventA_freq_7d"] >= 0.5
-
-    # Date-by-date causal thresholds/baselines
-    for d in sorted(out["date"].dropna().unique()):
-        mask_d = out["date"] == d
-        past = out.loc[out["date"] < d]
-
-        # If no past, leave conditions as False for this date
-        if past.empty:
-            continue
-
-        # Global (site-wide) thresholds from past only
-        def _past_thr(series: pd.Series, qq: float) -> float:
-            vals = series.to_numpy()
-            if np.isfinite(vals).any():
-                return float(np.nanquantile(vals, qq))
-            return np.nan
-
-        var_thr = _past_thr(past["ews_mid_var_7d"], q)
-        dtw_thr = _past_thr(past["ews_dtw_mean_7d"], q)
-        hs_thr = _past_thr(past["ews_hs_mean_7d"], q)
-
-        # Panel×Month baseline from past only
-        base = (
-            past.groupby(["panel_id", "ews_month"])[
-                ["ews_mid_var_7d", "ews_dtw_mean_7d", "ews_hs_mean_7d"]
-            ]
-            .agg(["mean", "std"])
-        )
-
-        # Helper to fetch baseline stats for current rows
-        def _get_base(metric: str, stat: str) -> pd.Series:
-            s = base[(metric, stat)]
-            # align by (panel_id, ews_month)
-            key = list(zip(out.loc[mask_d, "panel_id"], out.loc[mask_d, "ews_month"]))
-            return pd.Series([s.get(k, np.nan) for k in key], index=out.index[mask_d])
-
-        # Fill baseline columns for this date (debug visibility)
-        out.loc[mask_d, "mid_base_mean"] = _get_base("ews_mid_var_7d", "mean")
-        out.loc[mask_d, "mid_base_std"] = _get_base("ews_mid_var_7d", "std")
-        out.loc[mask_d, "dtw_base_mean"] = _get_base("ews_dtw_mean_7d", "mean")
-        out.loc[mask_d, "dtw_base_std"] = _get_base("ews_dtw_mean_7d", "std")
-        out.loc[mask_d, "hs_base_mean"] = _get_base("ews_hs_mean_7d", "mean")
-        out.loc[mask_d, "hs_base_std"] = _get_base("ews_hs_mean_7d", "std")
-
-        # Apply both gates (global quantile + seasonal baseline) using past-only statistics
-        if np.isfinite(var_thr) and var_thr > 0:
-            cv = out.loc[mask_d, "ews_mid_var_7d"] >= var_thr
-        else:
-            cv = pd.Series(False, index=out.index[mask_d])
-        mid_thr_base = out.loc[mask_d, "mid_base_mean"] + k_sigma * out.loc[mask_d, "mid_base_std"].fillna(0.0)
-        cv = cv & out.loc[mask_d, "mid_base_mean"].notna() & (out.loc[mask_d, "ews_mid_var_7d"] >= mid_thr_base)
-        cond_var.loc[mask_d] = cv.fillna(False)
-
-        if np.isfinite(dtw_thr) and dtw_thr > 0:
-            cd = out.loc[mask_d, "ews_dtw_mean_7d"] >= dtw_thr
-        else:
-            cd = pd.Series(False, index=out.index[mask_d])
-        dtw_thr_base = out.loc[mask_d, "dtw_base_mean"] + k_sigma * out.loc[mask_d, "dtw_base_std"].fillna(0.0)
-        cd = cd & out.loc[mask_d, "dtw_base_mean"].notna() & (out.loc[mask_d, "ews_dtw_mean_7d"] >= dtw_thr_base)
-        cond_dtw.loc[mask_d] = cd.fillna(False)
-
-        if np.isfinite(hs_thr) and hs_thr > 0:
-            ch = out.loc[mask_d, "ews_hs_mean_7d"] >= hs_thr
-        else:
-            ch = pd.Series(False, index=out.index[mask_d])
-        hs_thr_base = out.loc[mask_d, "hs_base_mean"] + k_sigma * out.loc[mask_d, "hs_base_std"].fillna(0.0)
-        ch = ch & out.loc[mask_d, "hs_base_mean"].notna() & (out.loc[mask_d, "ews_hs_mean_7d"] >= hs_thr_base)
-        cond_hs.loc[mask_d] = ch.fillna(False)
-
-    # 패널-날짜별로 high 신호 개수 계산 (4개 중 2개 이상)
-    signal_count = (
-        cond_var.astype(int)
-        + cond_evt.astype(int)
-        + cond_dtw.astype(int)
-        + cond_hs.astype(int)
-    )
-
-    # data_bad가 아니고, high 신호가 2개 이상인 날을 "잠정 전조 신호"로 본다.
-    pre_ews = (~out["data_bad"]) & (signal_count >= 2)
-
-    # 4) 연속성 조건: 같은 패널에서 5일 이상 연속 pre_ews가 유지되면 EWS 경고로 확정 (방안 C)
-    out["ews_runlen"] = compute_run_streak(out["panel_id"], pre_ews)
-
-    out["ews_warning"] = False
-    out.loc[pre_ews & (out["ews_runlen"] >= 5), "ews_warning"] = True
-
-    # 이미 고장 확정(final_fault)인 날은 EWS 경고는 별도로 끈다
-    out.loc[out["final_fault"], "ews_warning"] = False
-
-    # ===== Site event day (soft/hard) + reason =====
-    # Goal: protect ops from site-wide irradiance/weather/comm events.
-    # Uses only per-day aggregates available in `out`.
-
-    def _site_event_reason_for_day(g: pd.DataFrame) -> tuple[bool, bool, str]:
-        reasons = []
-
-        # 1) peer energy collapse proxy (mid_peer very low)
-        mid_peer_med = float(np.nanmedian(g["mid_peer"].to_numpy())) if len(g) else np.nan
-        if np.isfinite(mid_peer_med) and mid_peer_med < 0.35:
-            reasons.append("peer_peak_low")
-
-        # 2) widespread low concurrence proxy
-        co_med = float(np.nanmedian(g["co_drop_frac"].fillna(0.0).to_numpy())) if len(g) else 0.0
-        if np.isfinite(co_med) and co_med >= 0.45:
-            reasons.append("co_drop_surge")
-
-        # 3) degraded surge
-        deg_frac = float(np.mean(g["degraded_candidate"].fillna(False).to_numpy(dtype=bool))) if len(g) else 0.0
-        if deg_frac >= 0.35:
-            reasons.append("degraded_ratio_surge")
-
-        # 4) shadow-like surge
-        sh_frac = float(np.mean(g["shadow_like"].fillna(False).to_numpy(dtype=bool))) if len(g) else 0.0
-        if sh_frac >= 0.35:
-            reasons.append("shadow_like_surge")
-
-        soft = len(reasons) > 0
-
-        # hard condition: peer collapse OR extreme concurrence OR extreme surge
-        hard = False
-        if ("peer_peak_low" in reasons) or (co_med >= 0.60) or (deg_frac >= 0.60):
-            hard = True
-
-        return soft, hard, ";".join(reasons)
-
-    # compute day-wise flags (pandas groupby.apply FutureWarning-safe)
-    def _day_flags_apply(df: pd.DataFrame) -> pd.DataFrame:
-        try:
-            # pandas newer versions
-            return df.groupby("date", group_keys=False).apply(
-                lambda g: pd.Series(
-                    _site_event_reason_for_day(g),
-                    index=["site_event_soft", "site_event_hard", "site_event_reason"],
-                ),
-                include_groups=False,
-            )
-        except TypeError:
-            # pandas older versions (no include_groups)
-            return df.groupby("date", group_keys=False).apply(
-                lambda g: pd.Series(
-                    _site_event_reason_for_day(g),
-                    index=["site_event_soft", "site_event_hard", "site_event_reason"],
-                )
-            )
-
-    day_flags = _day_flags_apply(out)
-    out = out.merge(day_flags, left_on="date", right_index=True, how="left")
-    out["site_event_soft"] = out["site_event_soft"].fillna(False).astype(bool)
-    out["site_event_hard"] = out["site_event_hard"].fillna(False).astype(bool)
-    out["site_event_reason"] = out["site_event_reason"].fillna("").astype(str)
+    out = _compute_ews(out, args)
+    out = _compute_site_events(out)
 
     # Gate: site event day should not produce EWS/prefault escalation.
     out.loc[out["site_event_soft"], "ews_warning"] = False
