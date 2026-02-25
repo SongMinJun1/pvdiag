@@ -90,6 +90,21 @@ causal 여부:
 - `risk_ens`는 `level_drop`와 `shape_rank`만 사용한다.
 - `risk_cp`도 EWS/`prefault_B`를 직접 사용하지 않고 `cp_alarm`(CUSUM 결과)만 사용한다.
 
+## 6) `risk_vdrop_or_7d` / `risk_vdrop_plus_7d`
+
+적용 조건:
+- 입력 df에 `v_drop`과 `risk_7d_mean`이 **둘 다 존재할 때만** 생성한다.
+
+정의:
+- `risk_vdrop_or_7d = clip(max(v_drop, risk_7d_mean), 0, 1)` (`skipna=True`)
+  - 구현: `pd.concat([v_drop, risk_7d_mean], axis=1).max(axis=1, skipna=True)`
+  - 규칙: 둘 중 하나가 `NaN`이면 다른 값을 사용, 둘 다 `NaN`이면 `NaN`
+- `risk_vdrop_plus_7d = clip(0.5 * v_drop + 0.5 * risk_7d_mean, 0, 1)`
+  - 규칙: 둘 중 하나라도 `NaN`이면 결과 `NaN` (0으로 채우지 않음)
+
+설계 의도:
+- 전기축 증거(v_drop)와 최근 지속 위험(risk_7d_mean)을 단순 대칭 결합해, 파라미터 자유도를 늘리지 않고 랭킹 품질(AP) 개선을 노린다.
+
 ---
 
 ## 요약 (10~20줄)
@@ -110,4 +125,3 @@ causal 여부:
 14. `risk_max4`와 `risk_cp`는 별도 보조 점수이며 `risk_ens` 자체와 식이 다르다.  
 15. EWS(`ews_*`)와 `prefault_B`는 현재 `risk_ens` 식에 직접 들어가지 않는다.  
 16. 따라서 `risk_ens`는 “어떤 입력을 어떤 수식으로 결합하는지”가 명시된 비블랙박스 점수다.  
-
