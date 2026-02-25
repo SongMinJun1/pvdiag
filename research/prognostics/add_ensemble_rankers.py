@@ -42,6 +42,18 @@ def main():
 
     df["risk_cp"] = np.clip(df["risk_max4"] + float(args.cp_alpha)*cp_alarm_int, 0, 1)
 
+    if ("v_drop" in df.columns) and ("risk_7d_mean" in df.columns):
+        v_drop = pd.to_numeric(df["v_drop"], errors="coerce")
+        risk_7d_mean = pd.to_numeric(df["risk_7d_mean"], errors="coerce")
+
+        df["risk_vdrop_or_7d"] = pd.concat(
+            [v_drop, risk_7d_mean], axis=1
+        ).max(axis=1, skipna=True)
+        df["risk_vdrop_or_7d"] = df["risk_vdrop_or_7d"].clip(0, 1)
+
+        df["risk_vdrop_plus_7d"] = (0.5 * v_drop) + (0.5 * risk_7d_mean)
+        df["risk_vdrop_plus_7d"] = df["risk_vdrop_plus_7d"].clip(0, 1)
+
     df["cp_pctl_panel"] = df.groupby("panel_id")["cp_score"].rank(pct=True)
     df["cp_rank_day"]   = df.groupby("date")["cp_score"].rank(pct=True)
 
