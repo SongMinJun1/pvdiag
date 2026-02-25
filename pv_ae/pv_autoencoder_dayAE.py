@@ -106,6 +106,23 @@ def panel_group_key(pid: str) -> str:
         return parts[0]
     return s
 
+
+def compute_run_streak(panel_ids, flags) -> list[int]:
+    """Compute consecutive true-run length per panel in row order."""
+    streaks: list[int] = []
+    current_panel = None
+    cnt = 0
+    for pid, flag in zip(panel_ids, flags):
+        if pid != current_panel:
+            current_panel = pid
+            cnt = 0
+        if flag:
+            cnt += 1
+        else:
+            cnt = 0
+        streaks.append(cnt)
+    return streaks
+
 # ======== 1D k-means (k=2) and train-only vbin builder ========
 
 def kmeans_1d_2(x: np.ndarray, iters: int = 20) -> tuple[float, float, float]:
@@ -1967,19 +1984,7 @@ def main():
 
     # dead streak and confirmed fault (always computed)
     out = out.sort_values(["panel_id", "date"])
-    dead_streak = []
-    current_panel = None
-    cnt = 0
-    for pid, is_dead in zip(out["panel_id"], out["state_dead_eff"]):
-        if pid != current_panel:
-            current_panel = pid
-            cnt = 0
-        if is_dead:
-            cnt += 1
-        else:
-            cnt = 0
-        dead_streak.append(cnt)
-    out["dead_streak"] = dead_streak
+    out["dead_streak"] = compute_run_streak(out["panel_id"], out["state_dead_eff"])
     # Mark whole dead-like segments when they reach the minimum length (ops-friendly)
     out = mark_run_segments(out, key_col="panel_id", date_col="date", cond_col="state_dead_eff", min_len=int(args.dead_days), out_col="confirmed_fault")
 
@@ -1989,19 +1994,7 @@ def main():
 
     if tuning_level == "p2":
         # ---- Critical-like streak ----
-        crit_streak = []
-        current_panel = None
-        cnt = 0
-        for pid, is_crit in zip(out["panel_id"], out["critical_like_eff"]):
-            if pid != current_panel:
-                current_panel = pid
-                cnt = 0
-            if bool(is_crit):
-                cnt += 1
-            else:
-                cnt = 0
-            crit_streak.append(cnt)
-        out["crit_streak"] = crit_streak
+        out["crit_streak"] = compute_run_streak(out["panel_id"], out["critical_like_eff"])
         # Mark whole critical-like segments when they reach the minimum length (ops-friendly)
         out = mark_run_segments(out, key_col="panel_id", date_col="date", cond_col="critical_like_eff", min_len=int(args.critical_days), out_col="critical_fault")
 
@@ -2456,20 +2449,7 @@ def main():
     pre_ews = (~out["data_bad"]) & (signal_count >= 2)
 
     # 4) 연속성 조건: 같은 패널에서 5일 이상 연속 pre_ews가 유지되면 EWS 경고로 확정 (방안 C)
-    ews_runlen: List[int] = []
-    current_panel = None
-    streak = 0
-    for pid, flag in zip(out["panel_id"], pre_ews):
-        if pid != current_panel:
-            current_panel = pid
-            streak = 0
-        if flag:
-            streak += 1
-        else:
-            streak = 0
-        ews_runlen.append(streak)
-
-    out["ews_runlen"] = ews_runlen
+    out["ews_runlen"] = compute_run_streak(out["panel_id"], pre_ews)
 
     out["ews_warning"] = False
     out.loc[pre_ews & (out["ews_runlen"] >= 5), "ews_warning"] = True
