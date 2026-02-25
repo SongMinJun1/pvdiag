@@ -123,6 +123,16 @@ def compute_run_streak(panel_ids, flags) -> list[int]:
         streaks.append(cnt)
     return streaks
 
+
+def _safe_report_write(df: pd.DataFrame, path: pathlib.Path, label: str, **kwargs) -> bool:
+    """Best-effort CSV writer for report outputs."""
+    try:
+        df.to_csv(path, **kwargs)
+        return True
+    except Exception as e:
+        print(f"[WARN] failed to write {label}: {e}")
+        return False
+
 # ======== 1D k-means (k=2) and train-only vbin builder ========
 
 def kmeans_1d_2(x: np.ndarray, iters: int = 20) -> tuple[float, float, float]:
@@ -2345,14 +2355,33 @@ def main():
             rep_confirm_ctx = _attach_ctx(rep_confirm, "critical_like")
             rep_suspect_ctx = _attach_ctx(rep_suspect, "critical_like_suspect")
 
-            try:
-                rep_confirm_ctx.to_csv(log_dir / "report_critical_confirmed_runs.csv", index=False)
-                rep_suspect_ctx.to_csv(log_dir / "report_critical_suspect_runs.csv", index=False)
-                rep_confirm_ctx.to_csv(out_dir / "report_critical_confirmed_runs.csv", index=False)
-                rep_suspect_ctx.to_csv(out_dir / "report_critical_suspect_runs.csv", index=False)
+            ok_critical_reports = True
+            ok_critical_reports &= _safe_report_write(
+                rep_confirm_ctx,
+                log_dir / "report_critical_confirmed_runs.csv",
+                "report_critical_confirmed_runs(log)",
+                index=False,
+            )
+            ok_critical_reports &= _safe_report_write(
+                rep_suspect_ctx,
+                log_dir / "report_critical_suspect_runs.csv",
+                "report_critical_suspect_runs(log)",
+                index=False,
+            )
+            ok_critical_reports &= _safe_report_write(
+                rep_confirm_ctx,
+                out_dir / "report_critical_confirmed_runs.csv",
+                "report_critical_confirmed_runs(out)",
+                index=False,
+            )
+            ok_critical_reports &= _safe_report_write(
+                rep_suspect_ctx,
+                out_dir / "report_critical_suspect_runs.csv",
+                "report_critical_suspect_runs(out)",
+                index=False,
+            )
+            if ok_critical_reports:
                 print("[OK] wrote reports: report_critical_confirmed_runs.csv / report_critical_suspect_runs.csv")
-            except Exception as _e:
-                print(f"[WARN] failed to write critical reports: {_e}")
 
             print("\n[TOP] critical_like confirmed max_run (TOP40)")
             print(rep_confirm.head(40).to_string(index=False))
@@ -2670,7 +2699,13 @@ def main():
             .reset_index()
         )
         daily_level_path = out_dir / "ae_simple_daily_anom_level.csv"
-        daily_level.to_csv(daily_level_path, index=False, encoding="utf-8-sig")
+        _safe_report_write(
+            daily_level,
+            daily_level_path,
+            "daily anom_level summary",
+            index=False,
+            encoding="utf-8-sig",
+        )
     except Exception as e:
         print("[WARN] failed to write daily anom_level summary:", e)
 
@@ -2687,7 +2722,13 @@ def main():
             .reset_index()
         )
         daily_subtype_path = out_dir / "ae_simple_daily_anom_subtype.csv"
-        daily_subtype.to_csv(daily_subtype_path, index=False, encoding="utf-8-sig")
+        _safe_report_write(
+            daily_subtype,
+            daily_subtype_path,
+            "daily anom_subtype summary",
+            index=False,
+            encoding="utf-8-sig",
+        )
     except Exception as e:
         print("[WARN] failed to write daily anom_subtype summary:", e)
 
@@ -2700,7 +2741,13 @@ def main():
         )
         fault_candidates = out.loc[mask_candidates].copy()
         candidates_path = out_dir / "ae_simple_fault_candidates.csv"
-        fault_candidates.to_csv(candidates_path, index=False, encoding="utf-8-sig")
+        _safe_report_write(
+            fault_candidates,
+            candidates_path,
+            "fault candidate list",
+            index=False,
+            encoding="utf-8-sig",
+        )
     except Exception as e:
         print("[WARN] failed to write fault candidate list:", e)
 
@@ -2708,7 +2755,13 @@ def main():
     try:
         ews_list = out[out["ews_warning"].astype(bool)].copy()
         ews_path = out_dir / "ae_simple_ews_warnings.csv"
-        ews_list.to_csv(ews_path, index=False, encoding="utf-8-sig")
+        _safe_report_write(
+            ews_list,
+            ews_path,
+            "EWS warning list",
+            index=False,
+            encoding="utf-8-sig",
+        )
     except Exception as e:
         print("[WARN] failed to write EWS warning list:", e)
 
@@ -2716,7 +2769,13 @@ def main():
     try:
         prefault_list = out[out["prefault_B"].astype(bool)].copy()
         pf_path = out_dir / "ae_simple_prefault_B_daily.csv"
-        prefault_list.to_csv(pf_path, index=False, encoding="utf-8-sig")
+        _safe_report_write(
+            prefault_list,
+            pf_path,
+            "pre-fault template-B list",
+            index=False,
+            encoding="utf-8-sig",
+        )
     except Exception as e:
         print("[WARN] failed to write pre-fault template-B list:", e)
 
@@ -2793,7 +2852,13 @@ def main():
 
         # 패널 요약 리포트 저장
         panel_alarm_path = out_dir / "ae_simple_panel_alarms.csv"
-        panel_summary.to_csv(panel_alarm_path, index=True, encoding="utf-8-sig")
+        _safe_report_write(
+            panel_summary,
+            panel_alarm_path,
+            "panel alarm summary",
+            index=True,
+            encoding="utf-8-sig",
+        )
     except Exception as e:
         print("[WARN] failed to write panel alarm summary:", e)
 
