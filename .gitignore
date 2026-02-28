@@ -29,3 +29,12 @@ node_modules/
 # Large artifacts / patches from experiments
 *.bak_*
 _share/
+
+# generated / local-only
+_share/
+data/*/out/
+data/**/out/
+__pycache__/
+*.pyc
+.DS_Store
+*.zip
