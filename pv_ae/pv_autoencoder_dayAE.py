@@ -107,6 +107,160 @@ def panel_group_key(pid: str) -> str:
     return s
 
 
+def _normalize_name_key(text: Any) -> str:
+    s = str(text).strip().lower()
+    s = re.sub(r"\d+", "", s)
+    s = re.sub(r"[^a-z0-9]+", "", s)
+    return s
+
+
+def _panel_name_key_for_pmax(panel_id: Any) -> str:
+    token = str(panel_id).split(".")[-1]
+    k = _normalize_name_key(token)
+    if k:
+        return k
+    return _normalize_name_key(panel_id)
+
+
+def _resolve_col_by_normalized_key(df: pd.DataFrame, candidates: List[str]) -> str:
+    cols = { _normalize_name_key(c): c for c in df.columns }
+    for cand in candidates:
+        k = _normalize_name_key(cand)
+        if k in cols:
+            return cols[k]
+    for ck, c in cols.items():
+        for cand in candidates:
+            if _normalize_name_key(cand) in ck:
+                return c
+    raise KeyError(f"required column not found. candidates={candidates}, columns={list(df.columns)}")
+
+
+def _parse_numeric_series(s: pd.Series) -> pd.Series:
+    return pd.to_numeric(
+        s.astype(str).str.replace(",", ".", regex=False).str.extract(r"([-+]?\d*\.?\d+)")[0],
+        errors="coerce",
+    )
+
+
+def _load_pmax_name_map(pmax_info_csv: str) -> Dict[str, float]:
+    p = pathlib.Path(pmax_info_csv).expanduser().resolve()
+    if not p.exists():
+        raise RuntimeError(f"--pmax-info-csv not found: {p}")
+    try:
+        info = pd.read_csv(p, sep=";", encoding="utf-8-sig")
+    except Exception:
+        info = pd.read_csv(p, sep=";")
+
+    c_name = _resolve_col_by_normalized_key(info, ["Name"])
+    c_pmax = _resolve_col_by_normalized_key(
+        info,
+        [
+            "PV MODULE Maximum Power STC(Pmax)",
+            "Maximum Power STC(Pmax)",
+            "Pmax",
+        ],
+    )
+
+    work = pd.DataFrame(
+        {
+            "name_key": info[c_name].map(_normalize_name_key),
+            "pmax": _parse_numeric_series(info[c_pmax]),
+        }
+    )
+    work = work[work["name_key"].astype(str).str.len() > 0].copy()
+    work = work[np.isfinite(work["pmax"]) & (work["pmax"] > 0)].copy()
+    if work.empty:
+        raise RuntimeError(f"no valid Pmax rows found in {p}")
+
+    # Duplicate key guard: conflicting Pmax values for same normalized name are ambiguous.
+    dup = (
+        work.groupby("name_key")["pmax"]
+        .agg(lambda s: int(pd.Series(np.round(s.to_numpy(dtype=float), 6)).nunique()))
+        .reset_index(name="nuniq")
+    )
+    bad_dup = dup[dup["nuniq"] > 1]
+    if not bad_dup.empty:
+        keys = bad_dup["name_key"].astype(str).tolist()
+        raise RuntimeError(f"conflicting Pmax values for normalized Name keys: {keys}")
+
+    return work.groupby("name_key", sort=False)["pmax"].first().astype(float).to_dict()
+
+
+def _collect_panel_ids_from_files(files: List[pathlib.Path]) -> List[str]:
+    panel_ids: set[str] = set()
+    for fp in files:
+        try:
+            try:
+                df = pd.read_csv(fp, encoding="utf-8-sig")
+            except Exception:
+                df = pd.read_csv(fp)
+            c_id = find_col(df, "map_id", "panel_id", "id")
+            panel_ids.update(df[c_id].dropna().astype(str).unique().tolist())
+        except Exception as e:
+            raise RuntimeError(f"failed to collect panel_id from {fp}: {e}")
+    return sorted(panel_ids)
+
+
+def _build_panel_pmax_map_for_panels(pmax_info_csv: str, panel_ids: List[str]) -> Dict[str, float]:
+    name_map = _load_pmax_name_map(pmax_info_csv)
+    panel_map: Dict[str, float] = {}
+    missing: list[tuple[str, str]] = []
+    for pid in panel_ids:
+        k = _panel_name_key_for_pmax(pid)
+        if k not in name_map:
+            missing.append((str(pid), k))
+            continue
+        panel_map[str(pid)] = float(name_map[k])
+    if missing:
+        msg_lines = ["Pmax mapping failed for panel_ids (panel_id -> normalized_key):"]
+        msg_lines.extend([f"- {pid} -> {k}" for pid, k in missing])
+        raise RuntimeError("\n".join(msg_lines))
+    return panel_map
+
+
+def _resolve_panel_column(columns: List[Any], panel_id: str) -> Any | None:
+    target = str(panel_id)
+    for c in columns:
+        if str(c) == target:
+            return c
+    return None
+
+
+def _build_peer_series(
+    p_tbl: pd.DataFrame,
+    group_cols: Dict[str, List[Any]],
+    mode: str = "median",
+    quantile: float = 0.80,
+    ref_panel: str = "",
+) -> Dict[str, pd.Series]:
+    peer_by_group: Dict[str, pd.Series] = {}
+    mode_s = str(mode).strip().lower()
+    q = float(quantile)
+    if not np.isfinite(q):
+        q = 0.80
+    q = min(1.0, max(0.0, q))
+
+    ref_col = _resolve_panel_column(list(p_tbl.columns), str(ref_panel)) if ref_panel else None
+    ref_series = p_tbl[ref_col].astype(float) if ref_col is not None else pd.Series(np.nan, index=p_tbl.index)
+
+    for gk, gcols in group_cols.items():
+        sub = p_tbl[gcols]
+        if mode_s == "median":
+            peer_by_group[gk] = sub.median(axis=1)
+            continue
+        q_series = sub.quantile(q, axis=1, interpolation="linear")
+        if mode_s == "quantile":
+            peer_by_group[gk] = q_series
+            continue
+        if mode_s == "ref":
+            # Ref panel missing at timestamp -> quantile fallback.
+            s = ref_series.reindex(sub.index)
+            peer_by_group[gk] = s.where(s.notna(), q_series)
+            continue
+        raise RuntimeError(f"unsupported peer-mode: {mode}")
+    return peer_by_group
+
+
 def compute_run_streak(panel_ids, flags) -> list[int]:
     """Compute consecutive true-run length per panel in row order."""
     streaks: list[int] = []
@@ -229,6 +383,10 @@ def build_vbin_map_from_train(
     mid_peer_alive_thr: float,
     mid_ratio_dead_thr: float,
     coverage_min: float,
+    panel_pmax_map: Dict[str, float] | None = None,
+    peer_mode: str = "median",
+    peer_quantile: float = 0.80,
+    peer_ref_panel: str = "",
 ) -> tuple[dict[str, int], dict[str, any]]:
     """Build a stable per-panel voltage-bin map from TRAIN period only.
 
@@ -258,7 +416,13 @@ def build_vbin_map_from_train(
 
     for p in train_files:
         try:
-            ev_map = compute_event_features(p)
+            ev_map = compute_event_features(
+                p,
+                panel_pmax_map=panel_pmax_map,
+                peer_mode=peer_mode,
+                peer_quantile=peer_quantile,
+                peer_ref_panel=peer_ref_panel,
+            )
         except Exception:
             continue
         for pid, ev in ev_map.items():
@@ -642,9 +806,18 @@ def compute_hs(curve: np.ndarray) -> float:
 
 # ========= 하루 power ratio 곡선 (AE용) =========
 
-def load_day_curves(csv_path: pathlib.Path, daylight_frac: float = 0.10, peer_eps: float = 1e-6, use_log_ratio: bool = False) -> Dict[str, np.ndarray]:
+def load_day_curves(
+    csv_path: pathlib.Path,
+    daylight_frac: float = 0.10,
+    peer_eps: float = 1e-6,
+    use_log_ratio: bool = False,
+    panel_pmax_map: Dict[str, float] | None = None,
+    peer_mode: str = "median",
+    peer_quantile: float = 0.80,
+    peer_ref_panel: str = "",
+) -> Dict[str, np.ndarray]:
     """
-    - P = V * I
+    - P = V * I (or Pnorm = P/Pmax when panel_pmax_map is provided)
     - peer median P 기준으로 P_ratio = P / peerP
     - peerP가 max의 daylight_frac 이상인 구간만 사용
     - 각 패널 곡선을 길이 96으로 보간
@@ -667,6 +840,17 @@ def load_day_curves(csv_path: pathlib.Path, daylight_frac: float = 0.10, peer_ep
     df["p_calc"] = (v * i).astype(float).clip(lower=0)
 
     P = df.pivot_table(index="_dt", columns=c_id, values="p_calc")
+    if panel_pmax_map:
+        pmax_vec = pd.Series(
+            {
+                col: float(panel_pmax_map.get(str(col), np.nan))
+                for col in P.columns
+            }
+        )
+        if pmax_vec.isna().any():
+            missing = [str(c) for c in P.columns if not np.isfinite(float(pmax_vec.get(c, np.nan)))]
+            raise RuntimeError(f"Pmax missing for panels in {csv_path.name}: {missing}")
+        P = P.divide(pmax_vec, axis=1)
 
     # Site-level peer (for daylight detection)
     peerP_site = P.median(axis=1)
@@ -683,9 +867,13 @@ def load_day_curves(csv_path: pathlib.Path, daylight_frac: float = 0.10, peer_ep
     for pid in P_use.columns:
         pid_s = str(pid)
         group_cols.setdefault(panel_group_key(pid_s), []).append(pid)
-    peerP_group: Dict[str, pd.Series] = {}
-    for gk, gcols in group_cols.items():
-        peerP_group[gk] = P_use[gcols].median(axis=1)
+    peerP_group = _build_peer_series(
+        P_use,
+        group_cols,
+        mode=peer_mode,
+        quantile=peer_quantile,
+        ref_panel=peer_ref_panel,
+    )
 
     curves: Dict[str, np.ndarray] = {}
     for pid in P_use.columns:
@@ -732,6 +920,10 @@ def compute_event_features(
     co_drop_thr: float = 0.15,
     daylight_event_thr: float = 0.2,
     peer_eps: float = 1e-6,
+    panel_pmax_map: Dict[str, float] | None = None,
+    peer_mode: str = "median",
+    peer_quantile: float = 0.80,
+    peer_ref_panel: str = "",
 ) -> Dict[str, Dict[str, Any]]:
     """
     패널별로:
@@ -763,6 +955,17 @@ def compute_event_features(
     V = V.apply(pd.to_numeric, errors="coerce").clip(lower=0)
     I = I.apply(pd.to_numeric, errors="coerce").clip(lower=0)
     P = (V * I).clip(lower=0)
+    if panel_pmax_map:
+        pmax_vec = pd.Series(
+            {
+                col: float(panel_pmax_map.get(str(col), np.nan))
+                for col in P.columns
+            }
+        )
+        if pmax_vec.isna().any():
+            missing = [str(c) for c in P.columns if not np.isfinite(float(pmax_vec.get(c, np.nan)))]
+            raise RuntimeError(f"Pmax missing for panels in {csv_path.name}: {missing}")
+        P = P.divide(pmax_vec, axis=1)
 
     # Site-level peer (for daylight/midday gating)
     peerP_site = P.median(axis=1)
@@ -781,8 +984,14 @@ def compute_event_features(
     peerV_by_group: Dict[str, pd.Series] = {}
     peerI_by_group: Dict[str, pd.Series] = {}
 
+    peerP_by_group = _build_peer_series(
+        P,
+        group_cols,
+        mode=peer_mode,
+        quantile=peer_quantile,
+        ref_panel=peer_ref_panel,
+    )
     for gk, gcols in group_cols.items():
-        peerP_by_group[gk] = P[gcols].median(axis=1)
         peerV_by_group[gk] = V[gcols].median(axis=1)
         peerI_by_group[gk] = I[gcols].median(axis=1)
 
@@ -1309,6 +1518,14 @@ def parse_args():
                     help="Event/daylight gate threshold on peerP_frac for compute_event_features (default 0.2; site override allowed).")
     ap.add_argument("--use-log-ratio", action="store_true",
                     help="AE 입력 ratio를 log1p(P)-log1p(peer)로 안정화하여 사용.")
+    ap.add_argument("--pmax-info-csv", default="",
+                    help="Optional TECNALIA module info CSV(semicolon-separated). When set, power axis uses Pnorm=P/Pmax(panel).")
+    ap.add_argument("--peer-mode", choices=["median", "quantile", "ref"], default="median",
+                    help="Peer baseline mode for ratio features: median(legacy), quantile, ref.")
+    ap.add_argument("--peer-quantile", type=float, default=0.80,
+                    help="Peer quantile used when --peer-mode quantile/ref fallback (default 0.80).")
+    ap.add_argument("--peer-ref-panel", default="",
+                    help="Reference panel_id when --peer-mode ref. Missing timestamps fall back to peer-quantile.")
 
     # group/string-level OFF-like detection (protect against mislabeling string events as panel faults)
     ap.add_argument("--group-off-min-panels", type=int, default=10,
@@ -1735,6 +1952,28 @@ def main():
 
     data_dir, out_dir, log_dir, site, train_files, eval_files = _setup_paths(args, seed)
 
+    peer_mode = str(getattr(args, "peer_mode", "median")).strip().lower()
+    peer_quantile = float(getattr(args, "peer_quantile", 0.80))
+    peer_ref_panel = str(getattr(args, "peer_ref_panel", "")).strip()
+    pmax_info_csv = str(getattr(args, "pmax_info_csv", "")).strip()
+    if not np.isfinite(peer_quantile):
+        raise RuntimeError(f"invalid --peer-quantile: {peer_quantile}")
+    if peer_quantile < 0.0 or peer_quantile > 1.0:
+        raise RuntimeError(f"--peer-quantile must be in [0,1], got {peer_quantile}")
+
+    panel_pmax_map: Dict[str, float] = {}
+    panel_ids_seen: List[str] = []
+    if pmax_info_csv or peer_mode == "ref":
+        panel_ids_seen = _collect_panel_ids_from_files(train_files + eval_files)
+        if peer_mode == "ref":
+            if not peer_ref_panel:
+                raise RuntimeError("--peer-mode ref requires --peer-ref-panel <panel_id>")
+            if peer_ref_panel not in set(panel_ids_seen):
+                raise RuntimeError(f"--peer-ref-panel not found in train/eval period: {peer_ref_panel}")
+        if pmax_info_csv:
+            panel_pmax_map = _build_panel_pmax_map_for_panels(pmax_info_csv, panel_ids_seen)
+            print(f"[INFO] Pmax normalization enabled: mapped {len(panel_pmax_map)} panels from {pmax_info_csv}")
+
     # ===== Build train-only voltage-bin map (vbin) for stable group references =====
     # This prevents mixed-string designs from inflating v_ref_span and forcing legacy critical.
     vbin_map: dict[str, int] = {}
@@ -1746,6 +1985,10 @@ def main():
             mid_peer_alive_thr=float(args.mid_peer_alive_thr),
             mid_ratio_dead_thr=float(args.mid_ratio_dead_thr),
             coverage_min=float(args.coverage_min),
+            panel_pmax_map=panel_pmax_map,
+            peer_mode=peer_mode,
+            peer_quantile=peer_quantile,
+            peer_ref_panel=peer_ref_panel,
         )
         # Persist for reproducibility
         (log_dir / "vbin_map.json").write_text(
@@ -1765,7 +2008,15 @@ def main():
     train_curves_by_pid: Dict[str, List[np.ndarray]] = {}
 
     for p in tqdm(train_files, desc="train-curves"):
-        curves = load_day_curves(p, peer_eps=float(args.peer_eps), use_log_ratio=bool(args.use_log_ratio))
+        curves = load_day_curves(
+            p,
+            peer_eps=float(args.peer_eps),
+            use_log_ratio=bool(args.use_log_ratio),
+            panel_pmax_map=panel_pmax_map,
+            peer_mode=peer_mode,
+            peer_quantile=peer_quantile,
+            peer_ref_panel=peer_ref_panel,
+        )
         fname = p.name
         for pid, curve in curves.items():
             X_train.append(curve)
@@ -1804,9 +2055,21 @@ def main():
                 co_drop_thr=float(args.shadow_co_drop_thr),
                 daylight_event_thr=float(getattr(args, "daylight_event_thr", 0.2)),
                 peer_eps=float(args.peer_eps),
+                panel_pmax_map=panel_pmax_map,
+                peer_mode=peer_mode,
+                peer_quantile=peer_quantile,
+                peer_ref_panel=peer_ref_panel,
             )
 
-            curves = load_day_curves(csv_path, peer_eps=float(args.peer_eps), use_log_ratio=bool(args.use_log_ratio))
+            curves = load_day_curves(
+                csv_path,
+                peer_eps=float(args.peer_eps),
+                use_log_ratio=bool(args.use_log_ratio),
+                panel_pmax_map=panel_pmax_map,
+                peer_mode=peer_mode,
+                peer_quantile=peer_quantile,
+                peer_ref_panel=peer_ref_panel,
+            )
             for pid, curve in curves.items():
                 x = torch.tensor(curve[None, :], dtype=torch.float32).to(device)
                 rec = model(x).cpu().numpy()[0]
