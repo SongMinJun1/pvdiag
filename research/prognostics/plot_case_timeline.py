@@ -27,7 +27,7 @@ def to_bool(s: pd.Series) -> pd.Series:
 
 def load_data(site: str) -> tuple[pd.DataFrame, Path]:
     out_dir = (Path("data") / str(site).strip() / "out").resolve()
-    ae_path = out_dir / "ae_simple_scores.csv"
+    ae_path = out_dir / "panel_day_core.csv"
     if not ae_path.is_file():
         raise FileNotFoundError(f"missing: {ae_path}")
 
@@ -36,7 +36,7 @@ def load_data(site: str) -> tuple[pd.DataFrame, Path]:
     df["panel_id"] = df.get("panel_id").astype(str)
     df = df.dropna(subset=["date", "panel_id"]).copy()
 
-    risk_path = out_dir / "scores_with_risk_ens.csv"
+    risk_path = out_dir / "panel_day_risk_ensemble.csv"
     if risk_path.is_file():
         rk = pd.read_csv(risk_path, low_memory=False, encoding="utf-8-sig")
         rk["date"] = pd.to_datetime(rk.get("date"), errors="coerce").dt.normalize()
@@ -84,7 +84,7 @@ def main() -> None:
     df, out_dir = load_data(args.site)
     g = df[df["panel_id"].astype(str) == str(args.panel)].copy().sort_values("date")
     if g.empty:
-        raise ValueError(f"panel not found in ae_simple_scores.csv: {args.panel}")
+        raise ValueError(f"panel not found in panel_day_core.csv: {args.panel}")
 
     dead_start_date = first_true_date(g, "state_dead_eff")
 
