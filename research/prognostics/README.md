@@ -12,10 +12,10 @@
 
 실행 예시:
 1) risk score 생성:
-   python research/prognostics/risk_score.py --in ae_simple_scores.csv --out scores_with_risk.csv
+   python research/prognostics/risk_score.py --in panel_day_core.csv --out panel_day_risk.csv
 
 2) 라벨 생성(이벤트 파일 있으면 더 정확):
-   python research/prognostics/make_labels.py --in scores_with_risk.csv --out ds_h7.csv --horizon 7 --events fault_events.csv
+   python research/prognostics/make_labels.py --in panel_day_risk.csv --out ds_h7.csv --horizon 7 --events fault_events.csv
 
 3) hazard 학습:
    python research/prognostics/train_hazard.py --in ds_h7.csv --horizon 7

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 run_dayae_site.py
-- pv_ae/pv_autoencoder_dayAE.py 를 site 기반으로 실행해서 ae_simple_scores.csv를 만들기 위한 래퍼
+- pv_ae/pv_autoencoder_dayAE.py 를 site 기반으로 실행해서 panel_day_core.csv를 만들기 위한 래퍼
 - 핵심: --help를 파싱해 "실제로 존재하는 옵션만" 넘겨서 호환 이슈를 줄임
 """
 
@@ -127,9 +127,9 @@ def main():
         raise SystemExit(p.returncode)
 
     # expected output
-    out_scores = Path("data") / site / "out" / "ae_simple_scores.csv"
+    out_scores = Path("data") / site / "out" / "panel_day_core.csv"
     if out_scores.exists():
-        print(f"[OK] ae_simple_scores created: {out_scores}")
+        print(f"[OK] panel_day_core created: {out_scores}")
     else:
         print(f"[WARN] run finished but {out_scores} not found. Check script output for actual out path.")
 

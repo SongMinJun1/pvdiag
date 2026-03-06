@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 make_loss_labels.py
-- Input: scores_with_risk.csv (panel×day)
+- Input: panel_day_risk.csv (panel×day)
 - Output: adds future_loss_H (continuous) and highloss_q (binary optional)
 """
 
