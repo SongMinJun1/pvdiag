@@ -16,7 +16,7 @@ def _to_dt_norm(s):
 
 def parse_args():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--scores", required=True, help="scores_with_risk_loss14d.csv (or scores_with_risk.csv)")
+    ap.add_argument("--scores", required=True, help="panel_day_risk_loss14d.csv (or panel_day_risk.csv)")
     ap.add_argument("--events", required=True, help="fault_events_auto.csv")
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--pre", type=int, default=120)

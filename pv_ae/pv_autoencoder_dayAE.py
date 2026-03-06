@@ -2571,7 +2571,7 @@ def main():
     panel_diag["dead_days"] = dead_days_thr
     panel_diag["critical_days"] = critical_days_thr
     panel_diag["tuning_level"] = tuning_level
-    panel_diag_path = out_dir / "ae_simple_panel_diagnosis.csv"
+    panel_diag_path = out_dir / "panel_diagnosis_summary.csv"
     panel_diag.to_csv(panel_diag_path, index=False, encoding="utf-8-sig")
     print(f"[OK] wrote output: {panel_diag_path} (n={len(panel_diag)})")
 
@@ -3145,7 +3145,7 @@ def main():
     except Exception as e:
         print("[WARN] failed to write panel alarm summary:", e)
 
-    out_path = out_dir / "ae_simple_scores.csv"
+    out_path = out_dir / "panel_day_core.csv"
     out.to_csv(
         out_path,
         index=False,

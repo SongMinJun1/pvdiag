@@ -394,7 +394,7 @@ def evaluate(args: argparse.Namespace) -> tuple[Path, Path]:
 
 def build_argparser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="Evaluate pvfault16d external labels against pvdiag scores.")
-    ap.add_argument("--scores", default="data/pvfault16d/out/ae_simple_scores.csv", help="Scores csv path")
+    ap.add_argument("--scores", default="data/pvfault16d/out/panel_day_core.csv", help="Scores csv path")
     ap.add_argument("--labels", default="", help="Deprecated/optional; ignored (kept for CLI compatibility).")
     ap.add_argument("--converted", default="data/pvfault16d/converted.csv", help="Converted raw csv path")
     ap.add_argument("--out", default="data/pvfault16d/out/EXTERNAL_PVFAULT_ONEPAGE.md", help="Output onepage md path")

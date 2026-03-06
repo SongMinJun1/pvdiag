@@ -46,7 +46,7 @@ def to_bool(s: pd.Series) -> pd.Series:
 
 
 def load_scores(out_dir: Path) -> pd.DataFrame:
-    ae_path = out_dir / "ae_simple_scores.csv"
+    ae_path = out_dir / "panel_day_core.csv"
     if not ae_path.is_file():
         raise FileNotFoundError(f"missing: {ae_path}")
     ae = pd.read_csv(ae_path, low_memory=False, encoding="utf-8-sig")
@@ -54,7 +54,7 @@ def load_scores(out_dir: Path) -> pd.DataFrame:
     ae["panel_id"] = ae.get("panel_id").astype(str)
     ae = ae.dropna(subset=["date", "panel_id"]).copy()
 
-    risk_path = out_dir / "scores_with_risk_ens.csv"
+    risk_path = out_dir / "panel_day_risk_ensemble.csv"
     if risk_path.is_file():
         rk = pd.read_csv(risk_path, low_memory=False, encoding="utf-8-sig")
         rk["date"] = pd.to_datetime(rk.get("date"), errors="coerce").dt.normalize()
@@ -269,7 +269,7 @@ def main() -> None:
     lines.append("")
     lines.append("| term | meaning |")
     lines.append("|---|---|")
-    lines.append("| first_obs_date | `ae_simple_scores`에서 해당 panel의 첫 관측 날짜 |")
+    lines.append("| first_obs_date | `panel_day_core`에서 해당 panel의 첫 관측 날짜 |")
     lines.append("| dead_start_date | `state_dead_eff`가 처음 True가 된 날짜 |")
     lines.append("| diagnosis_date_online | 온라인 진단 컬럼(dead/critical 누적 기준)으로 계산된 최초 진단일 |")
     lines.append("| final_fault_first_date | `final_fault` 세그먼트 라벨의 시작일(백필 시작) |")
