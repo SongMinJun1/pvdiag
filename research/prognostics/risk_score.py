@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 risk_score.py
-- Input: ae_simple_scores.csv (panel×day)
+- Input: panel_day_core.csv (panel×day)
 - Output: adds risk_day + rolling risk + change-point score(cp_score)
 """
 
@@ -220,7 +220,7 @@ def cusum_cp_scores(
 
 def parse_args():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--in", dest="inp", required=True, help="Input scores CSV (ae_simple_scores.csv)")
+    ap.add_argument("--in", dest="inp", required=True, help="Input scores CSV (panel_day_core.csv)")
     ap.add_argument("--out", dest="out", required=True, help="Output CSV with risk/cp columns")
     ap.add_argument("--weights-json", default=None,
                     help='Override risk weights JSON, e.g. \'{"level_drop":0.4,"ae_rank":0.1}\'')

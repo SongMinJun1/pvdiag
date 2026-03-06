@@ -9,7 +9,7 @@ Reproducible post-processing orchestrator:
   3) add_ensemble_rankers.py
 
 Single source input:
-  - data/<site>/out/ae_simple_scores.csv (via --site)
+  - data/<site>/out/panel_day_core.csv (via --site)
   - or explicit --scores-path + --out-dir
 """
 
@@ -38,8 +38,8 @@ def parse_args() -> argparse.Namespace:
         description="Run risk -> transition -> ensemble post-processing with fixed output names."
     )
 
-    ap.add_argument("--site", default=None, help="Site key (uses data/<site>/out/ae_simple_scores.csv)")
-    ap.add_argument("--scores-path", default=None, help="Explicit ae_simple_scores.csv path")
+    ap.add_argument("--site", default=None, help="Site key (uses data/<site>/out/panel_day_core.csv)")
+    ap.add_argument("--scores-path", default=None, help="Explicit panel_day_core.csv path")
     ap.add_argument("--out-dir", default=None, help="Output directory (required with --scores-path)")
 
     # risk_score.py options
@@ -84,7 +84,7 @@ def parse_args() -> argparse.Namespace:
 def _resolve_paths(args: argparse.Namespace) -> tuple[Path, Path]:
     if args.site is not None:
         out_dir = (Path("data") / str(args.site).strip() / "out").resolve()
-        scores_path = (out_dir / "ae_simple_scores.csv").resolve()
+        scores_path = (out_dir / "panel_day_core.csv").resolve()
         return scores_path, out_dir
 
     scores_path = Path(args.scores_path).expanduser().resolve()
@@ -140,9 +140,9 @@ def main() -> None:
     if not scores_path.is_file():
         raise FileNotFoundError(f"Input scores file not found: {scores_path}")
 
-    risk_out = out_dir / "scores_with_risk.csv"
-    trans_out = out_dir / "scores_with_risk_transition.csv"
-    ens_out = out_dir / "scores_with_risk_ens.csv"
+    risk_out = out_dir / "panel_day_risk.csv"
+    trans_out = out_dir / "panel_day_risk_transition.csv"
+    ens_out = out_dir / "panel_day_risk_ensemble.csv"
 
     print(f"[INFO] input scores: {scores_path}")
     print(f"[INFO] output dir: {out_dir}")
@@ -198,7 +198,7 @@ def main() -> None:
     _run_step(ens_cmd, ens_out, ENS_REQUIRED_COLS)
 
     for alpha_s in _parse_alpha_grid(args.ens_cp_grid):
-        ens_grid_out = out_dir / f"scores_with_risk_ens_a{_alpha_tag(alpha_s)}.csv"
+        ens_grid_out = out_dir / f"panel_day_risk_ensemble_a{_alpha_tag(alpha_s)}.csv"
         ens_grid_cmd = [
             sys.executable,
             str(script_dir / "add_ensemble_rankers.py"),

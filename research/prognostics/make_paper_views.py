@@ -31,9 +31,9 @@ def main():
         scores_path = Path(args.scores)
     else:
         cand = [
-            Path(f"data/{site}/out/scores_with_risk_transition.csv"),
-            Path(f"data/{site}/out/scores_with_risk.csv"),
-            Path(f"data/{site}/out/ae_simple_scores.csv"),
+            Path(f"data/{site}/out/panel_day_risk_transition.csv"),
+            Path(f"data/{site}/out/panel_day_risk.csv"),
+            Path(f"data/{site}/out/panel_day_core.csv"),
         ]
         scores_path = next((p for p in cand if p.exists()), None)
         if scores_path is None:

@@ -71,7 +71,7 @@ def resolve_paths(args: argparse.Namespace) -> tuple[Path, Path]:
     scores_path = (
         Path(args.scores_path).expanduser().resolve()
         if args.scores_path
-        else (out_dir / "scores_with_risk_ens.csv").resolve()
+        else (out_dir / "panel_day_risk_ensemble.csv").resolve()
     )
     return scores_path, out_dir
 
