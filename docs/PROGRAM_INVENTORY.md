@@ -33,15 +33,12 @@
 
 | 파일 | 역할 추정 | 연결 상태 |
 |---|---|---|
-| `research/prognostics/topk_workload.py` | Top-K 집중도/분산 관련 평가 실험 | 현재 기준 활성 체인 직접 참조 흔적 없음 |
 | `research/prognostics/topk_workload2.py` | Top-K 평가 변형/후속 실험 | 현재 기준 활성 체인 직접 참조 흔적 없음 |
 | `research/prognostics/eval_topk.py` | generic Top-K 평가 스크립트 | 현재 기준 활성 체인 직접 참조 흔적 없음 |
 | `research/prognostics/eval_fault_topk_leadtime.py` | fault onset 기준 rank leadtime 평가 | 현재 기준 활성 체인 직접 참조 흔적 없음 |
 | `research/prognostics/compare_rankers.py` | ranker 비교 실험 | `make_loss_labels.py` 산출(`highloss_q`) 의존 흔적 있음 |
 | `research/prognostics/make_loss_labels.py` | future loss / highloss label 생성 | `compare_rankers.py`가 선행 실행 요구 |
-| `research/prognostics/make_fault_case_plots.py` | fault 이벤트 기반 case CSV/PNG 생성 | 현재 기준 활성 체인 직접 참조 흔적 없음 |
 | `research/prognostics/plot_fault_cases_v2.py` | fault case plot v2 생성 | `run_paper_pack.sh`에서 직접 호출 |
-| `pv_ae/scan_baseline.py` | baseline scan/실험 보조 스크립트 | 현재 기준 활성 체인 직접 참조 흔적 없음 |
 
 ## 4. immediate keep list
 
@@ -68,7 +65,16 @@
 | `research/prognostics/make_loss_labels.py` | loss label 정의와 downstream 실험 연결이 맞는지 재검토 필요 |
 | `research/prognostics/plot_fault_cases_v2.py` | `run_paper_pack.sh`에서 직접 호출되므로 실제 입력/출력 계약 확인 필요 |
 | `research/prognostics/eval_fault_topk_leadtime.py` | 활성 체인 직접 참조는 없지만 평가 정의가 현재 문서 SSOT와 맞는지 확인 필요 |
-| `pv_ae/scan_baseline.py` | baseline scan의 역할이 core와 분리된 실험 코드인지 확인 필요 |
+
+## 6. archive
+
+이번 1차 정리에서 archive로 이동한 파일들이다.
+
+| 현재 위치 | 이전 위치 | 이동 사유 |
+|---|---|---|
+| `research/archive/prognostics/topk_workload.py` | `research/prognostics/topk_workload.py` | `topk_workload2.py` 대비 단순 버전, 활성 체인 직접 참조 없음 |
+| `research/archive/prognostics/make_fault_case_plots.py` | `research/prognostics/make_fault_case_plots.py` | `plot_fault_cases_v2.py`와 기능 중복, active caller 없음 |
+| `pv_ae/archive/scan_baseline.py` | `pv_ae/scan_baseline.py` | baseline 실험 보조 스크립트, 활성 체인 직접 참조 없음 |
 
 ## 연결 메모
 
