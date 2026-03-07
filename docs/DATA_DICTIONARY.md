@@ -20,11 +20,23 @@
 | `diagnosis_date_online` | 온라인 최초 확정일 | `engine` | `min(dead_diag_date, critical_diag_date)` |
 | `retrospective_segment_label` | 구간 전체 사후 마킹 라벨 | `engine` | `confirmed_fault`, `critical_fault`, `final_fault` |
 
+관계 요약:
+- `onset_date`는 평가 기준점이며, 엔진이 생성하는 기본 출력이 아니다.
+- `diagnosis_date_online`은 온라인 규칙이 처음 충족된 날짜다.
+- `retrospective labels`는 사후적으로 구간 전체를 채우는 라벨이며, 최초 진단 시점과 동일하지 않을 수 있다.
+- 따라서 발표/논문에서는 `onset_date`, `diagnosis_date_online`, `confirmed_fault/final_fault`를 서로 다른 층위로 구분해 써야 한다.
+
 ## 3) confirmed_fault / final_fault 해석
 | 컬럼 | 정의 | provenance | 해석 주의 |
 |---|---|---|---|
 | `confirmed_fault` | dead 규칙 기반 확정 라벨 | `engine` | 구간 전체가 마킹될 수 있으며 최초 진단 시점과 동일하지 않을 수 있음 |
 | `final_fault` | 최종 확정 라벨 | `engine` | online 최초 확정일은 `diagnosis_date_online`으로 별도 관리 |
+
+해석 규칙:
+- `confirmed_fault=True`가 곧 그 날 처음 진단되었다는 뜻은 아니다.
+- 최초 dead 확정 시점은 `dead_diag_date`로 본다.
+- 최종 온라인 확정 시점은 `diagnosis_date_online`으로 본다.
+- `final_fault`는 보고/세그먼트 마킹용 최종 상태이며, retrospective 성격이 섞일 수 있다.
 
 ## 4) critical 계층 raw / effective / decision
 | 계층 | 컬럼 | 정의 | provenance |
@@ -42,6 +54,11 @@
 | `ae_rank`, `recon_rank_day` | 동일 날짜 내 AE 상대 순위 | `engine`/`postproc` | panel-only strict online 아님 |
 | `dtw_rank_day`, `hs_rank_day` | 동일 날짜 내 DTW/HS 상대 순위 | `engine` | 횡단면 비교 |
 | `transition_rank_day`, `transition_cp_rank_day` | 동일 날짜 내 전이 상대 순위 | `postproc` | 시간 누수는 아니나 횡단면 의존 |
+
+운영/평가 해석:
+- `rank_day` 계열은 미래 날짜를 보지 않는다는 뜻이지, 패널 단독 시계열만 쓴다는 뜻은 아니다.
+- 같은 날짜 다른 패널과의 비교가 포함되므로 "횡단면 비교 순위"라고 적는 것이 안전하다.
+- `risk_day`, `transition_rank_day`, `transition_cp_rank_day`, `ae_rank`는 진단 라벨이 아니라 우선순위 비교용 점수/순위다.
 
 ## 6) 운영 출력 vs 평가 지표 구분
 - 운영 출력(Top-N shortlist): `risk_day`, `transition_rank_day`, `transition_cp_rank_day`, `ae_rank`
