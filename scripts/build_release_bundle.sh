@@ -11,6 +11,9 @@ mkdir -p $OUT/pv_ae
 mkdir -p $OUT/research/prognostics
 mkdir -p $OUT/docs
 
+cp $ROOT/README.md $OUT/
+cp $ROOT/requirements.txt $OUT/
+
 cp $ROOT/pv_ae/pv_autoencoder_dayAE.py $OUT/pv_ae/
 
 cp $ROOT/research/prognostics/risk_score.py $OUT/research/prognostics/
