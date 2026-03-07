@@ -12,6 +12,8 @@
 
 아래 파일은 현재 기준 release bundle 포함 대상이다.
 
+- `README.md`
+- `requirements.txt`
 - `pv_ae/pv_autoencoder_dayAE.py`
 - `research/prognostics/risk_score.py`
 - `research/prognostics/add_transition_rankers.py`
@@ -27,6 +29,7 @@
 - `docs/DATA_DICTIONARY.md`
 - `docs/score_definition.md`
 - `docs/RELEASE_BOUNDARY.md`
+- `docs/RELEASE_MANIFEST.md`
 
 ## 3. keep in repo but exclude from release bundle
 
@@ -76,7 +79,9 @@
    - 예: `python research/prognostics/run_dayae_site.py --site kernelog1`
 2. post-processing
    - `python research/prognostics/run_scores_pipeline.py --site kernelog1`
-3. optional eval scripts
+3. optional site eval
    - `python research/prognostics/weaklabel_eval_2sigma.py --site kernelog1`
    - `python research/prognostics/fault_case_study.py --site kernelog1 --case "<panel_id>:<onset_date>"`
+4. optional external benchmark
+   - `python research/prognostics/ingest_gpvs_faults.py`
    - `python research/prognostics/external_eval_gpvs.py`
