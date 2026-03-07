@@ -41,3 +41,5 @@ __pycache__/
 
 # external datasets (local only)
 external_data/
+
+_release_tmp/
