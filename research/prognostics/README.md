@@ -1,21 +1,31 @@
-# Prognostics (Risk / Hazard)
+# Prognostics Execution
 
-목표:
-- scores.csv(panel×day)에서 risk score를 만들고,
-- fault onset을 기준으로 horizon label을 만들고,
-- P(fail within H days)를 출력하는 hazard 모델을 학습/평가한다.
+이 디렉터리의 현재 역할은 `pv_autoencoder_dayAE.py`가 만든 core 출력에 risk, transition, ensemble 후처리를 연결하는 실행 진입 문서를 제공하는 것이다.
 
-파일:
-- risk_score.py: risk_day/risk_7d/risk_30d/ews_score 생성
-- make_labels.py: onset 기반 horizon label 생성(H=7/14/30)
-- train_hazard.py: 로지스틱 기반 discrete-time hazard 학습/평가(필요시 sklearn)
+## 실행 순서
 
-실행 예시:
-1) risk score 생성:
-   python research/prognostics/risk_score.py --in panel_day_core.csv --out panel_day_risk.csv
+1. core engine 실행
+   - 예: `python research/prognostics/run_dayae_site.py --site kernelog1`
+   - 또는 `pv_ae/pv_autoencoder_dayAE.py`를 직접 실행
+2. post-processing 실행
+   - `python research/prognostics/run_scores_pipeline.py --site kernelog1`
 
-2) 라벨 생성(이벤트 파일 있으면 더 정확):
-   python research/prognostics/make_labels.py --in panel_day_risk.csv --out ds_h7.csv --horizon 7 --events fault_events.csv
+## 공식 출력 파일
 
-3) hazard 학습:
-   python research/prognostics/train_hazard.py --in ds_h7.csv --horizon 7
+- `panel_day_core.csv`
+- `panel_diagnosis_summary.csv`
+- `panel_day_risk.csv`
+- `panel_day_risk_transition.csv`
+- `panel_day_risk_ensemble.csv`
+
+## 출력 생성 순서
+
+1. core engine
+   - `panel_day_core.csv`
+   - `panel_diagnosis_summary.csv`
+2. risk postproc
+   - `panel_day_risk.csv`
+3. transition postproc
+   - `panel_day_risk_transition.csv`
+4. ensemble postproc
+   - `panel_day_risk_ensemble.csv`
