@@ -5,13 +5,13 @@
 
 ## Review Table
 
-### 1) `research/prognostics/topk_workload.py`
+### 1) `research/archive/prognostics/topk_workload.py`
 - 현재 역할 한 줄 요약: 단일 ranker 기준 날짜별 Top-K 패널 빈도를 집계하는 가장 단순한 workload 스크립트.
 - 실제 입력 파일: `--scores`로 주는 panel-day score CSV, `--ranker` 컬럼.
 - 실제 출력 파일: `--out` CSV (`panel_id`, `days_in_topk`, `share_days`).
 - 직접 호출하는 파일 또는 호출되는 위치: 현재 소스 트리에서 직접 호출 흔적 없음.
-- 현재 체인에서의 필요도: `archive candidate`
-- 판정 이유: 기능이 매우 단순하고 `topk_workload2.py`가 exclusion 옵션까지 포함한 상위 호환에 가깝다. 현재 활성 체인에서 직접 참조도 없다.
+- 현재 체인에서의 필요도: `archived`
+- 판정 이유: 기능이 매우 단순하고 `topk_workload2.py`가 exclusion 옵션까지 포함한 상위 호환에 가깝다. 현재 활성 체인에서 직접 참조도 없어 1차 정리에서 archive로 이동했다.
 - 즉시 삭제하면 안 되는 파일: `아니오`
 
 ### 2) `research/prognostics/topk_workload2.py`
@@ -59,13 +59,13 @@
 - 판정 이유: 메인 운영 체인은 아니지만 loss-based 평가 실험의 라벨 SSOT 역할을 한다. downstream 실험이 실제로 의존하므로 archive/remove로 바로 보내면 안 된다.
 - 즉시 삭제하면 안 되는 파일: `예`
 
-### 7) `research/prognostics/make_fault_case_plots.py`
+### 7) `research/archive/prognostics/make_fault_case_plots.py`
 - 현재 역할 한 줄 요약: fault event CSV를 기준으로 패널별 타임라인 CSV/PNG를 생성하는 단순 case plotter.
 - 실제 입력 파일: `--scores` CSV, `--events` fault event CSV.
 - 실제 출력 파일: `case_<panel>.csv`, `case_<panel>.png` in `--out-dir`.
 - 직접 호출하는 파일 또는 호출되는 위치: 현재 소스 트리에서 직접 호출 흔적 없음.
-- 현재 체인에서의 필요도: `archive candidate`
-- 판정 이유: `plot_fault_cases_v2.py`가 더 명시적인 score set과 onset/diagnosis 선 표시를 포함해 paper pack 쪽에서 실제로 사용된다. 이 파일은 기능이 겹치고 직접 호출 흔적도 없다.
+- 현재 체인에서의 필요도: `archived`
+- 판정 이유: `plot_fault_cases_v2.py`가 더 명시적인 score set과 onset/diagnosis 선 표시를 포함해 paper pack 쪽에서 실제로 사용된다. 이 파일은 기능이 겹치고 직접 호출 흔적도 없어 1차 정리에서 archive로 이동했다.
 - 즉시 삭제하면 안 되는 파일: `아니오`
 
 ### 8) `research/prognostics/plot_fault_cases_v2.py`
@@ -77,13 +77,13 @@
 - 판정 이유: review 대상 중 유일하게 현재 지원 체인(shell)에서 직접 호출되는 case plotter다. 실제 보고 체인과 연결된 파일이라 즉시 삭제 대상이 아니다.
 - 즉시 삭제하면 안 되는 파일: `예`
 
-### 9) `pv_ae/scan_baseline.py`
+### 9) `pv_ae/archive/scan_baseline.py`
 - 현재 역할 한 줄 요약: 날짜 범위 raw CSV를 스캔하며 baseline 적합도를 요약하는 엔진 인접 실험 스크립트.
 - 실제 입력 파일: `--dir` raw CSV 디렉터리, `--pattern`, `--start`, `--end`.
 - 실제 출력 파일: `<data_dir>/baseline_scan_daily.csv`.
 - 직접 호출하는 파일 또는 호출되는 위치: 현재 소스 트리에서 직접 호출 흔적 없음. 내부적으로 `pv_autoencoder_dayAE.compute_event_features`를 import한다.
-- 현재 체인에서의 필요도: `archive candidate`
-- 판정 이유: core 엔진 함수를 재사용하지만 현재 실행 체인에 직접 묶여 있지는 않다. baseline 진단 실험의 흔적으로 보이며, 역할을 재정의하지 않으면 main tree에서 우선순위가 낮다.
+- 현재 체인에서의 필요도: `archived`
+- 판정 이유: core 엔진 함수를 재사용하지만 현재 실행 체인에 직접 묶여 있지는 않다. baseline 진단 실험의 흔적으로 보여 1차 정리에서 archive로 이동했다.
 - 즉시 삭제하면 안 되는 파일: `아니오`
 
 ## Difference Notes
@@ -115,10 +115,10 @@
 - `research/prognostics/compare_rankers.py`
 - `research/prognostics/make_loss_labels.py`
 
-### archive candidate
-- `research/prognostics/topk_workload.py`
-- `research/prognostics/make_fault_case_plots.py`
-- `pv_ae/scan_baseline.py`
+### archived
+- `research/archive/prognostics/topk_workload.py`
+- `research/archive/prognostics/make_fault_case_plots.py`
+- `pv_ae/archive/scan_baseline.py`
 
 ### remove candidate
 - 없음. 현재 기준으로는 중복/비활성 흔적은 있어도 즉시 삭제까지 확정할 증거는 부족하다.
