@@ -45,5 +45,5 @@
 
 ## 4) 문서 역할 구분
 - `docs/DATA_DICTIONARY.md`: canonical 정의 문서
-- `docs/WHAT_TO_LOOK_AT.md`: 내부 빠른 확인 가이드
+- `docs/internal/WHAT_TO_LOOK_AT.md`: 내부 빠른 확인 가이드
 - `docs/reports/kernelog1_onepager.md`: kernelog1 결과 요약 보고서

@@ -46,5 +46,5 @@
 - `ls -lh data/kernelog1/out/FIG_case_c42997a6-5881-47e7-9035-7de8a2673b54.1.1.png data/kernelog1/out/FIG_case_7f7dd654-2760-4eb2-a197-3ebb72b85cda.2.0.png`
 
 ## 6) 산출물
-- 본 체크리스트 저장 위치: `docs/refactor_commit_A1_checklist.md`
+- 본 체크리스트 저장 위치: `docs/internal/refactor_commit_A1_checklist.md`
 - 본 문서는 계획 전용이며, 코드 변경/커밋을 포함하지 않는다.
