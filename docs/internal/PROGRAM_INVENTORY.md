@@ -28,14 +28,14 @@
 | `research/prognostics/build_full_package.sh` | 결과 번들/패키지 생성 | 지원 도구 |
 | `research/prognostics/run_paper_pack.sh` | paper pack 생성 진입점 | 지원 도구, `plot_fault_cases_v2.py` 호출 |
 | `research/prognostics/README.md` | prognostics 사용 문서 | 지원 문서 |
+| `research/support/prognostics/topk_workload2.py` | Top-K 평가 변형/후속 실험 | support로 이동 완료 |
+| `research/support/prognostics/eval_topk.py` | generic Top-K 평가 스크립트 | support로 이동 완료 |
+| `research/support/prognostics/eval_fault_topk_leadtime.py` | fault onset 기준 rank leadtime 평가 | support로 이동 완료 |
 
 ## 3. review candidates
 
 | 파일 | 역할 추정 | 연결 상태 |
 |---|---|---|
-| `research/prognostics/topk_workload2.py` | Top-K 평가 변형/후속 실험 | 현재 기준 활성 체인 직접 참조 흔적 없음 |
-| `research/prognostics/eval_topk.py` | generic Top-K 평가 스크립트 | 현재 기준 활성 체인 직접 참조 흔적 없음 |
-| `research/prognostics/eval_fault_topk_leadtime.py` | fault onset 기준 rank leadtime 평가 | 현재 기준 활성 체인 직접 참조 흔적 없음 |
 | `research/prognostics/compare_rankers.py` | ranker 비교 실험 | `make_loss_labels.py` 산출(`highloss_q`) 의존 흔적 있음 |
 | `research/prognostics/make_loss_labels.py` | future loss / highloss label 생성 | `compare_rankers.py`가 선행 실행 요구 |
 | `research/prognostics/plot_fault_cases_v2.py` | fault case plot v2 생성 | `run_paper_pack.sh`에서 직접 호출 |
@@ -64,7 +64,7 @@
 | `research/prognostics/compare_rankers.py` | `make_loss_labels.py` 의존이 명시돼 있어 실험 체인 재현성 점검 필요 |
 | `research/prognostics/make_loss_labels.py` | loss label 정의와 downstream 실험 연결이 맞는지 재검토 필요 |
 | `research/prognostics/plot_fault_cases_v2.py` | `run_paper_pack.sh`에서 직접 호출되므로 실제 입력/출력 계약 확인 필요 |
-| `research/prognostics/eval_fault_topk_leadtime.py` | 활성 체인 직접 참조는 없지만 평가 정의가 현재 문서 SSOT와 맞는지 확인 필요 |
+| `research/prognostics/compare_rankers.py` | loss label 산출물 의존과 실행 예시 경로를 함께 점검해야 함 |
 
 ## 6. archive
 
