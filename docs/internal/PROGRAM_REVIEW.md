@@ -14,31 +14,31 @@
 - 판정 이유: 기능이 매우 단순하고 `topk_workload2.py`가 exclusion 옵션까지 포함한 상위 호환에 가깝다. 현재 활성 체인에서 직접 참조도 없어 1차 정리에서 archive로 이동했다.
 - 즉시 삭제하면 안 되는 파일: `아니오`
 
-### 2) `research/prognostics/topk_workload2.py`
+### 2) `research/support/prognostics/topk_workload2.py`
 - 현재 역할 한 줄 요약: `topk_workload.py`의 확장판으로 exclusion 조건을 추가한 Top-K 빈도 집계 스크립트.
 - 실제 입력 파일: `--scores` CSV, `--ranker` 컬럼, 선택적 `--exclude-col`.
 - 실제 출력 파일: `--out` CSV (`panel_id`, `days_in_topk`, `share_days`).
 - 직접 호출하는 파일 또는 호출되는 위치: 현재 소스 트리에서 직접 호출 흔적 없음.
-- 현재 체인에서의 필요도: `support`
-- 판정 이유: `topk_workload.py`보다 기능이 명확히 많고, confirmed/final 패널 제외 같은 분석 옵션을 가진다. 활성 체인 직접 참조는 없지만 실험 보조용으로는 유지 가치가 있다.
+- 현재 체인에서의 필요도: `moved to support`
+- 판정 이유: `topk_workload.py`보다 기능이 명확히 많고, confirmed/final 패널 제외 같은 분석 옵션을 가진다. 활성 체인 직접 참조는 없어 `research/support/prognostics/`로 이동해도 runtime 영향이 없었다.
 - 즉시 삭제하면 안 되는 파일: `아니오`
 
-### 3) `research/prognostics/eval_topk.py`
+### 3) `research/support/prognostics/eval_topk.py`
 - 현재 역할 한 줄 요약: 미래 손실 라벨(`future_loss_Hd`, `highloss_q`) 기준으로 Top-K capture/precision/workload를 평가하는 loss-based evaluator.
 - 실제 입력 파일: `--in`으로 주는 loss label 포함 score CSV.
 - 실제 출력 파일: `topk_daily_h{H}_k{K}.csv`, `topk_report_h{H}_k{K}.json`, 선택적 `leadtime_case_study.csv`.
 - 직접 호출하는 파일 또는 호출되는 위치: 현재 소스 트리에서 직접 호출 흔적 없음.
-- 현재 체인에서의 필요도: `support`
-- 판정 이유: fault onset 기반이 아니라 future-loss 기반 평가를 담당하므로 `eval_fault_topk_leadtime.py`와 역할이 다르다. 직접 활성 체인에 묶여 있지는 않지만 실험 체인 평가기로는 유효하다.
+- 현재 체인에서의 필요도: `moved to support`
+- 판정 이유: fault onset 기반이 아니라 future-loss 기반 평가를 담당하므로 `eval_fault_topk_leadtime.py`와 역할이 다르다. 직접 활성 체인에 묶여 있지 않아 support 위치로 이동했다.
 - 즉시 삭제하면 안 되는 파일: `아니오`
 
-### 4) `research/prognostics/eval_fault_topk_leadtime.py`
+### 4) `research/support/prognostics/eval_fault_topk_leadtime.py`
 - 현재 역할 한 줄 요약: fault event onset 기준으로 pre-window 안에서 ranker의 최초 Top-K 진입일과 leadtime을 계산하는 fault-based evaluator.
 - 실제 입력 파일: `--scores` CSV, `--events` fault event CSV.
 - 실제 출력 파일: `--out` CSV (`panel_id`, `ranker`, `k`, `first_topk_date`, `lead_days_topk` 등).
 - 직접 호출하는 파일 또는 호출되는 위치: 현재 소스 트리에서 직접 호출 흔적 없음.
-- 현재 체인에서의 필요도: `support`
-- 판정 이유: `eval_topk.py`와 달리 미래 손실이 아니라 실제 fault onset을 기준으로 리드타임을 계산한다. 정의가 다르기 때문에 중복 삭제 대상은 아니다.
+- 현재 체인에서의 필요도: `moved to support`
+- 판정 이유: `eval_topk.py`와 달리 미래 손실이 아니라 실제 fault onset을 기준으로 리드타임을 계산한다. runtime caller가 없어 support 위치로 이동해도 안전했다.
 - 즉시 삭제하면 안 되는 파일: `아니오`
 
 ### 5) `research/prognostics/compare_rankers.py`
@@ -108,10 +108,12 @@
 ### keep
 - `research/prognostics/plot_fault_cases_v2.py`
 
+### moved to support
+- `research/support/prognostics/topk_workload2.py`
+- `research/support/prognostics/eval_topk.py`
+- `research/support/prognostics/eval_fault_topk_leadtime.py`
+
 ### support
-- `research/prognostics/topk_workload2.py`
-- `research/prognostics/eval_topk.py`
-- `research/prognostics/eval_fault_topk_leadtime.py`
 - `research/prognostics/compare_rankers.py`
 - `research/prognostics/make_loss_labels.py`
 
