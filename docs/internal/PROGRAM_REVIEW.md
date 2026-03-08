@@ -41,22 +41,22 @@
 - 판정 이유: `eval_topk.py`와 달리 미래 손실이 아니라 실제 fault onset을 기준으로 리드타임을 계산한다. runtime caller가 없어 support 위치로 이동해도 안전했다.
 - 즉시 삭제하면 안 되는 파일: `아니오`
 
-### 5) `research/prognostics/compare_rankers.py`
+### 5) `research/support/prognostics/compare_rankers.py`
 - 현재 역할 한 줄 요약: 동일한 future loss 라벨 위에서 여러 ranking 컬럼의 capture/precision/lift를 비교하는 실험 스크립트.
 - 실제 입력 파일: `--in` scores+loss CSV (`future_loss_Hd`, 선택적 `highloss_q` 포함), `--cols` ranker 목록.
 - 실제 출력 파일: `--out` CSV (`rank_col`, `k`, `mean_capture_rate`, `mean_precision_at_k`, `lift_vs_base` 등).
-- 직접 호출하는 파일 또는 호출되는 위치: `make_loss_labels.py` 산출(`highloss_q`, `future_loss_Hd`)에 직접 의존. 코드 내부에 `Re-run make_loss_labels.py first.` 문구가 있다.
-- 현재 체인에서의 필요도: `support`
-- 판정 이유: 활성 메인 체인에는 직접 묶여 있지 않지만, ranker 비교 실험의 중심 파일이다. `make_loss_labels.py`와 짝을 이루므로 실험 체인 보존 가치가 있다.
+- 직접 호출하는 파일 또는 호출되는 위치: `research/support/prognostics/make_loss_labels.py` 산출(`highloss_q`, `future_loss_Hd`)에 직접 의존. 코드 내부에 `Re-run make_loss_labels.py first.` 문구가 있다.
+- 현재 체인에서의 필요도: `moved to support`
+- 판정 이유: 활성 메인 체인에는 직접 묶여 있지 않지만, ranker 비교 실험의 중심 파일이다. linked support pair로 함께 `research/support/prognostics/`로 이동했다.
 - 즉시 삭제하면 안 되는 파일: `예`
 
-### 6) `research/prognostics/make_loss_labels.py`
+### 6) `research/support/prognostics/make_loss_labels.py`
 - 현재 역할 한 줄 요약: panel-day risk CSV에 future loss 연속값과 `highloss_q` 이진 라벨을 추가하는 라벨 생성기.
 - 실제 입력 파일: `--in` panel-day score CSV, 기본적으로 `panel_day_risk.csv` 계열.
 - 실제 출력 파일: `--out` CSV (입력 컬럼 + `daily_loss`, `future_loss_{H}d`, `highloss_thr`, `highloss_q`).
-- 직접 호출하는 파일 또는 호출되는 위치: `compare_rankers.py`가 `highloss_q`가 없으면 재실행을 요구한다.
-- 현재 체인에서의 필요도: `support`
-- 판정 이유: 메인 운영 체인은 아니지만 loss-based 평가 실험의 라벨 SSOT 역할을 한다. downstream 실험이 실제로 의존하므로 archive/remove로 바로 보내면 안 된다.
+- 직접 호출하는 파일 또는 호출되는 위치: `research/support/prognostics/compare_rankers.py`가 `highloss_q`가 없으면 재실행을 요구한다.
+- 현재 체인에서의 필요도: `moved to support`
+- 판정 이유: 메인 운영 체인은 아니지만 loss-based 평가 실험의 라벨 SSOT 역할을 한다. linked support pair로 함께 `research/support/prognostics/`로 이동했다.
 - 즉시 삭제하면 안 되는 파일: `예`
 
 ### 7) `research/archive/prognostics/make_fault_case_plots.py`
@@ -101,7 +101,7 @@
 ## Direct Link Checks
 
 - `research/prognostics/run_paper_pack.sh` -> `research/prognostics/plot_fault_cases_v2.py`
-- `research/prognostics/compare_rankers.py` -> `research/prognostics/make_loss_labels.py`
+- `research/support/prognostics/compare_rankers.py` -> `research/support/prognostics/make_loss_labels.py`
 
 ## Final Classification
 
@@ -113,9 +113,9 @@
 - `research/support/prognostics/eval_topk.py`
 - `research/support/prognostics/eval_fault_topk_leadtime.py`
 
-### support
-- `research/prognostics/compare_rankers.py`
-- `research/prognostics/make_loss_labels.py`
+### moved to support
+- `research/support/prognostics/compare_rankers.py`
+- `research/support/prognostics/make_loss_labels.py`
 
 ### archived
 - `research/archive/prognostics/topk_workload.py`
