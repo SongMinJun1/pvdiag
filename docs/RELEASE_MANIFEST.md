@@ -48,8 +48,8 @@
   - `research/support/prognostics/topk_workload2.py`
   - `research/support/prognostics/eval_topk.py`
   - `research/support/prognostics/eval_fault_topk_leadtime.py`
-  - `research/prognostics/compare_rankers.py`
-  - `research/prognostics/make_loss_labels.py`
+  - `research/support/prognostics/compare_rankers.py`
+  - `research/support/prognostics/make_loss_labels.py`
   - `research/prognostics/plot_fault_cases_v2.py`
 
 ## 4. exclude from repo tracking and release

@@ -36,8 +36,8 @@
 
 | 파일 | 역할 추정 | 연결 상태 |
 |---|---|---|
-| `research/prognostics/compare_rankers.py` | ranker 비교 실험 | `make_loss_labels.py` 산출(`highloss_q`) 의존 흔적 있음 |
-| `research/prognostics/make_loss_labels.py` | future loss / highloss label 생성 | `compare_rankers.py`가 선행 실행 요구 |
+| `research/support/prognostics/compare_rankers.py` | ranker 비교 실험 | support로 이동 완료, `make_loss_labels.py` 산출(`highloss_q`) 의존 |
+| `research/support/prognostics/make_loss_labels.py` | future loss / highloss label 생성 | support로 이동 완료, `compare_rankers.py`가 선행 실행 요구 |
 | `research/prognostics/plot_fault_cases_v2.py` | fault case plot v2 생성 | `run_paper_pack.sh`에서 직접 호출 |
 
 ## 4. immediate keep list
@@ -61,10 +61,7 @@
 
 | 파일 | 2차 검토 이유 |
 |---|---|
-| `research/prognostics/compare_rankers.py` | `make_loss_labels.py` 의존이 명시돼 있어 실험 체인 재현성 점검 필요 |
-| `research/prognostics/make_loss_labels.py` | loss label 정의와 downstream 실험 연결이 맞는지 재검토 필요 |
 | `research/prognostics/plot_fault_cases_v2.py` | `run_paper_pack.sh`에서 직접 호출되므로 실제 입력/출력 계약 확인 필요 |
-| `research/prognostics/compare_rankers.py` | loss label 산출물 의존과 실행 예시 경로를 함께 점검해야 함 |
 
 ## 6. archive
 
@@ -79,5 +76,5 @@
 ## 연결 메모
 
 - `research/prognostics/run_paper_pack.sh` -> `research/prognostics/plot_fault_cases_v2.py`
-- `research/prognostics/compare_rankers.py` -> `research/prognostics/make_loss_labels.py`
+- `research/support/prognostics/compare_rankers.py` -> `research/support/prognostics/make_loss_labels.py`
 - 위 두 연결 외 review candidates는 현재 기준 활성 체인에서 직접 참조 흔적을 찾지 못했다.
