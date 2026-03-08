@@ -31,6 +31,7 @@ cp $ROOT/research/prognostics/README.md $OUT/research/prognostics/
 cp $ROOT/docs/DATA_DICTIONARY.md $OUT/docs/
 cp $ROOT/docs/score_definition.md $OUT/docs/
 cp $ROOT/docs/RELEASE_BOUNDARY.md $OUT/docs/
+cp $ROOT/docs/TESTED_ENVIRONMENT.md $OUT/docs/
 cp $ROOT/docs/RELEASE_MANIFEST.md $OUT/docs/
 
 rm -f $ZIP
