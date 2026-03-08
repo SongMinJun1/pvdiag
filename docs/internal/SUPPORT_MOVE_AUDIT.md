@@ -66,3 +66,10 @@
 - support 유지 대상의 기본 목적지는 `research/support/prognostics/`
 - 직접 runtime caller가 없는 standalone evaluator는 먼저 `research/support/prognostics/`로 이동 가능
 - shell caller가 경로를 하드코딩한 파일은 caller 정리 이후 이동
+
+## Move Execution Update
+
+- `2026-03-08` 기준 `safe to move now`로 판정했던 아래 3개 파일은 실제로 `research/support/prognostics/`로 이동 완료:
+  - `research/support/prognostics/topk_workload2.py`
+  - `research/support/prognostics/eval_topk.py`
+  - `research/support/prognostics/eval_fault_topk_leadtime.py`

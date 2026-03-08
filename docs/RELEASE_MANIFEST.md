@@ -45,9 +45,9 @@
 - `docs/archive/data_dictionary_paper_legacy.md`
 - `docs/patches/` 이하 파일
 - support/review 성격 스크립트:
-  - `research/prognostics/topk_workload2.py`
-  - `research/prognostics/eval_topk.py`
-  - `research/prognostics/eval_fault_topk_leadtime.py`
+  - `research/support/prognostics/topk_workload2.py`
+  - `research/support/prognostics/eval_topk.py`
+  - `research/support/prognostics/eval_fault_topk_leadtime.py`
   - `research/prognostics/compare_rankers.py`
   - `research/prognostics/make_loss_labels.py`
   - `research/prognostics/plot_fault_cases_v2.py`
