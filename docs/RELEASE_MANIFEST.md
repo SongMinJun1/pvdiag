@@ -29,6 +29,7 @@
 - `docs/DATA_DICTIONARY.md`
 - `docs/score_definition.md`
 - `docs/RELEASE_BOUNDARY.md`
+- `docs/TESTED_ENVIRONMENT.md`
 - `docs/RELEASE_MANIFEST.md`
 
 ## 3. keep in repo but exclude from release bundle
