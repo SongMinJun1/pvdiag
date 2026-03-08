@@ -16,7 +16,7 @@ python3 research/prognostics/make_onepager.py --site "${SITE}"
 
 # 3) 케이스 플롯(확정고장 케이스 시각화)
 if [ -f "${EVENTS}" ]; then
-  python3 research/prognostics/plot_fault_cases_v2.py \
+  python3 research/prognostics/plot_fault_cases.py \
     --scores "${SCORES}" \
     --events "${EVENTS}" \
     --out-dir "${OUT}/cases_v2" \

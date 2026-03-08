@@ -65,10 +65,10 @@
 - 실제 출력 파일: `case_<panel>.csv`, `case_<panel>.png` in `--out-dir`.
 - 직접 호출하는 파일 또는 호출되는 위치: 현재 소스 트리에서 직접 호출 흔적 없음.
 - 현재 체인에서의 필요도: `archived`
-- 판정 이유: `plot_fault_cases_v2.py`가 더 명시적인 score set과 onset/diagnosis 선 표시를 포함해 paper pack 쪽에서 실제로 사용된다. 이 파일은 기능이 겹치고 직접 호출 흔적도 없어 1차 정리에서 archive로 이동했다.
+- 판정 이유: `plot_fault_cases.py`가 더 명시적인 score set과 onset/diagnosis 선 표시를 포함해 paper pack 쪽에서 실제로 사용된다. 이 파일은 기능이 겹치고 직접 호출 흔적도 없어 1차 정리에서 archive로 이동했다.
 - 즉시 삭제하면 안 되는 파일: `아니오`
 
-### 8) `research/prognostics/plot_fault_cases_v2.py`
+### 8) `research/prognostics/plot_fault_cases.py`
 - 현재 역할 한 줄 요약: fault event 기반 case window CSV/PNG를 생성하는 현재형 paper-pack case plot 스크립트.
 - 실제 입력 파일: `--scores` CSV, `--events` CSV (`onset_date` 또는 `fault_segment_start`, 선택적 `diagnosis_date`).
 - 실제 출력 파일: `case_<panel>.csv`, `case_<panel>.png` in `--out-dir`.
@@ -100,13 +100,13 @@
 
 ## Direct Link Checks
 
-- `research/prognostics/run_paper_pack.sh` -> `research/prognostics/plot_fault_cases_v2.py`
+- `research/prognostics/run_paper_pack.sh` -> `research/prognostics/plot_fault_cases.py`
 - `research/support/prognostics/compare_rankers.py` -> `research/support/prognostics/make_loss_labels.py`
 
 ## Final Classification
 
 ### keep
-- `research/prognostics/plot_fault_cases_v2.py`
+- `research/prognostics/plot_fault_cases.py`
 
 ### moved to support
 - `research/support/prognostics/topk_workload2.py`
