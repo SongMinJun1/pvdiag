@@ -37,11 +37,11 @@
 아래 파일은 레포에는 남기되, release bundle에는 넣지 않는다.
 
 - `docs/reports/kernelog1_onepager.md`
-- `docs/WHAT_TO_LOOK_AT.md`
-- `TASKS.md`
-- `RESEARCH_ROADMAP.md`
-- `docs/refactor_audit_v2_vs_current.md`
-- `docs/refactor_commit_A1_checklist.md`
+- `docs/internal/WHAT_TO_LOOK_AT.md`
+- `docs/internal/TASKS.md`
+- `docs/internal/RESEARCH_ROADMAP.md`
+- `docs/internal/refactor_audit_v2_vs_current.md`
+- `docs/internal/refactor_commit_A1_checklist.md`
 - `docs/archive/data_dictionary_paper_legacy.md`
 - `docs/patches/` 이하 파일
 - support/review 성격 스크립트:
