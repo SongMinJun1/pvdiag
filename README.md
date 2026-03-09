@@ -4,10 +4,10 @@
 
 ## 포함된 것
 
-- core engine: `pv_ae/pv_autoencoder_dayAE.py`
+- core engine: `pv_ae/panel_day_engine.py`
 - risk / transition / ensemble 후처리
 - 실행 entrypoint:
-  - `research/prognostics/run_dayae_site.py`
+  - `research/prognostics/run_panel_day_site.py`
   - `research/prognostics/run_scores_pipeline.py`
 - 평가/사례 분석 스크립트:
   - `research/prognostics/weaklabel_eval_2sigma.py`
@@ -39,7 +39,7 @@
 ## 최소 실행 순서
 
 1. core engine 실행
-   - `python research/prognostics/run_dayae_site.py --site kernelog1`
+   - `python research/prognostics/run_panel_day_site.py --site kernelog1`
 2. post-processing 실행
    - `python research/prognostics/run_scores_pipeline.py --site kernelog1`
 3. optional site eval

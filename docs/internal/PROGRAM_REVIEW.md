@@ -81,7 +81,7 @@
 - 현재 역할 한 줄 요약: 날짜 범위 raw CSV를 스캔하며 baseline 적합도를 요약하는 엔진 인접 실험 스크립트.
 - 실제 입력 파일: `--dir` raw CSV 디렉터리, `--pattern`, `--start`, `--end`.
 - 실제 출력 파일: `<data_dir>/baseline_scan_daily.csv`.
-- 직접 호출하는 파일 또는 호출되는 위치: 현재 소스 트리에서 직접 호출 흔적 없음. 내부적으로 `pv_autoencoder_dayAE.compute_event_features`를 import한다.
+- 직접 호출하는 파일 또는 호출되는 위치: 현재 소스 트리에서 직접 호출 흔적 없음. 내부적으로 core engine의 `compute_event_features`를 import한다.
 - 현재 체인에서의 필요도: `archived`
 - 판정 이유: core 엔진 함수를 재사용하지만 현재 실행 체인에 직접 묶여 있지는 않다. baseline 진단 실험의 흔적으로 보여 1차 정리에서 archive로 이동했다.
 - 즉시 삭제하면 안 되는 파일: `아니오`

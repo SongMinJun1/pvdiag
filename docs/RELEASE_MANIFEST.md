@@ -14,17 +14,17 @@
 
 - `README.md`
 - `requirements.txt`
-- `pv_ae/pv_autoencoder_dayAE.py`
+- `pv_ae/panel_day_engine.py`
 - `research/prognostics/risk_score.py`
-- `research/prognostics/add_transition_rankers.py`
-- `research/prognostics/add_ensemble_rankers.py`
+- `research/prognostics/add_transition_scores.py`
+- `research/prognostics/add_ensemble_scores.py`
 - `research/prognostics/run_scores_pipeline.py`
 - `research/prognostics/weaklabel_eval_2sigma.py`
 - `research/prognostics/fault_case_study.py`
 - `research/prognostics/plot_case_timeline.py`
 - `research/prognostics/ingest_gpvs_faults.py`
 - `research/prognostics/external_eval_gpvs.py`
-- `research/prognostics/run_dayae_site.py`
+- `research/prognostics/run_panel_day_site.py`
 - `research/prognostics/README.md`
 - `docs/DATA_DICTIONARY.md`
 - `docs/score_definition.md`
@@ -77,7 +77,7 @@
 최소 실행 순서는 아래와 같다.
 
 1. core engine
-   - 예: `python research/prognostics/run_dayae_site.py --site kernelog1`
+   - 예: `python research/prognostics/run_panel_day_site.py --site kernelog1`
 2. post-processing
    - `python research/prognostics/run_scores_pipeline.py --site kernelog1`
 3. optional site eval

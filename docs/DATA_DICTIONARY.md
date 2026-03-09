@@ -5,8 +5,8 @@
 ## 1) Provenance 레전드
 | provenance | 의미 |
 |---|---|
-| `engine` | `pv_ae/pv_autoencoder_dayAE.py`에서 직접 계산되어 `panel_day_core.csv`에 출력 |
-| `postproc` | `risk_score.py`, `add_transition_rankers.py`, `add_ensemble_rankers.py`에서 후처리로 추가 |
+| `engine` | `pv_ae/panel_day_engine.py`에서 직접 계산되어 `panel_day_core.csv`에 출력 |
+| `postproc` | `risk_score.py`, `add_transition_scores.py`, `add_ensemble_scores.py`에서 후처리로 추가 |
 | `eval(manual)` | 시스템 기본 출력이 아닌 평가 라벨, 수동 정답, 실험 표 생성용 정의 |
 
 ## 2) 라벨/날짜 정의

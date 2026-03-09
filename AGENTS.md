@@ -12,7 +12,7 @@
 - data/<site>/raw, data/<site>/out 대용량 데이터는 커밋/번들에 기본 포함하지 않는다(필요 시 샘플만)
 
 검증 최소 조건
-- python -m py_compile pv_ae/pv_autoencoder_dayAE.py
+- python -m py_compile pv_ae/panel_day_engine.py
 - kernelog1 1회 실행 또는 paper_pack 재생성 스크립트 성공 확인
 
 완료 보고 형식
