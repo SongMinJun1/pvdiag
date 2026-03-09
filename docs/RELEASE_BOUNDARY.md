@@ -4,13 +4,13 @@
 
 ## 프로그램
 
-- core engine: `pv_ae/pv_autoencoder_dayAE.py`
-- site runner: `research/prognostics/run_dayae_site.py`
+- core engine: `pv_ae/panel_day_engine.py`
+- site runner: `research/prognostics/run_panel_day_site.py`
 - post-processing orchestrator: `research/prognostics/run_scores_pipeline.py`
 - post-processing steps:
   - `research/prognostics/risk_score.py`
-  - `research/prognostics/add_transition_rankers.py`
-  - `research/prognostics/add_ensemble_rankers.py`
+  - `research/prognostics/add_transition_scores.py`
+  - `research/prognostics/add_ensemble_scores.py`
 
 ## 입력 데이터
 

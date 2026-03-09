@@ -1,6 +1,6 @@
 # Score Definition (SSOT)
 
-본 문서는 `risk_score.py`, `add_transition_rankers.py`, `add_ensemble_rankers.py`의 점수 정의를 코드 기준으로 고정한다.
+본 문서는 `risk_score.py`, `add_transition_scores.py`, `add_ensemble_scores.py`의 점수 정의를 코드 기준으로 고정한다.
 
 ## 1) `risk_day` 정의
 

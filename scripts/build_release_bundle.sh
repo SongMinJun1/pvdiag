@@ -14,18 +14,18 @@ mkdir -p $OUT/docs
 cp $ROOT/README.md $OUT/
 cp $ROOT/requirements.txt $OUT/
 
-cp $ROOT/pv_ae/pv_autoencoder_dayAE.py $OUT/pv_ae/
+cp $ROOT/pv_ae/panel_day_engine.py $OUT/pv_ae/
 
 cp $ROOT/research/prognostics/risk_score.py $OUT/research/prognostics/
-cp $ROOT/research/prognostics/add_transition_rankers.py $OUT/research/prognostics/
-cp $ROOT/research/prognostics/add_ensemble_rankers.py $OUT/research/prognostics/
+cp $ROOT/research/prognostics/add_transition_scores.py $OUT/research/prognostics/
+cp $ROOT/research/prognostics/add_ensemble_scores.py $OUT/research/prognostics/
 cp $ROOT/research/prognostics/run_scores_pipeline.py $OUT/research/prognostics/
 cp $ROOT/research/prognostics/weaklabel_eval_2sigma.py $OUT/research/prognostics/
 cp $ROOT/research/prognostics/fault_case_study.py $OUT/research/prognostics/
 cp $ROOT/research/prognostics/plot_case_timeline.py $OUT/research/prognostics/
 cp $ROOT/research/prognostics/ingest_gpvs_faults.py $OUT/research/prognostics/
 cp $ROOT/research/prognostics/external_eval_gpvs.py $OUT/research/prognostics/
-cp $ROOT/research/prognostics/run_dayae_site.py $OUT/research/prognostics/
+cp $ROOT/research/prognostics/run_panel_day_site.py $OUT/research/prognostics/
 cp $ROOT/research/prognostics/README.md $OUT/research/prognostics/
 
 cp $ROOT/docs/DATA_DICTIONARY.md $OUT/docs/
