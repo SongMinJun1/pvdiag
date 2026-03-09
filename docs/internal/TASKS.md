@@ -1,5 +1,7 @@
 # pvdiag 협업 작업 티켓 (SSOT)
 
+> Internal planning doc. stale 가능성이 있으며, 현재 release 기준 문서가 아니다.
+
 진행 규칙
 - 모든 코드는 VS Code + Codex로 수정
 - 변경은 브랜치/커밋 단위로 남김

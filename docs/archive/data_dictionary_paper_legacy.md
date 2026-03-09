@@ -1,5 +1,7 @@
 # data_dictionary_paper (Commit A SSOT)
 
+> Legacy archive 문서. 현재 canonical 문서는 아니며, 최신 기준은 `docs/DATA_DICTIONARY.md`를 따른다.
+
 본 문서는 논문/발표/운영 문맥에서 혼동이 잦은 라벨·날짜·rank 해석을 우선 고정한다.
 
 ## 1) Provenance 레전드

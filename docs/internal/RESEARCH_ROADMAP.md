@@ -1,5 +1,7 @@
 # pvdiag Research Roadmap (SSOT)
 
+> Internal roadmap. stale 가능성이 있으며, 현재 release 기준 문서가 아니다.
+
 이 문서는 “우리가 앞으로 할 일 전부”를 잊지 않기 위한 단일 진실(SSOT)이다.
 
 ## Done (이미 확정/완료된 SSOT)
