@@ -1,6 +1,7 @@
 # Data Dictionary (Canonical SSOT)
 
 본 문서는 논문/발표/운영 문맥에서 혼동이 잦은 라벨, 날짜, 순위 해석, 출력 계약을 하나의 기준 문서로 고정한다.
+현재 core engine 기준 파일은 `pv_ae/panel_day_engine.py`이며, 공식 출력 계약은 `panel_day_*` 5개 파일을 따른다.
 
 ## 1) Provenance 레전드
 | provenance | 의미 |
