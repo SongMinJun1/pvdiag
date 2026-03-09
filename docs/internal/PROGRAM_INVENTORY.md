@@ -7,10 +7,10 @@
 
 | 파일 | 역할 | 현재 판단 |
 |---|---|---|
-| `pv_ae/pv_autoencoder_dayAE.py` | core engine, panel-day feature/diagnosis output 생성 | 최상위 SSOT |
+| `pv_ae/panel_day_engine.py` | core engine, panel-day feature/diagnosis output 생성 | 최상위 SSOT |
 | `research/prognostics/risk_score.py` | core output에 risk/cp score 추가 | 활성 체인 |
-| `research/prognostics/add_transition_rankers.py` | transition rank 계층 추가 | 활성 체인 |
-| `research/prognostics/add_ensemble_rankers.py` | ensemble rank 계층 추가 | 활성 체인 |
+| `research/prognostics/add_transition_scores.py` | transition score 계층 추가 | 활성 체인 |
+| `research/prognostics/add_ensemble_scores.py` | ensemble score 계층 추가 | 활성 체인 |
 | `research/prognostics/run_scores_pipeline.py` | risk -> transition -> ensemble 오케스트레이션 | 활성 체인 |
 | `research/prognostics/weaklabel_eval_2sigma.py` | weak-label 평가 onepage/CI 생성 | 활성 체인 |
 | `research/prognostics/fault_case_study.py` | fault case markdown 요약 | 활성 체인 |
@@ -22,7 +22,7 @@
 
 | 파일 | 역할 | 현재 판단 |
 |---|---|---|
-| `research/prognostics/run_dayae_site.py` | site 단위 엔진 실행 래퍼 | 지원 도구 |
+| `research/prognostics/run_panel_day_site.py` | site 단위 엔진 실행 래퍼 | 지원 도구 |
 | `research/prognostics/make_paper_views.py` | paper-friendly view/dictionary CSV 생성 | 지원 도구 |
 | `research/prognostics/make_onepager.py` | 보고용 onepager 생성 | 지원 도구 |
 | `research/prognostics/build_full_package.sh` | 결과 번들/패키지 생성 | 지원 도구 |
@@ -44,10 +44,10 @@
 
 아래 파일은 현재 체인의 SSOT 또는 외부검증 핵심이므로 우선 유지 대상으로 본다.
 
-- `pv_ae/pv_autoencoder_dayAE.py`
+- `pv_ae/panel_day_engine.py`
 - `research/prognostics/risk_score.py`
-- `research/prognostics/add_transition_rankers.py`
-- `research/prognostics/add_ensemble_rankers.py`
+- `research/prognostics/add_transition_scores.py`
+- `research/prognostics/add_ensemble_scores.py`
 - `research/prognostics/run_scores_pipeline.py`
 - `research/prognostics/weaklabel_eval_2sigma.py`
 - `research/prognostics/fault_case_study.py`

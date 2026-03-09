@@ -19,7 +19,7 @@
 ## 컬럼 출처(Provenance) 레전드
 | provenance | 의미 |
 |---|---|
-| `engine` | `pv_ae/pv_autoencoder_dayAE.py` 본 파이프라인이 직접 계산/출력 |
+| `engine` | `pv_ae/panel_day_engine.py` 본 파이프라인이 직접 계산/출력 |
 | `postproc` | risk/transition/ensemble 후처리 스크립트가 추가 계산 |
 | `eval(manual)` | 운영 출력이 아닌 평가/라벨링 문맥에서 수동 또는 별도 평가 파이프라인이 정의 |
 
