@@ -5,7 +5,10 @@
 ## 포함된 것
 
 - core engine: `pv_ae/panel_day_engine.py`
-- risk / transition / ensemble 후처리
+- post-processing core:
+  - `research/prognostics/risk_score.py`
+  - `research/prognostics/add_transition_scores.py`
+  - `research/prognostics/add_ensemble_scores.py`
 - 실행 entrypoint:
   - `research/prognostics/run_panel_day_site.py`
   - `research/prognostics/run_scores_pipeline.py`
