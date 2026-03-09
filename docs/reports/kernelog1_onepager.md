@@ -1,6 +1,6 @@
 # PV Fault Early-Warning & Diagnosis — ONEPAGER (kernelog1)
 
-> Report notice: 이 문서는 `kernelog1` 결과 요약 보고서다. 컬럼/라벨/출력 계약의 기준 문서는 `docs/DATA_DICTIONARY.md`다.
+> Report notice: 이 문서는 `kernelog1` 결과 요약 보고서다. 컬럼/라벨/출력 계약의 기준 문서는 `docs/DATA_DICTIONARY.md`이며, 현재 core engine 기준 파일은 `pv_ae/panel_day_engine.py`다.
 
 ## 한 줄 정의
 - 본 시스템은 5분 V/I 기반으로 패널 상태를 계산해 **운영용 전조 shortlist(Top-N)** 와 **확정 진단 라벨(final/confirmed)** 을 분리 산출한다.

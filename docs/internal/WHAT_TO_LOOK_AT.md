@@ -1,6 +1,7 @@
 # WHAT TO LOOK AT (3분 가이드)
 
 ## 0) 먼저 알아둘 핵심 정의
+- 현재 core engine 기준 파일은 `pv_ae/panel_day_engine.py`다.
 - 2σ 검증은 ‘물리 고장 라벨’이 아니라 ‘지속 저발전(손실) 이벤트’ 약라벨 평가다.
 - risk/transition/ensemble은 “진단 라벨”이 아니라 “순위 비교용 점수”다.
 - 정의가 필요하면 `docs/DATA_DICTIONARY.md`를 기준으로 보고, `docs/reports/*.md`는 결과 보고서로만 본다.
