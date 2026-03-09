@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-add_transition_rankers.py
+add_transition_scores.py
 - panel별 rolling baseline(과거 30일 median/MAD) 대비 변화량 기반 transition 점수 생성
 - NO-LEAKAGE: shift(1) 후 rolling (현재일 정보는 baseline에 포함되지 않음)
 - 추가:

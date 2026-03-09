@@ -1,4 +1,4 @@
-# ====== pv_autoencoder_dayAE.py: AE + 최소 룰 기반 버전 ======
+# ====== panel_day_engine.py: AE + 최소 룰 기반 버전 ======
 import argparse
 import json
 import pathlib

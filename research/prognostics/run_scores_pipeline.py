@@ -5,8 +5,8 @@ run_scores_pipeline.py
 
 Reproducible post-processing orchestrator:
   1) risk_score.py
-  2) add_transition_rankers.py
-  3) add_ensemble_rankers.py
+  2) add_transition_scores.py
+  3) add_ensemble_scores.py
 
 Single source input:
   - data/<site>/out/panel_day_core.csv (via --site)
@@ -53,13 +53,13 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--risk-cp-k", type=float, default=0.5)
     ap.add_argument("--risk-cp-h", type=float, default=5.0)
 
-    # add_transition_rankers.py options
+    # add_transition_scores.py options
     ap.add_argument("--trans-window", type=int, default=30)
     ap.add_argument("--trans-min-history", type=int, default=10)
     ap.add_argument("--trans-cp-alpha", type=float, default=0.5)
     ap.add_argument("--trans-cp-pulse-boost", type=float, default=5.0)
 
-    # add_ensemble_rankers.py options
+    # add_ensemble_scores.py options
     ap.add_argument("--ens-cp-alpha", type=float, default=0.20)
     ap.add_argument(
         "--ens-cp-grid",
@@ -169,7 +169,7 @@ def main() -> None:
 
     trans_cmd = [
         sys.executable,
-        str(script_dir / "add_transition_rankers.py"),
+        str(script_dir / "add_transition_scores.py"),
         "--in",
         str(risk_out),
         "--out",
@@ -187,7 +187,7 @@ def main() -> None:
 
     ens_cmd = [
         sys.executable,
-        str(script_dir / "add_ensemble_rankers.py"),
+        str(script_dir / "add_ensemble_scores.py"),
         "--in",
         str(trans_out),
         "--out",
@@ -201,7 +201,7 @@ def main() -> None:
         ens_grid_out = out_dir / f"panel_day_risk_ensemble_a{_alpha_tag(alpha_s)}.csv"
         ens_grid_cmd = [
             sys.executable,
-            str(script_dir / "add_ensemble_rankers.py"),
+            str(script_dir / "add_ensemble_scores.py"),
             "--in",
             str(trans_out),
             "--out",

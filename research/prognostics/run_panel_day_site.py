@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-run_dayae_site.py
-- pv_ae/pv_autoencoder_dayAE.py 를 site 기반으로 실행해서 panel_day_core.csv를 만들기 위한 래퍼
+run_panel_day_site.py
+- pv_ae/panel_day_engine.py 를 site 기반으로 실행해서 panel_day_core.csv를 만들기 위한 래퍼
 - 핵심: --help를 파싱해 "실제로 존재하는 옵션만" 넘겨서 호환 이슈를 줄임
 """
 
@@ -21,7 +21,7 @@ DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 def get_help_opts() -> set[str]:
     try:
         out = subprocess.check_output(
-            [sys.executable, "pv_ae/pv_autoencoder_dayAE.py", "--help"],
+            [sys.executable, "pv_ae/panel_day_engine.py", "--help"],
             stderr=subprocess.STDOUT,
             text=True,
         )
@@ -91,7 +91,7 @@ def main():
 
     opts = get_help_opts()
 
-    cmd = [sys.executable, "pv_ae/pv_autoencoder_dayAE.py"]
+    cmd = [sys.executable, "pv_ae/panel_day_engine.py"]
 
     # site/data root/dir
     f_site = pick_flag(opts, ["--site"])
