@@ -1,0 +1,6 @@
+site,evidence_type,description,expected_family,time_type,time_value,related_panel_count,evidence_strength,usable_for_exact_validation,note
+gangui,module_output_drop,모듈 출력 저하,electrical,detected_or_recorded_time,2025-04-24 14:19 / 2025-04-25 10:15,5,medium,no,발생시각이 아니라 발견 또는 기록 시각일 가능성이 있고 현재 latest rerun score 범위보다 이르다
+gangui,string_disconnection,스트링 단선,electrical,static_label,unknown,23,weak,no,지속 상태 또는 시험용 구성일 가능성이 있어 event validation에는 사용하지 않음
+gangui,gard_installed_modules,GARD 설치 모듈,unknown,static_tag,unknown,100,weak,no,설비 속성 태그
+gangui,bstr_installed_modules,BSTR 설치 모듈,unknown,static_tag,unknown,130,weak,no,설비 속성 태그
+gangui,special_modules_250414,250414 특이사항 모듈,unknown,static_tag,unknown,4,weak,no,관리 태그
