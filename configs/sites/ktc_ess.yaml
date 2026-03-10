@@ -1,0 +1,6 @@
+site: ktc_ess
+train_start: 2024-08-13
+train_end: 2024-10-11
+score_start: 2024-10-12
+raw_dir: data/ktc_ess/raw
+out_dir: data/ktc_ess/out

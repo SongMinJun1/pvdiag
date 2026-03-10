@@ -29,8 +29,8 @@ def _parse_args() -> argparse.Namespace:
 
 def _find_input(site: str, name: str) -> pathlib.Path:
     candidates = [
-        pathlib.Path(f"data/{site}/raw/out/{name}"),
         pathlib.Path(f"data/{site}/out/{name}"),
+        pathlib.Path(f"data/{site}/raw/out/{name}"),
     ]
     for path in candidates:
         if path.exists():
@@ -289,17 +289,32 @@ def main() -> None:
     if not counts_df.empty:
         counts_df.columns.name = None
 
+    dom_counts_df = pd.DataFrame(columns=["site"])
+    if not pheno_df.empty:
+        dom = pheno_df.copy()
+        if "dominant_family" not in dom.columns:
+            dom["dominant_family"] = "missing"
+        dom["dominant_family"] = dom["dominant_family"].fillna("missing").astype(str)
+        dom_counts_df = (
+            dom.pivot_table(index="site", columns="dominant_family", values="panel_id", aggfunc="count", fill_value=0)
+            .reset_index()
+        )
+        dom_counts_df.columns.name = None
+
     summary_path = share_dir / "site_event_summary_latest.csv"
     pheno_path = share_dir / "site_event_phenotypes_latest.csv"
     counts_path = share_dir / "site_event_phenotype_counts_latest.csv"
+    dom_counts_path = share_dir / "site_event_dominant_family_counts_latest.csv"
 
     summary_df.to_csv(summary_path, index=False, encoding="utf-8-sig")
     pheno_df.to_csv(pheno_path, index=False, encoding="utf-8-sig")
     counts_df.to_csv(counts_path, index=False, encoding="utf-8-sig")
+    dom_counts_df.to_csv(dom_counts_path, index=False, encoding="utf-8-sig")
 
     print(f"[OK] wrote summary: {summary_path}")
     print(f"[OK] wrote phenotypes: {pheno_path}")
     print(f"[OK] wrote counts: {counts_path}")
+    print(f"[OK] wrote dominant-family counts: {dom_counts_path}")
 
 
 if __name__ == "__main__":
