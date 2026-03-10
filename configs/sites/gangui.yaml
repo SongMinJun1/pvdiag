@@ -1,0 +1,6 @@
+site: gangui
+train_start: 2025-04-08
+train_end: 2025-06-06
+score_start: 2025-06-07
+raw_dir: data/gangui/raw
+out_dir: data/gangui/out
