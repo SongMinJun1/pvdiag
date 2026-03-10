@@ -188,15 +188,11 @@ def _feature_engineering(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     for raw_col in RAW_COLS:
         work[raw_col] = pd.to_numeric(work[raw_col], errors="coerce")
         sorted_df = work.sort_values(["source_id", order_col]).copy()
-        work[f"delta_{raw_col}"] = (
-            sorted_df.groupby("source_id")[raw_col].diff().reindex(sorted_df.index).reindex(work.index)
-        )
+        work[f"delta_{raw_col}"] = sorted_df.groupby("source_id")[raw_col].diff().reindex(sorted_df.index).reindex(work.index)
         work[f"rollmean3_{raw_col}"] = _group_rolling_feature(work, raw_col, order_col, 3, "mean")
-        work[f"rollstd3_{raw_col}"] = _group_rolling_feature(work, raw_col, order_col, 3, "std").fillna(0.0)
+        work[f"rollmax3_{raw_col}"] = _group_rolling_feature(work, raw_col, order_col, 3, "max")
 
     deg_cols = []
-    deg_norm_cols = []
-    span_cols = []
     active_axis_count = pd.Series(0.0, index=work.index)
     for sid, idx in work.groupby("source_id").groups.items():
         g = work.loc[idx].copy()
@@ -208,62 +204,96 @@ def _feature_engineering(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             pre_vals = vals[pre_mask & np.isfinite(vals)]
             if len(pre_vals) == 0:
                 deg = 1.0
-                span = np.nan
-                med = np.nan
-                mad = np.nan
             else:
                 n_unique = int(pd.Series(pre_vals).nunique(dropna=True))
                 span = float(np.max(pre_vals) - np.min(pre_vals))
                 deg = float(n_unique <= 1 or (np.isfinite(span) and span <= SPAN_EPS))
-                med = float(np.median(pre_vals))
-                mad = float(np.median(np.abs(pre_vals - med)))
             deg_name = f"deg_{raw_col}"
-            span_name = f"span_{raw_col}"
-            norm_name = f"norm_{raw_col}"
-            deg_norm_name = f"deg_norm_{raw_col}"
             work.loc[idx, deg_name] = deg
-            work.loc[idx, span_name] = span
-            if not np.isfinite(mad) or mad <= 0.0:
-                work.loc[idx, norm_name] = np.nan
-                work.loc[idx, deg_norm_name] = 1.0
-            else:
-                work.loc[idx, norm_name] = (pd.to_numeric(g[raw_col], errors="coerce").to_numpy(dtype=float) - med) / (1.4826 * mad)
-                work.loc[idx, deg_norm_name] = 0.0
             if deg == 0.0:
                 active += 1
             if deg_name not in deg_cols:
                 deg_cols.append(deg_name)
-            if deg_norm_name not in deg_norm_cols:
-                deg_norm_cols.append(deg_norm_name)
-            if span_name not in span_cols:
-                span_cols.append(span_name)
         active_axis_count.loc[idx] = float(active)
     work["active_axis_count"] = active_axis_count
 
-    norm_cols = [f"norm_{c}" for c in RAW_COLS]
-    for norm_col in norm_cols:
-        work[norm_col] = pd.to_numeric(work[norm_col], errors="coerce")
-        work[f"rollmean3_{norm_col}"] = _group_rolling_feature(work, norm_col, order_col, 3, "mean")
-        work[f"rollmax3_{norm_col}"] = _group_rolling_feature(work, norm_col, order_col, 3, "max")
-        work[f"rollmean5_{norm_col}"] = _group_rolling_feature(work, norm_col, order_col, 5, "mean")
-        work[f"rollmax5_{norm_col}"] = _group_rolling_feature(work, norm_col, order_col, 5, "max")
-
-    base_features = ["mode_L", "mode_M"] + RAW_COLS + norm_cols + LIKE_COLS + ["active_axis_count"] + deg_cols + deg_norm_cols + span_cols
-    delta_features = [f"delta_{c}" for c in RAW_COLS]
-    rollmean_features = [f"rollmean3_{c}" for c in RAW_COLS]
-    rollstd_features = [f"rollstd3_{c}" for c in RAW_COLS]
-    norm_roll_features = []
-    for norm_col in norm_cols:
-        norm_roll_features.extend(
-            [
-                f"rollmean3_{norm_col}",
-                f"rollmax3_{norm_col}",
-                f"rollmean5_{norm_col}",
-                f"rollmax5_{norm_col}",
-            ]
-        )
-    feature_cols = base_features + delta_features + rollmean_features + rollstd_features + norm_roll_features
+    feature_cols = ["mode_L", "mode_M"] + RAW_COLS + LIKE_COLS + ["active_axis_count"] + deg_cols
+    feature_cols += [f"delta_{c}" for c in RAW_COLS]
+    feature_cols += [f"rollmean3_{c}" for c in RAW_COLS]
+    feature_cols += [f"rollmax3_{c}" for c in RAW_COLS]
     return work, feature_cols
+
+
+def _candidate_feature_sets() -> dict[str, list[str]]:
+    mode_cols = ["mode_L", "mode_M"]
+    deg_cols = [f"deg_{c}" for c in RAW_COLS]
+    raw_delta = [f"delta_{c}" for c in RAW_COLS]
+    raw_rollmean3 = [f"rollmean3_{c}" for c in RAW_COLS]
+    raw_rollmax3 = [f"rollmax3_{c}" for c in RAW_COLS]
+    return {
+        "stable_like_all": [
+            "level_drop_like",
+            "v_drop_like",
+            "dtw_like",
+            "hs_like",
+            "ae_like",
+            *mode_cols,
+            "active_axis_count",
+            *deg_cols,
+        ],
+        "stable_like_shape_first": [
+            "dtw_like",
+            "hs_like",
+            "ae_like",
+            *mode_cols,
+            "active_axis_count",
+            *deg_cols,
+        ],
+        "raw_no_norm_all": [
+            *RAW_COLS,
+            *mode_cols,
+            "active_axis_count",
+            *deg_cols,
+            *raw_delta,
+            *raw_rollmean3,
+            *raw_rollmax3,
+        ],
+        "mixed_no_norm": [
+            *LIKE_COLS,
+            *RAW_COLS,
+            *mode_cols,
+            "active_axis_count",
+            *deg_cols,
+            *raw_delta,
+            *raw_rollmean3,
+            *raw_rollmax3,
+        ],
+    }
+
+
+def _stabilize_feature_frames(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    feature_cols: list[str],
+) -> tuple[pd.DataFrame, pd.DataFrame, list[str], dict[str, list[str]]]:
+    keep = []
+    removed_all_nan = []
+    removed_zero_var = []
+    for col in feature_cols:
+        s = pd.to_numeric(train_df[col], errors="coerce")
+        finite = s[np.isfinite(s)]
+        if len(finite) == 0:
+            removed_all_nan.append(col)
+            continue
+        if int(pd.Series(finite).nunique(dropna=True)) <= 1:
+            removed_zero_var.append(col)
+            continue
+        keep.append(col)
+    meta = {
+        "removed_all_nan": removed_all_nan,
+        "removed_zero_var": removed_zero_var,
+    }
+    return train_df[keep].copy(), test_df[keep].copy(), keep, meta
 
 
 def _baseline_best_single(df: pd.DataFrame) -> tuple[str, float, float]:
@@ -304,22 +334,39 @@ def _make_hgb(params: dict[str, Any], random_state: int) -> Any:
                     min_samples_leaf=int(params["min_samples_leaf"]),
                     max_depth=params["max_depth"],
                     l2_regularization=float(params["l2_regularization"]),
-                    max_iter=120,
+                    max_iter=60,
                     random_state=random_state,
                 ),
             ),
         ]
     )
 
+def _predict_score(model: Any, X_eval: pd.DataFrame) -> np.ndarray:
+    if hasattr(model, "predict_proba"):
+        return model.predict_proba(X_eval)[:, 1]
+    if hasattr(model, "decision_function"):
+        s = model.decision_function(X_eval)
+        return 1.0 / (1.0 + np.exp(-np.asarray(s, dtype=float)))
+    raise RuntimeError("model does not expose predict_proba or decision_function")
+
+
+def _serialize_list(vals: list[str], limit: int = 12) -> str:
+    if not vals:
+        return ""
+    if len(vals) <= limit:
+        return ",".join(vals)
+    head = ",".join(vals[:limit])
+    return f"{head},...(+{len(vals) - limit})"
+
 
 def _hgb_param_grid() -> list[dict[str, Any]]:
     grid = []
     for lr, leaf, min_leaf, depth, l2 in product(
-        [0.05, 0.1],
-        [31, 63],
-        [20],
-        [None],
-        [0.0],
+        [0.03, 0.05, 0.1],
+        [15, 31, 63],
+        [10, 20, 50],
+        [3, 5, None],
+        [0.0, 0.1, 1.0],
     ):
         grid.append(
             {
@@ -333,132 +380,126 @@ def _hgb_param_grid() -> list[dict[str, Any]]:
     return grid
 
 
-def _predict_score(model: Any, X_eval: pd.DataFrame) -> np.ndarray:
-    if hasattr(model, "predict_proba"):
-        return model.predict_proba(X_eval)[:, 1]
-    if hasattr(model, "decision_function"):
-        s = model.decision_function(X_eval)
-        return 1.0 / (1.0 + np.exp(-np.asarray(s, dtype=float)))
-    raise RuntimeError("model does not expose predict_proba or decision_function")
-
-
-def _fit_predict_mode_aware_hgb(
-    X_train: pd.DataFrame,
-    y_train: np.ndarray,
-    mode_train: pd.Series,
-    X_eval: pd.DataFrame,
-    mode_eval: pd.Series,
-    params: dict[str, Any],
-    random_state: int,
-) -> tuple[np.ndarray, dict[str, Any]]:
-    fallback = _make_hgb(params, random_state=random_state)
-    fallback.fit(X_train, y_train)
-    preds = _predict_score(fallback, X_eval)
-    models: dict[str, Any] = {"fallback": fallback}
-
-    for mode in ["L", "M"]:
-        mask = mode_train.eq(mode).to_numpy()
-        if int(np.sum(mask)) == 0:
-            continue
-        y_sub = y_train[mask]
-        if len(np.unique(y_sub)) < 2:
-            continue
-        model = _make_hgb(params, random_state=random_state)
-        model.fit(X_train.iloc[mask], y_sub)
-        models[mode] = model
-        eval_mask = mode_eval.eq(mode).to_numpy()
-        if int(np.sum(eval_mask)) > 0:
-            preds[eval_mask] = _predict_score(model, X_eval.iloc[eval_mask])
-    return preds, models
+def _fit_predict_with_feature_set(
+    model: Any,
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    train_y: np.ndarray,
+    feature_cols: list[str],
+) -> tuple[np.ndarray, np.ndarray, list[str], dict[str, list[str]]]:
+    X_train, X_test, kept, meta = _stabilize_feature_frames(train_df, test_df, feature_cols)
+    if not kept or len(np.unique(train_y)) < 2:
+        return np.full(len(train_df), np.nan), np.full(len(test_df), np.nan), kept, meta
+    model.fit(X_train, train_y)
+    train_score = _predict_score(model, X_train)
+    test_score = _predict_score(model, X_test)
+    return train_score, test_score, kept, meta
 
 
 def _grouped_cv_score_hgb(
-    X: pd.DataFrame,
-    y: np.ndarray,
-    groups: np.ndarray,
-    modes: pd.Series,
+    feat_df: pd.DataFrame,
+    train_idx: np.ndarray,
+    feature_cols: list[str],
     params: dict[str, Any],
     random_state: int,
-    mode_aware: bool,
-) -> float:
+) -> tuple[float, pd.DataFrame]:
+    train_df = feat_df.iloc[train_idx].copy()
+    groups = train_df["source_id"].fillna("src").astype(str).to_numpy()
+    y = train_df["y"].to_numpy(dtype=int)
     n_groups = int(pd.Series(groups).nunique(dropna=True))
-    n_splits = min(2, n_groups)
-    if n_splits < 2:
-        return np.nan
-    gkf = GroupKFold(n_splits=n_splits)
+    if n_groups < 2:
+        return np.nan, pd.DataFrame()
+
     scores = []
-    for tr_idx, te_idx in gkf.split(X, y, groups):
-        X_train = X.iloc[tr_idx]
-        X_test = X.iloc[te_idx]
-        y_train = y[tr_idx]
-        y_test = y[te_idx]
-        if len(np.unique(y_train)) < 2 or len(np.unique(y_test)) < 2:
+    fold_rows = []
+    gss = GroupShuffleSplit(n_splits=1, test_size=0.3, random_state=random_state)
+    for fold_id, (tr_rel, te_rel) in enumerate(gss.split(train_df, y, groups=groups), start=1):
+        fold_train = train_df.iloc[tr_rel]
+        fold_test = train_df.iloc[te_rel]
+        y_train = y[tr_rel]
+        y_test = y[te_rel]
+        X_train, X_test, kept, meta = _stabilize_feature_frames(fold_train, fold_test, feature_cols)
+        row = {
+            "fold_id": fold_id,
+            "kept_feature_count": int(len(kept)),
+            "removed_all_nan_count": int(len(meta["removed_all_nan"])),
+            "removed_zero_var_count": int(len(meta["removed_zero_var"])),
+            "removed_all_nan": _serialize_list(meta["removed_all_nan"]),
+            "removed_zero_var": _serialize_list(meta["removed_zero_var"]),
+        }
+        if not kept or len(np.unique(y_train)) < 2 or len(np.unique(y_test)) < 2:
+            row["roc_auc"] = np.nan
+            fold_rows.append(row)
             continue
-        if mode_aware:
-            pred, _ = _fit_predict_mode_aware_hgb(
-                X_train=X_train,
-                y_train=y_train,
-                mode_train=modes.iloc[tr_idx],
-                X_eval=X_test,
-                mode_eval=modes.iloc[te_idx],
-                params=params,
-                random_state=random_state,
-            )
-        else:
-            model = _make_hgb(params, random_state=random_state)
-            model.fit(X_train, y_train)
-            pred = _predict_score(model, X_test)
-        if len(np.unique(y_test)) < 2:
-            continue
-        scores.append(float(roc_auc_score(y_test, pred)))
-    return float(np.mean(scores)) if scores else np.nan
+        model = _make_hgb(params, random_state=random_state)
+        model.fit(X_train, y_train)
+        pred = _predict_score(model, X_test)
+        auc = _roc_auc_rank(y_test, pred)
+        row["roc_auc"] = auc
+        fold_rows.append(row)
+        if np.isfinite(auc):
+            scores.append(float(auc))
+    return (float(np.mean(scores)) if scores else np.nan), pd.DataFrame(fold_rows)
 
 
 def _search_best_hgb_params(
-    X: pd.DataFrame,
-    y: np.ndarray,
-    groups: np.ndarray,
-    modes: pd.Series,
+    feat_df: pd.DataFrame,
+    train_idx: np.ndarray,
+    feature_cols: list[str],
     random_state: int,
-    mode_aware: bool,
-) -> tuple[dict[str, Any], pd.DataFrame]:
+) -> tuple[dict[str, Any], pd.DataFrame, pd.DataFrame]:
     rows = []
+    fold_frames = []
     for params in _hgb_param_grid():
-        cv_auc = _grouped_cv_score_hgb(
-            X=X,
-            y=y,
-            groups=groups,
-            modes=modes,
+        cv_auc, fold_df = _grouped_cv_score_hgb(
+            feat_df=feat_df,
+            train_idx=train_idx,
+            feature_cols=feature_cols,
             params=params,
             random_state=random_state,
-            mode_aware=mode_aware,
         )
         row = dict(params)
-        row["mode_aware"] = int(mode_aware)
         row["grouped_cv_roc_auc"] = cv_auc
         rows.append(row)
-    res = pd.DataFrame(rows).sort_values(["grouped_cv_roc_auc"], ascending=False, na_position="last").reset_index(drop=True)
+        if not fold_df.empty:
+            tmp = fold_df.copy()
+            tmp["params"] = str(params)
+            fold_frames.append(tmp)
+    res = pd.DataFrame(rows).sort_values(
+        ["grouped_cv_roc_auc", "learning_rate", "max_leaf_nodes"],
+        ascending=[False, True, True],
+        na_position="last",
+    ).reset_index(drop=True)
     if res.empty:
         raise RuntimeError("hyperparameter search returned no rows")
     best = res.iloc[0]
-    return {
+    best_params = {
         "learning_rate": float(best["learning_rate"]),
         "max_leaf_nodes": int(best["max_leaf_nodes"]),
         "min_samples_leaf": int(best["min_samples_leaf"]),
         "max_depth": None if pd.isna(best["max_depth"]) else int(best["max_depth"]),
         "l2_regularization": float(best["l2_regularization"]),
-    }, res
+    }
+    best_fold_df = pd.DataFrame()
+    if fold_frames:
+        all_folds = pd.concat(fold_frames, ignore_index=True)
+        best_fold_df = all_folds[all_folds["params"] == str(best_params)].copy()
+    return best_params, res, best_fold_df
 
 
 def _evaluate_scores(
     model_name: str,
+    feature_set: str,
     split_name: str,
     split_kind: str,
     train_y: np.ndarray,
     test_y: np.ndarray,
     train_score: np.ndarray,
     test_score: np.ndarray,
-    feature_count: int,
+    candidate_feature_count: int,
+    kept_features: list[str],
+    meta: dict[str, list[str]] | None = None,
+    best_params: dict[str, Any] | None = None,
     note: str = "",
 ) -> dict[str, Any]:
     roc_auc = roc_auc_score(test_y, test_score) if len(np.unique(test_y)) > 1 else np.nan
@@ -481,7 +522,14 @@ def _evaluate_scores(
         "n_test": int(len(test_y)),
         "n_pos_train": int(np.sum(train_y == 1)),
         "n_pos_test": int(np.sum(test_y == 1)),
-        "feature_count": int(feature_count),
+        "feature_set": feature_set,
+        "candidate_feature_count": int(candidate_feature_count),
+        "kept_feature_count": int(len(kept_features)),
+        "kept_features": _serialize_list(kept_features),
+        "removed_all_nan_count": int(len((meta or {}).get("removed_all_nan", []))),
+        "removed_zero_var_count": int(len((meta or {}).get("removed_zero_var", []))),
+        "removed_all_nan": _serialize_list((meta or {}).get("removed_all_nan", [])),
+        "removed_zero_var": _serialize_list((meta or {}).get("removed_zero_var", [])),
         "roc_auc": float(roc_auc) if np.isfinite(roc_auc) else np.nan,
         "ap": float(ap) if np.isfinite(ap) else np.nan,
         "threshold_best": float(thr_best) if np.isfinite(thr_best) else np.nan,
@@ -493,6 +541,7 @@ def _evaluate_scores(
         "precision_fpr1": p_fpr1,
         "recall_fpr1": r_fpr1,
         "f1_fpr1": f1_fpr1,
+        "best_params": "" if best_params is None else str(best_params),
         "note": note,
     }
 
@@ -501,7 +550,6 @@ def run_supervised(
     scores_csv: pathlib.Path,
     out_csv: pathlib.Path,
     out_md: pathlib.Path,
-    baseline_csv: pathlib.Path | None,
     test_size: float,
     random_state: int,
 ) -> tuple[pd.DataFrame, pathlib.Path, pathlib.Path]:
@@ -510,215 +558,236 @@ def run_supervised(
     df = pd.read_csv(scores_csv)
     _check_required(df)
     feat_df, feature_cols = _feature_engineering(df)
-    X = feat_df[feature_cols].copy()
     y = feat_df["y"].to_numpy(dtype=int)
     groups = feat_df["source_id"].fillna("src").astype(str).to_numpy()
-    modes = feat_df["mode"].copy()
+    feature_sets = _candidate_feature_sets()
 
     baseline_score, baseline_auc, baseline_ap = _baseline_best_single(feat_df)
     baseline_series = pd.to_numeric(feat_df[baseline_score], errors="coerce") if baseline_score else pd.Series(np.nan, index=feat_df.index)
-
-    best_hgb_params, hgb_search = _search_best_hgb_params(
-        X=X,
-        y=y,
-        groups=groups,
-        modes=modes,
-        random_state=random_state,
-        mode_aware=False,
-    )
-    best_mode_params, mode_hgb_search = _search_best_hgb_params(
-        X=X,
-        y=y,
-        groups=groups,
-        modes=modes,
-        random_state=random_state,
-        mode_aware=True,
-    )
 
     split_defs: list[tuple[str, str, np.ndarray, np.ndarray]] = []
     tr_idx, te_idx = train_test_split(np.arange(len(feat_df)), test_size=test_size, random_state=random_state, stratify=y)
     split_defs.append(("pooled_random", "optimistic_window_split", np.asarray(tr_idx), np.asarray(te_idx)))
     gss = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
-    tr_g, te_g = next(gss.split(X, y, groups=groups))
+    tr_g, te_g = next(gss.split(feat_df, y, groups=groups))
     split_defs.append(("grouped_source", "stricter_file_split", np.asarray(tr_g), np.asarray(te_g)))
 
     rows: list[dict[str, Any]] = []
+    removal_rows: list[dict[str, Any]] = []
+    split_index = {name: (kind, train_idx, test_idx) for name, kind, train_idx, test_idx in split_defs}
+
     for split_name, split_kind, train_idx, test_idx in split_defs:
-        X_train = X.iloc[train_idx]
-        X_test = X.iloc[test_idx]
         y_train = y[train_idx]
         y_test = y[test_idx]
-        mode_train = modes.iloc[train_idx]
-        mode_test = modes.iloc[test_idx]
-
         base_train = pd.to_numeric(baseline_series.iloc[train_idx], errors="coerce").to_numpy(dtype=float)
         base_test = pd.to_numeric(baseline_series.iloc[test_idx], errors="coerce").to_numpy(dtype=float)
         rows.append(
             _evaluate_scores(
                 model_name=f"baseline_best_single::{baseline_score}",
+                feature_set="baseline_best_single",
                 split_name=split_name,
                 split_kind=split_kind,
                 train_y=y_train,
                 test_y=y_test,
                 train_score=base_train,
                 test_score=base_test,
-                feature_count=1,
+                candidate_feature_count=1,
+                kept_features=[baseline_score] if baseline_score else [],
+                meta={"removed_all_nan": [], "removed_zero_var": []},
                 note="unsupervised comparator",
             )
         )
 
-        logreg = _build_logreg()
-        logreg.fit(X_train, y_train)
-        rows.append(
-            _evaluate_scores(
-                model_name="LogisticRegression",
-                split_name=split_name,
-                split_kind=split_kind,
-                train_y=y_train,
-                test_y=y_test,
-                train_score=_predict_score(logreg, X_train),
-                test_score=_predict_score(logreg, X_test),
-                feature_count=len(feature_cols),
-                note="baseline supervised",
-            )
-        )
+    grouped_kind, grouped_train_idx, grouped_test_idx = split_index["grouped_source"]
 
-        hgb = _make_hgb(best_hgb_params, random_state=random_state)
-        hgb.fit(X_train, y_train)
-        rows.append(
-            _evaluate_scores(
-                model_name="HistGradientBoostingClassifier_tuned",
-                split_name=split_name,
-                split_kind=split_kind,
-                train_y=y_train,
-                test_y=y_test,
-                train_score=_predict_score(hgb, X_train),
-                test_score=_predict_score(hgb, X_test),
-                feature_count=len(feature_cols),
-                note=f"best_grouped_params={best_hgb_params}",
-            )
-        )
-
-        mode_train_score, _ = _fit_predict_mode_aware_hgb(
-            X_train=X_train,
-            y_train=y_train,
-            mode_train=mode_train,
-            X_eval=X_train,
-            mode_eval=mode_train,
-            params=best_mode_params,
+    for feature_set_name, feature_set_cols in feature_sets.items():
+        best_hgb_params, search_df, best_fold_df = _search_best_hgb_params(
+            feat_df=feat_df,
+            train_idx=grouped_train_idx,
+            feature_cols=feature_set_cols,
             random_state=random_state,
         )
-        mode_test_score, _ = _fit_predict_mode_aware_hgb(
-            X_train=X_train,
-            y_train=y_train,
-            mode_train=mode_train,
-            X_eval=X_test,
-            mode_eval=mode_test,
-            params=best_mode_params,
-            random_state=random_state,
-        )
-        rows.append(
-            _evaluate_scores(
-                model_name="HistGradientBoostingClassifier_mode_aware",
-                split_name=split_name,
-                split_kind=split_kind,
+        if not best_fold_df.empty:
+            tmp = best_fold_df.copy()
+            tmp["feature_set"] = feature_set_name
+            tmp["stage"] = "grouped_cv"
+            removal_rows.extend(tmp.to_dict(orient="records"))
+
+        for split_name, split_kind, train_idx, test_idx in split_defs:
+            train_df = feat_df.iloc[train_idx]
+            test_df = feat_df.iloc[test_idx]
+            y_train = y[train_idx]
+            y_test = y[test_idx]
+
+            logreg = _build_logreg()
+            log_train, log_test, kept_log, meta_log = _fit_predict_with_feature_set(
+                model=logreg,
+                train_df=train_df,
+                test_df=test_df,
                 train_y=y_train,
-                test_y=y_test,
-                train_score=mode_train_score,
-                test_score=mode_test_score,
-                feature_count=len(feature_cols),
-                note=f"best_grouped_mode_params={best_mode_params}",
+                feature_cols=feature_set_cols,
             )
-        )
+            removal_rows.append(
+                {
+                    "feature_set": feature_set_name,
+                    "stage": f"{split_name}__LogisticRegression",
+                    "fold_id": np.nan,
+                    "kept_feature_count": int(len(kept_log)),
+                    "removed_all_nan_count": int(len(meta_log["removed_all_nan"])),
+                    "removed_zero_var_count": int(len(meta_log["removed_zero_var"])),
+                    "removed_all_nan": _serialize_list(meta_log["removed_all_nan"]),
+                    "removed_zero_var": _serialize_list(meta_log["removed_zero_var"]),
+                    "roc_auc": np.nan,
+                }
+            )
+            rows.append(
+                _evaluate_scores(
+                    model_name="LogisticRegression",
+                    feature_set=feature_set_name,
+                    split_name=split_name,
+                    split_kind=split_kind,
+                    train_y=y_train,
+                    test_y=y_test,
+                    train_score=log_train,
+                    test_score=log_test,
+                    candidate_feature_count=len(feature_set_cols),
+                    kept_features=kept_log,
+                    meta=meta_log,
+                    note="fold-wise stabilized features",
+                )
+            )
+
+            hgb = _make_hgb(best_hgb_params, random_state=random_state)
+            hgb_train, hgb_test, kept_hgb, meta_hgb = _fit_predict_with_feature_set(
+                model=hgb,
+                train_df=train_df,
+                test_df=test_df,
+                train_y=y_train,
+                feature_cols=feature_set_cols,
+            )
+            removal_rows.append(
+                {
+                    "feature_set": feature_set_name,
+                    "stage": f"{split_name}__HistGradientBoostingClassifier_tuned",
+                    "fold_id": np.nan,
+                    "kept_feature_count": int(len(kept_hgb)),
+                    "removed_all_nan_count": int(len(meta_hgb["removed_all_nan"])),
+                    "removed_zero_var_count": int(len(meta_hgb["removed_zero_var"])),
+                    "removed_all_nan": _serialize_list(meta_hgb["removed_all_nan"]),
+                    "removed_zero_var": _serialize_list(meta_hgb["removed_zero_var"]),
+                    "roc_auc": np.nan,
+                }
+            )
+            rows.append(
+                _evaluate_scores(
+                    model_name="HistGradientBoostingClassifier_tuned",
+                    feature_set=feature_set_name,
+                    split_name=split_name,
+                    split_kind=split_kind,
+                    train_y=y_train,
+                    test_y=y_test,
+                    train_score=hgb_train,
+                    test_score=hgb_test,
+                    candidate_feature_count=len(feature_set_cols),
+                    kept_features=kept_hgb,
+                    meta=meta_hgb,
+                    best_params=best_hgb_params,
+                    note="best params selected on grouped_source train only",
+                )
+            )
 
     metrics = pd.DataFrame(rows)
     metrics.to_csv(out_csv, index=False, encoding="utf-8-sig")
+    removal_df = pd.DataFrame(removal_rows)
 
-    cmp = metrics[["split_name", "split_kind", "model", "roc_auc", "ap", "f1_best", "f1_fpr1"]].copy()
-    best_by_split = (
-        metrics[metrics["model"].isin(["LogisticRegression", "HistGradientBoostingClassifier_tuned", "HistGradientBoostingClassifier_mode_aware"])]
-        .sort_values(["split_name", "roc_auc", "ap"], ascending=[True, False, False], na_position="last")
-        .groupby("split_name", as_index=False)
-        .first()[["split_name", "model", "roc_auc", "ap", "f1_best", "f1_fpr1"]]
+    grouped_rows = metrics[metrics["split_name"] == "grouped_source"].copy()
+    pooled_rows = metrics[metrics["split_name"] == "pooled_random"].copy()
+    grouped_table = grouped_rows[
+        ["feature_set", "model", "roc_auc", "ap", "f1_best", "f1_fpr1", "kept_feature_count", "removed_all_nan_count", "removed_zero_var_count"]
+    ].sort_values(["roc_auc", "ap"], ascending=False, na_position="last")
+    pooled_table = pooled_rows[
+        ["feature_set", "model", "roc_auc", "ap", "f1_best", "f1_fpr1", "kept_feature_count", "removed_all_nan_count", "removed_zero_var_count"]
+    ].sort_values(["roc_auc", "ap"], ascending=False, na_position="last")
+
+    grouped_candidates = grouped_rows[grouped_rows["model"].isin(["LogisticRegression", "HistGradientBoostingClassifier_tuned"])].copy()
+    best_grouped = grouped_candidates.sort_values(["roc_auc", "ap"], ascending=False, na_position="last").head(1)
+    grouped_baseline = grouped_rows[grouped_rows["feature_set"] == "baseline_best_single"].head(1)
+    delta_df = pd.DataFrame()
+    if not best_grouped.empty and not grouped_baseline.empty:
+        bg = best_grouped.iloc[0]
+        bl = grouped_baseline.iloc[0]
+        delta_df = pd.DataFrame(
+            [
+                {
+                    "baseline_model": bl["model"],
+                    "best_grouped_model": bg["model"],
+                    "best_grouped_feature_set": bg["feature_set"],
+                    "roc_auc_delta": bg["roc_auc"] - bl["roc_auc"],
+                    "ap_delta": bg["ap"] - bl["ap"],
+                    "f1_best_delta": bg["f1_best"] - bl["f1_best"],
+                    "f1_fpr1_delta": bg["f1_fpr1"] - bl["f1_fpr1"],
+                }
+            ]
+        )
+
+    grouped_feature_family = (
+        grouped_candidates.groupby("feature_set", as_index=False)
+        .agg(
+            best_roc_auc=("roc_auc", "max"),
+            best_ap=("ap", "max"),
+            mean_kept_feature_count=("kept_feature_count", "mean"),
+            mean_removed_all_nan=("removed_all_nan_count", "mean"),
+            mean_removed_zero_var=("removed_zero_var_count", "mean"),
+        )
+        .sort_values(["best_roc_auc", "best_ap"], ascending=False, na_position="last")
     )
 
-    sup1_hgb = pd.DataFrame()
-    if baseline_csv is not None and baseline_csv.exists():
-        prev = pd.read_csv(baseline_csv)
-        sup1_hgb = prev[prev["model"] == "HistGradientBoostingClassifier"].copy()
-
     lines = []
-    lines.append("# EXTERNAL GPVS SUPERVISED2 ONEPAGE")
+    lines.append("# EXTERNAL GPVS SUPERVISED3 ONEPAGE")
     lines.append("")
     lines.append("## 목적")
-    lines.append("- 전반부 normal / 후반부 fault 라벨을 이용한 supervised 2차 benchmark입니다.")
-    lines.append("- 목표는 `grouped_source` 일반화 성능 향상입니다.")
+    lines.append("- 전반부 normal / 후반부 fault 라벨을 이용한 supervised 3차 benchmark입니다.")
+    lines.append("- 이번 패스의 최적화 기준은 optimistic split이 아니라 `grouped_source` 일반화 성능입니다.")
     lines.append("")
-    lines.append("## feature family 요약")
-    lines.append(f"- total feature count: {len(feature_cols)}")
-    lines.append("- 기존 feature 유지: raw/like/mode/active_axis/degenerate/span/delta/rolling std/mean")
-    lines.append("- 추가: `norm_*` (file-wise pre-half robust normalization)")
-    lines.append("- 추가: `rollmean3_norm_*`, `rollmax3_norm_*`, `rollmean5_norm_*`, `rollmax5_norm_*`")
+    lines.append("## feature set 요약")
+    lines.append("- `stable_like_all`: like 5종 + mode + active_axis_count + degenerate flags")
+    lines.append("- `stable_like_shape_first`: dtw/hs/ae like + mode + active_axis_count + degenerate flags")
+    lines.append("- `raw_no_norm_all`: raw 5종 + mode + active_axis_count + degenerate flags + raw delta + raw rollmean3 + raw rollmax3")
+    lines.append("- `mixed_no_norm`: like 5종 + raw 5종 + mode + active_axis_count + degenerate flags + raw delta + raw rollmean3 + raw rollmax3")
+    lines.append("- `norm_level_drop_raw`, `norm_v_drop_raw` 및 norm rolling 파생은 이번 패스에서 의도적으로 제외했습니다.")
     lines.append("")
     lines.append("## baseline")
     lines.append(f"- baseline_best_single: `{baseline_score}`")
     lines.append(f"- full-data baseline roc_auc: {_fmt(baseline_auc)}")
     lines.append(f"- full-data baseline ap: {_fmt(baseline_ap)}")
     lines.append("")
-    lines.append("## best hyperparameters")
-    lines.append(f"- HGB pooled tuned: `{best_hgb_params}`")
-    lines.append(f"- HGB mode-aware tuned: `{best_mode_params}`")
+    lines.append("## grouped_source 기준 feature set별 결과")
+    lines.append(_to_md_table(grouped_table))
     lines.append("")
-    lines.append("## model별 결과")
-    lines.append(_to_md_table(cmp))
+    lines.append("## pooled_random 참고표")
+    lines.append(_to_md_table(pooled_table))
+    lines.append("")
+    lines.append("## best grouped_source model")
+    lines.append(_to_md_table(best_grouped[["feature_set", "model", "roc_auc", "ap", "f1_best", "f1_fpr1", "best_params", "kept_feature_count"]]))
+    lines.append("")
+    lines.append("## baseline_best_single 대비 개선폭")
+    lines.append(_to_md_table(delta_df))
+    lines.append("")
+    lines.append("## grouped에서 살아남은 feature family")
+    lines.append(_to_md_table(grouped_feature_family))
+    lines.append("")
+    lines.append("## fold별 제거 feature 요약")
+    if removal_df.empty:
+        lines.append("_(no removal summary rows)_")
+    else:
+        removal_show = removal_df[
+            ["feature_set", "stage", "fold_id", "kept_feature_count", "removed_all_nan_count", "removed_zero_var_count", "removed_all_nan", "removed_zero_var"]
+        ].copy()
+        lines.append(_to_md_table(removal_show))
     lines.append("")
     lines.append("## split 해석")
-    lines.append("- `pooled_random`: 윈도우 단위 랜덤 분할로 같은 file의 상관 구조가 train/test에 함께 들어갈 수 있어 optimistic합니다.")
-    lines.append("- `grouped_source`: `source_id` 기준 전체 file holdout이라 더 정직한 일반화 참고용입니다.")
-    lines.append("")
-    if not sup1_hgb.empty:
-        lines.append("## supervised1 HGB vs supervised2 HGB")
-        prev_cmp = sup1_hgb[["split_name", "roc_auc", "ap", "f1_best", "f1_fpr1"]].rename(
-            columns={
-                "roc_auc": "sup1_hgb_roc_auc",
-                "ap": "sup1_hgb_ap",
-                "f1_best": "sup1_hgb_f1_best",
-                "f1_fpr1": "sup1_hgb_f1_fpr1",
-            }
-        )
-        new_cmp = metrics[metrics["model"] == "HistGradientBoostingClassifier_mode_aware"][["split_name", "roc_auc", "ap", "f1_best", "f1_fpr1"]].rename(
-            columns={
-                "roc_auc": "sup2_mode_hgb_roc_auc",
-                "ap": "sup2_mode_hgb_ap",
-                "f1_best": "sup2_mode_hgb_f1_best",
-                "f1_fpr1": "sup2_mode_hgb_f1_fpr1",
-            }
-        )
-        delta = prev_cmp.merge(new_cmp, on="split_name", how="outer")
-        if not delta.empty:
-            delta["roc_auc_delta"] = delta["sup2_mode_hgb_roc_auc"] - delta["sup1_hgb_roc_auc"]
-            delta["ap_delta"] = delta["sup2_mode_hgb_ap"] - delta["sup1_hgb_ap"]
-            delta["f1_fpr1_delta"] = delta["sup2_mode_hgb_f1_fpr1"] - delta["sup1_hgb_f1_fpr1"]
-        lines.append(_to_md_table(delta))
-        lines.append("")
-    lines.append("## best supervised by split")
-    lines.append(_to_md_table(best_by_split))
-    lines.append("")
-    lines.append("## optimistic vs grouped gap")
-    gap_rows = []
-    for model_name in ["LogisticRegression", "HistGradientBoostingClassifier_tuned", "HistGradientBoostingClassifier_mode_aware"]:
-        sub = metrics[metrics["model"] == model_name].set_index("split_name")
-        if "pooled_random" in sub.index and "grouped_source" in sub.index:
-            gap_rows.append(
-                {
-                    "model": model_name,
-                    "roc_auc_gap": float(sub.loc["pooled_random", "roc_auc"] - sub.loc["grouped_source", "roc_auc"]),
-                    "ap_gap": float(sub.loc["pooled_random", "ap"] - sub.loc["grouped_source", "ap"]),
-                    "f1_fpr1_gap": float(sub.loc["pooled_random", "f1_fpr1"] - sub.loc["grouped_source", "f1_fpr1"]),
-                }
-            )
-    lines.append(_to_md_table(pd.DataFrame(gap_rows)))
-    lines.append("")
+    lines.append("- `pooled_random`: 윈도우 단위 랜덤 분할이라 optimistic 참고용입니다.")
+    lines.append("- `grouped_source`: `source_id` 기준 holdout이며, 이번 패스의 하이퍼파라미터 선택 기준입니다.")
     out_md.write_text("\n".join(lines), encoding="utf-8")
     return metrics, out_csv, out_md
 
@@ -726,9 +795,8 @@ def run_supervised(
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Train supervised GPVS benchmark models from gpvs_window_scores.csv")
     ap.add_argument("--scores-csv", default="data/gpvs/out/gpvs_window_scores.csv", help="Input GPVS window score CSV")
-    ap.add_argument("--out-csv", default="data/gpvs/out/EXTERNAL_GPVS_SUPERVISED2_METRICS.csv", help="Output supervised2 metrics CSV")
-    ap.add_argument("--out-md", default="data/gpvs/out/EXTERNAL_GPVS_SUPERVISED2_ONEPAGE.md", help="Output supervised2 onepage markdown")
-    ap.add_argument("--baseline-csv", default="data/gpvs/out/EXTERNAL_GPVS_SUPERVISED_METRICS.csv", help="Existing supervised1 metrics CSV for comparison")
+    ap.add_argument("--out-csv", default="data/gpvs/out/EXTERNAL_GPVS_SUPERVISED3_METRICS.csv", help="Output supervised3 metrics CSV")
+    ap.add_argument("--out-md", default="data/gpvs/out/EXTERNAL_GPVS_SUPERVISED3_ONEPAGE.md", help="Output supervised3 onepage markdown")
     ap.add_argument("--test-size", type=float, default=0.3, help="Test size for both split settings")
     ap.add_argument("--random-state", type=int, default=42, help="Random seed")
     return ap.parse_args()
@@ -740,7 +808,6 @@ def main() -> None:
         scores_csv=pathlib.Path(args.scores_csv),
         out_csv=pathlib.Path(args.out_csv),
         out_md=pathlib.Path(args.out_md),
-        baseline_csv=pathlib.Path(args.baseline_csv) if args.baseline_csv else None,
         test_size=float(args.test_size),
         random_state=int(args.random_state),
     )
