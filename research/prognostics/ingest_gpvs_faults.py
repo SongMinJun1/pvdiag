@@ -645,6 +645,11 @@ def build_window_scores(
     dtw_raw = np.array([_dtw_distance(w, baseline_wave, band=max(2, dtw_len // 8)) for w in waves], dtype=float)
     ae_raw = _pca_recon_error(waves[h_idx], waves, n_comp=min(8, max(2, dtw_len // 8))) if np.any(h_idx) else np.full(len(df), np.nan)
 
+    df["level_drop_raw"] = level_drop_raw
+    df["v_drop_raw"] = v_drop_raw
+    df["hs_raw"] = cv_raw
+    df["dtw_raw"] = dtw_raw
+    df["ae_raw"] = ae_raw
     df["level_drop_like"] = _scale_like(level_drop_raw, healthy)
     df["v_drop_like"] = _scale_like(v_drop_raw, healthy)
     df["hs_like"] = _scale_like(cv_raw, healthy)
@@ -668,6 +673,11 @@ def build_window_scores(
         "v_pv_mean",
         "i_pv_mean",
         "p_pv_mean",
+        "level_drop_raw",
+        "v_drop_raw",
+        "hs_raw",
+        "dtw_raw",
+        "ae_raw",
         "level_drop_like",
         "v_drop_like",
         "hs_like",
