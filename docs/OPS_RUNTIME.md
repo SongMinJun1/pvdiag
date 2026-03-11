@@ -2,6 +2,7 @@
 
 ## 운영용 1차 구조
 - 운영형 진입점은 `research/prognostics/run_site_latest.py`와 `scripts/run_all_sites_latest.sh`다.
+- 이 문서는 연구용 release bundle이 아니라 운영용 1차 실행 구조를 설명한다.
 - 각 사이트는 `configs/sites/<site>.yaml`로 관리한다.
 - baseline train 구간은 고정하고, `score_end`만 raw 디렉터리 최신 날짜로 자동 확장한다.
 
