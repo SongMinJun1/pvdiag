@@ -16,6 +16,11 @@ python research/prognostics/run_site_latest.py --site kernelog1
 bash scripts/run_all_sites_latest.sh
 ```
 
+## 운영 설치 절차
+- macOS 자동 실행이 필요하면 `scripts/install_ops_launchd.sh`를 사용한다.
+- 해제는 `scripts/uninstall_ops_launchd.sh`로 한다.
+- 설치 전에는 `run_site_latest.py --dry-run`으로 경로와 날짜 범위를 먼저 확인한다.
+
 ## 실행 원칙
 - train 구간은 사이트 설정 파일에 고정한다.
 - score 구간은 train 다음 날부터 최신 raw 날짜까지 자동 확장한다.
