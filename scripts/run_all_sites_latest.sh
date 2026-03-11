@@ -20,4 +20,7 @@ echo "[RUN] build_site_event_phenotypes"
 echo "[RUN] publish_site_latest_phenotypes"
 "$PYTHON_BIN" research/prognostics/publish_site_latest_phenotypes.py || exit 1
 
+echo "[RUN] publish_alert_history"
+"$PYTHON_BIN" research/prognostics/publish_alert_history.py || exit 1
+
 echo "[DONE] all sites completed"

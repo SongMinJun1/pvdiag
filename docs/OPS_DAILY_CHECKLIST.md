@@ -12,10 +12,11 @@
    ```bash
    python research/prognostics/ops_healthcheck.py
    ```
-3. 사이트별 `latest_alerts_enriched.csv`를 먼저 확인한다.
+3. 사이트별 `new_alerts_today.csv`를 먼저 확인한다.
+4. 그다음 `latest_alerts_enriched.csv`를 확인한다.
    - `data/<site>/out/latest_alerts_enriched.csv`
-4. 필요하면 `latest_alerts.csv`, `latest_panel_status_enriched.csv`, `latest_site_phenotype_summary.csv`를 본다.
-5. 이상이 있으면 `_ops_runtime_logs/latest.log` 마지막 구간을 확인한다.
+5. `resolved_alerts_today.csv`와 `site_daily_rollup.csv`를 확인한다.
+6. 이상이 있으면 `_ops_runtime_logs/latest.log` 마지막 구간을 확인한다.
 
 ## 수동 재실행 방법
 ### 단일 사이트
@@ -46,9 +47,14 @@ python research/prognostics/run_site_latest.py --site kernelog1 --dry-run
 - `data/<site>/out/latest_alerts_enriched.csv`
 - `data/<site>/out/latest_panel_status_enriched.csv`
 - `data/<site>/out/latest_site_phenotype_summary.csv`
+- `data/<site>/out/new_alerts_today.csv`
+- `data/<site>/out/resolved_alerts_today.csv`
+- `data/<site>/out/site_daily_rollup.csv`
 
 ## 운영자 판단 포인트
 - `alert_count`가 전일 대비 급증했는지
+- `new_alert_count`가 갑자기 늘었는지
+- `resolved_alert_count`가 비정상적으로 큰지
 - `online_diag_count`가 증가했는지
 - `dead_count`가 증가했는지
 - `latest_alerts_enriched.csv`에서 electrical / shape / instability / compound 분포가 평소와 다른지
