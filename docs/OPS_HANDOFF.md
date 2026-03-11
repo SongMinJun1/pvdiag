@@ -33,7 +33,16 @@
 1. launchd 또는 수동으로 latest rerun을 실행한다.
 2. `_ops_runtime_logs/latest.status`를 확인한다.
 3. `python research/prognostics/ops_healthcheck.py`를 실행한다.
-4. `data/<site>/out/latest_alerts.csv`를 확인한다.
+4. `data/<site>/out/latest_alerts_enriched.csv`를 우선 확인한다.
+
+## phenotype publish
+- daily run이 끝나면 `_share/site_event_phenotypes_latest.csv` 기반 phenotype 결과를 site 운영 파일로 publish한다.
+- 추가 운영 산출물
+  - `latest_event_phenotypes.csv`
+  - `latest_alerts_enriched.csv`
+  - `latest_panel_status_enriched.csv`
+  - `latest_site_phenotype_summary.csv`
+- `electrical`, `shape`, `instability`, `compound`는 exact fault class가 아니라 phenotype 태그다.
 
 ## 수동 재실행 방법
 ### 단일 사이트
@@ -61,23 +70,23 @@ launchctl kickstart -k gui/$(id -u)/pvdiag.run_all_sites_latest
 - score 구간은 train 다음 날부터 최신 raw 날짜까지 자동 확장한다.
 - 현재 구조는 incremental scoring이 아니라 전체 구간 재산출 방식이다.
 
-## 운영 산출물 3종
-### `latest_panel_status.csv`
-- 최신 날짜 기준 panel 상태 1행씩 정리
-- 운영자가 현재 panel 상태를 빠르게 훑는 용도
+## 운영 산출물
+### 기본 latest 3종
+- `latest_panel_status.csv`
+- `latest_alerts.csv`
+- `latest_site_summary.csv`
 
-### `latest_alerts.csv`
-- high-priority panel만 추린 운영용 shortlist
-- diagnosis / dead / critical 흔적이 있으면 우선 노출하고, 없으면 `risk_ens` 상위 panel을 사용
-
-### `latest_site_summary.csv`
-- 사이트 단위 최신 요약
-- panel 수, alert 수, diagnosis 수, dead/critical/final fault 수를 한 줄로 정리
+### phenotype enriched 4종
+- `latest_event_phenotypes.csv`
+- `latest_alerts_enriched.csv`
+- `latest_panel_status_enriched.csv`
+- `latest_site_phenotype_summary.csv`
 
 ## failure 대응
 - 먼저 `--dry-run`으로 범위와 입력 경로를 확인한다.
 - `_ops_runtime_logs/latest.status`에서 `exit_code`를 확인한다.
 - `python research/prognostics/ops_healthcheck.py`로 전체 상태를 다시 본다.
+- `latest_alerts_enriched.csv`가 생성됐는지 확인한다.
 - 한 사이트 실패 시 해당 사이트부터 다시 단독 실행한다.
 - launchd로 돌고 있었다면 `latest.log` 마지막 줄과 `launchctl print gui/$(id -u)/pvdiag.run_all_sites_latest`를 확인한다.
 
