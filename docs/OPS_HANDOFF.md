@@ -3,9 +3,39 @@
 ## 목적
 - 이 번들은 `pvdiag` 운영용 1차 배포물이다.
 - 연구용 실험 스크립트, 외부 검증, 보고서 문서와 분리된 최소 운영 구성만 담는다.
+- 번들 기준 포함 파일은 코어 엔진, latest rerun wrapper, healthcheck, launchd 설치 스크립트, 사이트 설정, 운영 문서로 제한한다.
 
-## daily 실행 방법
+## bundle 포함 기준
+- core / pipeline
+  - `pv_ae/panel_day_engine.py`
+  - `research/prognostics/risk_score.py`
+  - `research/prognostics/add_transition_scores.py`
+  - `research/prognostics/add_ensemble_scores.py`
+  - `research/prognostics/run_scores_pipeline.py`
+  - `research/prognostics/run_panel_day_site.py`
+  - `research/prognostics/run_site_latest.py`
+  - `research/prognostics/ops_healthcheck.py`
+- ops scripts
+  - `scripts/run_all_sites_latest.sh`
+  - `scripts/run_all_sites_latest_logged.sh`
+  - `scripts/install_ops_launchd.sh`
+  - `scripts/uninstall_ops_launchd.sh`
+- configs / docs
+  - `configs/sites/*.yaml`
+  - `docs/OPS_RUNTIME.md`
+  - `docs/OPS_HANDOFF.md`
+  - `docs/OPS_SCHEDULE.md`
+  - `docs/OPS_DAILY_CHECKLIST.md`
+  - `docs/DATA_DICTIONARY.md`
+  - `requirements.txt`
 
+## daily operation 순서
+1. launchd 또는 수동으로 latest rerun을 실행한다.
+2. `_ops_runtime_logs/latest.status`를 확인한다.
+3. `python research/prognostics/ops_healthcheck.py`를 실행한다.
+4. `data/<site>/out/latest_alerts.csv`를 확인한다.
+
+## 수동 재실행 방법
 ### 단일 사이트
 ```bash
 python research/prognostics/run_site_latest.py --site kernelog1
@@ -13,13 +43,18 @@ python research/prognostics/run_site_latest.py --site kernelog1
 
 ### 전체 사이트
 ```bash
-bash scripts/run_all_sites_latest.sh
+bash scripts/run_all_sites_latest_logged.sh
 ```
 
-## 운영 설치 절차
-- macOS 자동 실행이 필요하면 `scripts/install_ops_launchd.sh`를 사용한다.
-- 해제는 `scripts/uninstall_ops_launchd.sh`로 한다.
-- 설치 전에는 `run_site_latest.py --dry-run`으로 경로와 날짜 범위를 먼저 확인한다.
+## dry-run 방법
+```bash
+python research/prognostics/run_site_latest.py --site kernelog1 --dry-run
+```
+
+## kickstart 방법
+```bash
+launchctl kickstart -k gui/$(id -u)/pvdiag.run_all_sites_latest
+```
 
 ## 실행 원칙
 - train 구간은 사이트 설정 파일에 고정한다.
@@ -27,7 +62,6 @@ bash scripts/run_all_sites_latest.sh
 - 현재 구조는 incremental scoring이 아니라 전체 구간 재산출 방식이다.
 
 ## 운영 산출물 3종
-
 ### `latest_panel_status.csv`
 - 최신 날짜 기준 panel 상태 1행씩 정리
 - 운영자가 현재 panel 상태를 빠르게 훑는 용도
@@ -42,9 +76,11 @@ bash scripts/run_all_sites_latest.sh
 
 ## failure 대응
 - 먼저 `--dry-run`으로 범위와 입력 경로를 확인한다.
+- `_ops_runtime_logs/latest.status`에서 `exit_code`를 확인한다.
+- `python research/prognostics/ops_healthcheck.py`로 전체 상태를 다시 본다.
 - 한 사이트 실패 시 해당 사이트부터 다시 단독 실행한다.
-- 실패 시 `run_site_latest.py`가 출력한 실행 명령과 로그를 확인한다.
+- launchd로 돌고 있었다면 `latest.log` 마지막 줄과 `launchctl print gui/$(id -u)/pvdiag.run_all_sites_latest`를 확인한다.
 
 ## 운영/연구 분리
 - 이 번들은 운영용 wrapper와 최소 코어만 포함한다.
-- GPVS, TECNALIA, weak-label 평가, case study, 연구 보고서 문서는 포함하지 않는다.
+- `docs/reports`, `docs/internal`, `docs/archive`, `research/support`, GPVS/TECNALIA 실험 파일, `_share`, `data`는 bundle에 넣지 않는다.

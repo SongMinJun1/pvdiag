@@ -2,6 +2,8 @@
 
 ## 운영용 1차 구조
 - 운영형 진입점은 `research/prognostics/run_site_latest.py`와 `scripts/run_all_sites_latest.sh`다.
+- 실행 로그 기준 wrapper는 `scripts/run_all_sites_latest_logged.sh`다.
+- 상태 점검 진입점은 `research/prognostics/ops_healthcheck.py`다.
 - 이 문서는 연구용 release bundle이 아니라 운영용 1차 실행 구조를 설명한다.
 - 각 사이트는 `configs/sites/<site>.yaml`로 관리한다.
 - baseline train 구간은 고정하고, `score_end`만 raw 디렉터리 최신 날짜로 자동 확장한다.
@@ -18,6 +20,7 @@
 3. `panel_day_engine.py` 실행
 4. `run_scores_pipeline.py` 실행
 5. 운영용 3종 CSV 생성
+6. `ops_healthcheck.py`로 latest 상태 확인
 
 ## 4개 사이트 실행 예시
 
@@ -29,7 +32,8 @@ python research/prognostics/run_site_latest.py --site ktc_ess
 ```
 
 ```bash
-bash scripts/run_all_sites_latest.sh
+bash scripts/run_all_sites_latest_logged.sh
+python research/prognostics/ops_healthcheck.py
 ```
 
 ## 운영용 산출물 3종
