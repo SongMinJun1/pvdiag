@@ -61,18 +61,22 @@
 
 ## 4. multisite latest rerun
 
-| site | raw_first | raw_last | out_first | out_last | core_panels | online_diag_count |
-| --- | --- | --- | --- | --- | ---: | ---: |
-| kernelog1 | 2024-09-06 | 2026-02-18 | 2025-03-01 | 2026-02-18 | 349 | 4 |
-| sinhyo | 2024-10-29 | 2026-02-19 | 2025-07-01 | 2026-02-19 | 117 | 0 |
-| gangui | 2025-04-08 | 2026-02-19 | 2025-09-01 | 2026-02-19 | 230 | 39 |
-| ktc_ess | 2024-08-13 | 2026-02-19 | 2025-07-01 | 2026-02-19 | 187 | 1 |
+| site | raw_first | raw_last | raw_count | out_first | out_last | out_count | core_panels | dead_count | critical_count | online_diag_count | final_fault_count |
+| --- | --- | --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| kernelog1 | 2024-09-06 | 2026-02-18 | 529 | 2024-11-05 | 2026-02-18 | 469 | 349 | 66 | 7 | 72 | 72 |
+| sinhyo | 2024-10-29 | 2026-02-19 | 479 | 2024-12-28 | 2026-02-19 | 419 | 117 | 0 | 0 | 0 | 0 |
+| gangui | 2025-04-08 | 2026-02-19 | 318 | 2025-06-07 | 2026-02-19 | 258 | 230 | 22 | 18 | 40 | 28 |
+| ktc_ess | 2024-08-13 | 2026-02-19 | 533 | 2024-10-12 | 2026-02-19 | 473 | 187 | 0 | 2 | 2 | 1 |
 
-### 해석
-- `kernelog1`은 내부 검증/사례 검증의 중심 사이트다.
-- `sinhyo`는 latest rerun 기준 이벤트가 없다.
-- `gangui`는 이벤트 수가 가장 많고 phenotype tagging 적용 범위가 가장 넓다.
-- `ktc_ess`는 이벤트 수가 적어 보조 sanity 수준으로 본다.
+### phenotype 해석 원칙
+- 최신 multisite 해석에서는 phenotype count만 보지 않고 `dominant_family` count를 같이 본다.
+- phenotype의 `compound` 비율이 높기 때문에, 실제 축 성격은 dominant family 쪽이 더 직접적이다.
+
+### site 해석
+- `kernelog1`: phenotype count는 `compound`가 많지만, dominant_family 기준으로는 `electrical=55`, `instability=16`, `shape=2`다.
+- `gangui`: dominant_family 기준으로 `electrical=18`, `shape=20`, `instability=2`다. 즉 shape 중심 경향이 있으면서도 electrical 성격이 분명히 남아 있다.
+- `ktc_ess`: dominant_family 기준으로 `shape=2`만 남는다.
+- `sinhyo`: 최신 rerun 기준 이벤트가 없다.
 
 ## 5. gangui 현장 수기 근거
 
@@ -84,17 +88,37 @@
 - 250414 특이사항 모듈
 
 ### 해석 원칙
-- `모듈 출력 저하`는 electrical 기대 사례지만, 현재 확보 시각은 발생시각이 아니라 발견/기록 시각일 가능성이 있고 latest rerun score 시작일보다 이르다.
-- 따라서 weak time anchor로만 남기고 direct temporal validation에는 쓰지 않았다.
-- `스트링 단선`, `GARD`, `BSTR`, `250414 특이사항`은 정적 상태 태그 또는 설비 속성으로 보고 subgroup annotation에만 사용했다.
+- 위 수기 근거는 모두 `gangui` 관련으로만 해석한다. `kernelog1` 현장 근거로 사용하지 않는다.
+- `모듈 출력 저하`는 exact event log가 아니라 발견 또는 기록 시각일 가능성이 있어 정성 근거로만 사용한다.
+- 또한 현재 latest rerun score 시작일보다 이른 시점이므로 direct temporal validation에는 쓰지 않는다.
+- `스트링 단선`, `GARD`, `BSTR`, `250414 특이사항`은 정적 상태 태그 또는 설비 속성으로 보고 subgroup annotation에만 사용한다.
 - exact field validation은 수행하지 않았고, 정성 보조 근거로만 사용했다.
 
-## 6. 최종 결론
+## 6. 운영용 1차 구조
+
+### 현재 구조
+- train 구간은 사이트 설정 파일에 고정한다.
+- score 구간은 train 다음 날부터 최신 raw 날짜까지 자동 확장한다.
+- 운영형 진입점은 `research/prognostics/run_site_latest.py`와 `scripts/run_all_sites_latest.sh`다.
+
+### daily rerun
+- `run_site_latest.py`는 site 설정을 읽고 최신 raw 날짜를 자동 탐지한 뒤, 엔진과 후처리를 순서대로 실행한다.
+- `run_all_sites_latest.sh`는 `kernelog1`, `sinhyo`, `gangui`, `ktc_ess`를 순차 실행한다.
+
+### 운영용 산출물
+- `latest_panel_status.csv`
+- `latest_alerts.csv`
+- `latest_site_summary.csv`
+
+- 즉 현재 버전은 사람이 `eval_end`를 매번 직접 수정하지 않아도, 최신 raw 날짜 기준으로 4개 사이트를 다시 계산하는 운영형 1차 구조까지 갖춘 상태다.
+
+## 7. 최종 결론
 
 ### 현재 버전이 쓸 만한 것
 - `kernelog1` 내부 데이터에서 전조 shortlist와 online diagnosis를 분리해 해석하는 용도
 - multisite rerun에서 이벤트 분포와 phenotype 분포를 빠르게 요약하는 용도
 - GPVS/TECNALIA 같은 외부 공개 데이터에서 축 반응성과 일반화 한계를 점검하는 용도
+- site config 기반 daily rerun과 최신 alert/status/summary 생성용 운영 래퍼
 
 ### 아직 못 하는 것
 - exact fault class 수준의 외부 분류
