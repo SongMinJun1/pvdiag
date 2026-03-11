@@ -61,22 +61,33 @@
 
 ## 4. multisite latest rerun
 
-| site | raw_first | raw_last | raw_count | out_first | out_last | out_count | core_panels | dead_count | critical_count | online_diag_count | final_fault_count |
+### 기간/산출 범위
+
+| site | raw_first | raw_last | raw_count | out_first | out_last | out_count | core_panels |
 | --- | --- | --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| kernelog1 | 2024-09-06 | 2026-02-18 | 529 | 2024-11-05 | 2026-02-18 | 469 | 349 | 66 | 7 | 72 | 72 |
-| sinhyo | 2024-10-29 | 2026-02-19 | 479 | 2024-12-28 | 2026-02-19 | 419 | 117 | 0 | 0 | 0 | 0 |
-| gangui | 2025-04-08 | 2026-02-19 | 318 | 2025-06-07 | 2026-02-19 | 258 | 230 | 22 | 18 | 40 | 28 |
-| ktc_ess | 2024-08-13 | 2026-02-19 | 533 | 2024-10-12 | 2026-02-19 | 473 | 187 | 0 | 2 | 2 | 1 |
+| kernelog1 | 2024-09-06 | 2026-02-18 | 529 | 2024-11-05 | 2026-02-18 | 469 | 349 |
+| sinhyo | 2024-10-29 | 2026-02-19 | 479 | 2024-12-28 | 2026-02-19 | 419 | 117 |
+| gangui | 2025-04-08 | 2026-02-19 | 318 | 2025-06-07 | 2026-02-19 | 258 | 230 |
+| ktc_ess | 2024-08-13 | 2026-02-19 | 533 | 2024-10-12 | 2026-02-19 | 473 | 184 |
+
+### latest ops snapshot
+
+| site | latest_date | panel_count | alert_count | online_diag_count | critical_count | dead_count | final_fault_count |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| kernelog1 | 2026-02-18 | 349 | 72 | 72 | 7 | 66 | 1 |
+| sinhyo | 2026-02-19 | 117 | 20 | 0 | 0 | 0 | 0 |
+| gangui | 2026-02-19 | 230 | 40 | 40 | 18 | 22 | 3 |
+| ktc_ess | 2026-02-19 | 184 | 2 | 2 | 2 | 0 | 1 |
 
 ### phenotype 해석 원칙
 - 최신 multisite 해석에서는 phenotype count만 보지 않고 `dominant_family` count를 같이 본다.
 - phenotype의 `compound` 비율이 높기 때문에, 실제 축 성격은 dominant family 쪽이 더 직접적이다.
 
 ### site 해석
-- `kernelog1`: phenotype count는 `compound`가 많지만, dominant_family 기준으로는 `electrical=55`, `instability=16`, `shape=2`다.
-- `gangui`: dominant_family 기준으로 `electrical=18`, `shape=20`, `instability=2`다. 즉 shape 중심 경향이 있으면서도 electrical 성격이 분명히 남아 있다.
-- `ktc_ess`: dominant_family 기준으로 `shape=2`만 남는다.
-- `sinhyo`: 최신 rerun 기준 이벤트가 없다.
+- `kernelog1`: dominant_family 기준으로 `electrical=55`, `instability=16`, `shape=2`이며, online diagnosis/critical/dead가 실제로 잡히는 사이트다.
+- `gangui`: dominant_family 기준으로 `electrical=18`, `shape=20`, `instability=2`다. 즉 shape 중심 경향이 있으면서도 electrical 성격이 분명히 남아 있고, online diagnosis/critical/dead도 실제로 잡힌다.
+- `ktc_ess`: 소수 이벤트만 잡히며 dominant_family는 `shape=2`다.
+- `sinhyo`: latest 기준 `alert_count=20`이 있지만 이는 fault diagnosis가 아니라 high-risk latest alerts로 해석한다. `online_diag_count=0`, `critical_count=0`, `dead_count=0`이다.
 
 ## 5. gangui 현장 수기 근거
 
@@ -110,7 +121,7 @@
 - `latest_alerts.csv`
 - `latest_site_summary.csv`
 
-- 즉 현재 버전은 사람이 `eval_end`를 매번 직접 수정하지 않아도, 최신 raw 날짜 기준으로 4개 사이트를 다시 계산하는 운영형 1차 구조까지 갖춘 상태다.
+- 즉 현재 버전은 사람이 `eval_end`를 매번 직접 수정하지 않아도, 최신 raw 날짜 기준으로 4개 사이트를 다시 계산하는 운영형 1차 구조가 실제로 동작하는 상태다.
 
 ## 7. 최종 결론
 

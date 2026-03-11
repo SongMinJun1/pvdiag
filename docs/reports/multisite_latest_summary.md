@@ -6,12 +6,23 @@
 
 ## 2. 사이트별 rerun 요약
 
-| site | raw_first | raw_last | raw_count | out_first | out_last | out_count | core_panels | dead_count | critical_count | online_diag_count | final_fault_count |
+### 기간/산출 범위
+
+| site | raw_first | raw_last | raw_count | out_first | out_last | out_count | core_panels |
 | --- | --- | --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| kernelog1 | 2024-09-06 | 2026-02-18 | 529 | 2024-11-05 | 2026-02-18 | 469 | 349 | 66 | 7 | 72 | 72 |
-| sinhyo | 2024-10-29 | 2026-02-19 | 479 | 2024-12-28 | 2026-02-19 | 419 | 117 | 0 | 0 | 0 | 0 |
-| gangui | 2025-04-08 | 2026-02-19 | 318 | 2025-06-07 | 2026-02-19 | 258 | 230 | 22 | 18 | 40 | 28 |
-| ktc_ess | 2024-08-13 | 2026-02-19 | 533 | 2024-10-12 | 2026-02-19 | 473 | 187 | 0 | 2 | 2 | 1 |
+| kernelog1 | 2024-09-06 | 2026-02-18 | 529 | 2024-11-05 | 2026-02-18 | 469 | 349 |
+| sinhyo | 2024-10-29 | 2026-02-19 | 479 | 2024-12-28 | 2026-02-19 | 419 | 117 |
+| gangui | 2025-04-08 | 2026-02-19 | 318 | 2025-06-07 | 2026-02-19 | 258 | 230 |
+| ktc_ess | 2024-08-13 | 2026-02-19 | 533 | 2024-10-12 | 2026-02-19 | 473 | 184 |
+
+### latest ops snapshot
+
+| site | latest_date | panel_count | alert_count | online_diag_count | critical_count | dead_count | final_fault_count |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| kernelog1 | 2026-02-18 | 349 | 72 | 72 | 7 | 66 | 1 |
+| sinhyo | 2026-02-19 | 117 | 20 | 0 | 0 | 0 | 0 |
+| gangui | 2026-02-19 | 230 | 40 | 40 | 18 | 22 | 3 |
+| ktc_ess | 2026-02-19 | 184 | 2 | 2 | 2 | 0 | 1 |
 
 ## 3. Phenotype / Dominant Family
 
@@ -34,10 +45,10 @@
 | ktc_ess | 0 | 2 | 0 |
 
 ## 4. 핵심 해석
-- `kernelog1`: phenotype count만 보면 `compound`가 지배적이지만, dominant_family 기준으로는 `electrical=55`, `instability=16`, `shape=2`다. 즉 최신 rerun 기준 사건군의 중심 축은 electrical 쪽으로 보는 편이 맞다.
-- `gangui`: phenotype은 `compound=27`, `shape=13`으로 보이지만, dominant_family는 `electrical=18`, `shape=20`, `instability=2`다. 따라서 gangui는 shape 중심 경향이 있으면서도 electrical 성격이 완전히 없는 것은 아니다.
-- `ktc_ess`: 이벤트 수는 적고, dominant_family 기준으로는 `shape=2`만 남는다.
-- `sinhyo`: 최신 rerun 기준 `online_diag_count=0`이며 phenotype 이벤트도 없다.
+- `kernelog1`: latest 기준으로 `alert_count=72`, `online_diag_count=72`, `critical_count=7`, `dead_count=66`이며, dominant_family는 `electrical=55`, `instability=16`, `shape=2`다.
+- `gangui`: latest 기준으로 `alert_count=40`, `online_diag_count=40`, `critical_count=18`, `dead_count=22`가 실제로 잡힌다. phenotype은 `compound=27`, `shape=13`이지만 dominant_family는 `electrical=18`, `shape=20`, `instability=2`라서 electrical 성격이 완전히 없는 것은 아니다.
+- `ktc_ess`: latest 기준 `alert_count=2`, `online_diag_count=2`, `critical_count=2`, `final_fault_count=1`로 소수 이벤트만 잡히며 dominant_family는 `shape=2`다.
+- `sinhyo`: latest 기준 `alert_count=20`이 있지만 이는 fault diagnosis가 아니라 high-risk latest alerts로 해석한다. `online_diag_count=0`, `critical_count=0`, `dead_count=0`이며 phenotype 이벤트는 없다.
 
 ## 5. 현장 근거
 - 현재 수기 현장 근거는 모두 `gangui` 관련으로만 해석한다.
@@ -48,7 +59,7 @@
 ## 6. 한계
 - 현재 phenotype은 exact fault class `F1~F7` 분류기가 아니라 축 기반 phenotype tagging이다.
 - `compound` 비율이 높아 규칙 임계값과 family 결합 규칙을 더 조정할 여지가 있다.
-- 이번 결과는 latest rerun 기반 refresh 결과다.
+- 이번 결과는 latest rerun 기반 refresh 결과이며, 운영용 latest는 train 구간 고정 + score 구간 자동 확장 구조를 따른다.
 
 ## 7. 다음 단계
 - phenotype 규칙의 `compound / dominant_family` 관계를 더 정교하게 조정할지 검토한다.
