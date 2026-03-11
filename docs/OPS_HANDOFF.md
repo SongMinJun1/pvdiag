@@ -33,7 +33,7 @@
 1. launchd 또는 수동으로 latest rerun을 실행한다.
 2. `_ops_runtime_logs/latest.status`를 확인한다.
 3. `python research/prognostics/ops_healthcheck.py`를 실행한다.
-4. `data/<site>/out/latest_alerts_enriched.csv`를 우선 확인한다.
+4. `data/<site>/out/new_alerts_today.csv`와 `latest_alerts_enriched.csv`를 우선 확인한다.
 
 ## phenotype publish
 - daily run이 끝나면 `_share/site_event_phenotypes_latest.csv` 기반 phenotype 결과를 site 운영 파일로 publish한다.
@@ -43,6 +43,16 @@
   - `latest_panel_status_enriched.csv`
   - `latest_site_phenotype_summary.csv`
 - `electrical`, `shape`, `instability`, `compound`는 exact fault class가 아니라 phenotype 태그다.
+
+## daily history
+- daily run이 끝나면 `publish_alert_history.py`가 site별 history를 누적한다.
+- 추가 운영 산출물
+  - `alert_history.csv`
+  - `new_alerts_today.csv`
+  - `resolved_alerts_today.csv`
+  - `site_daily_rollup.csv`
+  - `_share/ops_daily_rollup_latest.csv`
+- 중복 실행 시 `snapshot_date + site + panel_id` 기준으로 history가 upsert된다.
 
 ## 수동 재실행 방법
 ### 단일 사이트
@@ -82,11 +92,18 @@ launchctl kickstart -k gui/$(id -u)/pvdiag.run_all_sites_latest
 - `latest_panel_status_enriched.csv`
 - `latest_site_phenotype_summary.csv`
 
+### daily history 5종
+- `alert_history.csv`
+- `new_alerts_today.csv`
+- `resolved_alerts_today.csv`
+- `site_daily_rollup.csv`
+- `_share/ops_daily_rollup_latest.csv`
+
 ## failure 대응
 - 먼저 `--dry-run`으로 범위와 입력 경로를 확인한다.
 - `_ops_runtime_logs/latest.status`에서 `exit_code`를 확인한다.
 - `python research/prognostics/ops_healthcheck.py`로 전체 상태를 다시 본다.
-- `latest_alerts_enriched.csv`가 생성됐는지 확인한다.
+- `new_alerts_today.csv`, `resolved_alerts_today.csv`, `latest_alerts_enriched.csv`가 생성됐는지 확인한다.
 - 한 사이트 실패 시 해당 사이트부터 다시 단독 실행한다.
 - launchd로 돌고 있었다면 `latest.log` 마지막 줄과 `launchctl print gui/$(id -u)/pvdiag.run_all_sites_latest`를 확인한다.
 
