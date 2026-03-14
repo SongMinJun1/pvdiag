@@ -36,7 +36,7 @@
 
 아래 파일은 레포에는 남기되, release bundle에는 넣지 않는다.
 
-- `docs/reports/kernelog1_onepager.md`
+- `docs/reports/conalog_onepager.md`
 - `docs/internal/WHAT_TO_LOOK_AT.md`
 - `docs/internal/TASKS.md`
 - `docs/internal/RESEARCH_ROADMAP.md`
@@ -77,12 +77,12 @@
 최소 실행 순서는 아래와 같다.
 
 1. core engine
-   - 예: `python research/prognostics/run_panel_day_site.py --site kernelog1`
+   - 예: `python research/prognostics/run_panel_day_site.py --site conalog`
 2. post-processing
-   - `python research/prognostics/run_scores_pipeline.py --site kernelog1`
+   - `python research/prognostics/run_scores_pipeline.py --site conalog`
 3. optional site eval
-   - `python research/prognostics/weaklabel_eval_2sigma.py --site kernelog1`
-   - `python research/prognostics/fault_case_study.py --site kernelog1 --case "<panel_id>:<onset_date>"`
+   - `python research/prognostics/weaklabel_eval_2sigma.py --site conalog`
+   - `python research/prognostics/fault_case_study.py --site conalog --case "<panel_id>:<onset_date>"`
 4. optional external benchmark
    - `python research/prognostics/ingest_gpvs_faults.py`
    - `python research/prognostics/external_eval_gpvs.py`

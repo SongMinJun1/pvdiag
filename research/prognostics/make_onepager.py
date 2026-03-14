@@ -20,7 +20,7 @@ def _fmt(x):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--site", default="kernelog1")
+    ap.add_argument("--site", default="conalog")
     ap.add_argument("--pack", default=None, help="paper_pack dir (optional)")
     args = ap.parse_args()
 

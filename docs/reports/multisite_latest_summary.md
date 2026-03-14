@@ -10,7 +10,7 @@
 
 | site | raw_first | raw_last | raw_count | out_first | out_last | out_count | core_panels |
 | --- | --- | --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| kernelog1 | 2024-09-06 | 2026-02-18 | 529 | 2024-11-05 | 2026-02-18 | 469 | 349 |
+| Conalog | 2024-09-06 | 2026-02-18 | 529 | 2024-11-05 | 2026-02-18 | 469 | 349 |
 | sinhyo | 2024-10-29 | 2026-02-19 | 479 | 2024-12-28 | 2026-02-19 | 419 | 117 |
 | gangui | 2025-04-08 | 2026-02-19 | 318 | 2025-06-07 | 2026-02-19 | 258 | 230 |
 | ktc_ess | 2024-08-13 | 2026-02-19 | 533 | 2024-10-12 | 2026-02-19 | 473 | 184 |
@@ -19,7 +19,7 @@
 
 | site | latest_date | panel_count | alert_count | online_diag_count | critical_count | dead_count | final_fault_count |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| kernelog1 | 2026-02-18 | 349 | 72 | 72 | 7 | 66 | 1 |
+| Conalog | 2026-02-18 | 349 | 72 | 72 | 7 | 66 | 1 |
 | sinhyo | 2026-02-19 | 117 | 20 | 0 | 0 | 0 | 0 |
 | gangui | 2026-02-19 | 230 | 40 | 40 | 18 | 22 | 3 |
 | ktc_ess | 2026-02-19 | 184 | 2 | 2 | 2 | 0 | 1 |
@@ -30,7 +30,7 @@
 
 | site | compound | shape | instability | unclear |
 | --- | ---: | ---: | ---: | ---: |
-| kernelog1 | 72 | 0 | 1 | 0 |
+| Conalog | 72 | 0 | 1 | 0 |
 | sinhyo | 0 | 0 | 0 | 0 |
 | gangui | 27 | 13 | 0 | 0 |
 | ktc_ess | 2 | 0 | 0 | 0 |
@@ -39,13 +39,13 @@
 
 | site | electrical | shape | instability |
 | --- | ---: | ---: | ---: |
-| kernelog1 | 55 | 2 | 16 |
+| Conalog | 55 | 2 | 16 |
 | sinhyo | 0 | 0 | 0 |
 | gangui | 18 | 20 | 2 |
 | ktc_ess | 0 | 2 | 0 |
 
 ## 4. 핵심 해석
-- `kernelog1`: latest 기준으로 `alert_count=72`, `online_diag_count=72`, `critical_count=7`, `dead_count=66`이며, dominant_family는 `electrical=55`, `instability=16`, `shape=2`다.
+- `Conalog`: latest 기준으로 `alert_count=72`, `online_diag_count=72`, `critical_count=7`, `dead_count=66`이며, dominant_family는 `electrical=55`, `instability=16`, `shape=2`다.
 - `gangui`: latest 기준으로 `alert_count=40`, `online_diag_count=40`, `critical_count=18`, `dead_count=22`가 실제로 잡힌다. phenotype은 `compound=27`, `shape=13`이지만 dominant_family는 `electrical=18`, `shape=20`, `instability=2`라서 electrical 성격이 완전히 없는 것은 아니다.
 - `ktc_ess`: latest 기준 `alert_count=2`, `online_diag_count=2`, `critical_count=2`, `final_fault_count=1`로 소수 이벤트만 잡히며 dominant_family는 `shape=2`다.
 - `sinhyo`: latest 기준 `alert_count=20`이 있지만 이는 fault diagnosis가 아니라 high-risk latest alerts로 해석한다. `online_diag_count=0`, `critical_count=0`, `dead_count=0`이며 phenotype 이벤트는 없다.
@@ -63,4 +63,4 @@
 
 ## 7. 다음 단계
 - phenotype 규칙의 `compound / dominant_family` 관계를 더 정교하게 조정할지 검토한다.
-- kernelog1, GPVS, TECNALIA를 합친 전체 검증 요약 문서로 연결한다.
+- Conalog, GPVS, TECNALIA를 합친 전체 검증 요약 문서로 연결한다.

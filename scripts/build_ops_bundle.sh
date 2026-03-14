@@ -19,7 +19,7 @@ FILES=(
   "scripts/run_all_sites_latest_logged.sh"
   "scripts/install_ops_launchd.sh"
   "scripts/uninstall_ops_launchd.sh"
-  "configs/sites/kernelog1.yaml"
+  "configs/sites/conalog.yaml"
   "configs/sites/sinhyo.yaml"
   "configs/sites/gangui.yaml"
   "configs/sites/ktc_ess.yaml"
