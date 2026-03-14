@@ -1,6 +1,6 @@
-# PV Fault Early-Warning & Diagnosis — ONEPAGER (kernelog1)
+# PV Fault Early-Warning & Diagnosis — ONEPAGER (Conalog)
 
-> Report notice: 이 문서는 `kernelog1` 결과 요약 보고서다. 컬럼/라벨/출력 계약의 기준 문서는 `docs/DATA_DICTIONARY.md`이며, 현재 core engine 기준 파일은 `pv_ae/panel_day_engine.py`다.
+> Report notice: 이 문서는 `Conalog` 결과 요약 보고서다. 컬럼/라벨/출력 계약의 기준 문서는 `docs/DATA_DICTIONARY.md`이며, 현재 core engine 기준 파일은 `pv_ae/panel_day_engine.py`다.
 
 ## 한 줄 정의
 - 본 시스템은 5분 V/I 기반으로 패널 상태를 계산해 **운영용 전조 shortlist(Top-N)** 와 **확정 진단 라벨(final/confirmed)** 을 분리 산출한다.
@@ -10,7 +10,7 @@
 - 평가 표의 `onset_date`, leadtime, alert concentration, list diversity는 오프라인 비교 지표다.
 - 정의와 컬럼 해석은 이 문서가 아니라 `docs/DATA_DICTIONARY.md`를 기준으로 본다.
 
-## kernelog1 결과 요약(현재 확보 데이터 기준)
+## Conalog 결과 요약(현재 확보 데이터 기준)
 
 ### 사건 정의(onset vs diagnosis)
 | panel_id | onset_date | diagnosis_date | delay_days |

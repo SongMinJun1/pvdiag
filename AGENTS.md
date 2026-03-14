@@ -13,7 +13,7 @@
 
 검증 최소 조건
 - python -m py_compile pv_ae/panel_day_engine.py
-- kernelog1 1회 실행 또는 paper_pack 재생성 스크립트 성공 확인
+- conalog 1회 실행 또는 paper_pack 재생성 스크립트 성공 확인
 
 완료 보고 형식
 - 변경 파일 목록

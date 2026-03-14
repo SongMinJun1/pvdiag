@@ -29,7 +29,7 @@
 ## 4개 사이트 실행 예시
 
 ```bash
-python research/prognostics/run_site_latest.py --site kernelog1 --dry-run
+python research/prognostics/run_site_latest.py --site conalog --dry-run
 python research/prognostics/run_site_latest.py --site sinhyo
 python research/prognostics/run_site_latest.py --site gangui
 python research/prognostics/run_site_latest.py --site ktc_ess
