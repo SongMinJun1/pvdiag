@@ -42,12 +42,12 @@
 ## 최소 실행 순서
 
 1. core engine 실행
-   - `python research/prognostics/run_panel_day_site.py --site kernelog1`
+   - `python research/prognostics/run_panel_day_site.py --site conalog`
 2. post-processing 실행
-   - `python research/prognostics/run_scores_pipeline.py --site kernelog1`
+   - `python research/prognostics/run_scores_pipeline.py --site conalog`
 3. optional site eval
-   - `python research/prognostics/weaklabel_eval_2sigma.py --site kernelog1`
-   - `python research/prognostics/fault_case_study.py --site kernelog1 --case "<panel_id>:<onset_date>"`
+   - `python research/prognostics/weaklabel_eval_2sigma.py --site conalog`
+   - `python research/prognostics/fault_case_study.py --site conalog --case "<panel_id>:<onset_date>"`
 4. optional external benchmark
    - `python research/prognostics/ingest_gpvs_faults.py`
    - `python research/prognostics/external_eval_gpvs.py`

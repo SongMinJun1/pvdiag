@@ -13,7 +13,7 @@ import pandas as pd
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--site", required=True, help="site key, e.g. kernelog1")
+    ap.add_argument("--site", required=True, help="site key, e.g. conalog")
     ap.add_argument("--panel", required=True, help="panel_id")
     ap.add_argument("--onset", required=True, help="manual onset date (YYYY-MM-DD)")
     ap.add_argument("--window", type=int, default=30, help="days before/after onset")

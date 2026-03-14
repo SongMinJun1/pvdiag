@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 
-DEFAULT_SITES = ["kernelog1", "sinhyo", "gangui", "ktc_ess"]
+DEFAULT_SITES = ["conalog", "sinhyo", "gangui", "ktc_ess"]
 EVENT_DATE_PRIORITY = [
     "diagnosis_date_online",
     "critical_diag_date",

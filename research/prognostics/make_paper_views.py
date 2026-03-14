@@ -17,7 +17,7 @@ def _first_present(df: pd.DataFrame, candidates: list[str]) -> str | None:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--site", default="kernelog1")
+    ap.add_argument("--site", default="conalog")
     ap.add_argument("--scores", default=None, help="Path to scores CSV (optional). If omitted, auto-detect in data/<site>/out/")
     ap.add_argument("--out-dir", default=None, help="Output directory (optional). Default: research/reports/<site>/paper_pack")
     args = ap.parse_args()

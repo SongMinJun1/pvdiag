@@ -21,7 +21,7 @@
 ## 수동 재실행 방법
 ### 단일 사이트
 ```bash
-python research/prognostics/run_site_latest.py --site kernelog1
+python research/prognostics/run_site_latest.py --site conalog
 ```
 
 ### 전체 사이트
@@ -37,7 +37,7 @@ launchctl kickstart -k gui/$(id -u)/pvdiag.run_all_sites_latest
 ## dry-run 확인
 - 실제 재실행 전에 경로와 날짜 범위를 먼저 본다.
 ```bash
-python research/prognostics/run_site_latest.py --site kernelog1 --dry-run
+python research/prognostics/run_site_latest.py --site conalog --dry-run
 ```
 
 ## 운영자가 매일 확인할 파일
