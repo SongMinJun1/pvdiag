@@ -1,4 +1,4 @@
-# PV Fault Early-Warning & Diagnosis — ONEPAGER (kernelog1)
+# PV Fault Early-Warning & Diagnosis — ONEPAGER (Conalog)
 
 ## 한 줄 정의
 - 본 시스템은 5분 V/I 기반으로 패널 상태를 계산해 **운영용 전조 shortlist(Top-N)** 와 **확정 진단 라벨(final/confirmed)** 을 분리 산출한다.
@@ -67,7 +67,7 @@
 | `dead_streak` | dead 연속일수 |
 | `final_fault` | 확정고장 플래그 |
 
-## kernelog1 결과 요약(현재 확보 데이터 기준)
+## Conalog 결과 요약(현재 확보 데이터 기준)
 
 ### 사건 정의(onset vs diagnosis)
 | panel_id | onset_date | diagnosis_date | delay_days |

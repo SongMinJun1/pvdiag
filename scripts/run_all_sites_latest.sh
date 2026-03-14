@@ -7,7 +7,7 @@ PATH=/opt/homebrew/opt/python@3.11/libexec/bin:/opt/homebrew/bin:/usr/local/bin:
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-sites=(kernelog1 sinhyo gangui ktc_ess)
+sites=(conalog sinhyo gangui ktc_ess)
 
 for site in "${sites[@]}"; do
   echo "[RUN] $site"

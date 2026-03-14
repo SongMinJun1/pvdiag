@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SITE="${1:-kernelog1}"
+SITE="${1:-conalog}"
 DATE="$(date +%Y%m%d)"
 BUNDLE="release_bundle_${SITE}_${DATE}"
 ZIP="${BUNDLE}.zip"

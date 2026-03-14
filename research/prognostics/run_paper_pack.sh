@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SITE="${1:-kernelog1}"
+SITE="${1:-conalog}"
 SCORES="${2:-data/${SITE}/out/panel_day_risk_transition.csv}"
 EVENTS="${3:-research/reports/${SITE}/fault_events_confirmed.csv}"
 OUT="research/reports/${SITE}/paper_pack"

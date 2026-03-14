@@ -57,7 +57,7 @@
 ## 수동 재실행 방법
 ### 단일 사이트
 ```bash
-python research/prognostics/run_site_latest.py --site kernelog1
+python research/prognostics/run_site_latest.py --site conalog
 ```
 
 ### 전체 사이트
@@ -67,7 +67,7 @@ bash scripts/run_all_sites_latest_logged.sh
 
 ## dry-run 방법
 ```bash
-python research/prognostics/run_site_latest.py --site kernelog1 --dry-run
+python research/prognostics/run_site_latest.py --site conalog --dry-run
 ```
 
 ## kickstart 방법

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-SITES = ["kernelog1", "sinhyo", "gangui", "ktc_ess"]
+SITES = ["conalog", "sinhyo", "gangui", "ktc_ess"]
 PHENO_COLS = [
     "phenotype",
     "dominant_family",

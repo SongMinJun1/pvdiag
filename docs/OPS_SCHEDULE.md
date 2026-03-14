@@ -23,7 +23,7 @@ bash scripts/uninstall_ops_launchd.sh
 
 ### 단일 사이트
 ```bash
-python research/prognostics/run_site_latest.py --site kernelog1
+python research/prognostics/run_site_latest.py --site conalog
 ```
 
 ### 전체 사이트
@@ -33,7 +33,7 @@ bash scripts/run_all_sites_latest_logged.sh
 
 ## dry-run 확인
 ```bash
-python research/prognostics/run_site_latest.py --site kernelog1 --dry-run
+python research/prognostics/run_site_latest.py --site conalog --dry-run
 ```
 
 ## log 파일 위치

@@ -8,8 +8,8 @@
 # ============================================================
 # ★★★ 사용자 설정 (여기만 수정하세요) ★★★
 # ============================================================
-INPUT_DIR = r"data/kernelog1/low_energy_in"                 # 엑셀/CSV 파일들이 들어있는 폴더 경로
-OUTPUT_PATH = r"data/kernelog1/out/low_panels_2sigma_d3.xlsx"
+INPUT_DIR = r"data/conalog/low_energy_in"                 # 엑셀/CSV 파일들이 들어있는 폴더 경로
+OUTPUT_PATH = r"data/conalog/out/low_panels_2sigma_d3.xlsx"
 # 결과 엑셀 저장 경로(.xlsx)
 
 SIGMA = 2.0                             # 시그마 기준 (예: 2.0 → 평균-2σ)
