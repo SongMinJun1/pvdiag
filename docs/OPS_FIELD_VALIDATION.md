@@ -20,10 +20,19 @@
 python research/prognostics/build_field_truth_template.py
 ```
 
+truth가 이미 입력된 기존 template가 있으면 기본적으로 overwrite를 막는다.
+
+의도적으로 덮어써야 할 때만 아래처럼 실행한다.
+
+```bash
+python research/prognostics/build_field_truth_template.py --force-overwrite-truth
+```
+
 생성 파일:
 
 - `_share/field_truth_template.csv`
 - `_share/field_truth_template.xlsx`
+- `_share/field_truth_template_meta.csv`
 - `_share/site_event_groups_latest.csv`
 
 2. 현장 회신을 `field_truth_template.csv` 또는 xlsx 첫 시트에 입력한다.
@@ -48,6 +57,8 @@ python research/prognostics/evaluate_field_truth.py
 
 ## field_truth_template.csv canonical columns
 
+`field_truth_template.csv`와 `field_truth_template.xlsx` 첫 시트는 사람이 직접 수정하는 canonical truth template다.
+
 - `site`
 - `panel_id`
 - `review_group`
@@ -65,6 +76,19 @@ python research/prognostics/evaluate_field_truth.py
 - `field_match_manual`
 - `field_match_auto`
 - `note`
+
+## field_truth_template_meta.csv machine metadata columns
+
+`field_truth_template_meta.csv`는 machine-generated sidecar다. 사람이 truth를 입력하는 템플릿이 아니라 provenance / confidence / abstain metadata를 따로 보관하는 용도다.
+
+- `site`
+- `panel_id`
+- `review_group`
+- `our_first_anomaly_source`
+- `chronology_guard_applied`
+- `confidence_level`
+- `abstain_flag`
+- `abstain_reason`
 
 ## site_event_groups_latest.csv canonical columns
 
@@ -165,7 +189,30 @@ row-level evidence도 없으면 current review snapshot date를 마지막 보수
 
 따라서 v1 lead time은 current review fallback만 있었던 row에서는 보수적으로 계산될 수 있다.
 
-### 5. sequencing 메모
+### 5. provenance / confidence / abstain
+
+`our_first_anomaly_source`는 아래 canonical enum 중 하나다.
+
+- `alert_history_temporal`
+- `historical_reconstruction`
+- `row_evidence_fallback`
+- `current_review_fallback`
+
+`chronology_guard_applied`는 chronology guard가 `our_first_anomaly_date`를 실제로 채우거나 수정했으면 `1`, 아니면 `0`이다.
+
+confidence / abstain 규칙:
+
+- `alert_history_temporal` and no guard -> `confidence_level=high`, `abstain_flag=0`
+- `historical_reconstruction` and no guard -> `confidence_level=medium`, `abstain_flag=0`
+- `row_evidence_fallback` and no guard -> `confidence_level=medium`, `abstain_flag=0`
+- `current_review_fallback` -> `confidence_level=low`, `abstain_flag=1`, `abstain_reason=weak_temporal_evidence`
+- guard가 적용되면 confidence를 한 단계 낮춘다
+- `current_review_fallback`에 guard가 같이 적용돼도 `low` / abstain 유지
+- `abstain_flag=0`이면 `abstain_reason`는 빈 값이다
+
+이 provenance-aware confidence를 두는 이유는, 일부 row가 strong temporal history가 아니라 fallback evidence에 의존하기 때문이다.
+
+### 6. sequencing 메모
 
 v1 sequencing은 아래 순서다.
 
@@ -269,6 +316,14 @@ leadtime 계산 eligibility는 아래 조건을 모두 만족할 때만 `ok`다.
 - `field_match_manual`이 비어 있지 않으면 manual 사용
 - 아니면 `field_match_auto` 사용
 
+leadtime / phenotype detail output에는 아래 provenance-aware 컬럼이 sidecar에서 join되어 같이 복사된다.
+
+- `our_first_anomaly_source`
+- `chronology_guard_applied`
+- `confidence_level`
+- `abstain_flag`
+- `abstain_reason`
+
 ## no-truth 동작
 
 - `field_validation_summary.csv`는 항상 생성된다
@@ -276,6 +331,15 @@ leadtime 계산 eligibility는 아래 조건을 모두 만족할 때만 `ok`다.
 - 이 경우 summary의 status count는 `pending_truth` 위주로 채워진다
 - `field_validation_leadtime.csv`는 header-only
 - `field_validation_phenotype_match.csv`는 header-only
+
+## overwrite-safe workflow
+
+1. `build_field_truth_template.py`로 template를 만든다
+2. 현장에서 truth를 입력한다
+3. truth 입력 이후에는 기본적으로 build를 다시 돌리지 않는다
+4. 정말로 template를 새로 덮어써야 할 때만 `--force-overwrite-truth`를 명시한다
+
+즉 truth entry 이후의 일반 경로는 `evaluate_field_truth.py` 재실행이지 build 재실행이 아니다. canonical human-edit template는 그대로 두고, machine provenance는 sidecar에서 다시 join된다.
 
 ## Caveats
 

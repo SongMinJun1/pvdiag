@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 import pandas as pd
 
 SITES = ["conalog", "sinhyo", "gangui", "ktc_ess"]
-TEMPLATE_COLS = [
+CANONICAL_TEMPLATE_COLS = [
     "site",
     "panel_id",
     "review_group",
@@ -23,6 +24,25 @@ TEMPLATE_COLS = [
     "action_taken",
     "field_match_manual",
     "field_match_auto",
+    "note",
+]
+META_COLS = [
+    "site",
+    "panel_id",
+    "review_group",
+    "our_first_anomaly_source",
+    "chronology_guard_applied",
+    "confidence_level",
+    "abstain_flag",
+    "abstain_reason",
+]
+TRUTH_COLS = [
+    "issue_detected_date",
+    "issue_started_estimated_date",
+    "actual_issue_type",
+    "actual_primary_view",
+    "action_taken",
+    "field_match_manual",
     "note",
 ]
 GROUP_COLS = [
@@ -117,6 +137,42 @@ def interpretation(primary_view: str, bucket: str) -> str:
     return "해석 정보 부족"
 
 
+def downgrade_confidence(level: str) -> str:
+    if level == "high":
+        return "medium"
+    if level == "medium":
+        return "low"
+    return "low"
+
+
+def confidence_and_abstain(source: str, guard_applied: int) -> tuple[str, int, str]:
+    if source == "alert_history_temporal":
+        confidence = "high"
+        abstain_flag = 0
+        abstain_reason = ""
+    elif source in {"historical_reconstruction", "row_evidence_fallback"}:
+        confidence = "medium"
+        abstain_flag = 0
+        abstain_reason = ""
+    elif source == "current_review_fallback":
+        confidence = "low"
+        abstain_flag = 1
+        abstain_reason = "weak_temporal_evidence"
+    else:
+        confidence = "low"
+        abstain_flag = 1
+        abstain_reason = "weak_temporal_evidence"
+
+    if guard_applied:
+        if source == "current_review_fallback":
+            return "low", 1, "weak_temporal_evidence"
+        confidence = downgrade_confidence(confidence)
+
+    if not abstain_flag:
+        abstain_reason = ""
+    return confidence, abstain_flag, abstain_reason
+
+
 def representative_date_from_evidence(row: pd.Series, initial_fallback_date: str) -> str:
     for col in ["dead_diag_date", "critical_diag_date", "diagnosis_date_online", "phenotype_event_date"]:
         value = fmt_date(row.get(col))
@@ -185,30 +241,80 @@ def derive_first_anomaly_date(
     history_available: bool,
     current_review_date: str,
     source_counts: dict[str, int],
-) -> str:
+) -> tuple[str, str]:
     if history_available and panel_id in first_history_map:
         source_counts["from_alert_history_temporal"] += 1
-        return first_history_map[panel_id]
+        return first_history_map[panel_id], "alert_history_temporal"
 
     reconstructed = historical_reconstruction_first_anomaly(row)
     if reconstructed:
         source_counts["from_historical_reconstruction"] += 1
-        return reconstructed
+        return reconstructed, "historical_reconstruction"
 
     row_evidence = row_evidence_first_anomaly(row)
     if row_evidence:
         source_counts["from_row_evidence_fallback"] += 1
-        return row_evidence
+        return row_evidence, "row_evidence_fallback"
 
     review_fallback = current_review_fallback_date(current_review_date)
     if review_fallback:
         source_counts["from_current_review_fallback"] += 1
-        return review_fallback
+        return review_fallback, "current_review_fallback"
 
-    return ""
+    return "", "current_review_fallback"
 
 
-def build_template(root: Path) -> tuple[pd.DataFrame, dict[str, int]]:
+def read_existing_template_for_protection(csv_path: Path, xlsx_path: Path) -> pd.DataFrame:
+    if csv_path.exists():
+        existing = read_csv_or_empty(csv_path)
+        if not existing.empty:
+            return existing
+    if xlsx_path.exists():
+        try:
+            existing = pd.read_excel(xlsx_path, sheet_name=0)
+        except Exception:
+            return pd.DataFrame()
+        return existing.reset_index(drop=True)
+    return pd.DataFrame()
+
+
+def count_truth_filled_rows(df: pd.DataFrame) -> int:
+    if df.empty:
+        return 0
+    mask = pd.Series(False, index=df.index)
+    for col in TRUTH_COLS:
+        if col in df.columns:
+            mask = mask | df[col].fillna("").astype(str).str.strip().ne("")
+    return int(mask.sum())
+
+
+def ensure_safe_overwrite(csv_path: Path, xlsx_path: Path, force_overwrite_truth: bool) -> None:
+    if force_overwrite_truth:
+        return
+    existing = read_existing_template_for_protection(csv_path, xlsx_path)
+    truth_rows = count_truth_filled_rows(existing)
+    if truth_rows > 0:
+        raise SystemExit(
+            f"[ABORT] existing field truth template contains {truth_rows} truth-filled rows. "
+            "Rerun with --force-overwrite-truth only if you explicitly intend to overwrite field-entered truth."
+        )
+
+
+def split_template_and_meta(rows: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    template = pd.DataFrame(rows)
+    if template.empty:
+        return pd.DataFrame(columns=CANONICAL_TEMPLATE_COLS), pd.DataFrame(columns=META_COLS)
+    template = template.sort_values(
+        ["site", "candidate_bucket", "representative_date", "panel_id"],
+        ascending=[True, True, True, True],
+        na_position="last",
+    ).reset_index(drop=True)
+    meta = template[META_COLS].copy()
+    canonical = template[CANONICAL_TEMPLATE_COLS].copy()
+    return canonical, meta
+
+
+def build_template(root: Path) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, int]]:
     rows = []
     source_counts = {key: 0 for key in SOURCE_COUNT_KEYS}
     for site in SITES:
@@ -231,7 +337,7 @@ def build_template(root: Path) -> tuple[pd.DataFrame, dict[str, int]]:
             primary_view = our_primary_view(row_series)
             status = latest_status(row_series)
             bucket = candidate_bucket(status)
-            first_anomaly = derive_first_anomaly_date(
+            first_anomaly, anomaly_source = derive_first_anomaly_date(
                 panel_id=panel_id,
                 row=row_series,
                 first_history_map=first_history_map,
@@ -243,9 +349,14 @@ def build_template(root: Path) -> tuple[pd.DataFrame, dict[str, int]]:
             # then falls back to the pre-guard anomaly candidate only if needed.
             rep_date = representative_date_from_evidence(row_series, first_anomaly)
             guarded_first_anomaly = monotonic_first_anomaly(first_anomaly, rep_date)
+            guard_applied = int(guarded_first_anomaly != first_anomaly)
             if guarded_first_anomaly != first_anomaly:
                 source_counts["from_representative_guard"] += 1
             first_anomaly = guarded_first_anomaly
+            confidence_level, abstain_flag, abstain_reason = confidence_and_abstain(
+                source=anomaly_source,
+                guard_applied=guard_applied,
+            )
             rows.append(
                 {
                     "site": site,
@@ -254,6 +365,11 @@ def build_template(root: Path) -> tuple[pd.DataFrame, dict[str, int]]:
                     "representative_date": rep_date,
                     "candidate_bucket": bucket,
                     "our_first_anomaly_date": first_anomaly,
+                    "our_first_anomaly_source": anomaly_source,
+                    "chronology_guard_applied": guard_applied,
+                    "confidence_level": confidence_level,
+                    "abstain_flag": abstain_flag,
+                    "abstain_reason": abstain_reason,
                     "our_latest_status": status,
                     "our_primary_view": primary_view,
                     "our_interpretation": interpretation(primary_view, bucket),
@@ -267,17 +383,8 @@ def build_template(root: Path) -> tuple[pd.DataFrame, dict[str, int]]:
                     "note": "",
                 }
             )
-    template = pd.DataFrame(rows, columns=TEMPLATE_COLS)
-    if template.empty:
-        return pd.DataFrame(columns=TEMPLATE_COLS), source_counts
-    return (
-        template.sort_values(
-            ["site", "candidate_bucket", "representative_date", "panel_id"],
-            ascending=[True, True, True, True],
-            na_position="last",
-        ).reset_index(drop=True),
-        source_counts,
-    )
+    template, meta = split_template_and_meta(rows)
+    return template, meta, source_counts
 
 
 def likely_common_issue(group: pd.DataFrame) -> str:
@@ -329,11 +436,26 @@ def build_event_groups(template: pd.DataFrame) -> pd.DataFrame:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Build field truth template and event groups.")
+    parser.add_argument(
+        "--force-overwrite-truth",
+        action="store_true",
+        help="Allow overwriting an existing truth-filled field truth template.",
+    )
+    args = parser.parse_args()
+
     root = Path(__file__).resolve().parents[2]
     share_dir = root / "_share"
     share_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = share_dir / "field_truth_template.csv"
+    xlsx_path = share_dir / "field_truth_template.xlsx"
+    groups_path = share_dir / "site_event_groups_latest.csv"
 
-    template, source_counts = build_template(root)
+    ensure_safe_overwrite(csv_path, xlsx_path, args.force_overwrite_truth)
+
+    meta_path = share_dir / "field_truth_template_meta.csv"
+
+    template, meta, source_counts = build_template(root)
     groups = build_event_groups(template)
     anomaly_after_rep = int(
         (
@@ -348,11 +470,8 @@ def main() -> None:
         ).fillna(False).sum()
     ) if not groups.empty else 0
 
-    csv_path = share_dir / "field_truth_template.csv"
-    xlsx_path = share_dir / "field_truth_template.xlsx"
-    groups_path = share_dir / "site_event_groups_latest.csv"
-
     template.to_csv(csv_path, index=False, encoding="utf-8-sig")
+    meta.to_csv(meta_path, index=False, encoding="utf-8-sig")
     groups.to_csv(groups_path, index=False, encoding="utf-8-sig")
     with pd.ExcelWriter(xlsx_path, engine="openpyxl") as writer:
         template.to_excel(writer, sheet_name="field_truth_template", index=False)
@@ -360,6 +479,7 @@ def main() -> None:
 
     print(f"[OK] wrote {csv_path}")
     print(f"[OK] wrote {xlsx_path}")
+    print(f"[OK] wrote {meta_path}")
     print(f"[OK] wrote {groups_path}")
     print(f"[COUNT] template_rows={len(template)}")
     print(f"[COUNT] event_groups={len(groups)}")
