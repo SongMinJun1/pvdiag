@@ -32,6 +32,11 @@ LEAD_COLS = [
     "representative_date",
     "candidate_bucket",
     "our_first_anomaly_date",
+    "our_first_anomaly_source",
+    "chronology_guard_applied",
+    "confidence_level",
+    "abstain_flag",
+    "abstain_reason",
     "truth_date_used",
     "validation_status",
     "lead_days",
@@ -48,6 +53,11 @@ MATCH_COLS = [
     "review_group",
     "representative_date",
     "candidate_bucket",
+    "our_first_anomaly_source",
+    "chronology_guard_applied",
+    "confidence_level",
+    "abstain_flag",
+    "abstain_reason",
     "our_primary_view",
     "actual_primary_view",
     "field_match_manual",
@@ -179,6 +189,18 @@ def helper_site_windows(root: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def helper_template_meta(root: Path) -> pd.DataFrame:
+    path = root / "_share" / "field_truth_template_meta.csv"
+    meta = read_csv_or_empty(path)
+    if meta.empty:
+        return pd.DataFrame(columns=["site", "panel_id", "review_group", "our_first_anomaly_source", "chronology_guard_applied", "confidence_level", "abstain_flag", "abstain_reason"])
+    keep = ["site", "panel_id", "review_group", "our_first_anomaly_source", "chronology_guard_applied", "confidence_level", "abstain_flag", "abstain_reason"]
+    for col in keep:
+        if col not in meta.columns:
+            meta[col] = pd.NA
+    return meta[keep].drop_duplicates(["site", "panel_id", "review_group"], keep="last")
+
+
 def field_match_auto(our_view: str, actual_view: str) -> str:
     if our_view == "unknown" or actual_view == "unknown":
         return "unknown"
@@ -236,7 +258,7 @@ def validation_status(row: pd.Series) -> str:
     return "ok"
 
 
-def build_outputs(template: pd.DataFrame, helpers: pd.DataFrame, windows: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def build_outputs(template: pd.DataFrame, meta: pd.DataFrame, helpers: pd.DataFrame, windows: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     if template.empty:
         summary = pd.DataFrame(
             [{"site": site, **{c: 0 for c in SUMMARY_COLS if c != "site"}} for site in SITES]
@@ -246,6 +268,7 @@ def build_outputs(template: pd.DataFrame, helpers: pd.DataFrame, windows: pd.Dat
         return summary, pd.DataFrame(columns=LEAD_COLS), pd.DataFrame(columns=MATCH_COLS)
 
     work = template.copy()
+    work = work.merge(meta, on=["site", "panel_id", "review_group"], how="left")
     work = work.merge(helpers, on=["site", "panel_id"], how="left")
     work = work.merge(windows, on="site", how="left")
     work["reviewed"] = work.apply(is_reviewed, axis=1)
@@ -343,9 +366,10 @@ def main() -> None:
     share_dir.mkdir(parents=True, exist_ok=True)
 
     template = read_csv_or_empty(share_dir / "field_truth_template.csv")
+    meta = helper_template_meta(root)
     helpers = helper_latest_alerts(root)
     windows = helper_site_windows(root)
-    summary_df, lead_df, match_df = build_outputs(template, helpers, windows)
+    summary_df, lead_df, match_df = build_outputs(template, meta, helpers, windows)
 
     summary_path = share_dir / "field_validation_summary.csv"
     lead_path = share_dir / "field_validation_leadtime.csv"
