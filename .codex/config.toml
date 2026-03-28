@@ -1,3 +1,4 @@
-model = "gpt-5.4"
+# Project-level Codex config for pvdiag
+# Overrides / supplements user config.
+
 approval_policy = "on-request"
-sandbox_mode = "workspace-write"
