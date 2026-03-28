@@ -28,12 +28,14 @@ def normalize_flag_series(series: pd.Series) -> pd.Series:
 def main() -> None:
     root = Path(__file__).resolve().parents[2]
     share_dir = root / "_share"
+    weather_history_script = root / "research" / "prognostics" / "build_site_weather_history.py"
     build_script = root / "research" / "prognostics" / "build_site_event_dataset.py"
     stable_smoke = root / "research" / "prognostics" / "smoke_test_field_truth_validation.py"
     manual_weather = root / "data" / "manual" / "site_weather_daily.csv"
     manual_backup = manual_weather.with_suffix(manual_weather.suffix + ".bak_site_event_dataset_smoke")
 
     moved_manual = False
+    failure: BaseException | None = None
     try:
         if manual_weather.exists():
             manual_backup.parent.mkdir(parents=True, exist_ok=True)
@@ -71,10 +73,28 @@ def main() -> None:
 
         stable_res = run([sys.executable, str(stable_smoke)], root)
         assert_true(stable_res.returncode == 0, f"stable validation smoke failed:\n{stable_res.stdout}\n{stable_res.stderr}")
+    except BaseException as exc:  # noqa: BLE001
+        failure = exc
     finally:
         if moved_manual and manual_backup.exists():
             manual_weather.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(manual_backup), str(manual_weather))
+
+        rebuild_history_res = run([sys.executable, str(weather_history_script)], root)
+        rebuild_dataset_res = run([sys.executable, str(build_script)], root)
+        rebuild_errors: list[str] = []
+        if rebuild_history_res.returncode != 0:
+            rebuild_errors.append(
+                f"final weather history rebuild failed:\n{rebuild_history_res.stdout}\n{rebuild_history_res.stderr}"
+            )
+        if rebuild_dataset_res.returncode != 0:
+            rebuild_errors.append(
+                f"final event dataset rebuild failed:\n{rebuild_dataset_res.stdout}\n{rebuild_dataset_res.stderr}"
+            )
+        if rebuild_errors:
+            raise SystemExit("\n\n".join(rebuild_errors))
+        if failure is not None:
+            raise failure
 
     print("[OK] site_event_dataset_latest.csv generated")
     print(f"[OK] dataset_rows={len(dataset)}")

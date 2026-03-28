@@ -37,6 +37,19 @@ WEATHER_COLS = [
     "weather_confidence",
     "note",
 ]
+WEATHER_HISTORY_COLS = [
+    "site",
+    "date",
+    "weather_available",
+    "weather_tag",
+    "sun_hours",
+    "rain_flag",
+    "cloud_flag",
+    "weather_confidence",
+    "weather_source",
+    "weather_missing_reason",
+    "note",
+]
 DATASET_COLS = [
     "site",
     "review_group",
@@ -126,6 +139,14 @@ def load_manual_weather(path: Path) -> pd.DataFrame:
     weather["site"] = normalized_text(weather["site"])
     weather["date"] = normalized_text(weather["date"])
     return weather
+
+
+def load_weather_history(path: Path) -> pd.DataFrame:
+    history = ensure_columns(read_csv(path), WEATHER_HISTORY_COLS, str(path))
+    history = history[WEATHER_HISTORY_COLS].copy()
+    history["site"] = normalized_text(history["site"])
+    history["date"] = normalized_text(history["date"])
+    return history
 
 
 def count_by_group(frame: pd.DataFrame, key_col: str, value_to_col: dict[str, str]) -> pd.DataFrame:
@@ -245,11 +266,34 @@ def attach_weather(dataset: pd.DataFrame, manual_weather: pd.DataFrame) -> pd.Da
     return merged
 
 
+def attach_weather_history(dataset: pd.DataFrame, weather_history: pd.DataFrame) -> pd.DataFrame:
+    history = weather_history.rename(columns={"date": "representative_date", "note": "weather_note"}).copy()
+    history = history.drop_duplicates(["site", "representative_date"], keep="last")
+    keep_cols = [
+        "site",
+        "representative_date",
+        "weather_available",
+        "weather_tag",
+        "sun_hours",
+        "rain_flag",
+        "cloud_flag",
+        "weather_confidence",
+        "weather_note",
+    ]
+    merged = dataset.merge(history[keep_cols], on=["site", "representative_date"], how="left")
+    merged["weather_available"] = pd.to_numeric(merged["weather_available"], errors="coerce").fillna(0).astype(int)
+    for col in ["weather_tag", "sun_hours", "rain_flag", "cloud_flag", "weather_confidence", "weather_note"]:
+        merged[col] = merged[col].fillna("")
+    merged["weather_confound_flag"] = merged.apply(derive_weather_confound, axis=1)
+    return merged
+
+
 def build_event_dataset(root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     share_dir = root / "_share"
     groups_path = share_dir / "site_event_groups_latest.csv"
     meta_path = share_dir / "field_truth_template_meta.csv"
     manual_weather_path = root / "data" / "manual" / "site_weather_daily.csv"
+    weather_history_path = share_dir / "site_weather_history_latest.csv"
 
     groups = ensure_columns(read_csv(groups_path), EVENT_GROUP_COLS, str(groups_path))[EVENT_GROUP_COLS].copy()
     meta = ensure_columns(read_csv(meta_path), META_COLS, str(meta_path))[META_COLS].copy()
@@ -271,7 +315,10 @@ def build_event_dataset(root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     dataset["panel_count"] = pd.to_numeric(dataset["panel_count"], errors="coerce").fillna(0).astype(int)
 
     dataset["event_confidence_level"] = dataset.apply(derive_event_confidence, axis=1)
-    dataset = attach_weather(dataset, manual_weather)
+    if weather_history_path.exists() and manual_weather_path.exists():
+        dataset = attach_weather_history(dataset, load_weather_history(weather_history_path))
+    else:
+        dataset = attach_weather(dataset, manual_weather)
     dataset = dataset[DATASET_COLS].copy()
     dataset = dataset.sort_values(["site", "representative_date", "review_group"], kind="stable").reset_index(drop=True)
     return dataset, weather_template
