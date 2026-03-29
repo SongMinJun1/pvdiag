@@ -138,9 +138,11 @@ REQUIRED_FIELDS = {
 REQUIRED_ENUMS = {
     "strict_source",
     "dominant_local_family",
+    "dominant_incident_family",
     "temporal_signature",
     "incident_scope",
     "membership_role",
+    "node_type",
     "relation_type",
     "claim_level",
     "relation_direction",
@@ -224,9 +226,117 @@ def main() -> None:
         missing_enums = sorted(REQUIRED_ENUMS - present_enums)
         assert_true(not missing_enums, f"enum catalog missing required enums: {missing_enums}")
 
+        incident_family_row = schema_df.loc[
+            schema_df["entity_name"].astype(str).eq("common_cause_incident_registry_v1")
+            & schema_df["field_name"].astype(str).eq("dominant_incident_family")
+        ]
+        assert_true(not incident_family_row.empty, "dominant_incident_family field should exist")
+        assert_true(
+            incident_family_row.iloc[0]["controlled_enum_name"] == "dominant_incident_family",
+            "common_cause_incident_registry_v1.dominant_incident_family should reference dominant_incident_family enum",
+        )
+
+        mapping_identity_row = schema_df.loc[
+            schema_df["entity_name"].astype(str).eq("strict_case_mapping_v1")
+            & schema_df["field_name"].astype(str).eq("strict_case_id")
+        ]
+        assert_true(not mapping_identity_row.empty, "strict_case_mapping_v1.strict_case_id should exist")
+        assert_true(
+            mapping_identity_row.iloc[0]["key_role"] == "primary_key",
+            "strict_case_mapping_v1.strict_case_id should have primary_key role",
+        )
+
+        required_nullable_fields = [
+            ("panel_day_evidence_matrix_v1", "shape_flag"),
+            ("panel_day_evidence_matrix_v1", "shape_score"),
+            ("panel_day_evidence_matrix_v1", "instability_flag"),
+            ("panel_day_evidence_matrix_v1", "instability_score"),
+            ("panel_local_episode_registry_v1", "has_shape_anomaly"),
+            ("panel_local_episode_registry_v1", "has_instability"),
+        ]
+        for entity_name, field_name in required_nullable_fields:
+            row = schema_df.loc[
+                schema_df["entity_name"].astype(str).eq(entity_name)
+                & schema_df["field_name"].astype(str).eq(field_name)
+            ]
+            assert_true(not row.empty, f"{entity_name}.{field_name} should exist")
+            assert_true(
+                row.iloc[0]["null_policy"] == "allowed_when_unavailable",
+                f"{entity_name}.{field_name} should use allowed_when_unavailable",
+            )
+
+        dominant_local_values = set(
+            enum_df.loc[enum_df["enum_name"].astype(str).eq("dominant_local_family"), "enum_value"].astype(str)
+        )
+        assert_true(
+            "shadow_like" not in dominant_local_values and "group_off_like" not in dominant_local_values,
+            "dominant_local_family should no longer include shadow_like or group_off_like",
+        )
+
+        strict_source_values = set(
+            enum_df.loc[enum_df["enum_name"].astype(str).eq("strict_source"), "enum_value"].astype(str)
+        )
+        assert_true(
+            "manual_truth_seed" not in strict_source_values and "vendor_review_seed" not in strict_source_values,
+            "strict_source should no longer contain truth-governance values",
+        )
+
+        node_type_values = set(
+            enum_df.loc[enum_df["enum_name"].astype(str).eq("node_type"), "enum_value"].astype(str)
+        )
+        assert_true(
+            node_type_values == {"panel_local_episode", "common_cause_incident"},
+            "node_type enum should match the v1 node type set",
+        )
+        node_type_field_rows = schema_df.loc[
+            schema_df["entity_name"].astype(str).eq("episode_incident_relation_v1")
+            & schema_df["field_name"].astype(str).isin(["src_node_type", "dst_node_type"])
+        ].copy()
+        assert_true(
+            set(node_type_field_rows["controlled_enum_name"].astype(str)) == {"node_type"},
+            "src_node_type and dst_node_type should reference node_type enum",
+        )
+
+        relation_type_values = [
+            value
+            for value in enum_df.loc[enum_df["enum_name"].astype(str).eq("relation_type"), "enum_value"].astype(str).tolist()
+        ]
+        assert_true(
+            relation_type_values == ["overlaps_day_window", "precursor_to_incident", "signature_similarity"],
+            "relation_type enum values should match the narrowed v1 set",
+        )
+
+        claim_level_values = [
+            value
+            for value in enum_df.loc[enum_df["enum_name"].astype(str).eq("claim_level"), "enum_value"].astype(str).tolist()
+        ]
+        assert_true(
+            claim_level_values == ["observed", "derived_rule", "review_hypothesis", "causal_not_claimed"],
+            "claim_level enum values should include causal_not_claimed and no longer include future_optional",
+        )
+
+        membership_role_values = [
+            value
+            for value in enum_df.loc[enum_df["enum_name"].astype(str).eq("membership_role"), "enum_value"].astype(str).tolist()
+        ]
+        assert_true(
+            membership_role_values
+            == ["local_primary", "incident_only", "mixed_local_and_incident", "unresolved"],
+            "membership_role enum values should match the simplified v1 set",
+        )
+
         present_config_keys = set(config_df["config_key"].astype(str))
         missing_config_keys = sorted(REQUIRED_CONFIG_KEYS - present_config_keys)
         assert_true(not missing_config_keys, f"config catalog missing required keys: {missing_config_keys}")
+        config_defaults = dict(zip(config_df["config_key"].astype(str), config_df["default_value"].astype(str)))
+        assert_true(
+            float(config_defaults["cfg.incident_min_site_share"]) <= 0.10,
+            "cfg.incident_min_site_share should be <= 0.10",
+        )
+        assert_true(
+            int(float(config_defaults["cfg.precursor_max_lead_days"])) == 3,
+            "cfg.precursor_max_lead_days should be 3",
+        )
 
         assert_true(
             reason_df["reason_code"].astype(str).is_unique,
@@ -245,7 +355,17 @@ def main() -> None:
     print("[OK] all 7 required entities appear exactly once in entity coverage")
     print("[OK] all required fields listed above are present in anomaly_registry_schema_tables_v1.csv")
     print("[OK] all required enums appear in anomaly_registry_enum_catalog_v1.csv")
+    print("[OK] dominant_incident_family enum exists and is referenced correctly")
+    print("[OK] strict_case_mapping_v1.strict_case_id has primary_key role")
+    print("[OK] the 6 shape/instability fields use allowed_when_unavailable")
+    print("[OK] dominant_local_family no longer includes shadow_like/group_off_like")
+    print("[OK] strict_source no longer contains manual_truth_seed/vendor_review_seed")
+    print("[OK] node_type enum exists and src/dst node fields reference it")
+    print("[OK] relation_type enum values match the narrowed v1 set")
+    print("[OK] claim_level contains causal_not_claimed and no longer contains future_optional")
+    print("[OK] membership_role enum values match the simplified set")
     print("[OK] all required config keys appear in anomaly_registry_config_keys_v1.csv")
+    print("[OK] updated config defaults are present")
     print("[OK] reason codes are unique")
     print("[OK] field_order is unique within each entity")
     print("[OK] no official outputs are modified")
