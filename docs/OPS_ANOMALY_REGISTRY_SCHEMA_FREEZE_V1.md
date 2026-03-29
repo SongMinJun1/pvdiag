@@ -4,6 +4,8 @@
 
 This patch freezes the proposed anomaly-registry design into machine-readable schema artifacts before any implementation starts.
 
+This cleanup was required before implementation because the first freeze draft still mixed a few governance labels, confound labels, and overly broad relation enums into the machine-readable schema.
+
 It does not change:
 
 - official prediction output,
@@ -24,6 +26,20 @@ They are too fine-grained for most review workflows because:
 
 That is why the schema keeps a `strict_case_ledger_v1`, but does not treat it as the primary review object.
 
+## Why Row Identity And Foreign Linkage Are Different Concerns
+
+Row identity answers:
+
+- what uniquely identifies this row inside its own table
+
+Foreign linkage answers:
+
+- what other canonical row this record points back to
+
+Those are related, but they are not the same concern.
+
+In this cleanup, `strict_case_mapping_v1.strict_case_id` is used as the mapping row identity for v1, while its linkage back to `strict_case_ledger_v1.strict_case_id` is kept in notes and semantics rather than overloaded into the key-role label.
+
 ## Why Schema And Thresholds/Config Are Separated
 
 The schema freeze is meant to survive later tuning.
@@ -39,6 +55,12 @@ So this design separates:
 
 The freeze remains valid even if those default values later change.
 
+That separation is explicit in this cleanup:
+
+- table and enum structure are part of the schema freeze,
+- threshold defaults live in config keys only,
+- and threshold tuning should not require a schema rewrite.
+
 ## Why Panel-Local Episode And Common-Cause Incident Are Different Entities
 
 They answer different questions.
@@ -53,6 +75,25 @@ That separation is intentional because:
 - overlap evidence may coexist with local evidence,
 - and mixed cases need to stay representable without collapsing everything into one table.
 
+It also means common-cause overlap alone must not define `dominant_local_family`.
+Overlap is context; dominant local family must come from local evidence families only.
+
+## Why Unavailable Optional Evidence Must Not Be Coerced Into False Or Zero
+
+Some evidence families are optional because the source signal itself may be unavailable.
+
+That means absence of shape or instability evidence is not the same thing as:
+
+- observed false,
+- or observed zero.
+
+If v1 forced unavailable optional evidence into false or zero semantics, downstream logic would blur:
+
+- no anomaly observed,
+- with no evidence available.
+
+This cleanup therefore allows unavailable nulls for the relevant shape and instability fields at both evidence and episode layers.
+
 ## Why Relations Are Typed Edges, Not Automatic Merges
 
 `episode_incident_relation_v1` stores typed edges between nodes.
@@ -66,6 +107,22 @@ That means a relation can say:
 It does not mean the two nodes are automatically the same cause.
 
 Relation edges are evidence-bearing links, not forced merges.
+In this cleanup, v1 relation types were narrowed so the edge set stays observational and structural rather than drifting toward causal or auto-merge claims.
+
+## Why `causal_not_claimed` Is The Right V1 Claim-Level Endpoint
+
+V1 needs a way to say:
+
+- the relation is worth recording,
+- but the system is not asserting cause.
+
+That is what `causal_not_claimed` means.
+
+It is better than a placeholder such as `future_optional` because it expresses an actual semantic posture:
+
+- keep the relation,
+- keep the structure,
+- but do not overstate what the edge means.
 
 ## Why `membership_role` Is Necessary
 
@@ -102,7 +159,6 @@ Still intentionally unresolved:
 
 - exact threshold defaults beyond the provisional config keys,
 - whether some optional evidence signals will be filled from existing raw feeds or future enrichments,
-- exact node-type enum handling for typed relation endpoints,
 - and how some review notes will be populated in partially manual workflows.
 
 Those open items do not block the schema freeze because they live in config, notes, or future-optional columns rather than in the primary entity identities.
@@ -110,8 +166,9 @@ Those open items do not block the schema freeze because they live in config, not
 ## Important Design Constraints Captured Here
 
 - common-cause overlap must not by itself create a panel-local episode
+- common-cause overlap alone does not define `dominant_local_family`
 - overlap evidence and local evidence may coexist
-- relation edges do not imply same cause
+- relation edges are observational/structural and do not imply same cause
 - prior event/episode layers are context sources, not primary incident generators
 - schema freeze stays valid even if default thresholds later change
 
