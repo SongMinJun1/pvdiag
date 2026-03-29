@@ -8,6 +8,7 @@ import pandas as pd
 
 SITES = ["conalog", "gangui", "ktc_ess", "sinhyo"]
 KEY_COLS = ["site", "panel_id", "date"]
+PANEL_DAY_SOURCE_CHOICES = ["auto", "raw", "normalized"]
 OUTPUT_COLS = [
     "site",
     "panel_id",
@@ -72,6 +73,12 @@ def parse_args() -> argparse.Namespace:
         nargs="*",
         default=SITES,
         help="Sites to include. Defaults to the stable known sites.",
+    )
+    parser.add_argument(
+        "--panel-day-source",
+        choices=PANEL_DAY_SOURCE_CHOICES,
+        default="auto",
+        help="Source mode for panel_day_core inputs: auto uses normalized sidecars when present, raw forces raw files, normalized requires sidecars.",
     )
     return parser.parse_args()
 
@@ -200,10 +207,24 @@ def build_evidence_reason_code(row: pd.Series) -> str:
     return ""
 
 
-def load_site_core(root: Path, site: str) -> pd.DataFrame:
-    path = root / "data" / site / "out" / "panel_day_core.csv"
+def resolve_panel_day_path(root: Path, site: str, panel_day_source: str) -> tuple[Path, str]:
+    raw_path = root / "data" / site / "out" / "panel_day_core.csv"
+    normalized_path = root / "_share" / "panel_day_core_normalized_v1" / f"{site}.csv"
+    if panel_day_source == "raw":
+        return raw_path, "raw"
+    if panel_day_source == "normalized":
+        if not normalized_path.exists():
+            raise SystemExit(f"normalized panel_day_core sidecar missing for site={site}: {normalized_path}")
+        return normalized_path, "normalized"
+    if normalized_path.exists():
+        return normalized_path, "normalized"
+    return raw_path, "raw"
+
+
+def load_site_core(root: Path, site: str, panel_day_source: str) -> pd.DataFrame:
+    path, source_label = resolve_panel_day_path(root, site, panel_day_source)
     df = read_csv(path)
-    ensure_columns(df, REQUIRED_CORE_COLS, f"{site}/panel_day_core.csv")
+    ensure_columns(df, REQUIRED_CORE_COLS, f"{site}/{source_label}_panel_day_core.csv")
 
     df = df.copy()
     df["site"] = site
@@ -287,8 +308,8 @@ def build_summary_output(matrix_df: pd.DataFrame, sites: list[str]) -> pd.DataFr
     return pd.DataFrame(rows, columns=SUMMARY_COLS)
 
 
-def build_outputs(root: Path, sites: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
-    frames = [load_site_core(root, site) for site in sites]
+def build_outputs(root: Path, sites: list[str], panel_day_source: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    frames = [load_site_core(root, site, panel_day_source) for site in sites]
     if frames:
         matrix_df = pd.concat(frames, ignore_index=True, sort=False)
     else:
@@ -307,7 +328,7 @@ def build_outputs(root: Path, sites: list[str]) -> tuple[pd.DataFrame, pd.DataFr
 def main() -> None:
     args = parse_args()
     root = args.root.resolve()
-    matrix_output, summary_output = build_outputs(root, list(args.sites))
+    matrix_output, summary_output = build_outputs(root, list(args.sites), args.panel_day_source)
 
     out_dir = root / "_share"
     out_dir.mkdir(parents=True, exist_ok=True)

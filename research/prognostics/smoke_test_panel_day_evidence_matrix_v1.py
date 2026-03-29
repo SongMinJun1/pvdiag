@@ -32,6 +32,16 @@ def write_site_core(path: Path, rows: list[dict[str, object]], columns: list[str
     df.to_csv(path, index=False, encoding="utf-8-sig")
 
 
+def write_normalized_sidecars_from_raw(tmp_root: Path) -> None:
+    out_dir = tmp_root / "_share" / "panel_day_core_normalized_v1"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for site in ["conalog", "gangui", "ktc_ess", "sinhyo"]:
+        raw_path = tmp_root / "data" / site / "out" / "panel_day_core.csv"
+        df = pd.read_csv(raw_path, encoding="utf-8-sig")
+        df = df.drop_duplicates(subset=["panel_id", "date"], keep="first").copy()
+        df.to_csv(out_dir / f"{site}.csv", index=False, encoding="utf-8-sig")
+
+
 def build_fixture_root(tmp_root: Path) -> None:
     common_cols = [
         "date",
@@ -221,17 +231,55 @@ def main() -> None:
         duplicate_df = pd.concat([duplicate_df, duplicate_df.iloc[[0]]], ignore_index=True)
         duplicate_df.to_csv(duplicate_path, index=False, encoding="utf-8-sig")
 
-        dup_res = run([sys.executable, str(build_script), "--root", str(tmp_root)], root)
+        dup_res = run([sys.executable, str(build_script), "--root", str(tmp_root), "--panel-day-source", "raw"], root)
         assert_true(dup_res.returncode != 0, "duplicate site/panel/date keys should fail loudly")
         assert_true(
             "duplicate site/panel/date" in f"{dup_res.stdout}\n{dup_res.stderr}",
             "duplicate failure should mention duplicate site/panel/date keys",
         )
 
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_root = Path(tmpdir)
+        build_fixture_root(tmp_root)
+
+        duplicate_path = tmp_root / "data" / "conalog" / "out" / "panel_day_core.csv"
+        duplicate_df = pd.read_csv(duplicate_path, encoding="utf-8-sig")
+        duplicate_df = pd.concat([duplicate_df, duplicate_df.iloc[[0]]], ignore_index=True)
+        duplicate_df.to_csv(duplicate_path, index=False, encoding="utf-8-sig")
+        write_normalized_sidecars_from_raw(tmp_root)
+
+        normalized_res = run(
+            [sys.executable, str(build_script), "--root", str(tmp_root), "--panel-day-source", "normalized"],
+            root,
+        )
+        assert_true(normalized_res.returncode == 0, f"normalized mode build failed:\n{normalized_res.stdout}\n{normalized_res.stderr}")
+        normalized_df = pd.read_csv(tmp_root / "_share" / "panel_day_evidence_matrix_v1.csv", encoding="utf-8-sig")
+        assert_true(len(normalized_df) == 5, "normalized mode should succeed on the normalized synthetic sidecar")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_root = Path(tmpdir)
+        build_fixture_root(tmp_root)
+
+        duplicate_path = tmp_root / "data" / "conalog" / "out" / "panel_day_core.csv"
+        duplicate_df = pd.read_csv(duplicate_path, encoding="utf-8-sig")
+        duplicate_df = pd.concat([duplicate_df, duplicate_df.iloc[[0]]], ignore_index=True)
+        duplicate_df.to_csv(duplicate_path, index=False, encoding="utf-8-sig")
+        write_normalized_sidecars_from_raw(tmp_root)
+
+        auto_res = run(
+            [sys.executable, str(build_script), "--root", str(tmp_root), "--panel-day-source", "auto"],
+            root,
+        )
+        assert_true(auto_res.returncode == 0, f"auto mode build failed:\n{auto_res.stdout}\n{auto_res.stderr}")
+        auto_df = pd.read_csv(tmp_root / "_share" / "panel_day_evidence_matrix_v1.csv", encoding="utf-8-sig")
+        assert_true(len(auto_df) == 5, "auto mode should prefer normalized sidecar when present")
+
     print("[OK] scripts compile")
     print("[OK] outputs generate")
     print("[OK] row count is preserved on synthetic input")
-    print("[OK] duplicate site/panel/date keys fail loudly")
+    print("[OK] raw mode still fails on duplicate synthetic input")
+    print("[OK] normalized mode succeeds on the corresponding normalized synthetic sidecar")
+    print("[OK] auto mode prefers normalized sidecar when present")
     print("[OK] group_key_base is preferred when present")
     print("[OK] panel_id token fallback works when group_key_base is absent")
     print("[OK] electrical_like_flag fires on a synthetic electrical row")
