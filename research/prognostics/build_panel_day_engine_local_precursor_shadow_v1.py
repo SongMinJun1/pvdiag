@@ -29,6 +29,27 @@ OUTPUT_COLS = CORE_OUTPUT_COLS + [
     "ews_warning_flag",
     "prefault_B_flag",
     "pre_alarm_flag",
+    "data_bad",
+    "cond_var",
+    "cond_evt",
+    "cond_dtw",
+    "cond_hs",
+    "pre_ews",
+    "signal_count",
+    "ews_runlen",
+    "ews_warning",
+    "site_event_soft",
+    "site_event_hard",
+    "group_off_date",
+    "prefault_B",
+    "pre_alarm",
+    "prefault_cond_mid",
+    "prefault_cond_ae",
+    "prefault_cond_dtw",
+    "prefault_cond_ews",
+    "prealarm_cond_ae_mid_or_hi",
+    "prealarm_cond_dtw_mid_or_hi",
+    "prealarm_cond_hs_mid_or_hi",
     "local_precursor_any_flag",
     "first_local_precursor_date_per_panel",
     "lead_days_to_final_fault",
@@ -60,6 +81,54 @@ REQUIRED_CORE_COLS = [
     "final_fault",
     "group_off_like",
     "shadow_like",
+]
+GATE_BOOL_COLS = [
+    "data_bad",
+    "cond_var",
+    "cond_evt",
+    "cond_dtw",
+    "cond_hs",
+    "pre_ews",
+    "ews_warning",
+    "site_event_soft",
+    "site_event_hard",
+    "group_off_date",
+    "prefault_B",
+    "pre_alarm",
+    "prefault_cond_mid",
+    "prefault_cond_ae",
+    "prefault_cond_dtw",
+    "prefault_cond_ews",
+    "prealarm_cond_ae_mid_or_hi",
+    "prealarm_cond_dtw_mid_or_hi",
+    "prealarm_cond_hs_mid_or_hi",
+]
+GATE_INT_COLS = [
+    "signal_count",
+    "ews_runlen",
+]
+GATE_COLS = [
+    "data_bad",
+    "cond_var",
+    "cond_evt",
+    "cond_dtw",
+    "cond_hs",
+    "pre_ews",
+    "signal_count",
+    "ews_runlen",
+    "ews_warning",
+    "site_event_soft",
+    "site_event_hard",
+    "group_off_date",
+    "prefault_B",
+    "pre_alarm",
+    "prefault_cond_mid",
+    "prefault_cond_ae",
+    "prefault_cond_dtw",
+    "prefault_cond_ews",
+    "prealarm_cond_ae_mid_or_hi",
+    "prealarm_cond_dtw_mid_or_hi",
+    "prealarm_cond_hs_mid_or_hi",
 ]
 
 
@@ -197,6 +266,67 @@ def load_day_flag_helper(path: Path, flag_name: str, site: str) -> pd.DataFrame:
     )
 
 
+def to_nullable_int_flag(value: object) -> object:
+    if normalize_text(value) == "":
+        return pd.NA
+    return int(to_int_flag(value))
+
+
+def collapse_exact_gate_duplicates(df: pd.DataFrame, path: Path) -> pd.DataFrame:
+    duplicated = df.duplicated(subset=KEY_COLS, keep=False)
+    if not duplicated.any():
+        return df
+
+    compare_cols = [col for col in GATE_COLS if col not in KEY_COLS]
+    problem_keys: list[str] = []
+    keep_rows: list[pd.DataFrame] = []
+    dup_df = df.loc[duplicated].copy()
+
+    for key, group in dup_df.groupby(KEY_COLS, sort=False, dropna=False):
+        normalized_rows = {
+            tuple(normalized_value(group.iloc[idx][col]) for col in compare_cols)
+            for idx in range(len(group))
+        }
+        if len(normalized_rows) > 1:
+            problem_keys.append(f"{key[0]}|{key[1]}|{key[2]}")
+            continue
+        keep_rows.append(group.nsmallest(1, "_row_order"))
+
+    if problem_keys:
+        sample = ", ".join(problem_keys[:10])
+        raise SystemExit(
+            f"{path.name} has conflicting duplicate rows on {KEY_COLS}: {sample}"
+        )
+
+    deduped = pd.concat(keep_rows, ignore_index=True) if keep_rows else pd.DataFrame(columns=df.columns)
+    unique_rows = df.loc[~duplicated].copy()
+    collapsed = pd.concat([unique_rows, deduped], ignore_index=True)
+    return collapsed.sort_values("_row_order", kind="stable").reset_index(drop=True)
+
+
+def load_gate_helper(path: Path, site: str) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame(columns=[*KEY_COLS, *GATE_COLS])
+    df = read_csv(path)
+    required = ["date", "panel_id", *GATE_COLS]
+    ensure_columns(df, required, path.name)
+    df = df.copy()
+    if "site" not in df.columns:
+        df["site"] = site
+    df["site"] = df["site"].map(normalize_text)
+    df.loc[df["site"].eq(""), "site"] = site
+    df["panel_id"] = df["panel_id"].map(normalize_text)
+    df["date"] = df["date"].map(normalize_date)
+    df["_row_order"] = range(len(df))
+    df = df.loc[df["site"].eq(site), [*KEY_COLS, *GATE_COLS, "_row_order"]].copy()
+    df = collapse_exact_gate_duplicates(df, path)
+    for col in GATE_BOOL_COLS:
+        df[col] = df[col].map(to_nullable_int_flag).astype("Int64")
+    for col in GATE_INT_COLS:
+        df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+    return df.loc[:, [*KEY_COLS, *GATE_COLS]].copy()
+
+
 def load_pre_alarm_helper(path: Path, site: str) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame(columns=[*KEY_COLS, "pre_alarm_flag"])
@@ -247,16 +377,57 @@ def build_site_rows(root: Path, site: str) -> pd.DataFrame:
     base = load_site_core(root, site)
     out_dir = root / "data" / site / "out"
 
+    gate_df = load_gate_helper(out_dir / "ae_simple_local_precursor_gate_daily.csv", site)
     ews_df = load_day_flag_helper(out_dir / "ae_simple_ews_warnings.csv", "ews_warning_flag", site)
     prefault_df = load_day_flag_helper(out_dir / "ae_simple_prefault_B_daily.csv", "prefault_B_flag", site)
     pre_alarm_df = load_pre_alarm_helper(out_dir / "ae_simple_panel_alarms.csv", site)
 
-    merged = base.merge(ews_df, on=KEY_COLS, how="left")
-    merged = merged.merge(prefault_df, on=KEY_COLS, how="left")
-    merged = merged.merge(pre_alarm_df, on=KEY_COLS, how="left")
+    merged = base.merge(gate_df, on=KEY_COLS, how="left")
+    merged = merged.merge(
+        ews_df.rename(columns={"ews_warning_flag": "_legacy_ews_warning_flag"}),
+        on=KEY_COLS,
+        how="left",
+    )
+    merged = merged.merge(
+        prefault_df.rename(columns={"prefault_B_flag": "_legacy_prefault_B_flag"}),
+        on=KEY_COLS,
+        how="left",
+    )
+    merged = merged.merge(
+        pre_alarm_df.rename(columns={"pre_alarm_flag": "_legacy_pre_alarm_flag"}),
+        on=KEY_COLS,
+        how="left",
+    )
 
-    for col in ["ews_warning_flag", "prefault_B_flag", "pre_alarm_flag"]:
-        merged[col] = pd.to_numeric(merged[col], errors="coerce").fillna(0).astype(int)
+    merged["ews_warning_flag"] = (
+        pd.to_numeric(merged.get("ews_warning"), errors="coerce")
+        .fillna(pd.to_numeric(merged.get("_legacy_ews_warning_flag"), errors="coerce"))
+        .fillna(0)
+        .astype(int)
+    )
+    merged["prefault_B_flag"] = (
+        pd.to_numeric(merged.get("prefault_B"), errors="coerce")
+        .fillna(pd.to_numeric(merged.get("_legacy_prefault_B_flag"), errors="coerce"))
+        .fillna(0)
+        .astype(int)
+    )
+    merged["pre_alarm_flag"] = (
+        pd.to_numeric(merged.get("pre_alarm"), errors="coerce")
+        .fillna(pd.to_numeric(merged.get("_legacy_pre_alarm_flag"), errors="coerce"))
+        .fillna(0)
+        .astype(int)
+    )
+
+    for col in GATE_BOOL_COLS:
+        if col not in merged.columns:
+            merged[col] = pd.Series([pd.NA] * len(merged), index=merged.index, dtype="Int64")
+        else:
+            merged[col] = pd.to_numeric(merged[col], errors="coerce").astype("Int64")
+    for col in GATE_INT_COLS:
+        if col not in merged.columns:
+            merged[col] = pd.Series([pd.NA] * len(merged), index=merged.index, dtype="Int64")
+        else:
+            merged[col] = pd.to_numeric(merged[col], errors="coerce").astype("Int64")
 
     merged["local_precursor_any_flag"] = (
         merged[["ews_warning_flag", "prefault_B_flag", "pre_alarm_flag"]].max(axis=1).astype(int)
