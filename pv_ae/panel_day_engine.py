@@ -1843,6 +1843,11 @@ def _compute_ews(out: pd.DataFrame, args) -> pd.DataFrame:
         ch = ch & out.loc[mask_d, "hs_base_mean"].notna() & (out.loc[mask_d, "ews_hs_mean_7d"] >= hs_thr_base)
         cond_hs.loc[mask_d] = ch.fillna(False)
 
+    out["cond_var"] = cond_var.astype(bool)
+    out["cond_evt"] = cond_evt.astype(bool)
+    out["cond_dtw"] = cond_dtw.astype(bool)
+    out["cond_hs"] = cond_hs.astype(bool)
+
     # 패널-날짜별로 high 신호 개수 계산 (4개 중 2개 이상)
     signal_count = (
         cond_var.astype(int)
@@ -1850,9 +1855,11 @@ def _compute_ews(out: pd.DataFrame, args) -> pd.DataFrame:
         + cond_dtw.astype(int)
         + cond_hs.astype(int)
     )
+    out["signal_count"] = signal_count.astype(int)
 
     # data_bad가 아니고, high 신호가 2개 이상인 날을 "잠정 전조 신호"로 본다.
     pre_ews = (~out["data_bad"]) & (signal_count >= 2)
+    out["pre_ews"] = pre_ews.astype(bool)
 
     # 4) 연속성 조건: 같은 패널에서 5일 이상 연속 pre_ews가 유지되면 EWS 경고로 확정 (방안 C)
     out["ews_runlen"] = compute_run_streak(out["panel_id"], pre_ews)
@@ -2958,6 +2965,10 @@ def main():
     cond_ae = out["pf40_ae_ratio"] >= pf_ae_ratio_thr
     cond_dtw = out["pf40_dtw_ratio"] >= pf_dtw_ratio_thr
     cond_ews = out["pf40_ews_ratio"] >= pf_ews_ratio_thr
+    out["prefault_cond_mid"] = cond_mid.astype(bool)
+    out["prefault_cond_ae"] = cond_ae.astype(bool)
+    out["prefault_cond_dtw"] = cond_dtw.astype(bool)
+    out["prefault_cond_ews"] = cond_ews.astype(bool)
 
     # 실제 전조 엔진 플래그 (b안):
     # - 데이터 품질이 나쁘지 않고(data_bad=False)
@@ -2965,7 +2976,7 @@ def main():
     # - 위 네 조건을 동시에 만족하면 해당 날짜-패널을 "전조 후보"로 표시
     out["prefault_B"] = (
         (~out["data_bad"]) & (~out["final_fault"]) &
-        cond_mid & cond_ae & cond_dtw & cond_ews
+        out["prefault_cond_mid"] & out["prefault_cond_ae"] & out["prefault_cond_dtw"] & out["prefault_cond_ews"]
     )
 
     # ===== Helper reports: daily summaries & candidate lists =====
@@ -3062,19 +3073,65 @@ def main():
     except Exception as e:
         print("[WARN] failed to write pre-fault template-B list:", e)
 
-    # 5) 패널별 전조/만성 이상 요약 (전조 엔진 1.0, B안 로직)
-    try:
-        # B안 pre-alarm 플래그: 이미 고장 확정된 날은 제외하고,
-        # EWS 경고 + (AE/DTW/HS 중 하나 이상 mid 이상) 인 날만 전조 후보로 간주
-        out["pre_alarm"] = (
-            (~out["final_fault"].astype(bool))
-            & out["ews_warning"].astype(bool)
-            & (
-                out["ae_strength"].isin(["mid", "high"]) \
-                | out["dtw_strength"].isin(["mid", "high"]) \
-                | out["hs_strength"].isin(["mid", "high"])
-            )
+    # B안 pre-alarm 플래그: 이미 고장 확정된 날은 제외하고,
+    # EWS 경고 + (AE/DTW/HS 중 하나 이상 mid 이상) 인 날만 전조 후보로 간주
+    out["prealarm_cond_ae_mid_or_hi"] = out["ae_strength"].isin(["mid", "high"]).astype(bool)
+    out["prealarm_cond_dtw_mid_or_hi"] = out["dtw_strength"].isin(["mid", "high"]).astype(bool)
+    out["prealarm_cond_hs_mid_or_hi"] = out["hs_strength"].isin(["mid", "high"]).astype(bool)
+    out["pre_alarm"] = (
+        (~out["final_fault"].astype(bool))
+        & out["ews_warning"].astype(bool)
+        & (
+            out["prealarm_cond_ae_mid_or_hi"]
+            | out["prealarm_cond_dtw_mid_or_hi"]
+            | out["prealarm_cond_hs_mid_or_hi"]
         )
+    )
+
+    # 6) local precursor gate states helper sidecar
+    try:
+        gate_daily = out.loc[
+            :,
+            [
+                "panel_id",
+                "date",
+                "data_bad",
+                "cond_var",
+                "cond_evt",
+                "cond_dtw",
+                "cond_hs",
+                "pre_ews",
+                "signal_count",
+                "ews_runlen",
+                "ews_warning",
+                "site_event_soft",
+                "site_event_hard",
+                "group_off_date",
+                "prefault_B",
+                "pre_alarm",
+                "prefault_cond_mid",
+                "prefault_cond_ae",
+                "prefault_cond_dtw",
+                "prefault_cond_ews",
+                "prealarm_cond_ae_mid_or_hi",
+                "prealarm_cond_dtw_mid_or_hi",
+                "prealarm_cond_hs_mid_or_hi",
+            ],
+        ].copy()
+        gate_daily.insert(0, "site", site)
+        gate_path = out_dir / "ae_simple_local_precursor_gate_daily.csv"
+        _safe_report_write(
+            gate_daily,
+            gate_path,
+            "local precursor gate daily",
+            index=False,
+            encoding="utf-8-sig",
+        )
+    except Exception as e:
+        print("[WARN] failed to write local precursor gate daily:", e)
+
+    # 7) 패널별 전조/만성 이상 요약 (전조 엔진 1.0, B안 로직)
+    try:
 
         # 패널별 집계: 기간, 고장 여부, EWS/전조 일수 등
         grp_panel = out.groupby("panel_id")
