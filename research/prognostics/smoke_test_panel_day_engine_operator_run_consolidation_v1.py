@@ -175,6 +175,7 @@ def feature_row(
     mean_signal_count: float = 1.5,
     max_signal_count: float = 2.0,
     p95_recon_error: float = 0.1,
+    overlap_case_class: str = "unmatched_to_review",
 ) -> dict[str, object]:
     return {
         "site": "alpha",
@@ -183,7 +184,7 @@ def feature_row(
         "run_end_date": end,
         "run_day_count": run_day_count,
         "run_shape_class": "chronic_alert_run" if run_day_count >= 10 else "short_alert_run",
-        "overlap_case_class": "unmatched_to_review",
+        "overlap_case_class": overlap_case_class,
         "delta_run_class": "added_run",
         "fate_class": fate_class,
         "cohort_hint": "unmatched_other",
@@ -296,7 +297,7 @@ def build_fixture_root(tmp_root: Path) -> None:
             "2024-12-28",
             "2024-12-29",
             11,
-            12.0,
+            18.2,
             recurring=1,
             min_mid_ratio=0.20,
             min_mid_v_ratio=0.25,
@@ -304,6 +305,22 @@ def build_fixture_root(tmp_root: Path) -> None:
             mean_signal_count=1.1,
             max_signal_count=1.4,
             p95_recon_error=0.02,
+            overlap_case_class="nuisance_overlap",
+        ),
+        feature_row(
+            "alpha.r21",
+            "2024-12-24",
+            "2024-12-27",
+            12,
+            19.5,
+            recurring=1,
+            future_fault=1,
+            max_v_drop=0.68,
+            min_mid_v_ratio=0.32,
+            min_mid_ratio=0.28,
+            mean_signal_count=1.2,
+            max_signal_count=1.6,
+            p95_recon_error=0.03,
         ),
     ]
     for idx in range(7, 21):
@@ -317,7 +334,8 @@ def build_fixture_root(tmp_root: Path) -> None:
         "alpha.r03": 15.0,
         "alpha.r04": 17.0,
         "alpha.r05": 16.0,
-        "alpha.r06": 12.0,
+        "alpha.r06": 18.2,
+        "alpha.r21": 19.5,
     }
     scores = [score_row(row, explicit_scores.get(row["panel_id"], 21.0 - idx)) for idx, row in enumerate(features, start=1)]
     fates = [fate_row(features[2], "future_fault_linked")]
@@ -360,13 +378,16 @@ def main() -> None:
         registry = pd.read_csv(share_dir / "panel_day_engine_operator_run_registry_v1.csv")
         queue = pd.read_csv(share_dir / "panel_day_engine_operator_run_queue_v1.csv")
         backlog = pd.read_csv(share_dir / "panel_day_engine_operator_run_backlog_v1.csv")
+        watchlist = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_v1.csv")
         summary = pd.read_csv(share_dir / "panel_day_engine_operator_run_summary_v1.csv")
+        watchlist_summary = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_summary_v1.csv")
         feature_input = pd.read_csv(share_dir / "panel_day_engine_run_feature_table_v1.csv")
         expected_clipped = compute_expected_clipped_scores(feature_input.to_dict("records"))
 
-        assert_true(len(registry) == 20, "registry should contain one row per run")
+        assert_true(len(registry) == 21, "registry should contain one row per run")
         assert_true(len(queue) == 3, "queue should include only investigate_now/monitor_active runs")
-        assert_true(len(backlog) == 3, "backlog should include recurring/recovered runs only")
+        assert_true(len(backlog) == 4, "backlog should include recurring/recovered runs only")
+        assert_true(len(watchlist) == 2, "watchlist should contain only recurring chronic P1/P2 backlog runs")
 
         required_registry_cols = {
             "raw_operator_score",
@@ -376,6 +397,9 @@ def main() -> None:
             "rank_shift_abs",
             "score_hygiene_flag",
             "score_hygiene_reason_ko",
+            "watchlist_flag",
+            "watchlist_bucket",
+            "watchlist_reason_ko",
         }
         assert_true(required_registry_cols.issubset(set(registry.columns)), "new registry fields should be present")
         assert_true(
@@ -398,6 +422,7 @@ def main() -> None:
 
         status_by_panel = dict(zip(registry["panel_id"], registry["status"]))
         assert_true(status_by_panel["alpha.r01"] == "ongoing_run", "alpha.r01 should be ongoing")
+        assert_true(status_by_panel["alpha.r21"] == "recurring_run", "alpha.r21 should be recurring")
         assert_true(status_by_panel["alpha.r02"] == "new_run", "alpha.r02 should be new")
         assert_true(status_by_panel["alpha.r04"] == "recurring_run", "alpha.r04 should be recurring")
         assert_true(status_by_panel["alpha.r06"] == "recurring_run", "alpha.r06 should be recurring")
@@ -406,35 +431,47 @@ def main() -> None:
 
         band_by_panel = dict(zip(registry["panel_id"], registry["priority_band"]))
         assert_true(band_by_panel["alpha.r01"] == "P1", "top run should be P1")
-        assert_true(band_by_panel["alpha.r02"] == "P2", "rank 2 should be P2")
+        assert_true(band_by_panel["alpha.r21"] == "P1", "second-highest run should also be P1")
+        assert_true(band_by_panel["alpha.r02"] == "P2", "alpha.r02 should be P2")
+        assert_true(band_by_panel["alpha.r04"] == "P2", "recurring chronic watch run should be P2")
         assert_true(band_by_panel["alpha.r10"] == "P3", "mid-ranked run should be P3")
         assert_true(band_by_panel["alpha.r20"] == "P4", "lowest run should be P4")
 
         action_by_panel = dict(zip(registry["panel_id"], registry["action_bucket"]))
         assert_true(action_by_panel["alpha.r01"] == "investigate_now", "ongoing P1 should investigate_now")
+        assert_true(action_by_panel["alpha.r21"] == "recurring_backlog", "recurring P1 should remain backlog")
         assert_true(action_by_panel["alpha.r02"] == "investigate_now", "new P2 should investigate_now")
         assert_true(action_by_panel["alpha.r03"] == "monitor_active", "new P3 medium should monitor_active")
         assert_true(action_by_panel["alpha.r04"] == "recurring_backlog", "recurring run should go to recurring_backlog")
-        assert_true(action_by_panel["alpha.r06"] == "recurring_backlog", "second recurring run should go to recurring_backlog")
+        assert_true(action_by_panel["alpha.r06"] == "recurring_backlog", "nuisance recurring run should stay backlog")
         assert_true(action_by_panel["alpha.r05"] == "recovered_backlog", "recovered run should go to recovered_backlog")
         assert_true(action_by_panel["alpha.r20"] == "historical_archive", "historical P4 should archive")
 
         queued_panels = set(queue["panel_id"])
         backlog_panels = set(backlog["panel_id"])
+        watchlist_panels = set(watchlist["panel_id"])
         assert_true("alpha.r01" in queued_panels, "ongoing P1 should be queued")
         assert_true("alpha.r02" in queued_panels, "new P2 should be queued")
         assert_true("alpha.r03" in queued_panels, "new P3 medium should be queued")
+        assert_true("alpha.r21" not in queued_panels, "watchlist backlog run should not enter queue")
         assert_true("alpha.r04" not in queued_panels, "recurring backlog should not remain in queue")
         assert_true("alpha.r04" in backlog_panels, "P4 recurring run should move to backlog")
+        assert_true("alpha.r21" in backlog_panels, "recurring P1 backlog run should remain in backlog")
         assert_true("alpha.r06" in backlog_panels, "second recurring run should remain in backlog")
         assert_true("alpha.r05" not in queued_panels, "recovered run should not remain in queue")
         assert_true("alpha.r05" in backlog_panels, "recovered run should go to backlog")
         assert_true("alpha.r20" not in queued_panels, "historical P4 run should be excluded from queue")
         assert_true("alpha.r20" not in backlog_panels, "historical archive should be excluded from backlog")
+        assert_true("alpha.r21" in watchlist_panels, "recurring chronic P1 backlog run should go to watchlist")
+        assert_true("alpha.r04" in watchlist_panels, "recurring chronic P2 backlog run should go to watchlist")
+        assert_true("alpha.r06" not in watchlist_panels, "nuisance-overlap recurring chronic run should not go to watchlist")
+        assert_true("alpha.r01" not in watchlist_panels, "queue run should not go to watchlist")
 
         registry_panels = set(registry["panel_id"])
         assert_true(queued_panels.issubset(registry_panels), "queue must be subset of registry")
         assert_true(backlog_panels.issubset(registry_panels), "backlog must be subset of registry")
+        assert_true(watchlist_panels.issubset(backlog_panels), "watchlist must be subset of backlog")
+        assert_true(watchlist_panels.isdisjoint(queued_panels), "watchlist must not overlap queue")
 
         fate_by_panel = dict(zip(registry["panel_id"], registry["fate_class"]))
         assert_true(fate_by_panel["alpha.r03"] == "future_fault_linked", "optional fate enrichment should fill fate_class")
@@ -465,20 +502,61 @@ def main() -> None:
             "raw operator score should remain preserved beside clipped score",
         )
 
+        watchlist_bucket_by_panel = dict(zip(registry["panel_id"], registry["watchlist_bucket"]))
+        assert_true(watchlist_bucket_by_panel["alpha.r21"] == "recurring_watch_p1", "recurring chronic P1 should map to watchlist p1")
+        assert_true(watchlist_bucket_by_panel["alpha.r04"] == "recurring_watch_p2", "recurring chronic P2 should map to watchlist p2")
+        assert_true(watchlist_bucket_by_panel["alpha.r06"] == "none", "nuisance-overlap recurring chronic should be excluded from watchlist")
+
+        watchlist_expected = registry.loc[registry["watchlist_flag"].eq(1)].copy().sort_values(
+            ["watchlist_bucket", "clipped_operator_score", "run_day_count", "site", "panel_id", "run_start_date"],
+            ascending=[True, False, False, True, True, True],
+            kind="mergesort",
+        )
+        assert_true(
+            watchlist["panel_id"].tolist() == watchlist_expected["panel_id"].tolist(),
+            "watchlist ordering should follow clipped operator score inside bucket",
+        )
+
         overall = summary.loc[summary["record_type"] == "overall"].iloc[0]
         assert_true(int(overall["investigate_now_count"]) == 2, "investigate_now count mismatch")
         assert_true(int(overall["monitor_active_count"]) == 1, "monitor_active count mismatch")
-        assert_true(int(overall["recurring_backlog_count"]) == 2, "recurring_backlog count mismatch")
+        assert_true(int(overall["recurring_backlog_count"]) == 3, "recurring_backlog count mismatch")
         assert_true(int(overall["recovered_backlog_count"]) == 1, "recovered_backlog count mismatch")
         assert_true(int(overall["historical_archive_count"]) == 14, "historical_archive count mismatch")
         assert_true(int(overall["queue_count"]) == 3, "overall queue count mismatch")
-        assert_true(int(overall["backlog_count"]) == 3, "overall backlog count mismatch")
-        assert_true(int(overall["p1_run_count"]) == 1, "overall P1 count mismatch")
+        assert_true(int(overall["backlog_count"]) == 4, "overall backlog count mismatch")
+        assert_true(int(overall["p1_run_count"]) == 2, "overall P1 count mismatch")
         assert_true(int(overall["p2_run_count"]) == 3, "overall P2 count mismatch")
         assert_true(int(overall["queue_chronic_count"]) == 3, "queue chronic count mismatch")
-        assert_true(int(overall["backlog_chronic_count"]) == 2, "backlog chronic count mismatch")
+        assert_true(int(overall["backlog_chronic_count"]) == 3, "backlog chronic count mismatch")
         assert_true(pd.notna(overall["clipped_top20_overlap_vs_raw"]), "summary should include overlap metrics")
         assert_true(int(overall["score_hygiene_flag_count"]) >= 1, "summary should include hygiene counts")
+        assert_true(int(overall["watchlist_count"]) == 2, "summary should include overall watchlist count")
+        assert_true(int(overall["watchlist_p1_count"]) == 1, "summary should include watchlist p1 count")
+        assert_true(int(overall["watchlist_p2_count"]) == 1, "summary should include watchlist p2 count")
+        assert_true(int(overall["watchlist_chronic_count"]) == 2, "summary should include watchlist chronic count")
+
+        overall_watchlist = watchlist_summary.loc[watchlist_summary["record_type"] == "overall"].iloc[0]
+        assert_true(int(overall_watchlist["watchlist_count"]) == 2, "watchlist summary count mismatch")
+        assert_true(int(overall_watchlist["watchlist_p1_count"]) == 1, "watchlist summary p1 mismatch")
+        assert_true(int(overall_watchlist["watchlist_p2_count"]) == 1, "watchlist summary p2 mismatch")
+        assert_true(int(overall_watchlist["watchlist_chronic_count"]) == 2, "watchlist summary chronic mismatch")
+        assert_true(
+            int(overall_watchlist["watchlist_unmatched_to_review_count"]) == 2,
+            "watchlist unmatched_to_review count mismatch",
+        )
+        assert_true(
+            int(overall_watchlist["watchlist_nuisance_overlap_count"]) == 0,
+            "nuisance-overlap run should be excluded from watchlist",
+        )
+        assert_true(
+            int(overall_watchlist["watchlist_future_fault_linked_count"]) == 1,
+            "future fault reference count mismatch",
+        )
+        assert_true(
+            int(overall_watchlist["watchlist_future_truth_linked_count"]) == 1,
+            "future truth reference count mismatch",
+        )
 
 
 if __name__ == "__main__":

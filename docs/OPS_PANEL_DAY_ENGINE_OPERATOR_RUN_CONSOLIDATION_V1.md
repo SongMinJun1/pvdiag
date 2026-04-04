@@ -16,6 +16,11 @@
 - recurring unmatched run, 특히 `P4` 반복 run까지 queue에 남기면 daily flood가 run flood로만 바뀌기 쉽다.
 - 따라서 낮은 우선순위 recurring/recovered run은 backlog로 보내고, queue는 현재성 + 우선순위가 높은 run 위주로 유지한다.
 
+## 왜 queue/backlog 2-way split만으로는 부족한가
+- queue에서 recurring chronic을 빼는 것은 active flood를 줄이는 데는 효과적이다.
+- 하지만 backlog 안에만 남겨 두면, 반복적으로 나타나는 상위 chronic run이 다시 너무 조용해질 수 있다.
+- 그래서 active queue를 다시 넓히지 않으면서도, recurring chronic 중 일부를 별도 `watchlist` 로 surface하는 3번째 operator-facing 레이어가 필요하다.
+
 ## 기본 score
 - registry에는 두 개의 operator-facing ranking score를 함께 남긴다.
   - `raw_operator_score`
@@ -64,6 +69,23 @@
 
 즉 이 플래그는 "detector 문제" 가 아니라 "ordering hygiene 주의 필요" 를 뜻한다.
 
+## watchlist가 필요한 이유
+- watchlist는 queue를 다시 넓히지 않기 위한 장치다.
+- membership은 현재 시점 operator-facing 상태만 사용한다.
+  - `backlog_flag`
+  - `status`
+  - `run_shape_class`
+  - `priority_band`
+  - `overlap_case_class`
+- 즉 "반복되고 있는 chronic run인데, backlog 안에서도 비교적 우선순위가 높은가" 만 본다.
+
+future linkage 관련 필드:
+- `future_fault_linked_flag`
+- `future_truth_linked_flag`
+
+는 watchlist 자격을 정하는 데 쓰지 않는다.  
+이 값들은 retrospective reference로만 남겨서, 나중에 watchlist가 실제 hidden value와 얼마나 닿아 있었는지 사후 점검할 때만 본다.
+
 ## status 해석
 - `ongoing_run`
   - site 최신 run 종료일에 거의 붙어 있는 run. 현재도 이어지고 있을 가능성이 가장 높다.
@@ -111,6 +133,25 @@ status는 최근성/재발성을 operator triage용으로 붙인 것이고, dete
 - 그래서 `P4 recurring unmatched` run은 registry에는 남지만 queue에서는 빠지고 backlog로 이동한다.
 - 이번 패치에서는 queue/backlog membership은 바꾸지 않는다.
 - 오직 queue/backlog 내부 정렬만 `clipped_operator_score` 기준으로 바뀐다.
+
+## watchlist 규칙
+- watchlist는 backlog의 부분집합이다.
+- queue와는 겹치지 않는다.
+- bucket:
+  - `recurring_watch_p1`
+    - backlog 안의 recurring chronic run 중 `P1` 이고 `nuisance_overlap` 이 아닌 경우
+  - `recurring_watch_p2`
+    - backlog 안의 recurring chronic run 중 `P2` 이고 `nuisance_overlap` 이 아닌 경우
+  - `none`
+    - 나머지
+
+watchlist 해석:
+- `recurring_watch_p1`
+  - 반복 chronic 중에서도 site 내부 상대 우선순위가 가장 높은 편이라, active queue는 아니지만 operator가 주기적으로 다시 봐야 하는 대상
+- `recurring_watch_p2`
+  - P1보다는 약하지만, backlog 속에 묻히기엔 아까운 recurring chronic
+
+즉 watchlist는 detector 승격이 아니라, recurring chronic backlog를 재정렬해 보여 주는 operator-facing surfacing layer다.
 
 ## 중요한 점
 - 이 패치는 detector logic을 바꾸지 않는다.
