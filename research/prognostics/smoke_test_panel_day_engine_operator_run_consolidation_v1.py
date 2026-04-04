@@ -8,6 +8,17 @@ from pathlib import Path
 
 import pandas as pd
 
+KEY_COLS = ["site", "panel_id", "run_start_date", "run_end_date"]
+CLIP_INPUT_COLS = [
+    "core_vdrop_input",
+    "core_midv_input",
+    "core_mid_input",
+    "ae_mid_or_hi_early_day_ratio",
+    "mean_signal_count",
+    "max_signal_count",
+    "p95_recon_error",
+]
+
 FEATURE_COLS = [
     "site",
     "panel_id",
@@ -99,6 +110,40 @@ FATE_COLS = [
 ]
 
 
+def robust_scale(series: pd.Series) -> pd.Series:
+    numeric = pd.to_numeric(series, errors="coerce")
+    median = float(numeric.median())
+    q1 = float(numeric.quantile(0.25))
+    q3 = float(numeric.quantile(0.75))
+    iqr = q3 - q1
+    denom = iqr if abs(iqr) > 1e-9 else 1.0
+    return ((numeric.fillna(median) - median) / denom).clip(-5.0, 5.0)
+
+
+def compute_expected_clipped_scores(features: list[dict[str, object]]) -> pd.DataFrame:
+    df = pd.DataFrame(features).copy()
+    df["core_vdrop_input"] = df["max_v_drop"]
+    df["core_midv_input"] = 1.0 - df["min_mid_v_ratio"]
+    df["core_mid_input"] = 1.0 - df["min_mid_ratio"]
+    for site, site_df in df.groupby("site", sort=True, dropna=False):
+        for col in CLIP_INPUT_COLS:
+            threshold = float(site_df[col].quantile(0.99))
+            df.loc[df["site"].eq(site), f"{col}_clipped"] = df.loc[df["site"].eq(site), col].clip(upper=threshold)
+    df["clipped_operator_score"] = (
+        robust_scale(df["core_vdrop_input_clipped"])
+        + robust_scale(df["core_midv_input_clipped"])
+        + robust_scale(df["core_mid_input_clipped"])
+        - 0.50
+        * (
+            robust_scale(df["ae_mid_or_hi_early_day_ratio_clipped"])
+            + robust_scale(df["mean_signal_count_clipped"])
+            + robust_scale(df["max_signal_count_clipped"])
+            + robust_scale(df["p95_recon_error_clipped"])
+        )
+    )
+    return df
+
+
 def run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True)
 
@@ -124,6 +169,12 @@ def feature_row(
     future_fault: int = 0,
     future_truth: int = 0,
     fate_class: str = "",
+    max_v_drop: float = 0.5,
+    min_mid_v_ratio: float = 0.5,
+    min_mid_ratio: float = 0.5,
+    mean_signal_count: float = 1.5,
+    max_signal_count: float = 2.0,
+    p95_recon_error: float = 0.1,
 ) -> dict[str, object]:
     return {
         "site": "alpha",
@@ -145,8 +196,8 @@ def feature_row(
         "pre_alarm_run_count": 1,
         "prefault_B_run_count": 0,
         "pre_alarm_max_run": run_day_count,
-        "max_signal_count": 2.0,
-        "mean_signal_count": 1.5,
+        "max_signal_count": max_signal_count,
+        "mean_signal_count": mean_signal_count,
         "any_data_bad": 0,
         "data_bad_day_ratio": 0.0,
         "cond_evt_day_ratio": 1.0,
@@ -156,15 +207,15 @@ def feature_row(
         "dtw_mid_or_hi_early_day_ratio": 0.5,
         "hs_mid_or_hi_early_day_ratio": 0.3,
         "max_recon_error": 0.1,
-        "p95_recon_error": 0.1,
+        "p95_recon_error": p95_recon_error,
         "max_dtw_dist": 10.0,
         "p95_dtw_dist": 9.5,
         "max_hs_score": 0.4,
         "p95_hs_score": 0.35,
-        "min_mid_ratio": 0.5,
-        "min_mid_v_ratio": 0.5,
+        "min_mid_ratio": min_mid_ratio,
+        "min_mid_v_ratio": min_mid_v_ratio,
         "min_mid_i_ratio": 0.5,
-        "max_v_drop": 0.5,
+        "max_v_drop": max_v_drop,
         "recurring_run_within_60d": recurring,
         "future_fault_linked_flag": future_fault,
         "future_truth_linked_flag": future_truth,
@@ -224,13 +275,38 @@ def fate_row(feature: dict[str, object], fate_class: str) -> dict[str, object]:
 
 def build_fixture_root(tmp_root: Path) -> None:
     features = [
-        feature_row("alpha.r01", "2025-01-09", "2025-01-10", 12, 20.0, future_fault=1),
-        feature_row("alpha.r02", "2025-01-08", "2025-01-08", 12, 19.0),
-        feature_row("alpha.r03", "2025-01-07", "2025-01-09", 10, 18.0),
-        feature_row("alpha.r04", "2025-01-01", "2025-01-02", 11, 17.0, recurring=1, future_truth=1),
+        feature_row("alpha.r01", "2025-01-09", "2025-01-10", 12, 20.0, future_fault=1, max_v_drop=0.70),
+        feature_row("alpha.r02", "2025-01-08", "2025-01-08", 12, 19.0, max_v_drop=0.65),
+        feature_row("alpha.r03", "2025-01-07", "2025-01-09", 10, 18.0, max_v_drop=0.60),
+        feature_row(
+            "alpha.r04",
+            "2025-01-01",
+            "2025-01-02",
+            11,
+            17.0,
+            recurring=1,
+            future_truth=1,
+            min_mid_ratio=-25.0,
+            min_mid_v_ratio=0.40,
+            max_v_drop=0.45,
+        ),
         feature_row("alpha.r05", "2025-01-03", "2025-01-05", 5, 16.0),
+        feature_row(
+            "alpha.r06",
+            "2024-12-28",
+            "2024-12-29",
+            11,
+            12.0,
+            recurring=1,
+            min_mid_ratio=0.20,
+            min_mid_v_ratio=0.25,
+            max_v_drop=0.62,
+            mean_signal_count=1.1,
+            max_signal_count=1.4,
+            p95_recon_error=0.02,
+        ),
     ]
-    for idx in range(6, 21):
+    for idx in range(7, 21):
         start = f"2024-12-{idx:02d}" if idx <= 9 else f"2024-11-{idx:02d}"
         end = start
         features.append(feature_row(f"alpha.r{idx:02d}", start, end, 2, 21.0 - idx))
@@ -241,6 +317,7 @@ def build_fixture_root(tmp_root: Path) -> None:
         "alpha.r03": 15.0,
         "alpha.r04": 17.0,
         "alpha.r05": 16.0,
+        "alpha.r06": 12.0,
     }
     scores = [score_row(row, explicit_scores.get(row["panel_id"], 21.0 - idx)) for idx, row in enumerate(features, start=1)]
     fates = [fate_row(features[2], "future_fault_linked")]
@@ -284,15 +361,46 @@ def main() -> None:
         queue = pd.read_csv(share_dir / "panel_day_engine_operator_run_queue_v1.csv")
         backlog = pd.read_csv(share_dir / "panel_day_engine_operator_run_backlog_v1.csv")
         summary = pd.read_csv(share_dir / "panel_day_engine_operator_run_summary_v1.csv")
+        feature_input = pd.read_csv(share_dir / "panel_day_engine_run_feature_table_v1.csv")
+        expected_clipped = compute_expected_clipped_scores(feature_input.to_dict("records"))
 
         assert_true(len(registry) == 20, "registry should contain one row per run")
         assert_true(len(queue) == 3, "queue should include only investigate_now/monitor_active runs")
-        assert_true(len(backlog) == 2, "backlog should include recurring/recovered runs only")
+        assert_true(len(backlog) == 3, "backlog should include recurring/recovered runs only")
+
+        required_registry_cols = {
+            "raw_operator_score",
+            "clipped_operator_score",
+            "raw_rank_within_site",
+            "clipped_rank_within_site",
+            "rank_shift_abs",
+            "score_hygiene_flag",
+            "score_hygiene_reason_ko",
+        }
+        assert_true(required_registry_cols.issubset(set(registry.columns)), "new registry fields should be present")
+        assert_true(
+            registry["raw_operator_score"].equals(registry["electrical_core_minus_broadshape_050"]),
+            "raw operator score should preserve electrical_core_minus_broadshape_050",
+        )
+
+        merged_expected = registry.merge(
+            expected_clipped.loc[:, [*KEY_COLS, "clipped_operator_score"]],
+            on=KEY_COLS,
+            how="left",
+            suffixes=("", "_expected"),
+            validate="one_to_one",
+        )
+        max_diff = (
+            pd.to_numeric(merged_expected["clipped_operator_score"], errors="coerce")
+            - pd.to_numeric(merged_expected["clipped_operator_score_expected"], errors="coerce")
+        ).abs().max()
+        assert_true(float(max_diff) < 1e-9, "transformed-input clipping should define clipped operator score")
 
         status_by_panel = dict(zip(registry["panel_id"], registry["status"]))
         assert_true(status_by_panel["alpha.r01"] == "ongoing_run", "alpha.r01 should be ongoing")
         assert_true(status_by_panel["alpha.r02"] == "new_run", "alpha.r02 should be new")
         assert_true(status_by_panel["alpha.r04"] == "recurring_run", "alpha.r04 should be recurring")
+        assert_true(status_by_panel["alpha.r06"] == "recurring_run", "alpha.r06 should be recurring")
         assert_true(status_by_panel["alpha.r05"] == "recovered_run", "alpha.r05 should be recovered")
         assert_true(status_by_panel["alpha.r20"] == "historical_run", "alpha.r20 should be historical")
 
@@ -307,6 +415,7 @@ def main() -> None:
         assert_true(action_by_panel["alpha.r02"] == "investigate_now", "new P2 should investigate_now")
         assert_true(action_by_panel["alpha.r03"] == "monitor_active", "new P3 medium should monitor_active")
         assert_true(action_by_panel["alpha.r04"] == "recurring_backlog", "recurring run should go to recurring_backlog")
+        assert_true(action_by_panel["alpha.r06"] == "recurring_backlog", "second recurring run should go to recurring_backlog")
         assert_true(action_by_panel["alpha.r05"] == "recovered_backlog", "recovered run should go to recovered_backlog")
         assert_true(action_by_panel["alpha.r20"] == "historical_archive", "historical P4 should archive")
 
@@ -317,6 +426,7 @@ def main() -> None:
         assert_true("alpha.r03" in queued_panels, "new P3 medium should be queued")
         assert_true("alpha.r04" not in queued_panels, "recurring backlog should not remain in queue")
         assert_true("alpha.r04" in backlog_panels, "P4 recurring run should move to backlog")
+        assert_true("alpha.r06" in backlog_panels, "second recurring run should remain in backlog")
         assert_true("alpha.r05" not in queued_panels, "recovered run should not remain in queue")
         assert_true("alpha.r05" in backlog_panels, "recovered run should go to backlog")
         assert_true("alpha.r20" not in queued_panels, "historical P4 run should be excluded from queue")
@@ -329,18 +439,46 @@ def main() -> None:
         fate_by_panel = dict(zip(registry["panel_id"], registry["fate_class"]))
         assert_true(fate_by_panel["alpha.r03"] == "future_fault_linked", "optional fate enrichment should fill fate_class")
 
+        registry_shift = registry.set_index("panel_id")
+        assert_true(
+            int(registry_shift.loc["alpha.r04", "score_hygiene_flag"]) == 1,
+            "extreme transformed-input run should be hygiene-flagged",
+        )
+        assert_true(
+            int(registry["rank_shift_abs"].max()) >= 1,
+            "at least one run should move under clipped ranking",
+        )
+
+        recurring_backlog_registry = registry.loc[registry["action_bucket"].eq("recurring_backlog")].copy()
+        recurring_backlog_expected = recurring_backlog_registry.sort_values(
+            ["clipped_operator_score", "run_day_count", "site", "panel_id", "run_start_date"],
+            ascending=[False, False, True, True, True],
+            kind="mergesort",
+        )
+        recurring_backlog_actual = backlog.loc[backlog["action_bucket"].eq("recurring_backlog")].copy()
+        assert_true(
+            recurring_backlog_actual["panel_id"].tolist() == recurring_backlog_expected["panel_id"].tolist(),
+            "backlog ordering should use clipped operator score",
+        )
+        assert_true(
+            recurring_backlog_actual["raw_operator_score"].ne(recurring_backlog_actual["clipped_operator_score"]).any(),
+            "raw operator score should remain preserved beside clipped score",
+        )
+
         overall = summary.loc[summary["record_type"] == "overall"].iloc[0]
         assert_true(int(overall["investigate_now_count"]) == 2, "investigate_now count mismatch")
         assert_true(int(overall["monitor_active_count"]) == 1, "monitor_active count mismatch")
-        assert_true(int(overall["recurring_backlog_count"]) == 1, "recurring_backlog count mismatch")
+        assert_true(int(overall["recurring_backlog_count"]) == 2, "recurring_backlog count mismatch")
         assert_true(int(overall["recovered_backlog_count"]) == 1, "recovered_backlog count mismatch")
-        assert_true(int(overall["historical_archive_count"]) == 15, "historical_archive count mismatch")
+        assert_true(int(overall["historical_archive_count"]) == 14, "historical_archive count mismatch")
         assert_true(int(overall["queue_count"]) == 3, "overall queue count mismatch")
-        assert_true(int(overall["backlog_count"]) == 2, "overall backlog count mismatch")
+        assert_true(int(overall["backlog_count"]) == 3, "overall backlog count mismatch")
         assert_true(int(overall["p1_run_count"]) == 1, "overall P1 count mismatch")
         assert_true(int(overall["p2_run_count"]) == 3, "overall P2 count mismatch")
         assert_true(int(overall["queue_chronic_count"]) == 3, "queue chronic count mismatch")
-        assert_true(int(overall["backlog_chronic_count"]) == 1, "backlog chronic count mismatch")
+        assert_true(int(overall["backlog_chronic_count"]) == 2, "backlog chronic count mismatch")
+        assert_true(pd.notna(overall["clipped_top20_overlap_vs_raw"]), "summary should include overlap metrics")
+        assert_true(int(overall["score_hygiene_flag_count"]) >= 1, "summary should include hygiene counts")
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 ## 목적
 - detector gate tweaking은 잠시 멈추고, 이미 생성된 daily local precursor alert를 operator가 실제로 다룰 수 있는 run/episode 단위 artifact로 묶는다.
 - 이 단계는 detector change가 아니라, existing run universe를 operator-facing `registry / queue / backlog` 로 재포장하는 레이어다.
+- queue/backlog policy 자체는 크게 흔들지 않고, score hygiene audit에서 확인된 outlier ordering 불안정만 줄이기 위해 operator 기본 정렬 score를 clipped score로 승격한다.
 
 ## 왜 run-level operator consolidation인가
 - 현재 burden의 실전 문제는 daily alert flood다.
@@ -16,12 +17,52 @@
 - 따라서 낮은 우선순위 recurring/recovered run은 backlog로 보내고, queue는 현재성 + 우선순위가 높은 run 위주로 유지한다.
 
 ## 기본 score
-- 기본 operator ordering score:
-  - `electrical_core_minus_broadshape_050`
+- registry에는 두 개의 operator-facing ranking score를 함께 남긴다.
+  - `raw_operator_score`
+    - 기존 `electrical_core_minus_broadshape_050`
+  - `clipped_operator_score`
+    - operator 기본 정렬 score
 - 참고 score:
   - `electrical_core_score`
 
-`electrical_core_minus_broadshape_050` 을 기본값으로 쓰는 이유는, pure electrical severity를 유지하면서도 broadshape 계열 과잉 우선순위를 조금 누르는 가장 보수적인 deterministic score이기 때문이다.
+`raw_operator_score` 는 이전 deterministic ordering을 그대로 보존한다.  
+`clipped_operator_score` 는 같은 score formula를 쓰되, score hygiene audit에서 흔들림을 유발한 transformed input extreme을 site-level `p99` 로 upper clipping 한 뒤 robust scaling 한다.
+
+즉 clipping은 detector 판단을 바꾸는 것이 아니라, operator가 보는 run ordering만 조금 더 안정적으로 만드는 보수적 ranking hygiene patch다.
+
+## 왜 clipped_operator_score가 기본값인가
+- queue/backlog policy 자체는 이미 대체로 맞았고, 문제는 일부 extreme run이 ordering 상단을 흔드는 점이었다.
+- score hygiene audit에서 clipping 후 top-k overlap이 매우 높게 유지되었기 때문에, ordering 안정성을 얻으면서도 실질적인 triage 집합은 거의 유지된다고 볼 수 있었다.
+- 그래서 operator 기본 정렬축만 `raw_operator_score` 에서 `clipped_operator_score` 로 바꾼다.
+
+## transformed-input p99 clipping
+- clipping 대상은 raw min-ratio 그 자체가 아니라 score에 실제로 들어가는 transformed input 이다.
+  - `core_vdrop_input = max_v_drop`
+  - `core_midv_input = 1 - min_mid_v_ratio`
+  - `core_mid_input = 1 - min_mid_ratio`
+  - broadshape penalty 입력:
+    - `ae_mid_or_hi_early_day_ratio`
+    - `mean_signal_count`
+    - `max_signal_count`
+    - `p95_recon_error`
+- 각 입력을 site 내부 `p99` 로 upper clipping 한 뒤, 기존 scorer audit과 같은 robust scaling을 적용한다.
+- 이렇게 하면 `min_mid_ratio` 같은 값이 raw domain에서는 눈에 띄지 않아도 transformed domain에서 과도하게 커지는 경우를 직접 누를 수 있다.
+
+## raw score reference와 score_hygiene_flag
+- `raw_operator_score` 는 항상 registry/queue/backlog에 같이 남긴다.
+- 그래서 operator는 "원래 raw ordering" 과 "현재 clipped ordering" 을 둘 다 볼 수 있다.
+- 추가 필드:
+  - `raw_rank_within_site`
+  - `clipped_rank_within_site`
+  - `rank_shift_abs`
+  - `score_hygiene_flag`
+  - `score_hygiene_reason_ko`
+
+`score_hygiene_flag` 는 다음 둘 중 하나면 1이다.
+- clipping 적용 후 site 내부 rank 이동 폭이 큰 run
+- transformed-input / raw score 기준으로 suspicious extreme에 해당하는 run
+
+즉 이 플래그는 "detector 문제" 가 아니라 "ordering hygiene 주의 필요" 를 뜻한다.
 
 ## status 해석
 - `ongoing_run`
@@ -68,8 +109,10 @@ status는 최근성/재발성을 operator triage용으로 붙인 것이고, dete
 - queue에는 `action_bucket in {investigate_now, monitor_active}` 만 넣는다.
 - backlog에는 `action_bucket in {recurring_backlog, recovered_backlog}` 만 넣는다.
 - 그래서 `P4 recurring unmatched` run은 registry에는 남지만 queue에서는 빠지고 backlog로 이동한다.
+- 이번 패치에서는 queue/backlog membership은 바꾸지 않는다.
+- 오직 queue/backlog 내부 정렬만 `clipped_operator_score` 기준으로 바뀐다.
 
 ## 중요한 점
 - 이 패치는 detector logic을 바꾸지 않는다.
 - canonical truth contract도 바꾸지 않는다.
-- `_share` 산출물만 추가하여 operator-facing policy layer를 제공한다.
+- `_share` 산출물만 갱신하여 operator-facing policy layer를 조정한다.

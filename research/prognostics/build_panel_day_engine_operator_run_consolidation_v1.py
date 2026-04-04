@@ -27,6 +27,9 @@ REQUIRED_FEATURE_COLS = [
     "max_v_drop",
     "min_mid_v_ratio",
     "min_mid_ratio",
+    "mean_signal_count",
+    "max_signal_count",
+    "p95_recon_error",
     "cond_evt_only_day_ratio",
     "ae_mid_or_hi_early_day_ratio",
     "recurring_run_within_60d",
@@ -35,6 +38,25 @@ REQUIRED_FEATURE_COLS = [
 ]
 REQUIRED_SCORE_COLS = [*KEY_COLS, "electrical_core_score", "electrical_core_minus_broadshape_050"]
 OPTIONAL_FATE_COLS = [*KEY_COLS, "fate_class"]
+RAW_OPERATOR_SCORE_COL = "raw_operator_score"
+CLIPPED_OPERATOR_SCORE_COL = "clipped_operator_score"
+RAW_RANK_COL = "raw_rank_within_site"
+CLIPPED_RANK_COL = "clipped_rank_within_site"
+RANK_SHIFT_ABS_COL = "rank_shift_abs"
+SCORE_HYGIENE_FLAG_COL = "score_hygiene_flag"
+SCORE_HYGIENE_REASON_COL = "score_hygiene_reason_ko"
+EPSILON = 1e-9
+TOP_K_VALUES = [20, 50, 100]
+CLIP_INPUT_COLS = [
+    "core_vdrop_input",
+    "core_midv_input",
+    "core_mid_input",
+    "ae_mid_or_hi_early_day_ratio",
+    "mean_signal_count",
+    "max_signal_count",
+    "p95_recon_error",
+]
+SUSPICIOUS_COLS = [*CLIP_INPUT_COLS, "electrical_core_score", RAW_OPERATOR_SCORE_COL]
 STATUS_PRIORITY = {
     "ongoing_run": 0,
     "new_run": 1,
@@ -61,9 +83,19 @@ REGISTRY_OUTPUT_COLS = [
     "fate_class",
     "electrical_core_score",
     "electrical_core_minus_broadshape_050",
+    RAW_OPERATOR_SCORE_COL,
+    CLIPPED_OPERATOR_SCORE_COL,
+    RAW_RANK_COL,
+    CLIPPED_RANK_COL,
+    RANK_SHIFT_ABS_COL,
+    SCORE_HYGIENE_FLAG_COL,
+    SCORE_HYGIENE_REASON_COL,
     "max_v_drop",
     "min_mid_v_ratio",
     "min_mid_ratio",
+    "mean_signal_count",
+    "max_signal_count",
+    "p95_recon_error",
     "cond_evt_only_day_ratio",
     "ae_mid_or_hi_early_day_ratio",
     "status",
@@ -98,6 +130,12 @@ SUMMARY_OUTPUT_COLS = [
     "backlog_chronic_count",
     "queue_future_fault_linked_count",
     "queue_future_truth_linked_count",
+    "clipped_top20_overlap_vs_raw",
+    "clipped_top50_overlap_vs_raw",
+    "clipped_top100_overlap_vs_raw",
+    "score_hygiene_flag_count",
+    "score_hygiene_queue_count",
+    "score_hygiene_backlog_count",
 ]
 
 
@@ -149,6 +187,71 @@ def drop_repeated_header_rows(df: pd.DataFrame) -> pd.DataFrame:
     return df.loc[~header_mask].reset_index(drop=True)
 
 
+def robust_scale(series: pd.Series) -> pd.Series:
+    numeric = pd.to_numeric(series, errors="coerce")
+    if numeric.dropna().empty:
+        return pd.Series(0.0, index=series.index)
+    median = float(numeric.median())
+    q1 = float(numeric.quantile(0.25))
+    q3 = float(numeric.quantile(0.75))
+    iqr = q3 - q1
+    denom = iqr if abs(iqr) > EPSILON else 1.0
+    return ((numeric.fillna(median) - median) / denom).clip(-5.0, 5.0)
+
+
+def compute_stats(series: pd.Series) -> dict[str, float | None]:
+    numeric = pd.to_numeric(series, errors="coerce").dropna()
+    if numeric.empty:
+        return {"median": None, "iqr": None, "p99": None, "p99_5": None}
+    q1 = float(numeric.quantile(0.25))
+    q3 = float(numeric.quantile(0.75))
+    return {
+        "median": float(numeric.median()),
+        "iqr": float(q3 - q1),
+        "p99": float(numeric.quantile(0.99)),
+        "p99_5": float(numeric.quantile(0.995)),
+    }
+
+
+def rank_frame(df: pd.DataFrame, score_col: str) -> pd.DataFrame:
+    ranked = df.sort_values(
+        [score_col, "run_day_count", "site", "panel_id", "run_start_date", "run_end_date"],
+        ascending=[False, False, True, True, True, True],
+        kind="mergesort",
+    ).copy()
+    ranked["rank"] = range(1, len(ranked) + 1)
+    return ranked.loc[:, [*KEY_COLS, "rank"]]
+
+
+def add_rank_within_site(df: pd.DataFrame, score_col: str, rank_col: str) -> pd.DataFrame:
+    ranked_parts: list[pd.DataFrame] = []
+    for site, site_df in df.groupby("site", sort=True, dropna=False):
+        ranked_site = site_df.sort_values(
+            [score_col, "run_day_count", "panel_id", "run_start_date", "run_end_date"],
+            ascending=[False, False, True, True, True],
+            kind="mergesort",
+        ).copy()
+        ranked_site[rank_col] = range(1, len(ranked_site) + 1)
+        ranked_parts.append(ranked_site.loc[:, [*KEY_COLS, rank_col]])
+    ranks = pd.concat(ranked_parts, axis=0) if ranked_parts else pd.DataFrame(columns=[*KEY_COLS, rank_col])
+    return df.merge(ranks, on=KEY_COLS, how="left", validate="one_to_one")
+
+
+def dominant_reason(feature_name: str) -> str:
+    mapping = {
+        "p95_recon_error": "p95_recon_error 영향 큼",
+        "core_mid_input": "min_mid_ratio 영향 큼",
+        "core_midv_input": "min_mid_v_ratio 영향 큼",
+        "core_vdrop_input": "max_v_drop 영향 큼",
+        "mean_signal_count": "signal_count 영향 큼",
+        "max_signal_count": "signal_count 영향 큼",
+        "ae_mid_or_hi_early_day_ratio": "broadshape 영향 큼",
+        "electrical_core_score": "raw score extreme",
+        RAW_OPERATOR_SCORE_COL: "raw score extreme",
+    }
+    return mapping.get(feature_name, "clipping 영향 적음")
+
+
 def load_feature_table(root: Path) -> pd.DataFrame:
     path = root / "_share" / FEATURE_TABLE_NAME
     df = read_csv(path)
@@ -194,17 +297,129 @@ def load_optional_fate_cases(root: Path) -> pd.DataFrame:
     return df.drop_duplicates(subset=KEY_COLS, keep="first").reset_index(drop=True)
 
 
+def add_operator_score_fields(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    out[RAW_OPERATOR_SCORE_COL] = pd.to_numeric(out["electrical_core_minus_broadshape_050"], errors="coerce")
+    out["core_vdrop_input"] = pd.to_numeric(out["max_v_drop"], errors="coerce")
+    out["core_midv_input"] = 1.0 - pd.to_numeric(out["min_mid_v_ratio"], errors="coerce")
+    out["core_mid_input"] = 1.0 - pd.to_numeric(out["min_mid_ratio"], errors="coerce")
+
+    site_clip_map: dict[tuple[str, str], float | None] = {}
+    suspicious_stats: dict[tuple[str, str], dict[str, float | None]] = {}
+    for site, site_df in out.groupby("site", sort=True, dropna=False):
+        for col in CLIP_INPUT_COLS:
+            site_clip_map[(site, col)] = compute_stats(site_df[col])["p99"]
+        for col in SUSPICIOUS_COLS:
+            suspicious_stats[(site, col)] = compute_stats(site_df[col])
+
+    changed_features: list[str] = []
+    suspicious_flags: list[bool] = []
+    suspicious_reasons: list[str] = []
+    for idx, row in out.iterrows():
+        site = row["site"]
+        local_changes: dict[str, float] = {}
+        suspicious_hits: list[str] = []
+        for col in CLIP_INPUT_COLS:
+            threshold = site_clip_map.get((site, col))
+            value = pd.to_numeric(row[col], errors="coerce")
+            clipped_col = f"{col}_clipped"
+            out.at[idx, clipped_col] = value
+            if pd.notna(value) and threshold is not None and pd.notna(threshold) and value > float(threshold):
+                out.at[idx, clipped_col] = float(threshold)
+                local_changes[col] = float(value) - float(threshold)
+
+        for col in SUSPICIOUS_COLS:
+            stats = suspicious_stats.get((site, col), {})
+            value = pd.to_numeric(row[col], errors="coerce")
+            if pd.isna(value):
+                continue
+            p99_5 = stats.get("p99_5")
+            if p99_5 is not None and pd.notna(p99_5) and float(value) > float(p99_5):
+                suspicious_hits.append(col)
+                continue
+            median = stats.get("median")
+            iqr = stats.get("iqr")
+            if median is None or iqr is None or pd.isna(median):
+                continue
+            denom = float(iqr) if abs(float(iqr)) > EPSILON else EPSILON
+            if (float(value) - float(median)) / denom > 8.0:
+                suspicious_hits.append(col)
+
+        if local_changes:
+            dominant_feature = max(local_changes, key=local_changes.get)
+        elif suspicious_hits:
+            dominant_feature = suspicious_hits[0]
+        else:
+            dominant_feature = ""
+        changed_features.append(dominant_feature)
+        suspicious_flags.append(bool(suspicious_hits))
+        suspicious_reasons.append(dominant_reason(dominant_feature))
+
+    out["clipped_core_vdrop_term"] = robust_scale(out["core_vdrop_input_clipped"])
+    out["clipped_core_midv_term"] = robust_scale(out["core_midv_input_clipped"])
+    out["clipped_core_mid_term"] = robust_scale(out["core_mid_input_clipped"])
+    out["clipped_broadshape_ae_term"] = robust_scale(out["ae_mid_or_hi_early_day_ratio_clipped"])
+    out["clipped_broadshape_mean_signal_term"] = robust_scale(out["mean_signal_count_clipped"])
+    out["clipped_broadshape_max_signal_term"] = robust_scale(out["max_signal_count_clipped"])
+    out["clipped_broadshape_recon_term"] = robust_scale(out["p95_recon_error_clipped"])
+    out[CLIPPED_OPERATOR_SCORE_COL] = (
+        out["clipped_core_vdrop_term"]
+        + out["clipped_core_midv_term"]
+        + out["clipped_core_mid_term"]
+        - 0.50
+        * (
+            out["clipped_broadshape_ae_term"]
+            + out["clipped_broadshape_mean_signal_term"]
+            + out["clipped_broadshape_max_signal_term"]
+            + out["clipped_broadshape_recon_term"]
+        )
+    )
+
+    out = add_rank_within_site(out, RAW_OPERATOR_SCORE_COL, RAW_RANK_COL)
+    out = add_rank_within_site(out, CLIPPED_OPERATOR_SCORE_COL, CLIPPED_RANK_COL)
+    out[RANK_SHIFT_ABS_COL] = (
+        pd.to_numeric(out[CLIPPED_RANK_COL], errors="coerce") - pd.to_numeric(out[RAW_RANK_COL], errors="coerce")
+    ).abs().fillna(0).astype(int)
+    out[SCORE_HYGIENE_FLAG_COL] = (
+        out[RANK_SHIFT_ABS_COL].ge(20) | pd.Series(suspicious_flags, index=out.index)
+    ).astype(int)
+    out[SCORE_HYGIENE_REASON_COL] = pd.Series(suspicious_reasons, index=out.index)
+    out.loc[out[SCORE_HYGIENE_FLAG_COL].eq(0), SCORE_HYGIENE_REASON_COL] = "clipping 영향 적음"
+    return out
+
+
+def compute_overlap_rates(scope_df: pd.DataFrame) -> dict[str, float | None]:
+    if scope_df.empty:
+        return {f"top{k}": None for k in TOP_K_VALUES}
+    raw_ranks = rank_frame(scope_df, RAW_OPERATOR_SCORE_COL).rename(columns={"rank": "raw_rank"})
+    clipped_ranks = rank_frame(scope_df, CLIPPED_OPERATOR_SCORE_COL).rename(columns={"rank": "clipped_rank"})
+    ranked = scope_df.merge(raw_ranks, on=KEY_COLS, how="left", validate="one_to_one")
+    ranked = ranked.merge(clipped_ranks, on=KEY_COLS, how="left", validate="one_to_one")
+    overlaps: dict[str, float | None] = {}
+    for top_k in TOP_K_VALUES:
+        denom = min(top_k, len(ranked))
+        if denom == 0:
+            overlaps[f"top{top_k}"] = None
+            continue
+        raw_top = set(tuple(row) for row in ranked.loc[ranked["raw_rank"].le(denom), KEY_COLS].itertuples(index=False, name=None))
+        clipped_top = set(tuple(row) for row in ranked.loc[ranked["clipped_rank"].le(denom), KEY_COLS].itertuples(index=False, name=None))
+        overlaps[f"top{top_k}"] = len(raw_top & clipped_top) / float(denom)
+    return overlaps
+
+
 def assign_site_priority_bands(site_df: pd.DataFrame) -> pd.DataFrame:
     ordered = site_df.sort_values(
-        ["electrical_core_minus_broadshape_050", "run_day_count", "panel_id", "run_start_date", "run_end_date"],
-        ascending=[False, False, True, True, True],
+        [RAW_RANK_COL, "run_day_count", "panel_id", "run_start_date", "run_end_date"],
+        ascending=[True, False, True, True, True],
         kind="mergesort",
     ).copy()
     n_rows = len(ordered)
     p1_cut = max(1, math.ceil(n_rows * 0.05))
     p2_cut = max(p1_cut, math.ceil(n_rows * 0.20))
     p3_cut = max(p2_cut, math.ceil(n_rows * 0.50))
-    ordered["site_score_rank"] = range(1, n_rows + 1)
+    ordered["site_score_rank"] = pd.to_numeric(ordered[RAW_RANK_COL], errors="coerce")
+    if ordered["site_score_rank"].isna().any():
+        ordered["site_score_rank"] = range(1, n_rows + 1)
     ordered["priority_band"] = "P4"
     ordered.loc[ordered["site_score_rank"] <= p3_cut, "priority_band"] = "P3"
     ordered.loc[ordered["site_score_rank"] <= p2_cut, "priority_band"] = "P2"
@@ -289,6 +504,7 @@ def build_registry(root: Path) -> pd.DataFrame:
     merged["future_fault_linked_flag"] = pd.to_numeric(merged["future_fault_linked_flag"], errors="coerce").fillna(0).astype(int)
     merged["future_truth_linked_flag"] = pd.to_numeric(merged["future_truth_linked_flag"], errors="coerce").fillna(0).astype(int)
 
+    merged = add_operator_score_fields(merged)
     merged = assign_status(merged)
 
     banded_parts = []
@@ -297,7 +513,7 @@ def build_registry(root: Path) -> pd.DataFrame:
     registry = pd.concat(banded_parts, axis=0).sort_index()
     registry = assign_action_buckets(registry)
     registry = registry.sort_values(
-        ["site", "site_score_rank", "run_day_count", "panel_id", "run_start_date", "run_end_date"],
+        ["site", RAW_RANK_COL, "run_day_count", "panel_id", "run_start_date", "run_end_date"],
         ascending=[True, True, False, True, True, True],
         kind="mergesort",
     ).reset_index(drop=True)
@@ -312,7 +528,7 @@ def build_queue(registry: pd.DataFrame) -> pd.DataFrame:
         [
             "_action_order",
             "_priority_order",
-            "electrical_core_minus_broadshape_050",
+            CLIPPED_OPERATOR_SCORE_COL,
             "run_day_count",
             "site",
             "panel_id",
@@ -330,7 +546,7 @@ def build_backlog(registry: pd.DataFrame) -> pd.DataFrame:
     backlog = backlog.sort_values(
         [
             "_action_order",
-            "electrical_core_minus_broadshape_050",
+            CLIPPED_OPERATOR_SCORE_COL,
             "run_day_count",
             "site",
             "panel_id",
@@ -343,6 +559,7 @@ def build_backlog(registry: pd.DataFrame) -> pd.DataFrame:
 
 
 def summarize_group(record_type: str, site: str, group: pd.DataFrame, queue: pd.DataFrame, backlog: pd.DataFrame) -> dict[str, object]:
+    overlaps = compute_overlap_rates(group)
     return {
         "record_type": record_type,
         "site": site,
@@ -365,6 +582,12 @@ def summarize_group(record_type: str, site: str, group: pd.DataFrame, queue: pd.
         "backlog_chronic_count": int(backlog["run_shape_class"].eq("chronic_alert_run").sum()),
         "queue_future_fault_linked_count": int(queue["future_fault_linked_flag"].eq(1).sum()),
         "queue_future_truth_linked_count": int(queue["future_truth_linked_flag"].eq(1).sum()),
+        "clipped_top20_overlap_vs_raw": overlaps["top20"],
+        "clipped_top50_overlap_vs_raw": overlaps["top50"],
+        "clipped_top100_overlap_vs_raw": overlaps["top100"],
+        "score_hygiene_flag_count": int(group[SCORE_HYGIENE_FLAG_COL].eq(1).sum()),
+        "score_hygiene_queue_count": int(queue[SCORE_HYGIENE_FLAG_COL].eq(1).sum()),
+        "score_hygiene_backlog_count": int(backlog[SCORE_HYGIENE_FLAG_COL].eq(1).sum()),
     }
 
 
