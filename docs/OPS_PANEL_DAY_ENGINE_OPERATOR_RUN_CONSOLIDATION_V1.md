@@ -91,6 +91,12 @@ future linkage 관련 필드:
 - 그래서 current-state membership 자체는 그대로 두고, 이미 watchlist에 들어온 run만 `watch_now` 와 `watch_review` 로 다시 나눈다.
 - 이 분리는 queue를 다시 넓히지 않으면서, recurring chronic 중에서도 더 자주 볼 대상을 앞쪽으로 모으기 위한 operator-facing tiering layer다.
 
+## 왜 watch_now도 run-level로는 아직 넓을 수 있는가
+- `watch_now` 는 `P1` recurring chronic만 남기기 때문에 watchlist보다 훨씬 좁다.
+- 그래도 같은 panel에서 비슷한 recurring run이 여러 번 잡히면, operator 화면에서는 여전히 같은 panel이 여러 줄로 반복될 수 있다.
+- 그래서 membership은 그대로 둔 채, `watch_now` 에 대해서만 panel-level rollup view를 추가한다.
+- 이 rollup은 backlog/queue를 바꾸는 정책이 아니라, 상단 presentation을 panel 기준으로 압축하는 operator-facing 표시 계층이다.
+
 ## status 해석
 - `ongoing_run`
   - site 최신 run 종료일에 거의 붙어 있는 run. 현재도 이어지고 있을 가능성이 가장 높다.
@@ -172,6 +178,34 @@ watchlist 해석:
 
 즉 `watch_now` 는 "queue로 올리진 않지만 더 자주 볼 tier",  
 `watch_review` 는 "backlog 안에서 정기 검토할 tier" 로 이해하면 된다.
+
+## watch_now panel rollup
+- panel rollup은 `watch_now` 산출물만 대상으로 한다.
+- grouping key는 `(site, panel_id)` 이다.
+- 한 panel 안에 여러 `watch_now` run이 있으면 대표 run을 하나만 고른다.
+
+대표 run 선택 우선순위:
+- `representative_clipped_operator_score` 가 가장 큰 run
+- 동점이면 더 최근 `run_end_date`
+- 그래도 동점이면 더 큰 `run_day_count`
+- 그래도 동점이면 더 이른 `run_start_date`
+
+- panel row에는 representative run 정보와 함께:
+  - panel 내 `watch_now` run 수
+  - total day 수
+  - earliest/latest run window
+  - future linkage reference 여부
+  - overlap case class 집합
+를 같이 남긴다.
+
+이렇게 하면 operator는 같은 panel의 반복 row를 여러 개 보기보다, panel 하나를 대표 row로 먼저 보고 필요하면 아래 run detail로 내려갈 수 있다.
+
+future linkage 관련 필드:
+- `any_future_fault_linked_flag_ref`
+- `any_future_truth_linked_flag_ref`
+
+도 membership을 정하는 데는 쓰지 않는다.  
+이 값들은 watch_now panel이 사후적으로 hidden value와 얼마나 닿았는지 참고하기 위한 reference-only field다.
 
 ## 중요한 점
 - 이 패치는 detector logic을 바꾸지 않는다.

@@ -18,6 +18,8 @@ RUN_WATCHLIST_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_v1.csv"
 RUN_WATCHLIST_SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_summary_v1.csv"
 RUN_WATCHLIST_NOW_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_now_v1.csv"
 RUN_WATCHLIST_REVIEW_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_review_v1.csv"
+RUN_WATCHLIST_NOW_PANELS_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_now_panels_v1.csv"
+RUN_WATCHLIST_NOW_PANELS_SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_now_panels_summary_v1.csv"
 
 KEY_COLS = ["site", "panel_id", "run_start_date", "run_end_date"]
 STRING_COLS = ["site", "panel_id", "run_start_date", "run_end_date", "run_shape_class", "overlap_case_class", "fate_class", "cohort_hint"]
@@ -191,6 +193,9 @@ WATCHLIST_SUMMARY_OUTPUT_COLS = [
     "watchlist_p2_count",
     "watch_now_count",
     "watch_review_count",
+    "watch_now_panel_count",
+    "panels_with_multiple_watch_now_runs",
+    "median_watch_now_runs_per_panel",
     "watchlist_chronic_count",
     "watchlist_unmatched_to_review_count",
     "watchlist_eligible_local_overlap_count",
@@ -201,6 +206,44 @@ WATCHLIST_SUMMARY_OUTPUT_COLS = [
     "watch_now_future_truth_linked_count",
     "watch_review_future_fault_linked_count",
     "watch_review_future_truth_linked_count",
+]
+WATCH_NOW_PANEL_OUTPUT_COLS = [
+    "site",
+    "panel_id",
+    "representative_run_start_date",
+    "representative_run_end_date",
+    "representative_run_day_count",
+    "representative_run_shape_class",
+    "representative_status",
+    "representative_priority_band",
+    "representative_action_bucket",
+    "representative_overlap_case_class",
+    "representative_raw_operator_score",
+    "representative_clipped_operator_score",
+    "representative_raw_rank_within_site",
+    "representative_clipped_rank_within_site",
+    "representative_score_hygiene_flag",
+    "representative_score_hygiene_reason_ko",
+    "watch_now_run_count_for_panel",
+    "watch_now_total_day_count_for_panel",
+    "earliest_watch_now_run_start_date",
+    "latest_watch_now_run_end_date",
+    "max_clipped_operator_score_for_panel",
+    "any_future_fault_linked_flag_ref",
+    "any_future_truth_linked_flag_ref",
+    "overlap_case_class_set",
+    "panel_rollup_reason_ko",
+]
+WATCH_NOW_PANEL_SUMMARY_OUTPUT_COLS = [
+    "record_type",
+    "site",
+    "watch_now_panel_count",
+    "watch_now_run_count",
+    "panels_with_multiple_watch_now_runs",
+    "median_watch_now_runs_per_panel",
+    "max_watch_now_runs_per_panel",
+    "panels_with_future_fault_linked_ref_count",
+    "panels_with_future_truth_linked_ref_count",
 ]
 
 
@@ -699,6 +742,121 @@ def build_watchlist_tier(registry: pd.DataFrame, tier: str) -> pd.DataFrame:
     return watchlist_tier.reset_index(drop=True)
 
 
+def choose_watch_now_representative(panel_df: pd.DataFrame) -> pd.Series:
+    ranked = panel_df.copy()
+    ranked["_run_end_dt"] = pd.to_datetime(ranked["run_end_date"], errors="coerce")
+    ranked["_run_start_dt"] = pd.to_datetime(ranked["run_start_date"], errors="coerce")
+    ranked = ranked.sort_values(
+        [
+            CLIPPED_OPERATOR_SCORE_COL,
+            "_run_end_dt",
+            "run_day_count",
+            "_run_start_dt",
+            "panel_id",
+        ],
+        ascending=[False, False, False, True, True],
+        kind="mergesort",
+    )
+    return ranked.iloc[0]
+
+
+def summarize_overlap_case_classes(panel_df: pd.DataFrame) -> str:
+    values = [normalize_text(value) for value in panel_df["overlap_case_class"].tolist()]
+    unique_values = sorted({value for value in values if value})
+    return "|".join(unique_values)
+
+
+def build_watch_now_panel_rollup(watch_now: pd.DataFrame) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    for (site, panel_id), panel_df in watch_now.groupby(["site", "panel_id"], sort=True, dropna=False):
+        representative = choose_watch_now_representative(panel_df)
+        any_future_fault = int(panel_df["future_fault_linked_flag"].eq(1).any())
+        any_future_truth = int(panel_df["future_truth_linked_flag"].eq(1).any())
+        run_count = int(len(panel_df))
+        if any_future_fault or any_future_truth:
+            reason = "future linkage reference 있음"
+        elif run_count > 1:
+            reason = "반복 run 다수, 대표 run만 표시"
+        else:
+            reason = "단일 run panel"
+        rows.append(
+            {
+                "site": site,
+                "panel_id": panel_id,
+                "representative_run_start_date": representative["run_start_date"],
+                "representative_run_end_date": representative["run_end_date"],
+                "representative_run_day_count": int(pd.to_numeric(representative["run_day_count"], errors="coerce")),
+                "representative_run_shape_class": representative["run_shape_class"],
+                "representative_status": representative["status"],
+                "representative_priority_band": representative["priority_band"],
+                "representative_action_bucket": representative["action_bucket"],
+                "representative_overlap_case_class": representative["overlap_case_class"],
+                "representative_raw_operator_score": float(pd.to_numeric(representative[RAW_OPERATOR_SCORE_COL], errors="coerce")),
+                "representative_clipped_operator_score": float(pd.to_numeric(representative[CLIPPED_OPERATOR_SCORE_COL], errors="coerce")),
+                "representative_raw_rank_within_site": int(pd.to_numeric(representative[RAW_RANK_COL], errors="coerce")),
+                "representative_clipped_rank_within_site": int(pd.to_numeric(representative[CLIPPED_RANK_COL], errors="coerce")),
+                "representative_score_hygiene_flag": int(pd.to_numeric(representative[SCORE_HYGIENE_FLAG_COL], errors="coerce")),
+                "representative_score_hygiene_reason_ko": representative[SCORE_HYGIENE_REASON_COL],
+                "watch_now_run_count_for_panel": run_count,
+                "watch_now_total_day_count_for_panel": int(pd.to_numeric(panel_df["run_day_count"], errors="coerce").fillna(0).sum()),
+                "earliest_watch_now_run_start_date": min(panel_df["run_start_date"].map(normalize_date)),
+                "latest_watch_now_run_end_date": max(panel_df["run_end_date"].map(normalize_date)),
+                "max_clipped_operator_score_for_panel": float(pd.to_numeric(panel_df[CLIPPED_OPERATOR_SCORE_COL], errors="coerce").max()),
+                "any_future_fault_linked_flag_ref": any_future_fault,
+                "any_future_truth_linked_flag_ref": any_future_truth,
+                "overlap_case_class_set": summarize_overlap_case_classes(panel_df),
+                "panel_rollup_reason_ko": reason,
+            }
+        )
+    out = pd.DataFrame(rows, columns=WATCH_NOW_PANEL_OUTPUT_COLS)
+    if out.empty:
+        return out
+    out = out.sort_values(
+        [
+            "representative_clipped_operator_score",
+            "watch_now_run_count_for_panel",
+            "representative_run_day_count",
+            "site",
+            "panel_id",
+        ],
+        ascending=[False, False, False, True, True],
+        kind="mergesort",
+    )
+    return out.reset_index(drop=True)
+
+
+def summarize_watch_now_panels_scope(
+    record_type: str,
+    site: str,
+    watch_now_panels: pd.DataFrame,
+    watch_now: pd.DataFrame,
+) -> dict[str, object]:
+    run_counts = pd.to_numeric(watch_now_panels["watch_now_run_count_for_panel"], errors="coerce").dropna()
+    median_runs = float(run_counts.median()) if not run_counts.empty else 0.0
+    max_runs = int(run_counts.max()) if not run_counts.empty else 0
+    return {
+        "record_type": record_type,
+        "site": site,
+        "watch_now_panel_count": int(len(watch_now_panels)),
+        "watch_now_run_count": int(len(watch_now)),
+        "panels_with_multiple_watch_now_runs": int(watch_now_panels["watch_now_run_count_for_panel"].gt(1).sum()),
+        "median_watch_now_runs_per_panel": median_runs,
+        "max_watch_now_runs_per_panel": max_runs,
+        "panels_with_future_fault_linked_ref_count": int(watch_now_panels["any_future_fault_linked_flag_ref"].eq(1).sum()),
+        "panels_with_future_truth_linked_ref_count": int(watch_now_panels["any_future_truth_linked_flag_ref"].eq(1).sum()),
+    }
+
+
+def build_watch_now_panels_summary(watch_now_panels: pd.DataFrame, watch_now: pd.DataFrame) -> pd.DataFrame:
+    rows = [summarize_watch_now_panels_scope("overall", "", watch_now_panels, watch_now)]
+    for site, site_watch_now in watch_now.groupby("site", sort=True, dropna=False):
+        site_panels = watch_now_panels.loc[watch_now_panels["site"].eq(site)].copy()
+        rows.append(summarize_watch_now_panels_scope("site", site, site_panels, site_watch_now))
+    if watch_now.empty and watch_now_panels.empty:
+        rows = [summarize_watch_now_panels_scope("overall", "", watch_now_panels, watch_now)]
+    return pd.DataFrame(rows, columns=WATCH_NOW_PANEL_SUMMARY_OUTPUT_COLS)
+
+
 def summarize_group(
     record_type: str,
     site: str,
@@ -783,7 +941,9 @@ def summarize_watchlist_scope(
     watchlist: pd.DataFrame,
     watch_now: pd.DataFrame,
     watch_review: pd.DataFrame,
+    watch_now_panels: pd.DataFrame,
 ) -> dict[str, object]:
+    watch_now_panel_counts = pd.to_numeric(watch_now_panels["watch_now_run_count_for_panel"], errors="coerce").dropna()
     return {
         "record_type": record_type,
         "site": site,
@@ -792,6 +952,9 @@ def summarize_watchlist_scope(
         "watchlist_p2_count": int(watchlist["watchlist_bucket"].eq("recurring_watch_p2").sum()),
         "watch_now_count": int(len(watch_now)),
         "watch_review_count": int(len(watch_review)),
+        "watch_now_panel_count": int(len(watch_now_panels)),
+        "panels_with_multiple_watch_now_runs": int(watch_now_panels["watch_now_run_count_for_panel"].gt(1).sum()),
+        "median_watch_now_runs_per_panel": float(watch_now_panel_counts.median()) if not watch_now_panel_counts.empty else 0.0,
         "watchlist_chronic_count": int(watchlist["run_shape_class"].eq("chronic_alert_run").sum()),
         "watchlist_unmatched_to_review_count": int(watchlist["overlap_case_class"].eq("unmatched_to_review").sum()),
         "watchlist_eligible_local_overlap_count": int(watchlist["overlap_case_class"].eq("eligible_local_overlap").sum()),
@@ -809,14 +972,25 @@ def build_watchlist_summary(
     watchlist: pd.DataFrame,
     watch_now: pd.DataFrame,
     watch_review: pd.DataFrame,
+    watch_now_panels: pd.DataFrame,
     registry: pd.DataFrame,
 ) -> pd.DataFrame:
-    rows = [summarize_watchlist_scope("overall", "", watchlist, watch_now, watch_review)]
+    rows = [summarize_watchlist_scope("overall", "", watchlist, watch_now, watch_review, watch_now_panels)]
     for site, _ in registry.groupby("site", sort=True, dropna=False):
         site_watchlist = watchlist.loc[watchlist["site"].eq(site)].copy()
         site_watch_now = watch_now.loc[watch_now["site"].eq(site)].copy()
         site_watch_review = watch_review.loc[watch_review["site"].eq(site)].copy()
-        rows.append(summarize_watchlist_scope("site", site, site_watchlist, site_watch_now, site_watch_review))
+        site_watch_now_panels = watch_now_panels.loc[watch_now_panels["site"].eq(site)].copy()
+        rows.append(
+            summarize_watchlist_scope(
+                "site",
+                site,
+                site_watchlist,
+                site_watch_now,
+                site_watch_review,
+                site_watch_now_panels,
+            )
+        )
     return pd.DataFrame(rows, columns=WATCHLIST_SUMMARY_OUTPUT_COLS)
 
 
@@ -830,8 +1004,10 @@ def main() -> None:
     watchlist = build_watchlist(registry)
     watch_now = build_watchlist_tier(registry, "watch_now")
     watch_review = build_watchlist_tier(registry, "watch_review")
+    watch_now_panels = build_watch_now_panel_rollup(watch_now)
+    watch_now_panels_summary = build_watch_now_panels_summary(watch_now_panels, watch_now)
     summary = build_summary(registry, queue, backlog, watchlist, watch_now, watch_review)
-    watchlist_summary = build_watchlist_summary(watchlist, watch_now, watch_review, registry)
+    watchlist_summary = build_watchlist_summary(watchlist, watch_now, watch_review, watch_now_panels, registry)
 
     share_dir = root / "_share"
     share_dir.mkdir(parents=True, exist_ok=True)
@@ -860,6 +1036,11 @@ def main() -> None:
         index=False,
         encoding="utf-8-sig",
     )
+    watch_now_panels.loc[:, WATCH_NOW_PANEL_OUTPUT_COLS].to_csv(
+        share_dir / RUN_WATCHLIST_NOW_PANELS_OUTPUT_NAME,
+        index=False,
+        encoding="utf-8-sig",
+    )
     watch_review.loc[:, WATCHLIST_OUTPUT_COLS].to_csv(
         share_dir / RUN_WATCHLIST_REVIEW_OUTPUT_NAME,
         index=False,
@@ -872,6 +1053,11 @@ def main() -> None:
     )
     watchlist_summary.to_csv(
         share_dir / RUN_WATCHLIST_SUMMARY_OUTPUT_NAME,
+        index=False,
+        encoding="utf-8-sig",
+    )
+    watch_now_panels_summary.to_csv(
+        share_dir / RUN_WATCHLIST_NOW_PANELS_SUMMARY_OUTPUT_NAME,
         index=False,
         encoding="utf-8-sig",
     )
