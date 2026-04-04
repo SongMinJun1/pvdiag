@@ -207,6 +207,68 @@ future linkage 관련 필드:
 도 membership을 정하는 데는 쓰지 않는다.  
 이 값들은 watch_now panel이 사후적으로 hidden value와 얼마나 닿았는지 참고하기 위한 reference-only field다.
 
+## 왜 queue와 watch_now panel을 다시 합치는가
+- operator 입장에서는 실제로 "지금 당장 볼 것" 이 queue와 watch_now panel 두 군데에 나뉘어 있으면 다시 화면을 두 번 보게 된다.
+- 그래서 active queue와 panel-level `watch_now` 를 하나의 `attention_now` artifact로 다시 모은다.
+- 이 단계도 detector 변경이 아니라 operator-facing packaging refinement다.
+
+## 왜 panel dedup이 필요한가
+- 같은 `(site, panel_id)` 가 queue와 watch_now panel에 동시에 있으면, operator는 사실상 같은 panel을 두 번 보게 된다.
+- `attention_now` 에서는 이 중복을 제거하고 queue row만 남긴다.
+- 이유는 queue가 현재성(`ongoing/new`) 중심의 더 직접적인 action artifact이기 때문이다.
+
+즉 dedup 우선순위는:
+- `queue_run`
+- `watch_now_panel`
+
+순서다.
+
+## 왜 dedupe만으로는 panel context가 부족했는가
+- queue 우선 규칙 자체는 맞지만, 단순히 watch panel row를 버리면 그 panel에 누적된 recurring chronic 맥락이 같이 사라진다.
+- 특히 같은 panel 안에 여러 `watch_now` run이 있던 경우에는:
+  - 누적 run 수
+  - 누적 day 수
+  - earliest/latest watch window
+  - panel-level future reference
+같은 정보가 queue row에는 보이지 않게 된다.
+- 그래서 dedupe는 유지하되, queue row가 watch panel을 덮는 경우에는 panel-level reference metadata를 함께 병합한다.
+
+## attention_now 해석
+- `attention_now` 는 queue row와 watch_now panel row를 한곳에 모은 즉시 대응용 view다.
+- `queue_run`
+  - 실제 active queue에서 온 run row
+- `watch_now_panel`
+  - recurring chronic backlog를 panel-level로 대표화한 row
+
+같은 panel이 둘 다에 있으면 queue row만 남기고, watch row는 summary의 dedup count로만 남긴다.
+다만 이 경우 surviving queue row에는 다음 같은 `panel_*` reference field가 같이 붙는다.
+- `panel_has_watch_now_overlap_flag`
+- `panel_watch_now_run_count`
+- `panel_watch_now_total_day_count`
+- `panel_watch_now_earliest_start_date`
+- `panel_watch_now_latest_end_date`
+- `panel_any_future_fault_linked_ref`
+- `panel_any_future_truth_linked_ref`
+- `panel_overlap_case_class_set`
+- `panel_rollup_reason_ko`
+
+이 필드들은 queue membership을 바꾸지 않는다.  
+operator가 "지금은 queue row를 보되, 같은 panel의 watch_now 누적 맥락도 같이 참고" 하도록 돕는 presentation metadata다.
+
+## 왜 combined attention_any_* count를 추가하는가
+- `attention_summary` 에는 이미:
+  - direct attention row의 future reference count
+  - dedup overlap으로 panel reference를 병합한 queue row count
+가 각각 남아 있다.
+- 다만 operator 관점에서는 "결국 지금 attention item 중 retrospective reference가 하나라도 붙은 항목이 몇 개인가"를 한 번에 보고 싶은 경우가 많다.
+- 그래서 row-level combined flag:
+  - `attention_any_future_fault_linked_ref_flag`
+  - `attention_any_future_truth_linked_ref_flag`
+를 추가하고, summary에도 그 count를 함께 둔다.
+
+이 값은 direct field와 merged panel reference field를 OR 한 readability/presentation 지표일 뿐이며,  
+queue/watch dedupe 정책이나 detector logic을 바꾸지 않는다.
+
 ## 중요한 점
 - 이 패치는 detector logic을 바꾸지 않는다.
 - canonical truth contract도 바꾸지 않는다.
