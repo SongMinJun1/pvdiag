@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import importlib.util
 import subprocess
 import sys
 import tempfile
@@ -146,6 +147,15 @@ def compute_expected_clipped_scores(features: list[dict[str, object]]) -> pd.Dat
 
 def run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True)
+
+
+def load_build_module(repo_root: Path):
+    module_path = repo_root / "research/prognostics/build_panel_day_engine_operator_run_consolidation_v1.py"
+    spec = importlib.util.spec_from_file_location("operator_run_consolidation_build", module_path)
+    module = importlib.util.module_from_spec(spec)
+    assert_true(spec is not None and spec.loader is not None, "failed to load build module")
+    spec.loader.exec_module(module)
+    return module
 
 
 def assert_true(condition: bool, message: str) -> None:
@@ -381,10 +391,13 @@ def main() -> None:
         watchlist = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_v1.csv")
         watchlist_now = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_now_v1.csv")
         watchlist_review = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_review_v1.csv")
+        watchlist_now_panels = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_now_panels_v1.csv")
+        watchlist_now_panels_summary = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_now_panels_summary_v1.csv")
         summary = pd.read_csv(share_dir / "panel_day_engine_operator_run_summary_v1.csv")
         watchlist_summary = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_summary_v1.csv")
         feature_input = pd.read_csv(share_dir / "panel_day_engine_run_feature_table_v1.csv")
         expected_clipped = compute_expected_clipped_scores(feature_input.to_dict("records"))
+        build_module = load_build_module(repo_root)
 
         assert_true(len(registry) == 21, "registry should contain one row per run")
         assert_true(len(queue) == 3, "queue should include only investigate_now/monitor_active runs")
@@ -392,6 +405,7 @@ def main() -> None:
         assert_true(len(watchlist) == 2, "watchlist should contain only recurring chronic P1/P2 backlog runs")
         assert_true(len(watchlist_now) == 1, "watch_now should contain only P1 watchlist runs")
         assert_true(len(watchlist_review) == 1, "watch_review should contain only P2 watchlist runs")
+        assert_true(len(watchlist_now_panels) == 1, "single watch_now panel should pass through unchanged")
 
         required_registry_cols = {
             "raw_operator_score",
@@ -558,6 +572,131 @@ def main() -> None:
             watchlist_review["panel_id"].tolist() == watchlist_review_expected["panel_id"].tolist(),
             "watch_review ordering should follow clipped operator score",
         )
+        assert_true(
+            watchlist_now_panels.iloc[0]["panel_id"] == "alpha.r21",
+            "single watch_now panel should preserve the original panel",
+        )
+        assert_true(
+            int(watchlist_now_panels.iloc[0]["watch_now_run_count_for_panel"]) == 1,
+            "single watch_now panel should keep run count 1",
+        )
+
+        rollup_input = pd.DataFrame(
+            [
+                {
+                    "site": "alpha",
+                    "panel_id": "multi.panel",
+                    "run_start_date": "2025-01-01",
+                    "run_end_date": "2025-01-03",
+                    "run_day_count": 3,
+                    "run_shape_class": "chronic_alert_run",
+                    "status": "recurring_run",
+                    "priority_band": "P1",
+                    "action_bucket": "recurring_backlog",
+                    "overlap_case_class": "unmatched_to_review",
+                    "raw_operator_score": 10.0,
+                    "clipped_operator_score": 9.0,
+                    "raw_rank_within_site": 10,
+                    "clipped_rank_within_site": 9,
+                    "score_hygiene_flag": 0,
+                    "score_hygiene_reason_ko": "clipping 영향 적음",
+                    "future_fault_linked_flag": 0,
+                    "future_truth_linked_flag": 0,
+                    "watchlist_bucket": "recurring_watch_p1",
+                    "watchlist_tier": "watch_now",
+                    "watchlist_reason_ko": "반복 chronic 상위 우선순위",
+                    "watchlist_tier_reason_ko": "즉시 주시할 상위 반복 chronic",
+                },
+                {
+                    "site": "alpha",
+                    "panel_id": "multi.panel",
+                    "run_start_date": "2025-01-02",
+                    "run_end_date": "2025-01-05",
+                    "run_day_count": 3,
+                    "run_shape_class": "chronic_alert_run",
+                    "status": "recurring_run",
+                    "priority_band": "P1",
+                    "action_bucket": "recurring_backlog",
+                    "overlap_case_class": "eligible_local_overlap",
+                    "raw_operator_score": 10.0,
+                    "clipped_operator_score": 9.0,
+                    "raw_rank_within_site": 11,
+                    "clipped_rank_within_site": 10,
+                    "score_hygiene_flag": 1,
+                    "score_hygiene_reason_ko": "min_mid_ratio 영향 큼",
+                    "future_fault_linked_flag": 0,
+                    "future_truth_linked_flag": 1,
+                    "watchlist_bucket": "recurring_watch_p1",
+                    "watchlist_tier": "watch_now",
+                    "watchlist_reason_ko": "반복 chronic 상위 우선순위",
+                    "watchlist_tier_reason_ko": "즉시 주시할 상위 반복 chronic",
+                },
+                {
+                    "site": "alpha",
+                    "panel_id": "single.panel",
+                    "run_start_date": "2025-01-07",
+                    "run_end_date": "2025-01-08",
+                    "run_day_count": 2,
+                    "run_shape_class": "chronic_alert_run",
+                    "status": "recurring_run",
+                    "priority_band": "P1",
+                    "action_bucket": "recurring_backlog",
+                    "overlap_case_class": "unmatched_to_review",
+                    "raw_operator_score": 8.0,
+                    "clipped_operator_score": 8.0,
+                    "raw_rank_within_site": 15,
+                    "clipped_rank_within_site": 14,
+                    "score_hygiene_flag": 0,
+                    "score_hygiene_reason_ko": "clipping 영향 적음",
+                    "future_fault_linked_flag": 1,
+                    "future_truth_linked_flag": 0,
+                    "watchlist_bucket": "recurring_watch_p1",
+                    "watchlist_tier": "watch_now",
+                    "watchlist_reason_ko": "반복 chronic 상위 우선순위",
+                    "watchlist_tier_reason_ko": "즉시 주시할 상위 반복 chronic",
+                },
+            ]
+        )
+        rollup = build_module.build_watch_now_panel_rollup(rollup_input)
+        rollup_summary = build_module.build_watch_now_panels_summary(rollup, rollup_input)
+        assert_true(len(rollup) == 2, "multiple watch_now runs from one panel should collapse to one panel row")
+        multi_panel = rollup.loc[rollup["panel_id"].eq("multi.panel")].iloc[0]
+        single_panel = rollup.loc[rollup["panel_id"].eq("single.panel")].iloc[0]
+        assert_true(
+            multi_panel["representative_run_end_date"] == "2025-01-05",
+            "representative selection should prefer later run_end_date after score tie",
+        )
+        assert_true(
+            int(multi_panel["watch_now_run_count_for_panel"]) == 2,
+            "collapsed panel should report the number of watch_now runs",
+        )
+        assert_true(
+            multi_panel["overlap_case_class_set"] == "eligible_local_overlap|unmatched_to_review",
+            "rollup should retain overlap case class set",
+        )
+        assert_true(
+            multi_panel["panel_rollup_reason_ko"] == "future linkage reference 있음",
+            "future linkage should be surfaced as rollup reason when present",
+        )
+        assert_true(
+            single_panel["representative_run_start_date"] == "2025-01-07",
+            "single-run panel should pass through unchanged",
+        )
+        assert_true(
+            int(single_panel["watch_now_run_count_for_panel"]) == 1,
+            "single-run panel should keep run count 1",
+        )
+        rollup_overall = rollup_summary.loc[rollup_summary["record_type"].eq("overall")].iloc[0]
+        assert_true(int(rollup_overall["watch_now_panel_count"]) == 2, "panel summary should count collapsed panels")
+        assert_true(int(rollup_overall["watch_now_run_count"]) == 3, "panel summary should preserve source run count")
+        assert_true(
+            int(rollup_overall["panels_with_multiple_watch_now_runs"]) == 1,
+            "panel summary should count multi-run watch_now panels",
+        )
+        assert_true(
+            float(rollup_overall["median_watch_now_runs_per_panel"]) == 1.5,
+            "panel summary should compute median runs per panel",
+        )
 
         overall = summary.loc[summary["record_type"] == "overall"].iloc[0]
         assert_true(int(overall["investigate_now_count"]) == 2, "investigate_now count mismatch")
@@ -586,6 +725,15 @@ def main() -> None:
         assert_true(int(overall_watchlist["watchlist_p2_count"]) == 1, "watchlist summary p2 mismatch")
         assert_true(int(overall_watchlist["watch_now_count"]) == 1, "watchlist summary watch_now mismatch")
         assert_true(int(overall_watchlist["watch_review_count"]) == 1, "watchlist summary watch_review mismatch")
+        assert_true(int(overall_watchlist["watch_now_panel_count"]) == 1, "watchlist summary watch_now_panel_count mismatch")
+        assert_true(
+            int(overall_watchlist["panels_with_multiple_watch_now_runs"]) == 0,
+            "watchlist summary multi-panel count mismatch",
+        )
+        assert_true(
+            float(overall_watchlist["median_watch_now_runs_per_panel"]) == 1.0,
+            "watchlist summary median watch_now runs mismatch",
+        )
         assert_true(int(overall_watchlist["watchlist_chronic_count"]) == 2, "watchlist summary chronic mismatch")
         assert_true(
             int(overall_watchlist["watchlist_unmatched_to_review_count"]) == 2,
@@ -618,6 +766,20 @@ def main() -> None:
         assert_true(
             int(overall_watchlist["watch_review_future_truth_linked_count"]) == 1,
             "watch_review future truth reference count mismatch",
+        )
+
+        overall_watch_now_panels = watchlist_now_panels_summary.loc[
+            watchlist_now_panels_summary["record_type"] == "overall"
+        ].iloc[0]
+        assert_true(int(overall_watch_now_panels["watch_now_panel_count"]) == 1, "watch_now panel summary count mismatch")
+        assert_true(int(overall_watch_now_panels["watch_now_run_count"]) == 1, "watch_now panel summary run count mismatch")
+        assert_true(
+            int(overall_watch_now_panels["panels_with_multiple_watch_now_runs"]) == 0,
+            "watch_now panel summary multi-run count mismatch",
+        )
+        assert_true(
+            float(overall_watch_now_panels["median_watch_now_runs_per_panel"]) == 1.0,
+            "watch_now panel summary median mismatch",
         )
 
 
