@@ -86,6 +86,11 @@ future linkage 관련 필드:
 는 watchlist 자격을 정하는 데 쓰지 않는다.  
 이 값들은 retrospective reference로만 남겨서, 나중에 watchlist가 실제 hidden value와 얼마나 닿아 있었는지 사후 점검할 때만 본다.
 
+## 왜 watchlist v1만으로는 아직 넓은가
+- watchlist v1은 recurring chronic backlog를 다시 드러내는 데는 유용했지만, `P1` 과 `P2` 가 한 층에 섞여 있어 operator 입장에서는 여전히 다소 넓게 느껴질 수 있다.
+- 그래서 current-state membership 자체는 그대로 두고, 이미 watchlist에 들어온 run만 `watch_now` 와 `watch_review` 로 다시 나눈다.
+- 이 분리는 queue를 다시 넓히지 않으면서, recurring chronic 중에서도 더 자주 볼 대상을 앞쪽으로 모으기 위한 operator-facing tiering layer다.
+
 ## status 해석
 - `ongoing_run`
   - site 최신 run 종료일에 거의 붙어 있는 run. 현재도 이어지고 있을 가능성이 가장 높다.
@@ -152,6 +157,21 @@ watchlist 해석:
   - P1보다는 약하지만, backlog 속에 묻히기엔 아까운 recurring chronic
 
 즉 watchlist는 detector 승격이 아니라, recurring chronic backlog를 재정렬해 보여 주는 operator-facing surfacing layer다.
+
+## watchlist tier 해석
+- watchlist membership은 바꾸지 않는다.
+- 이미 `watchlist_flag == 1` 인 run만 대상으로 삼고, 그 안에서 tier만 나눈다.
+- `watch_now`
+  - `watchlist_bucket == recurring_watch_p1`
+  - 즉시 주시할 상위 반복 chronic
+- `watch_review`
+  - `watchlist_bucket == recurring_watch_p2`
+  - 검토용 반복 chronic
+- `none`
+  - watchlist tier 대상이 아님
+
+즉 `watch_now` 는 "queue로 올리진 않지만 더 자주 볼 tier",  
+`watch_review` 는 "backlog 안에서 정기 검토할 tier" 로 이해하면 된다.
 
 ## 중요한 점
 - 이 패치는 detector logic을 바꾸지 않는다.
