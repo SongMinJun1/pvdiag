@@ -20,6 +20,8 @@ RUN_WATCHLIST_NOW_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_now_v1.
 RUN_WATCHLIST_REVIEW_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_review_v1.csv"
 RUN_WATCHLIST_NOW_PANELS_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_now_panels_v1.csv"
 RUN_WATCHLIST_NOW_PANELS_SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_now_panels_summary_v1.csv"
+RUN_ATTENTION_NOW_OUTPUT_NAME = "panel_day_engine_operator_attention_now_v1.csv"
+RUN_ATTENTION_SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_attention_summary_v1.csv"
 
 KEY_COLS = ["site", "panel_id", "run_start_date", "run_end_date"]
 STRING_COLS = ["site", "panel_id", "run_start_date", "run_end_date", "run_shape_class", "overlap_case_class", "fate_class", "cohort_hint"]
@@ -244,6 +246,54 @@ WATCH_NOW_PANEL_SUMMARY_OUTPUT_COLS = [
     "max_watch_now_runs_per_panel",
     "panels_with_future_fault_linked_ref_count",
     "panels_with_future_truth_linked_ref_count",
+]
+ATTENTION_CLASS_PRIORITY = {"queue_run": 0, "watch_now_panel": 1}
+ATTENTION_OUTPUT_COLS = [
+    "attention_class",
+    "site",
+    "panel_id",
+    "display_start_date",
+    "display_end_date",
+    "display_day_count",
+    "display_shape_class",
+    "display_status_or_tier",
+    "priority_band",
+    CLIPPED_OPERATOR_SCORE_COL,
+    RAW_OPERATOR_SCORE_COL,
+    "overlap_case_class",
+    "action_bucket",
+    "watchlist_bucket",
+    SCORE_HYGIENE_FLAG_COL,
+    SCORE_HYGIENE_REASON_COL,
+    "future_fault_linked_flag_ref",
+    "future_truth_linked_flag_ref",
+    "panel_has_watch_now_overlap_flag",
+    "panel_watch_now_run_count",
+    "panel_watch_now_total_day_count",
+    "panel_watch_now_earliest_start_date",
+    "panel_watch_now_latest_end_date",
+    "panel_any_future_fault_linked_ref",
+    "panel_any_future_truth_linked_ref",
+    "panel_overlap_case_class_set",
+    "panel_rollup_reason_ko",
+    "attention_any_future_fault_linked_ref_flag",
+    "attention_any_future_truth_linked_ref_flag",
+    "attention_merge_reason_ko",
+    "attention_reason_ko",
+]
+ATTENTION_SUMMARY_OUTPUT_COLS = [
+    "record_type",
+    "site",
+    "attention_count",
+    "queue_run_attention_count",
+    "watch_now_panel_attention_count",
+    "deduped_panel_overlap_count",
+    "deduped_overlap_future_fault_linked_ref_count",
+    "deduped_overlap_future_truth_linked_ref_count",
+    "attention_future_fault_linked_ref_count",
+    "attention_future_truth_linked_ref_count",
+    "attention_any_future_fault_linked_ref_count",
+    "attention_any_future_truth_linked_ref_count",
 ]
 
 
@@ -857,6 +907,243 @@ def build_watch_now_panels_summary(watch_now_panels: pd.DataFrame, watch_now: pd
     return pd.DataFrame(rows, columns=WATCH_NOW_PANEL_SUMMARY_OUTPUT_COLS)
 
 
+def panel_key_frame(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(columns=["site", "panel_id"])
+    return df.loc[:, ["site", "panel_id"]].drop_duplicates().reset_index(drop=True)
+
+
+def panel_overlap_count(queue: pd.DataFrame, watch_now_panels: pd.DataFrame) -> int:
+    if queue.empty or watch_now_panels.empty:
+        return 0
+    queue_keys = set(tuple(row) for row in panel_key_frame(queue).itertuples(index=False, name=None))
+    watch_keys = set(tuple(row) for row in panel_key_frame(watch_now_panels).itertuples(index=False, name=None))
+    return len(queue_keys & watch_keys)
+
+
+def build_watch_now_panel_ref_frame(watch_now_panels: pd.DataFrame) -> pd.DataFrame:
+    if watch_now_panels.empty:
+        return pd.DataFrame(
+            columns=[
+                "site",
+                "panel_id",
+                "panel_has_watch_now_overlap_flag",
+                "panel_watch_now_run_count",
+                "panel_watch_now_total_day_count",
+                "panel_watch_now_earliest_start_date",
+                "panel_watch_now_latest_end_date",
+                "panel_any_future_fault_linked_ref",
+                "panel_any_future_truth_linked_ref",
+                "panel_overlap_case_class_set",
+                "panel_rollup_reason_ko",
+            ]
+        )
+    ref = watch_now_panels.loc[
+        :,
+        [
+            "site",
+            "panel_id",
+            "watch_now_run_count_for_panel",
+            "watch_now_total_day_count_for_panel",
+            "earliest_watch_now_run_start_date",
+            "latest_watch_now_run_end_date",
+            "any_future_fault_linked_flag_ref",
+            "any_future_truth_linked_flag_ref",
+            "overlap_case_class_set",
+            "panel_rollup_reason_ko",
+        ],
+    ].copy()
+    ref = ref.rename(
+        columns={
+            "watch_now_run_count_for_panel": "panel_watch_now_run_count",
+            "watch_now_total_day_count_for_panel": "panel_watch_now_total_day_count",
+            "earliest_watch_now_run_start_date": "panel_watch_now_earliest_start_date",
+            "latest_watch_now_run_end_date": "panel_watch_now_latest_end_date",
+            "any_future_fault_linked_flag_ref": "panel_any_future_fault_linked_ref",
+            "any_future_truth_linked_flag_ref": "panel_any_future_truth_linked_ref",
+            "overlap_case_class_set": "panel_overlap_case_class_set",
+        }
+    )
+    ref["panel_has_watch_now_overlap_flag"] = 1
+    return ref
+
+
+def build_attention_now(queue: pd.DataFrame, watch_now_panels: pd.DataFrame) -> pd.DataFrame:
+    watch_panel_ref = build_watch_now_panel_ref_frame(watch_now_panels)
+    queue_items = queue.copy()
+    queue_items["attention_class"] = "queue_run"
+    queue_items["display_start_date"] = queue_items["run_start_date"]
+    queue_items["display_end_date"] = queue_items["run_end_date"]
+    queue_items["display_day_count"] = pd.to_numeric(queue_items["run_day_count"], errors="coerce")
+    queue_items["display_shape_class"] = queue_items["run_shape_class"]
+    queue_items["display_status_or_tier"] = queue_items["status"]
+    queue_items["future_fault_linked_flag_ref"] = pd.to_numeric(queue_items["future_fault_linked_flag"], errors="coerce").fillna(0).astype(int)
+    queue_items["future_truth_linked_flag_ref"] = pd.to_numeric(queue_items["future_truth_linked_flag"], errors="coerce").fillna(0).astype(int)
+    queue_items["attention_reason_ko"] = "즉시 대응 queue run"
+    queue_items = queue_items.merge(watch_panel_ref, on=["site", "panel_id"], how="left")
+    queue_items["panel_has_watch_now_overlap_flag"] = pd.to_numeric(
+        queue_items["panel_has_watch_now_overlap_flag"],
+        errors="coerce",
+    ).fillna(0).astype(int)
+    queue_items["panel_watch_now_run_count"] = pd.to_numeric(
+        queue_items["panel_watch_now_run_count"],
+        errors="coerce",
+    ).fillna(0).astype(int)
+    queue_items["panel_watch_now_total_day_count"] = pd.to_numeric(
+        queue_items["panel_watch_now_total_day_count"],
+        errors="coerce",
+    ).fillna(0).astype(int)
+    queue_items["panel_any_future_fault_linked_ref"] = pd.to_numeric(
+        queue_items["panel_any_future_fault_linked_ref"],
+        errors="coerce",
+    ).fillna(0).astype(int)
+    queue_items["panel_any_future_truth_linked_ref"] = pd.to_numeric(
+        queue_items["panel_any_future_truth_linked_ref"],
+        errors="coerce",
+    ).fillna(0).astype(int)
+    for col in [
+        "panel_watch_now_earliest_start_date",
+        "panel_watch_now_latest_end_date",
+        "panel_overlap_case_class_set",
+        "panel_rollup_reason_ko",
+    ]:
+        queue_items[col] = queue_items[col].map(normalize_text)
+    queue_items["attention_merge_reason_ko"] = "queue 단독"
+    queue_items.loc[
+        queue_items["panel_has_watch_now_overlap_flag"].eq(1),
+        "attention_merge_reason_ko",
+    ] = "queue 우선, panel reference 병합"
+
+    watch_items = watch_now_panels.copy()
+    if not queue.empty and not watch_now_panels.empty:
+        watch_items = watch_items.merge(
+            panel_key_frame(queue).assign(_in_queue=1),
+            on=["site", "panel_id"],
+            how="left",
+        )
+        watch_items = watch_items.loc[watch_items["_in_queue"].fillna(0).eq(0)].drop(columns=["_in_queue"])
+    watch_items["attention_class"] = "watch_now_panel"
+    watch_items["display_start_date"] = watch_items["representative_run_start_date"]
+    watch_items["display_end_date"] = watch_items["representative_run_end_date"]
+    watch_items["display_day_count"] = pd.to_numeric(watch_items["representative_run_day_count"], errors="coerce")
+    watch_items["display_shape_class"] = watch_items["representative_run_shape_class"]
+    watch_items["display_status_or_tier"] = "watch_now"
+    watch_items["priority_band"] = watch_items["representative_priority_band"]
+    watch_items[CLIPPED_OPERATOR_SCORE_COL] = pd.to_numeric(watch_items["representative_clipped_operator_score"], errors="coerce")
+    watch_items[RAW_OPERATOR_SCORE_COL] = pd.to_numeric(watch_items["representative_raw_operator_score"], errors="coerce")
+    watch_items["overlap_case_class"] = watch_items["representative_overlap_case_class"]
+    watch_items["action_bucket"] = watch_items["representative_action_bucket"]
+    watch_items["watchlist_bucket"] = "recurring_watch_p1"
+    watch_items[SCORE_HYGIENE_FLAG_COL] = pd.to_numeric(watch_items["representative_score_hygiene_flag"], errors="coerce").fillna(0).astype(int)
+    watch_items[SCORE_HYGIENE_REASON_COL] = watch_items["representative_score_hygiene_reason_ko"].map(normalize_text)
+    watch_items["future_fault_linked_flag_ref"] = pd.to_numeric(watch_items["any_future_fault_linked_flag_ref"], errors="coerce").fillna(0).astype(int)
+    watch_items["future_truth_linked_flag_ref"] = pd.to_numeric(watch_items["any_future_truth_linked_flag_ref"], errors="coerce").fillna(0).astype(int)
+    watch_items["panel_has_watch_now_overlap_flag"] = 1
+    watch_items["panel_watch_now_run_count"] = pd.to_numeric(watch_items["watch_now_run_count_for_panel"], errors="coerce").fillna(0).astype(int)
+    watch_items["panel_watch_now_total_day_count"] = pd.to_numeric(
+        watch_items["watch_now_total_day_count_for_panel"],
+        errors="coerce",
+    ).fillna(0).astype(int)
+    watch_items["panel_watch_now_earliest_start_date"] = watch_items["earliest_watch_now_run_start_date"].map(normalize_text)
+    watch_items["panel_watch_now_latest_end_date"] = watch_items["latest_watch_now_run_end_date"].map(normalize_text)
+    watch_items["panel_any_future_fault_linked_ref"] = pd.to_numeric(
+        watch_items["any_future_fault_linked_flag_ref"],
+        errors="coerce",
+    ).fillna(0).astype(int)
+    watch_items["panel_any_future_truth_linked_ref"] = pd.to_numeric(
+        watch_items["any_future_truth_linked_flag_ref"],
+        errors="coerce",
+    ).fillna(0).astype(int)
+    watch_items["panel_overlap_case_class_set"] = watch_items["overlap_case_class_set"].map(normalize_text)
+    watch_items["attention_merge_reason_ko"] = "watch panel 단독"
+    watch_items["attention_reason_ko"] = "반복 chronic 대표 panel 주시"
+
+    attention = pd.concat(
+        [
+            queue_items.reindex(columns=ATTENTION_OUTPUT_COLS),
+            watch_items.reindex(columns=ATTENTION_OUTPUT_COLS),
+        ],
+        axis=0,
+        ignore_index=True,
+    )
+    if attention.empty:
+        return attention.reindex(columns=ATTENTION_OUTPUT_COLS)
+    attention["attention_any_future_fault_linked_ref_flag"] = (
+        pd.to_numeric(attention["future_fault_linked_flag_ref"], errors="coerce").fillna(0).astype(int).eq(1)
+        | pd.to_numeric(attention["panel_any_future_fault_linked_ref"], errors="coerce").fillna(0).astype(int).eq(1)
+    ).astype(int)
+    attention["attention_any_future_truth_linked_ref_flag"] = (
+        pd.to_numeric(attention["future_truth_linked_flag_ref"], errors="coerce").fillna(0).astype(int).eq(1)
+        | pd.to_numeric(attention["panel_any_future_truth_linked_ref"], errors="coerce").fillna(0).astype(int).eq(1)
+    ).astype(int)
+    attention["_class_order"] = attention["attention_class"].map(ATTENTION_CLASS_PRIORITY).fillna(99)
+    attention["_priority_order"] = attention["priority_band"].map(PRIORITY_PRIORITY).fillna(99)
+    attention = attention.sort_values(
+        [
+            "_class_order",
+            "_priority_order",
+            CLIPPED_OPERATOR_SCORE_COL,
+            "display_day_count",
+            "site",
+            "panel_id",
+            "display_start_date",
+        ],
+        ascending=[True, True, False, False, True, True, True],
+        kind="mergesort",
+    ).drop(columns=["_class_order", "_priority_order"])
+    return attention.reset_index(drop=True)
+
+
+def summarize_attention_scope(
+    record_type: str,
+    site: str,
+    attention: pd.DataFrame,
+    queue: pd.DataFrame,
+    watch_now_panels: pd.DataFrame,
+) -> dict[str, object]:
+    return {
+        "record_type": record_type,
+        "site": site,
+        "attention_count": int(len(attention)),
+        "queue_run_attention_count": int(attention["attention_class"].eq("queue_run").sum()),
+        "watch_now_panel_attention_count": int(attention["attention_class"].eq("watch_now_panel").sum()),
+        "deduped_panel_overlap_count": panel_overlap_count(queue, watch_now_panels),
+        "deduped_overlap_future_fault_linked_ref_count": int(
+            (
+                attention["attention_class"].eq("queue_run")
+                & attention["panel_has_watch_now_overlap_flag"].eq(1)
+                & attention["panel_any_future_fault_linked_ref"].eq(1)
+            ).sum()
+        ),
+        "deduped_overlap_future_truth_linked_ref_count": int(
+            (
+                attention["attention_class"].eq("queue_run")
+                & attention["panel_has_watch_now_overlap_flag"].eq(1)
+                & attention["panel_any_future_truth_linked_ref"].eq(1)
+            ).sum()
+        ),
+        "attention_future_fault_linked_ref_count": int(attention["future_fault_linked_flag_ref"].eq(1).sum()),
+        "attention_future_truth_linked_ref_count": int(attention["future_truth_linked_flag_ref"].eq(1).sum()),
+        "attention_any_future_fault_linked_ref_count": int(
+            pd.to_numeric(attention["attention_any_future_fault_linked_ref_flag"], errors="coerce").fillna(0).eq(1).sum()
+        ),
+        "attention_any_future_truth_linked_ref_count": int(
+            pd.to_numeric(attention["attention_any_future_truth_linked_ref_flag"], errors="coerce").fillna(0).eq(1).sum()
+        ),
+    }
+
+
+def build_attention_summary(attention: pd.DataFrame, queue: pd.DataFrame, watch_now_panels: pd.DataFrame) -> pd.DataFrame:
+    rows = [summarize_attention_scope("overall", "", attention, queue, watch_now_panels)]
+    sites = sorted(set(attention["site"].dropna().tolist()) | set(queue["site"].dropna().tolist()) | set(watch_now_panels["site"].dropna().tolist()))
+    for site in sites:
+        site_attention = attention.loc[attention["site"].eq(site)].copy()
+        site_queue = queue.loc[queue["site"].eq(site)].copy()
+        site_watch_now_panels = watch_now_panels.loc[watch_now_panels["site"].eq(site)].copy()
+        rows.append(summarize_attention_scope("site", site, site_attention, site_queue, site_watch_now_panels))
+    return pd.DataFrame(rows, columns=ATTENTION_SUMMARY_OUTPUT_COLS)
+
+
 def summarize_group(
     record_type: str,
     site: str,
@@ -1006,6 +1293,8 @@ def main() -> None:
     watch_review = build_watchlist_tier(registry, "watch_review")
     watch_now_panels = build_watch_now_panel_rollup(watch_now)
     watch_now_panels_summary = build_watch_now_panels_summary(watch_now_panels, watch_now)
+    attention_now = build_attention_now(queue, watch_now_panels)
+    attention_summary = build_attention_summary(attention_now, queue, watch_now_panels)
     summary = build_summary(registry, queue, backlog, watchlist, watch_now, watch_review)
     watchlist_summary = build_watchlist_summary(watchlist, watch_now, watch_review, watch_now_panels, registry)
 
@@ -1041,6 +1330,11 @@ def main() -> None:
         index=False,
         encoding="utf-8-sig",
     )
+    attention_now.loc[:, ATTENTION_OUTPUT_COLS].to_csv(
+        share_dir / RUN_ATTENTION_NOW_OUTPUT_NAME,
+        index=False,
+        encoding="utf-8-sig",
+    )
     watch_review.loc[:, WATCHLIST_OUTPUT_COLS].to_csv(
         share_dir / RUN_WATCHLIST_REVIEW_OUTPUT_NAME,
         index=False,
@@ -1058,6 +1352,11 @@ def main() -> None:
     )
     watch_now_panels_summary.to_csv(
         share_dir / RUN_WATCHLIST_NOW_PANELS_SUMMARY_OUTPUT_NAME,
+        index=False,
+        encoding="utf-8-sig",
+    )
+    attention_summary.to_csv(
+        share_dir / RUN_ATTENTION_SUMMARY_OUTPUT_NAME,
         index=False,
         encoding="utf-8-sig",
     )

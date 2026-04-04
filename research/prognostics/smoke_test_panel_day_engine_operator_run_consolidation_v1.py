@@ -393,6 +393,8 @@ def main() -> None:
         watchlist_review = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_review_v1.csv")
         watchlist_now_panels = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_now_panels_v1.csv")
         watchlist_now_panels_summary = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_now_panels_summary_v1.csv")
+        attention_now = pd.read_csv(share_dir / "panel_day_engine_operator_attention_now_v1.csv")
+        attention_summary = pd.read_csv(share_dir / "panel_day_engine_operator_attention_summary_v1.csv")
         summary = pd.read_csv(share_dir / "panel_day_engine_operator_run_summary_v1.csv")
         watchlist_summary = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_summary_v1.csv")
         feature_input = pd.read_csv(share_dir / "panel_day_engine_run_feature_table_v1.csv")
@@ -406,6 +408,7 @@ def main() -> None:
         assert_true(len(watchlist_now) == 1, "watch_now should contain only P1 watchlist runs")
         assert_true(len(watchlist_review) == 1, "watch_review should contain only P2 watchlist runs")
         assert_true(len(watchlist_now_panels) == 1, "single watch_now panel should pass through unchanged")
+        assert_true(len(attention_now) == 4, "attention_now should combine queue and watch_now_panel rows")
 
         required_registry_cols = {
             "raw_operator_score",
@@ -534,15 +537,15 @@ def main() -> None:
         assert_true(watchlist_tier_by_panel["alpha.r04"] == "watch_review", "P2 watchlist run should go to watch_review")
         assert_true(watchlist_tier_by_panel["alpha.r06"] == "none", "non-watchlist run should stay out of tiers")
 
-        watch_now_panels = set(watchlist_now["panel_id"])
+        watch_now_run_panels = set(watchlist_now["panel_id"])
         watch_review_panels = set(watchlist_review["panel_id"])
-        assert_true(watch_now_panels == {"alpha.r21"}, "watch_now should contain only the P1 watchlist run")
+        assert_true(watch_now_run_panels == {"alpha.r21"}, "watch_now should contain only the P1 watchlist run")
         assert_true(watch_review_panels == {"alpha.r04"}, "watch_review should contain only the P2 watchlist run")
-        assert_true(watch_now_panels.isdisjoint(watch_review_panels), "watch_now and watch_review should not overlap")
-        assert_true(watch_now_panels | watch_review_panels == watchlist_panels, "watch_now/review should partition watchlist")
-        assert_true(watch_now_panels.issubset(backlog_panels), "watch_now should stay inside backlog")
+        assert_true(watch_now_run_panels.isdisjoint(watch_review_panels), "watch_now and watch_review should not overlap")
+        assert_true(watch_now_run_panels | watch_review_panels == watchlist_panels, "watch_now/review should partition watchlist")
+        assert_true(watch_now_run_panels.issubset(backlog_panels), "watch_now should stay inside backlog")
         assert_true(watch_review_panels.issubset(backlog_panels), "watch_review should stay inside backlog")
-        assert_true(watch_now_panels.isdisjoint(queued_panels), "watch_now should not overlap queue")
+        assert_true(watch_now_run_panels.isdisjoint(queued_panels), "watch_now should not overlap queue")
         assert_true(watch_review_panels.isdisjoint(queued_panels), "watch_review should not overlap queue")
 
         watchlist_expected = registry.loc[registry["watchlist_flag"].eq(1)].copy().sort_values(
@@ -696,6 +699,297 @@ def main() -> None:
         assert_true(
             float(rollup_overall["median_watch_now_runs_per_panel"]) == 1.5,
             "panel summary should compute median runs per panel",
+        )
+
+        attention_overall = attention_summary.loc[attention_summary["record_type"].eq("overall")].iloc[0]
+        assert_true(int(attention_overall["attention_count"]) == 4, "attention summary count mismatch")
+        assert_true(int(attention_overall["queue_run_attention_count"]) == 3, "attention summary queue count mismatch")
+        assert_true(
+            int(attention_overall["watch_now_panel_attention_count"]) == 1,
+            "attention summary watch_now panel count mismatch",
+        )
+        assert_true(int(attention_overall["deduped_panel_overlap_count"]) == 0, "attention overlap should be zero in fixture")
+        assert_true(
+            int(attention_overall["deduped_overlap_future_fault_linked_ref_count"]) == 0,
+            "fixture should have no deduped fault reference overlaps",
+        )
+        assert_true(
+            int(attention_overall["deduped_overlap_future_truth_linked_ref_count"]) == 0,
+            "fixture should have no deduped truth reference overlaps",
+        )
+        assert_true(
+            int(attention_overall["attention_future_fault_linked_ref_count"]) == 2,
+            "attention future fault reference count mismatch",
+        )
+        assert_true(
+            int(attention_overall["attention_future_truth_linked_ref_count"]) == 0,
+            "attention future truth reference count mismatch",
+        )
+        assert_true(
+            int(attention_overall["attention_any_future_fault_linked_ref_count"]) == 2,
+            "attention combined future fault reference count mismatch",
+        )
+        assert_true(
+            int(attention_overall["attention_any_future_truth_linked_ref_count"]) == 0,
+            "attention combined future truth reference count mismatch",
+        )
+
+        assert_true(
+            attention_now["attention_class"].tolist() == ["queue_run", "queue_run", "queue_run", "watch_now_panel"],
+            "attention classes should be assigned and queue should sort ahead of watch panels",
+        )
+        assert_true(
+            attention_now["panel_id"].tolist() == ["alpha.r01", "alpha.r02", "alpha.r03", "alpha.r21"],
+            "attention ordering should combine queue first, then watch_now panel",
+        )
+        assert_true(
+            attention_now.iloc[0]["display_status_or_tier"] == "ongoing_run",
+            "queue attention rows should use status as display_status_or_tier",
+        )
+        assert_true(
+            attention_now.iloc[-1]["display_status_or_tier"] == "watch_now",
+            "watch_now panel rows should use watchlist tier as display_status_or_tier",
+        )
+        assert_true(
+            attention_now.iloc[-1]["attention_reason_ko"] == "반복 chronic 대표 panel 주시",
+            "watch_now panel rows should carry watch attention reason",
+        )
+        assert_true(
+            attention_now.loc[attention_now["attention_class"].eq("queue_run"), "panel_has_watch_now_overlap_flag"].eq(0).all(),
+            "queue rows without watch overlap should keep panel overlap flag at 0",
+        )
+        assert_true(
+            attention_now.loc[attention_now["attention_class"].eq("queue_run"), "attention_merge_reason_ko"].eq("queue 단독").all(),
+            "queue-only rows should carry queue-only merge reason",
+        )
+        assert_true(
+            attention_now.loc[attention_now["attention_class"].eq("watch_now_panel"), "panel_has_watch_now_overlap_flag"].eq(1).all(),
+            "watch_now panel rows should carry panel overlap flag",
+        )
+        assert_true(
+            attention_now.loc[attention_now["attention_class"].eq("watch_now_panel"), "attention_merge_reason_ko"].eq("watch panel 단독").all(),
+            "watch_now panel rows should carry watch-only merge reason",
+        )
+        assert_true(
+            int(
+                attention_now.loc[attention_now["panel_id"].eq("alpha.r21"), "attention_any_future_fault_linked_ref_flag"].iloc[0]
+            )
+            == 1,
+            "watch_now panel with direct future fault reference should set combined future fault flag",
+        )
+        assert_true(
+            int(
+                attention_now.loc[attention_now["panel_id"].eq("alpha.r21"), "attention_any_future_truth_linked_ref_flag"].iloc[0]
+            )
+            == 0,
+            "watch_now panel without truth reference should keep combined future truth flag at 0",
+        )
+
+        attention_queue_input = pd.DataFrame(
+            [
+                {
+                    "site": "alpha",
+                    "panel_id": "queue.p1",
+                    "run_start_date": "2025-01-10",
+                    "run_end_date": "2025-01-12",
+                    "run_day_count": 3,
+                    "run_shape_class": "medium_alert_run",
+                    "status": "ongoing_run",
+                    "priority_band": "P1",
+                    "clipped_operator_score": 7.0,
+                    "raw_operator_score": 7.0,
+                    "overlap_case_class": "unmatched_to_review",
+                    "action_bucket": "investigate_now",
+                    "watchlist_bucket": "none",
+                    "score_hygiene_flag": 0,
+                    "score_hygiene_reason_ko": "clipping 영향 적음",
+                    "future_fault_linked_flag": 0,
+                    "future_truth_linked_flag": 0,
+                },
+                {
+                    "site": "alpha",
+                    "panel_id": "shared.panel",
+                    "run_start_date": "2025-01-08",
+                    "run_end_date": "2025-01-09",
+                    "run_day_count": 2,
+                    "run_shape_class": "short_alert_run",
+                    "status": "new_run",
+                    "priority_band": "P2",
+                    "clipped_operator_score": 5.0,
+                    "raw_operator_score": 5.0,
+                    "overlap_case_class": "unmatched_to_review",
+                    "action_bucket": "investigate_now",
+                    "watchlist_bucket": "none",
+                    "score_hygiene_flag": 0,
+                    "score_hygiene_reason_ko": "clipping 영향 적음",
+                    "future_fault_linked_flag": 1,
+                    "future_truth_linked_flag": 0,
+                },
+            ]
+        )
+        attention_watch_input = pd.DataFrame(
+            [
+                {
+                    "site": "alpha",
+                    "panel_id": "shared.panel",
+                    "representative_run_start_date": "2025-01-01",
+                    "representative_run_end_date": "2025-01-05",
+                    "representative_run_day_count": 5,
+                    "representative_run_shape_class": "chronic_alert_run",
+                    "representative_status": "recurring_run",
+                    "representative_priority_band": "P1",
+                    "representative_action_bucket": "recurring_backlog",
+                    "representative_overlap_case_class": "eligible_local_overlap",
+                    "representative_raw_operator_score": 9.0,
+                    "representative_clipped_operator_score": 9.0,
+                    "representative_raw_rank_within_site": 1,
+                    "representative_clipped_rank_within_site": 1,
+                    "representative_score_hygiene_flag": 1,
+                    "representative_score_hygiene_reason_ko": "max_v_drop 영향 큼",
+                    "watch_now_run_count_for_panel": 3,
+                    "watch_now_total_day_count_for_panel": 15,
+                    "earliest_watch_now_run_start_date": "2025-01-01",
+                    "latest_watch_now_run_end_date": "2025-01-05",
+                    "max_clipped_operator_score_for_panel": 9.0,
+                    "any_future_fault_linked_flag_ref": 1,
+                    "any_future_truth_linked_flag_ref": 1,
+                    "overlap_case_class_set": "eligible_local_overlap",
+                    "panel_rollup_reason_ko": "future linkage reference 있음",
+                },
+                {
+                    "site": "alpha",
+                    "panel_id": "watch.only",
+                    "representative_run_start_date": "2025-01-03",
+                    "representative_run_end_date": "2025-01-07",
+                    "representative_run_day_count": 5,
+                    "representative_run_shape_class": "chronic_alert_run",
+                    "representative_status": "recurring_run",
+                    "representative_priority_band": "P1",
+                    "representative_action_bucket": "recurring_backlog",
+                    "representative_overlap_case_class": "unmatched_to_review",
+                    "representative_raw_operator_score": 8.0,
+                    "representative_clipped_operator_score": 8.0,
+                    "representative_raw_rank_within_site": 2,
+                    "representative_clipped_rank_within_site": 2,
+                    "representative_score_hygiene_flag": 0,
+                    "representative_score_hygiene_reason_ko": "clipping 영향 적음",
+                    "watch_now_run_count_for_panel": 2,
+                    "watch_now_total_day_count_for_panel": 9,
+                    "earliest_watch_now_run_start_date": "2025-01-03",
+                    "latest_watch_now_run_end_date": "2025-01-07",
+                    "max_clipped_operator_score_for_panel": 8.0,
+                    "any_future_fault_linked_flag_ref": 0,
+                    "any_future_truth_linked_flag_ref": 1,
+                    "overlap_case_class_set": "unmatched_to_review",
+                    "panel_rollup_reason_ko": "반복 run 다수, 대표 run만 표시",
+                },
+            ]
+        )
+        attention_test = build_module.build_attention_now(attention_queue_input, attention_watch_input)
+        attention_test_summary = build_module.build_attention_summary(
+            attention_test,
+            attention_queue_input,
+            attention_watch_input,
+        )
+        assert_true(len(attention_test) == 3, "deduped attention should keep queue row over overlapping watch panel")
+        assert_true(
+            attention_test["panel_id"].tolist() == ["queue.p1", "shared.panel", "watch.only"],
+            "attention ordering should be queue rows first, then remaining watch panel rows",
+        )
+        assert_true(
+            attention_test["attention_class"].tolist() == ["queue_run", "queue_run", "watch_now_panel"],
+            "attention_class should identify queue vs watch panel rows",
+        )
+        assert_true(
+            attention_test.loc[attention_test["panel_id"].eq("shared.panel"), "display_status_or_tier"].iloc[0] == "new_run",
+            "overlapping panel should keep the queue row in attention output",
+        )
+        shared_panel_row = attention_test.loc[attention_test["panel_id"].eq("shared.panel")].iloc[0]
+        queue_only_row = attention_test.loc[attention_test["panel_id"].eq("queue.p1")].iloc[0]
+        assert_true(
+            int(shared_panel_row["panel_has_watch_now_overlap_flag"]) == 1,
+            "queue row should inherit watch_now panel overlap flag when deduped",
+        )
+        assert_true(
+            int(shared_panel_row["panel_watch_now_run_count"]) == 3,
+            "queue row should inherit watch_now run count from panel rollup",
+        )
+        assert_true(
+            int(shared_panel_row["panel_watch_now_total_day_count"]) == 15,
+            "queue row should inherit watch_now total day count from panel rollup",
+        )
+        assert_true(
+            shared_panel_row["panel_watch_now_earliest_start_date"] == "2025-01-01",
+            "queue row should inherit panel earliest start date",
+        )
+        assert_true(
+            shared_panel_row["panel_watch_now_latest_end_date"] == "2025-01-05",
+            "queue row should inherit panel latest end date",
+        )
+        assert_true(
+            int(shared_panel_row["panel_any_future_fault_linked_ref"]) == 1,
+            "queue row should inherit panel future fault reference",
+        )
+        assert_true(
+            int(shared_panel_row["panel_any_future_truth_linked_ref"]) == 1,
+            "queue row should inherit panel future truth reference",
+        )
+        assert_true(
+            shared_panel_row["panel_overlap_case_class_set"] == "eligible_local_overlap",
+            "queue row should inherit panel overlap case class set",
+        )
+        assert_true(
+            shared_panel_row["panel_rollup_reason_ko"] == "future linkage reference 있음",
+            "queue row should inherit panel rollup reason",
+        )
+        assert_true(
+            shared_panel_row["attention_merge_reason_ko"] == "queue 우선, panel reference 병합",
+            "deduped queue row should record panel metadata merge reason",
+        )
+        assert_true(
+            int(shared_panel_row["attention_any_future_fault_linked_ref_flag"]) == 1,
+            "queue row inheriting panel future fault reference should set combined future fault flag",
+        )
+        assert_true(
+            int(shared_panel_row["attention_any_future_truth_linked_ref_flag"]) == 1,
+            "queue row inheriting panel future truth reference should set combined future truth flag",
+        )
+        assert_true(
+            int(queue_only_row["panel_has_watch_now_overlap_flag"]) == 0,
+            "queue row without overlap should keep panel overlap flag at 0",
+        )
+        assert_true(
+            queue_only_row["attention_merge_reason_ko"] == "queue 단독",
+            "queue row without overlap should remain queue-only",
+        )
+        assert_true(
+            int(queue_only_row["attention_any_future_fault_linked_ref_flag"]) == 0,
+            "queue-only row without direct or panel fault reference should keep combined future fault flag at 0",
+        )
+        attention_test_overall = attention_test_summary.loc[attention_test_summary["record_type"].eq("overall")].iloc[0]
+        assert_true(
+            int(attention_test_overall["deduped_panel_overlap_count"]) == 1,
+            "attention summary should count deduped queue/watch overlap",
+        )
+        assert_true(
+            int(attention_test_overall["watch_now_panel_attention_count"]) == 1,
+            "only non-overlapping watch panel should remain after dedup",
+        )
+        assert_true(
+            int(attention_test_overall["deduped_overlap_future_fault_linked_ref_count"]) == 1,
+            "attention summary should count deduped fault reference overlaps",
+        )
+        assert_true(
+            int(attention_test_overall["deduped_overlap_future_truth_linked_ref_count"]) == 1,
+            "attention summary should count deduped truth reference overlaps",
+        )
+        assert_true(
+            int(attention_test_overall["attention_any_future_fault_linked_ref_count"]) == 1,
+            "attention summary should count combined future fault references",
+        )
+        assert_true(
+            int(attention_test_overall["attention_any_future_truth_linked_ref_count"]) == 2,
+            "attention summary should count combined future truth references",
         )
 
         overall = summary.loc[summary["record_type"] == "overall"].iloc[0]
