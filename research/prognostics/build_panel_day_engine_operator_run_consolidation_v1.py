@@ -16,6 +16,8 @@ RUN_BACKLOG_OUTPUT_NAME = "panel_day_engine_operator_run_backlog_v1.csv"
 RUN_SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_run_summary_v1.csv"
 RUN_WATCHLIST_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_v1.csv"
 RUN_WATCHLIST_SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_summary_v1.csv"
+RUN_WATCHLIST_NOW_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_now_v1.csv"
+RUN_WATCHLIST_REVIEW_OUTPUT_NAME = "panel_day_engine_operator_run_watchlist_review_v1.csv"
 
 KEY_COLS = ["site", "panel_id", "run_start_date", "run_end_date"]
 STRING_COLS = ["site", "panel_id", "run_start_date", "run_end_date", "run_shape_class", "overlap_case_class", "fate_class", "cohort_hint"]
@@ -113,6 +115,10 @@ REGISTRY_OUTPUT_COLS = [
     "watchlist_flag",
     "watchlist_bucket",
     "watchlist_reason_ko",
+    "watchlist_tier",
+    "watch_now_flag",
+    "watch_review_flag",
+    "watchlist_tier_reason_ko",
     "queue_reason_ko",
     "overlap_case_class",
     "future_fault_linked_flag",
@@ -150,6 +156,8 @@ SUMMARY_OUTPUT_COLS = [
     "watchlist_p1_count",
     "watchlist_p2_count",
     "watchlist_chronic_count",
+    "watch_now_count",
+    "watch_review_count",
 ]
 WATCHLIST_OUTPUT_COLS = [
     "site",
@@ -171,7 +179,9 @@ WATCHLIST_OUTPUT_COLS = [
     "future_fault_linked_flag",
     "future_truth_linked_flag",
     "watchlist_bucket",
+    "watchlist_tier",
     "watchlist_reason_ko",
+    "watchlist_tier_reason_ko",
 ]
 WATCHLIST_SUMMARY_OUTPUT_COLS = [
     "record_type",
@@ -179,12 +189,18 @@ WATCHLIST_SUMMARY_OUTPUT_COLS = [
     "watchlist_count",
     "watchlist_p1_count",
     "watchlist_p2_count",
+    "watch_now_count",
+    "watch_review_count",
     "watchlist_chronic_count",
     "watchlist_unmatched_to_review_count",
     "watchlist_eligible_local_overlap_count",
     "watchlist_nuisance_overlap_count",
     "watchlist_future_fault_linked_count",
     "watchlist_future_truth_linked_count",
+    "watch_now_future_fault_linked_count",
+    "watch_now_future_truth_linked_count",
+    "watch_review_future_fault_linked_count",
+    "watch_review_future_truth_linked_count",
 ]
 
 
@@ -554,6 +570,22 @@ def assign_watchlist(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def assign_watchlist_tiers(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    tier = pd.Series("none", index=out.index)
+    tier.loc[out["watchlist_bucket"].eq("recurring_watch_p2")] = "watch_review"
+    tier.loc[out["watchlist_bucket"].eq("recurring_watch_p1")] = "watch_now"
+    out["watchlist_tier"] = tier
+    out["watch_now_flag"] = out["watchlist_tier"].eq("watch_now").astype(int)
+    out["watch_review_flag"] = out["watchlist_tier"].eq("watch_review").astype(int)
+
+    reason = pd.Series("watchlist tier 제외", index=out.index)
+    reason.loc[out["watchlist_tier"].eq("watch_review")] = "검토용 반복 chronic"
+    reason.loc[out["watchlist_tier"].eq("watch_now")] = "즉시 주시할 상위 반복 chronic"
+    out["watchlist_tier_reason_ko"] = reason
+    return out
+
+
 def build_registry(root: Path) -> pd.DataFrame:
     feature_df = load_feature_table(root)
     v0_scores = load_v0_scores(root)
@@ -586,6 +618,7 @@ def build_registry(root: Path) -> pd.DataFrame:
     registry = pd.concat(banded_parts, axis=0).sort_index()
     registry = assign_action_buckets(registry)
     registry = assign_watchlist(registry)
+    registry = assign_watchlist_tiers(registry)
     registry = registry.sort_values(
         ["site", RAW_RANK_COL, "run_day_count", "panel_id", "run_start_date", "run_end_date"],
         ascending=[True, True, False, True, True, True],
@@ -650,6 +683,22 @@ def build_watchlist(registry: pd.DataFrame) -> pd.DataFrame:
     return watchlist.reset_index(drop=True)
 
 
+def build_watchlist_tier(registry: pd.DataFrame, tier: str) -> pd.DataFrame:
+    watchlist_tier = registry.loc[registry["watchlist_tier"].eq(tier)].copy()
+    watchlist_tier = watchlist_tier.sort_values(
+        [
+            CLIPPED_OPERATOR_SCORE_COL,
+            "run_day_count",
+            "site",
+            "panel_id",
+            "run_start_date",
+        ],
+        ascending=[False, False, True, True, True],
+        kind="mergesort",
+    )
+    return watchlist_tier.reset_index(drop=True)
+
+
 def summarize_group(
     record_type: str,
     site: str,
@@ -657,6 +706,8 @@ def summarize_group(
     queue: pd.DataFrame,
     backlog: pd.DataFrame,
     watchlist: pd.DataFrame,
+    watch_now: pd.DataFrame,
+    watch_review: pd.DataFrame,
 ) -> dict[str, object]:
     overlaps = compute_overlap_rates(group)
     return {
@@ -691,40 +742,81 @@ def summarize_group(
         "watchlist_p1_count": int(watchlist["watchlist_bucket"].eq("recurring_watch_p1").sum()),
         "watchlist_p2_count": int(watchlist["watchlist_bucket"].eq("recurring_watch_p2").sum()),
         "watchlist_chronic_count": int(watchlist["run_shape_class"].eq("chronic_alert_run").sum()),
+        "watch_now_count": int(len(watch_now)),
+        "watch_review_count": int(len(watch_review)),
     }
 
 
-def build_summary(registry: pd.DataFrame, queue: pd.DataFrame, backlog: pd.DataFrame, watchlist: pd.DataFrame) -> pd.DataFrame:
-    rows = [summarize_group("overall", "", registry, queue, backlog, watchlist)]
+def build_summary(
+    registry: pd.DataFrame,
+    queue: pd.DataFrame,
+    backlog: pd.DataFrame,
+    watchlist: pd.DataFrame,
+    watch_now: pd.DataFrame,
+    watch_review: pd.DataFrame,
+) -> pd.DataFrame:
+    rows = [summarize_group("overall", "", registry, queue, backlog, watchlist, watch_now, watch_review)]
     for site, site_group in registry.groupby("site", sort=True, dropna=False):
         site_queue = queue.loc[queue["site"].eq(site)].copy()
         site_backlog = backlog.loc[backlog["site"].eq(site)].copy()
         site_watchlist = watchlist.loc[watchlist["site"].eq(site)].copy()
-        rows.append(summarize_group("site", site, site_group, site_queue, site_backlog, site_watchlist))
+        site_watch_now = watch_now.loc[watch_now["site"].eq(site)].copy()
+        site_watch_review = watch_review.loc[watch_review["site"].eq(site)].copy()
+        rows.append(
+            summarize_group(
+                "site",
+                site,
+                site_group,
+                site_queue,
+                site_backlog,
+                site_watchlist,
+                site_watch_now,
+                site_watch_review,
+            )
+        )
     return pd.DataFrame(rows, columns=SUMMARY_OUTPUT_COLS)
 
 
-def summarize_watchlist_scope(record_type: str, site: str, watchlist: pd.DataFrame) -> dict[str, object]:
+def summarize_watchlist_scope(
+    record_type: str,
+    site: str,
+    watchlist: pd.DataFrame,
+    watch_now: pd.DataFrame,
+    watch_review: pd.DataFrame,
+) -> dict[str, object]:
     return {
         "record_type": record_type,
         "site": site,
         "watchlist_count": int(len(watchlist)),
         "watchlist_p1_count": int(watchlist["watchlist_bucket"].eq("recurring_watch_p1").sum()),
         "watchlist_p2_count": int(watchlist["watchlist_bucket"].eq("recurring_watch_p2").sum()),
+        "watch_now_count": int(len(watch_now)),
+        "watch_review_count": int(len(watch_review)),
         "watchlist_chronic_count": int(watchlist["run_shape_class"].eq("chronic_alert_run").sum()),
         "watchlist_unmatched_to_review_count": int(watchlist["overlap_case_class"].eq("unmatched_to_review").sum()),
         "watchlist_eligible_local_overlap_count": int(watchlist["overlap_case_class"].eq("eligible_local_overlap").sum()),
         "watchlist_nuisance_overlap_count": int(watchlist["overlap_case_class"].eq("nuisance_overlap").sum()),
         "watchlist_future_fault_linked_count": int(watchlist["future_fault_linked_flag"].eq(1).sum()),
         "watchlist_future_truth_linked_count": int(watchlist["future_truth_linked_flag"].eq(1).sum()),
+        "watch_now_future_fault_linked_count": int(watch_now["future_fault_linked_flag"].eq(1).sum()),
+        "watch_now_future_truth_linked_count": int(watch_now["future_truth_linked_flag"].eq(1).sum()),
+        "watch_review_future_fault_linked_count": int(watch_review["future_fault_linked_flag"].eq(1).sum()),
+        "watch_review_future_truth_linked_count": int(watch_review["future_truth_linked_flag"].eq(1).sum()),
     }
 
 
-def build_watchlist_summary(watchlist: pd.DataFrame, registry: pd.DataFrame) -> pd.DataFrame:
-    rows = [summarize_watchlist_scope("overall", "", watchlist)]
+def build_watchlist_summary(
+    watchlist: pd.DataFrame,
+    watch_now: pd.DataFrame,
+    watch_review: pd.DataFrame,
+    registry: pd.DataFrame,
+) -> pd.DataFrame:
+    rows = [summarize_watchlist_scope("overall", "", watchlist, watch_now, watch_review)]
     for site, _ in registry.groupby("site", sort=True, dropna=False):
         site_watchlist = watchlist.loc[watchlist["site"].eq(site)].copy()
-        rows.append(summarize_watchlist_scope("site", site, site_watchlist))
+        site_watch_now = watch_now.loc[watch_now["site"].eq(site)].copy()
+        site_watch_review = watch_review.loc[watch_review["site"].eq(site)].copy()
+        rows.append(summarize_watchlist_scope("site", site, site_watchlist, site_watch_now, site_watch_review))
     return pd.DataFrame(rows, columns=WATCHLIST_SUMMARY_OUTPUT_COLS)
 
 
@@ -736,8 +828,10 @@ def main() -> None:
     queue = build_queue(registry)
     backlog = build_backlog(registry)
     watchlist = build_watchlist(registry)
-    summary = build_summary(registry, queue, backlog, watchlist)
-    watchlist_summary = build_watchlist_summary(watchlist, registry)
+    watch_now = build_watchlist_tier(registry, "watch_now")
+    watch_review = build_watchlist_tier(registry, "watch_review")
+    summary = build_summary(registry, queue, backlog, watchlist, watch_now, watch_review)
+    watchlist_summary = build_watchlist_summary(watchlist, watch_now, watch_review, registry)
 
     share_dir = root / "_share"
     share_dir.mkdir(parents=True, exist_ok=True)
@@ -758,6 +852,16 @@ def main() -> None:
     )
     watchlist.loc[:, WATCHLIST_OUTPUT_COLS].to_csv(
         share_dir / RUN_WATCHLIST_OUTPUT_NAME,
+        index=False,
+        encoding="utf-8-sig",
+    )
+    watch_now.loc[:, WATCHLIST_OUTPUT_COLS].to_csv(
+        share_dir / RUN_WATCHLIST_NOW_OUTPUT_NAME,
+        index=False,
+        encoding="utf-8-sig",
+    )
+    watch_review.loc[:, WATCHLIST_OUTPUT_COLS].to_csv(
+        share_dir / RUN_WATCHLIST_REVIEW_OUTPUT_NAME,
         index=False,
         encoding="utf-8-sig",
     )

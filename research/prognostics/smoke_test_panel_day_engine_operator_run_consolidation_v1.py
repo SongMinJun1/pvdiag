@@ -379,6 +379,8 @@ def main() -> None:
         queue = pd.read_csv(share_dir / "panel_day_engine_operator_run_queue_v1.csv")
         backlog = pd.read_csv(share_dir / "panel_day_engine_operator_run_backlog_v1.csv")
         watchlist = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_v1.csv")
+        watchlist_now = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_now_v1.csv")
+        watchlist_review = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_review_v1.csv")
         summary = pd.read_csv(share_dir / "panel_day_engine_operator_run_summary_v1.csv")
         watchlist_summary = pd.read_csv(share_dir / "panel_day_engine_operator_run_watchlist_summary_v1.csv")
         feature_input = pd.read_csv(share_dir / "panel_day_engine_run_feature_table_v1.csv")
@@ -388,6 +390,8 @@ def main() -> None:
         assert_true(len(queue) == 3, "queue should include only investigate_now/monitor_active runs")
         assert_true(len(backlog) == 4, "backlog should include recurring/recovered runs only")
         assert_true(len(watchlist) == 2, "watchlist should contain only recurring chronic P1/P2 backlog runs")
+        assert_true(len(watchlist_now) == 1, "watch_now should contain only P1 watchlist runs")
+        assert_true(len(watchlist_review) == 1, "watch_review should contain only P2 watchlist runs")
 
         required_registry_cols = {
             "raw_operator_score",
@@ -400,6 +404,10 @@ def main() -> None:
             "watchlist_flag",
             "watchlist_bucket",
             "watchlist_reason_ko",
+            "watchlist_tier",
+            "watch_now_flag",
+            "watch_review_flag",
+            "watchlist_tier_reason_ko",
         }
         assert_true(required_registry_cols.issubset(set(registry.columns)), "new registry fields should be present")
         assert_true(
@@ -507,6 +515,22 @@ def main() -> None:
         assert_true(watchlist_bucket_by_panel["alpha.r04"] == "recurring_watch_p2", "recurring chronic P2 should map to watchlist p2")
         assert_true(watchlist_bucket_by_panel["alpha.r06"] == "none", "nuisance-overlap recurring chronic should be excluded from watchlist")
 
+        watchlist_tier_by_panel = dict(zip(registry["panel_id"], registry["watchlist_tier"]))
+        assert_true(watchlist_tier_by_panel["alpha.r21"] == "watch_now", "P1 watchlist run should go to watch_now")
+        assert_true(watchlist_tier_by_panel["alpha.r04"] == "watch_review", "P2 watchlist run should go to watch_review")
+        assert_true(watchlist_tier_by_panel["alpha.r06"] == "none", "non-watchlist run should stay out of tiers")
+
+        watch_now_panels = set(watchlist_now["panel_id"])
+        watch_review_panels = set(watchlist_review["panel_id"])
+        assert_true(watch_now_panels == {"alpha.r21"}, "watch_now should contain only the P1 watchlist run")
+        assert_true(watch_review_panels == {"alpha.r04"}, "watch_review should contain only the P2 watchlist run")
+        assert_true(watch_now_panels.isdisjoint(watch_review_panels), "watch_now and watch_review should not overlap")
+        assert_true(watch_now_panels | watch_review_panels == watchlist_panels, "watch_now/review should partition watchlist")
+        assert_true(watch_now_panels.issubset(backlog_panels), "watch_now should stay inside backlog")
+        assert_true(watch_review_panels.issubset(backlog_panels), "watch_review should stay inside backlog")
+        assert_true(watch_now_panels.isdisjoint(queued_panels), "watch_now should not overlap queue")
+        assert_true(watch_review_panels.isdisjoint(queued_panels), "watch_review should not overlap queue")
+
         watchlist_expected = registry.loc[registry["watchlist_flag"].eq(1)].copy().sort_values(
             ["watchlist_bucket", "clipped_operator_score", "run_day_count", "site", "panel_id", "run_start_date"],
             ascending=[True, False, False, True, True, True],
@@ -515,6 +539,24 @@ def main() -> None:
         assert_true(
             watchlist["panel_id"].tolist() == watchlist_expected["panel_id"].tolist(),
             "watchlist ordering should follow clipped operator score inside bucket",
+        )
+        watchlist_now_expected = registry.loc[registry["watch_now_flag"].eq(1)].copy().sort_values(
+            ["clipped_operator_score", "run_day_count", "site", "panel_id", "run_start_date"],
+            ascending=[False, False, True, True, True],
+            kind="mergesort",
+        )
+        watchlist_review_expected = registry.loc[registry["watch_review_flag"].eq(1)].copy().sort_values(
+            ["clipped_operator_score", "run_day_count", "site", "panel_id", "run_start_date"],
+            ascending=[False, False, True, True, True],
+            kind="mergesort",
+        )
+        assert_true(
+            watchlist_now["panel_id"].tolist() == watchlist_now_expected["panel_id"].tolist(),
+            "watch_now ordering should follow clipped operator score",
+        )
+        assert_true(
+            watchlist_review["panel_id"].tolist() == watchlist_review_expected["panel_id"].tolist(),
+            "watch_review ordering should follow clipped operator score",
         )
 
         overall = summary.loc[summary["record_type"] == "overall"].iloc[0]
@@ -535,11 +577,15 @@ def main() -> None:
         assert_true(int(overall["watchlist_p1_count"]) == 1, "summary should include watchlist p1 count")
         assert_true(int(overall["watchlist_p2_count"]) == 1, "summary should include watchlist p2 count")
         assert_true(int(overall["watchlist_chronic_count"]) == 2, "summary should include watchlist chronic count")
+        assert_true(int(overall["watch_now_count"]) == 1, "summary should include watch_now count")
+        assert_true(int(overall["watch_review_count"]) == 1, "summary should include watch_review count")
 
         overall_watchlist = watchlist_summary.loc[watchlist_summary["record_type"] == "overall"].iloc[0]
         assert_true(int(overall_watchlist["watchlist_count"]) == 2, "watchlist summary count mismatch")
         assert_true(int(overall_watchlist["watchlist_p1_count"]) == 1, "watchlist summary p1 mismatch")
         assert_true(int(overall_watchlist["watchlist_p2_count"]) == 1, "watchlist summary p2 mismatch")
+        assert_true(int(overall_watchlist["watch_now_count"]) == 1, "watchlist summary watch_now mismatch")
+        assert_true(int(overall_watchlist["watch_review_count"]) == 1, "watchlist summary watch_review mismatch")
         assert_true(int(overall_watchlist["watchlist_chronic_count"]) == 2, "watchlist summary chronic mismatch")
         assert_true(
             int(overall_watchlist["watchlist_unmatched_to_review_count"]) == 2,
@@ -556,6 +602,22 @@ def main() -> None:
         assert_true(
             int(overall_watchlist["watchlist_future_truth_linked_count"]) == 1,
             "future truth reference count mismatch",
+        )
+        assert_true(
+            int(overall_watchlist["watch_now_future_fault_linked_count"]) == 1,
+            "watch_now future fault reference count mismatch",
+        )
+        assert_true(
+            int(overall_watchlist["watch_now_future_truth_linked_count"]) == 0,
+            "watch_now future truth reference count mismatch",
+        )
+        assert_true(
+            int(overall_watchlist["watch_review_future_fault_linked_count"]) == 0,
+            "watch_review future fault reference count mismatch",
+        )
+        assert_true(
+            int(overall_watchlist["watch_review_future_truth_linked_count"]) == 1,
+            "watch_review future truth reference count mismatch",
         )
 
 
