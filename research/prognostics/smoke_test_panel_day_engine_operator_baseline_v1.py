@@ -220,8 +220,9 @@ def main() -> None:
         == [
             "research/prognostics/build_panel_day_engine_operator_run_consolidation_v1.py",
             "research/prognostics/build_panel_day_engine_operator_attention_delta_v1.py",
+            "research/prognostics/build_panel_day_engine_operator_digest_v1.py",
         ],
-        "orchestrator should keep run consolidation then attention delta order",
+        "orchestrator should keep run consolidation, attention delta, then digest order",
     )
 
     official_paths = [
@@ -231,6 +232,8 @@ def main() -> None:
         repo_root / "_share" / "panel_day_engine_operator_attention_now_v1_previous.csv",
         repo_root / "_share" / "panel_day_engine_operator_attention_delta_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_attention_delta_summary_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_digest_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_digest_summary_v1.csv",
     ]
     official_bytes = {path: path.read_bytes() for path in official_paths if path.exists()}
 
@@ -275,11 +278,14 @@ def main() -> None:
         attention_now = pd.read_csv(share_dir / "panel_day_engine_operator_attention_now_v1.csv", encoding="utf-8-sig")
         attention_delta = pd.read_csv(share_dir / "panel_day_engine_operator_attention_delta_v1.csv", encoding="utf-8-sig")
         delta_summary = pd.read_csv(share_dir / "panel_day_engine_operator_attention_delta_summary_v1.csv", encoding="utf-8-sig")
+        digest = pd.read_csv(share_dir / "panel_day_engine_operator_digest_v1.csv", encoding="utf-8-sig")
+        digest_summary = pd.read_csv(share_dir / "panel_day_engine_operator_digest_summary_v1.csv", encoding="utf-8-sig")
 
         assert_true(len(manifest) == 1, "manifest should emit one row")
         manifest_row = manifest.iloc[0]
         overall_summary = summary.loc[summary["record_type"].astype(str).eq("overall")].iloc[0]
         overall_delta = delta_summary.loc[delta_summary["record_type"].astype(str).eq("overall")].iloc[0]
+        overall_digest = digest_summary.loc[digest_summary["record_type"].astype(str).eq("overall")].iloc[0]
 
         assert_true(bool(str(manifest_row["generated_at_utc"]).strip()), "manifest should include generated_at_utc")
         assert_true(int(manifest_row["attention_count"]) == 2, "manifest attention_count mismatch")
@@ -292,6 +298,16 @@ def main() -> None:
         assert_true(int(manifest_row["new_attention_count"]) == 2, "manifest new_attention_count mismatch")
         assert_true(int(manifest_row["dropped_attention_count"]) == 0, "manifest dropped_attention_count mismatch")
         assert_true(int(manifest_row["total_changed_count"]) == 2, "manifest total_changed_count mismatch")
+        assert_true(int(manifest_row["digest_attention_count"]) == 2, "manifest digest_attention_count mismatch")
+        assert_true(
+            int(manifest_row["digest_changed_attention_count"]) == 2,
+            "manifest digest_changed_attention_count mismatch",
+        )
+        assert_true(int(manifest_row["digest_queue_run_count"]) == 1, "manifest digest_queue_run_count mismatch")
+        assert_true(
+            int(manifest_row["digest_watch_now_panel_count"]) == 1,
+            "manifest digest_watch_now_panel_count mismatch",
+        )
 
         assert_true(int(overall_summary["attention_count"]) == 2, "summary attention_count mismatch")
         assert_true(int(overall_summary["queue_count"]) == 1, "summary queue_count mismatch")
@@ -302,10 +318,39 @@ def main() -> None:
         assert_true(int(overall_summary["new_attention_count"]) == 2, "summary new_attention_count mismatch")
         assert_true(int(overall_summary["dropped_attention_count"]) == 0, "summary dropped_attention_count mismatch")
         assert_true(int(overall_summary["total_changed_count"]) == 2, "summary total_changed_count mismatch")
+        assert_true(
+            int(overall_summary["digest_changed_attention_count"]) == 2,
+            "summary digest_changed_attention_count mismatch",
+        )
+        assert_true(
+            int(overall_summary["digest_queue_run_count"]) == 1,
+            "summary digest_queue_run_count mismatch",
+        )
+        assert_true(
+            int(overall_summary["digest_watch_now_panel_count"]) == 1,
+            "summary digest_watch_now_panel_count mismatch",
+        )
 
         assert_true(int(overall_delta["current_attention_count"]) == len(attention_now), "delta summary should reflect current attention count")
         assert_true(len(attention_delta) == 2, "bootstrap delta should treat all current attention rows as new")
         assert_true(attention_delta["delta_class"].eq("new_attention").all(), "bootstrap delta rows should all be new_attention")
+        assert_true(len(digest) == 2, "digest should include one row per current attention item")
+        assert_true(
+            int(overall_digest["attention_count"]) == len(digest),
+            "digest summary should reflect digest row count",
+        )
+        assert_true(
+            int(overall_digest["changed_attention_count"]) == 2,
+            "digest summary changed attention count mismatch",
+        )
+        assert_true(
+            int(overall_digest["queue_run_count"]) == 1,
+            "digest summary queue_run_count mismatch",
+        )
+        assert_true(
+            int(overall_digest["watch_now_panel_count"]) == 1,
+            "digest summary watch_now_panel_count mismatch",
+        )
 
         previous_snapshot = pd.read_csv(previous_snapshot_path, encoding="utf-8-sig")
         assert_true(previous_snapshot.equals(attention_now), "previous snapshot should match current attention after bootstrap")

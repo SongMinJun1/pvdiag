@@ -11,12 +11,14 @@ import pandas as pd
 
 RUN_CONSOLIDATION_SCRIPT = "research/prognostics/build_panel_day_engine_operator_run_consolidation_v1.py"
 ATTENTION_DELTA_SCRIPT = "research/prognostics/build_panel_day_engine_operator_attention_delta_v1.py"
-BUILDER_SEQUENCE = [RUN_CONSOLIDATION_SCRIPT, ATTENTION_DELTA_SCRIPT]
+DIGEST_SCRIPT = "research/prognostics/build_panel_day_engine_operator_digest_v1.py"
+BUILDER_SEQUENCE = [RUN_CONSOLIDATION_SCRIPT, ATTENTION_DELTA_SCRIPT, DIGEST_SCRIPT]
 
 RUN_SUMMARY_NAME = "panel_day_engine_operator_run_summary_v1.csv"
 ATTENTION_NOW_NAME = "panel_day_engine_operator_attention_now_v1.csv"
 ATTENTION_DELTA_NAME = "panel_day_engine_operator_attention_delta_v1.csv"
 ATTENTION_DELTA_SUMMARY_NAME = "panel_day_engine_operator_attention_delta_summary_v1.csv"
+DIGEST_SUMMARY_NAME = "panel_day_engine_operator_digest_summary_v1.csv"
 BASELINE_MANIFEST_NAME = "panel_day_engine_operator_baseline_manifest_v1.csv"
 BASELINE_SUMMARY_NAME = "panel_day_engine_operator_baseline_summary_v1.csv"
 
@@ -37,6 +39,22 @@ DELTA_SUMMARY_REQUIRED_COLS = [
     "dropped_attention_count",
     "total_changed_count",
 ]
+DIGEST_SUMMARY_REQUIRED_COLS = [
+    "record_type",
+    "site",
+    "attention_count",
+    "changed_attention_count",
+    "queue_run_count",
+    "watch_now_panel_count",
+    "new_attention_count",
+    "dropped_attention_count",
+    "attention_class_changed_count",
+    "status_or_tier_changed_count",
+    "priority_changed_count",
+    "score_shifted_count",
+    "metadata_changed_count",
+    "generated_at_utc",
+]
 
 MANIFEST_OUTPUT_COLS = [
     "generated_at_utc",
@@ -50,6 +68,10 @@ MANIFEST_OUTPUT_COLS = [
     "new_attention_count",
     "dropped_attention_count",
     "total_changed_count",
+    "digest_attention_count",
+    "digest_changed_attention_count",
+    "digest_queue_run_count",
+    "digest_watch_now_panel_count",
 ]
 
 SUMMARY_OUTPUT_COLS = [
@@ -64,6 +86,9 @@ SUMMARY_OUTPUT_COLS = [
     "new_attention_count",
     "dropped_attention_count",
     "total_changed_count",
+    "digest_changed_attention_count",
+    "digest_queue_run_count",
+    "digest_watch_now_panel_count",
 ]
 
 
@@ -112,7 +137,12 @@ def run_builder(repo_root: Path, root: Path, script_relative_path: str) -> None:
         raise SystemExit(details)
 
 
-def build_manifest_and_summary(root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+def build_manifest_and_summary(
+    root: Path,
+    generated_at_utc: str,
+    *,
+    digest_summary: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     share_dir = root / "_share"
     run_summary = read_csv(share_dir / RUN_SUMMARY_NAME)
     delta_summary = read_csv(share_dir / ATTENTION_DELTA_SUMMARY_NAME)
@@ -135,6 +165,33 @@ def build_manifest_and_summary(root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
         validate="one_to_one",
     )
 
+    if digest_summary is not None:
+        ensure_columns(digest_summary, DIGEST_SUMMARY_REQUIRED_COLS, DIGEST_SUMMARY_NAME)
+        digest_summary = digest_summary.copy()
+        digest_summary["record_type"] = digest_summary["record_type"].map(normalize_text)
+        digest_summary["site"] = digest_summary["site"].map(normalize_text)
+        merged = merged.merge(
+            digest_summary.loc[
+                :,
+                [
+                    "record_type",
+                    "site",
+                    "attention_count",
+                    "changed_attention_count",
+                    "queue_run_count",
+                    "watch_now_panel_count",
+                ],
+            ].rename(columns={"attention_count": "digest_attention_count"}),
+            on=["record_type", "site"],
+            how="left",
+            validate="one_to_one",
+        )
+    else:
+        merged["digest_attention_count"] = pd.NA
+        merged["changed_attention_count"] = 0
+        merged["queue_run_count"] = 0
+        merged["watch_now_panel_count"] = 0
+
     for col in [
         "queue_count",
         "backlog_count",
@@ -145,6 +202,10 @@ def build_manifest_and_summary(root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
         "new_attention_count",
         "dropped_attention_count",
         "total_changed_count",
+        "digest_attention_count",
+        "changed_attention_count",
+        "queue_run_count",
+        "watch_now_panel_count",
     ]:
         merged[col] = pd.to_numeric(merged[col], errors="coerce").fillna(0).astype(int)
 
@@ -161,6 +222,9 @@ def build_manifest_and_summary(root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
             "new_attention_count": merged["new_attention_count"],
             "dropped_attention_count": merged["dropped_attention_count"],
             "total_changed_count": merged["total_changed_count"],
+            "digest_changed_attention_count": merged["changed_attention_count"],
+            "digest_queue_run_count": merged["queue_run_count"],
+            "digest_watch_now_panel_count": merged["watch_now_panel_count"],
         },
         columns=SUMMARY_OUTPUT_COLS,
     )
@@ -177,7 +241,7 @@ def build_manifest_and_summary(root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     manifest = pd.DataFrame(
         [
             {
-                "generated_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                "generated_at_utc": generated_at_utc,
                 "attention_count": int(overall_row["attention_count"]),
                 "queue_count": int(overall_row["queue_count"]),
                 "backlog_count": int(overall_row["backlog_count"]),
@@ -188,6 +252,10 @@ def build_manifest_and_summary(root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
                 "new_attention_count": int(overall_row["new_attention_count"]),
                 "dropped_attention_count": int(overall_row["dropped_attention_count"]),
                 "total_changed_count": int(overall_row["total_changed_count"]),
+                "digest_attention_count": int(overall_row["attention_count"]),
+                "digest_changed_attention_count": int(overall_row["digest_changed_attention_count"]),
+                "digest_queue_run_count": int(overall_row["digest_queue_run_count"]),
+                "digest_watch_now_panel_count": int(overall_row["digest_watch_now_panel_count"]),
             }
         ],
         columns=MANIFEST_OUTPUT_COLS,
@@ -201,11 +269,22 @@ def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     share_dir = root / "_share"
     share_dir.mkdir(parents=True, exist_ok=True)
+    generated_at_utc = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
-    for script_relative_path in BUILDER_SEQUENCE:
+    for script_relative_path in BUILDER_SEQUENCE[:2]:
         run_builder(repo_root, root, script_relative_path)
 
-    manifest, summary = build_manifest_and_summary(root)
+    # Digest builder reads baseline manifest/summary, so write a provisional
+    # baseline after run consolidation + attention delta and then overwrite it
+    # with the final digest-aware baseline after digest generation.
+    manifest, summary = build_manifest_and_summary(root, generated_at_utc)
+    manifest.to_csv(share_dir / BASELINE_MANIFEST_NAME, index=False, encoding="utf-8-sig")
+    summary.to_csv(share_dir / BASELINE_SUMMARY_NAME, index=False, encoding="utf-8-sig")
+
+    run_builder(repo_root, root, DIGEST_SCRIPT)
+
+    digest_summary = read_csv(share_dir / DIGEST_SUMMARY_NAME)
+    manifest, summary = build_manifest_and_summary(root, generated_at_utc, digest_summary=digest_summary)
     manifest.to_csv(share_dir / BASELINE_MANIFEST_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(share_dir / BASELINE_SUMMARY_NAME, index=False, encoding="utf-8-sig")
 
