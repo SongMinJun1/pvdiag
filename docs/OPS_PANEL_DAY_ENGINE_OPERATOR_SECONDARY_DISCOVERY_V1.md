@@ -10,6 +10,21 @@
 - That means learned scoring can still add value as a separate discovery lane:
   - not as the default operator queue
   - but as an analyst-facing source of hidden candidates worth extra review
+- The lane was therefore retained separately instead of being merged into the baseline queue.
+
+## Why A Value Vs Monitor Split Is Now Justified
+- Follow-up threshold-split audit showed that the retained secondary lane does not need to stay fully undifferentiated.
+- A simple current-state split rule can separate:
+  - stronger hidden-value candidates
+  - from monitor-burden or noisier candidates
+- This patch applies that split only inside the secondary discovery lane and keeps the main operator baseline unchanged.
+
+## Why The Selected Split Rule Is Currently Deterministic / Electrical
+- The completed threshold-split audit selected a deterministic electrical rule as the best simple splitter.
+- That outcome means the learned scorer is still useful for discovering the hidden candidate pool, but the strongest current operational split inside that pool is driven by electrical severity.
+- In other words:
+  - learned scoring finds the lane
+  - deterministic/electrical severity currently splits the lane more cleanly into value vs monitor candidates
 
 ## Why Only `unlabeled_other` And Non-Attention Panels Are Included
 - `unlabeled_other`
@@ -31,6 +46,13 @@
   - top 5 per site
   - plus top 20 overall
   - deduplicated by run key
+- Read the completed threshold split recommendation and partition the discovery lane into:
+  - `value_candidate_lane`
+  - `monitor_candidate_lane`
+- Emit:
+  - the original discovery file with added split columns
+  - a value-lane file
+  - a monitor-lane file
 
 ## How Operators And Analysts Should Read The Discovery File
 - This file is not the baseline operator queue.
@@ -38,6 +60,11 @@
 - Higher rows mean:
   - the learned v3 model sees stronger positive-like structure
   - on a panel that the current operator baseline is not already surfacing
+- The new split columns should be interpreted as:
+  - `value_candidate_lane`
+    - stronger current hidden-value candidate inside the learned discovery lane
+  - `monitor_candidate_lane`
+    - still potentially useful, but more consistent with monitor burden or weaker/noisier review priority
 - Analysts should treat these runs as:
   - candidate discovery leads
   - useful for label expansion, side review, or manual pattern inspection
@@ -47,4 +74,5 @@
 - This is a non-core operator-facing patch.
 - Detector logic is unchanged.
 - Current operator baseline files and pipeline scripts remain unchanged.
+- The main operator baseline is not re-ranked, replaced, or expanded by this patch.
 - Canonical truth template contract is unchanged.
