@@ -12,13 +12,18 @@ import build_panel_day_engine_run_ranker_v2_holdout_audit as holdout_base
 FEATURE_TABLE_NAME = "panel_day_engine_run_feature_table_v1.csv"
 LABEL_PACK_V3_NAME = "panel_day_engine_run_label_pack_v3_intersection.csv"
 COMPLEMENT_RECOMMENDATION_NAME = "panel_day_engine_run_ranker_complement_recommendation_v1.csv"
+THRESHOLD_SPLIT_RECOMMENDATION_NAME = "panel_day_engine_operator_secondary_discovery_threshold_split_recommendation_v1.csv"
+FATE_CASES_NAME = "panel_day_engine_operator_secondary_discovery_fate_cases_v1.csv"
 OPERATOR_ATTENTION_NOW_NAME = "panel_day_engine_operator_attention_now_v1.csv"
 V0_SCORES_NAME = "panel_day_engine_run_ranker_v0_scores.csv"
 
 DISCOVERY_OUTPUT_NAME = "panel_day_engine_operator_secondary_discovery_v1.csv"
 SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_secondary_discovery_summary_v1.csv"
+VALUE_OUTPUT_NAME = "panel_day_engine_operator_secondary_discovery_value_v1.csv"
+MONITOR_OUTPUT_NAME = "panel_day_engine_operator_secondary_discovery_monitor_v1.csv"
 
 EXPECTED_RECOMMENDATION = "use_logistic_as_secondary_discovery_lane"
+EXPECTED_SPLIT_DIRECTION = "split_secondary_discovery_into_value_vs_monitor"
 KEY_COLS = holdout_base.KEY_COLS
 TRAIN_LABELS = holdout_base.TRAIN_LABELS
 EVALUATION_GROUPS = holdout_base.EVALUATION_GROUPS
@@ -34,10 +39,20 @@ SHAPE_BUCKETS = {
 
 REQUIRED_LABEL_PACK_V3_COLS = [*KEY_COLS, "label_bucket_v3", "training_label_v3"]
 REQUIRED_RECOMMENDATION_COLS = ["recommended_next_direction", "rationale_ko"]
+REQUIRED_SPLIT_RECOMMENDATION_COLS = ["recommended_split_rule", "recommended_next_direction", "rationale_ko"]
 REQUIRED_ATTENTION_COLS = ["site", "panel_id"]
 REQUIRED_V0_COLS = [*KEY_COLS, REFERENCE_SCORE_COL]
+REQUIRED_FATE_CASES_COLS = [*KEY_COLS, "discovery_fate_class"]
+ALLOWED_SPLIT_FAMILIES = {
+    "electrical_only",
+    "logistic_only",
+    "electrical_and_low_ae",
+    "electrical_and_low_recon",
+    "logistic_and_low_ae",
+    "logistic_and_low_recon",
+}
 
-DISCOVERY_COLS = [
+BASE_DISCOVERY_COLS = [
     "site",
     "panel_id",
     "run_start_date",
@@ -59,14 +74,37 @@ DISCOVERY_COLS = [
     "discovery_reason_ko",
 ]
 
+DISCOVERY_COLS = [
+    *[col for col in BASE_DISCOVERY_COLS if col != "discovery_reason_ko"],
+    "discovery_split_class",
+    "value_lane_flag",
+    "monitor_lane_flag",
+    "split_rule_name",
+    "split_reason_ko",
+    "discovery_reason_ko",
+]
+
 SUMMARY_COLS = [
     "record_type",
     "site",
     "candidate_universe_count",
     "selected_discovery_count",
+    "value_lane_count",
+    "monitor_lane_count",
     "selected_chronic_count",
     "selected_medium_count",
     "selected_short_count",
+    "value_lane_chronic_count",
+    "value_lane_medium_count",
+    "value_lane_short_count",
+    "monitor_lane_chronic_count",
+    "monitor_lane_medium_count",
+    "monitor_lane_short_count",
+    "value_lane_future_fault_linked_ref_count",
+    "value_lane_future_truth_linked_ref_count",
+    "monitor_lane_future_fault_linked_ref_count",
+    "monitor_lane_future_truth_linked_ref_count",
+    "split_rule_name",
     "median_discovery_score",
     "max_discovery_score",
     "note_ko",
@@ -114,6 +152,74 @@ def load_guardrail(root: Path) -> pd.DataFrame:
     return df.copy()
 
 
+def parse_numeric(text: str) -> float:
+    try:
+        return float(text)
+    except ValueError as exc:
+        raise SystemExit(f"invalid numeric threshold: {text}") from exc
+
+
+def parse_split_rule(rule_name: str) -> dict[str, object]:
+    text = holdout_base.normalize_text(rule_name)
+    if not text or "|" not in text:
+        raise SystemExit(f"recommended_split_rule must be '<family>|<threshold_spec>', got: {rule_name}")
+    family, threshold_spec = text.split("|", 1)
+    family = holdout_base.normalize_text(family)
+    threshold_spec = holdout_base.normalize_text(threshold_spec)
+    if family not in ALLOWED_SPLIT_FAMILIES:
+        raise SystemExit(f"unsupported split rule family: {family}")
+    clauses: list[tuple[str, str, float]] = []
+    for part in threshold_spec.split("|"):
+        part = holdout_base.normalize_text(part)
+        if ">=" in part:
+            field, value = part.split(">=", 1)
+            op = ">="
+        elif "<=" in part:
+            field, value = part.split("<=", 1)
+            op = "<="
+        else:
+            raise SystemExit(f"unsupported threshold clause: {part}")
+        clauses.append((holdout_base.normalize_text(field), op, parse_numeric(holdout_base.normalize_text(value))))
+
+    expected_fields = {
+        "electrical_only": ["electrical_core_minus_broadshape_050"],
+        "logistic_only": ["logistic_v3_discovery_score"],
+        "electrical_and_low_ae": ["electrical_core_minus_broadshape_050", "ae_mid_or_hi_early_day_ratio"],
+        "electrical_and_low_recon": ["electrical_core_minus_broadshape_050", "p95_recon_error"],
+        "logistic_and_low_ae": ["logistic_v3_discovery_score", "ae_mid_or_hi_early_day_ratio"],
+        "logistic_and_low_recon": ["logistic_v3_discovery_score", "p95_recon_error"],
+    }[family]
+    observed_fields = [field for field, _, _ in clauses]
+    if observed_fields != expected_fields:
+        raise SystemExit(
+            f"split rule {family} expects fields {expected_fields}, got {observed_fields} in {threshold_spec}"
+        )
+    return {
+        "rule_name": text,
+        "rule_family": family,
+        "threshold_spec": threshold_spec,
+        "clauses": clauses,
+    }
+
+
+def load_split_guardrail(root: Path) -> dict[str, object]:
+    path = root / "_share" / THRESHOLD_SPLIT_RECOMMENDATION_NAME
+    df = holdout_base.drop_repeated_header_rows(read_csv(path))
+    ensure_columns(df, REQUIRED_SPLIT_RECOMMENDATION_COLS, path.name)
+    if len(df) != 1:
+        raise SystemExit(f"{path.name} must contain exactly one row")
+    recommended_next_direction = holdout_base.normalize_text(df.iloc[0]["recommended_next_direction"])
+    if recommended_next_direction != EXPECTED_SPLIT_DIRECTION:
+        raise SystemExit(
+            f"recommended_next_direction must be {EXPECTED_SPLIT_DIRECTION}, got {recommended_next_direction}. "
+            "Secondary discovery value/monitor split is disabled by the threshold split guardrail."
+        )
+    recommended_split_rule = holdout_base.normalize_text(df.iloc[0]["recommended_split_rule"])
+    if not recommended_split_rule:
+        raise SystemExit(f"{path.name} must provide recommended_split_rule")
+    return parse_split_rule(recommended_split_rule)
+
+
 def load_label_pack_v3(root: Path) -> pd.DataFrame:
     path = root / "_share" / LABEL_PACK_V3_NAME
     df = holdout_base.drop_repeated_header_rows(read_csv(path))
@@ -149,6 +255,21 @@ def load_v0_scores(root: Path) -> pd.DataFrame:
     df[REFERENCE_SCORE_COL] = pd.to_numeric(df[REFERENCE_SCORE_COL], errors="coerce")
     return (
         df.loc[:, REQUIRED_V0_COLS]
+        .drop_duplicates(subset=KEY_COLS, keep="first")
+        .reset_index(drop=True)
+    )
+
+
+def load_fate_references(root: Path) -> pd.DataFrame:
+    path = root / "_share" / FATE_CASES_NAME
+    df = holdout_base.drop_repeated_header_rows(read_csv(path))
+    ensure_columns(df, REQUIRED_FATE_CASES_COLS, path.name)
+    df = holdout_base.normalize_key_cols(df)
+    df["discovery_fate_class"] = df["discovery_fate_class"].map(holdout_base.normalize_text)
+    df["future_fault_linked_ref_flag"] = df["discovery_fate_class"].eq("future_fault_linked").astype(int)
+    df["future_truth_linked_ref_flag"] = df["discovery_fate_class"].eq("future_truth_linked").astype(int)
+    return (
+        df.loc[:, [*KEY_COLS, "future_fault_linked_ref_flag", "future_truth_linked_ref_flag"]]
         .drop_duplicates(subset=KEY_COLS, keep="first")
         .reset_index(drop=True)
     )
@@ -236,7 +357,7 @@ def discovery_reason(row: pd.Series) -> str:
 
 def select_discovery_lane(candidate_df: pd.DataFrame) -> pd.DataFrame:
     if candidate_df.empty:
-        return candidate_df.loc[:, DISCOVERY_COLS].copy()
+        return candidate_df.loc[:, BASE_DISCOVERY_COLS].copy()
 
     per_site = (
         candidate_df.groupby("site", dropna=False, group_keys=False)
@@ -255,10 +376,73 @@ def select_discovery_lane(candidate_df: pd.DataFrame) -> pd.DataFrame:
         .reset_index(drop=True)
     )
     selected["discovery_reason_ko"] = selected.apply(discovery_reason, axis=1)
-    return selected.loc[:, DISCOVERY_COLS].copy()
+    return selected.loc[:, BASE_DISCOVERY_COLS].copy()
 
 
-def build_summary(candidate_df: pd.DataFrame, selected_df: pd.DataFrame) -> pd.DataFrame:
+def apply_split_rule(df: pd.DataFrame, split_rule: dict[str, object]) -> pd.Series:
+    mask = pd.Series(True, index=df.index, dtype=bool)
+    for field, op, threshold in split_rule["clauses"]:
+        values = pd.to_numeric(df[field], errors="coerce")
+        if op == ">=":
+            mask &= values.ge(threshold)
+        elif op == "<=":
+            mask &= values.le(threshold)
+        else:
+            raise SystemExit(f"unsupported operator: {op}")
+    return mask.fillna(False)
+
+
+def split_reason(row: pd.Series, split_rule: dict[str, object]) -> str:
+    family = str(split_rule["rule_family"])
+    if int(row["value_lane_flag"]) == 1:
+        if family.startswith("electrical"):
+            return "전기 severity 기준 상위 value 후보"
+        return "learned discovery score 기준 상위 value 후보"
+    if family.endswith("low_recon"):
+        return "broadshape/recon 경향 monitor 후보"
+    if family.endswith("low_ae"):
+        return "broadshape/AE 경향 monitor 후보"
+    return "learned discovery 보조 lane의 monitor 후보"
+
+
+def apply_discovery_split(discovery_df: pd.DataFrame, split_rule: dict[str, object]) -> pd.DataFrame:
+    enriched = discovery_df.copy()
+    value_mask = apply_split_rule(enriched, split_rule)
+    enriched["value_lane_flag"] = value_mask.astype(int)
+    enriched["monitor_lane_flag"] = (~value_mask).astype(int)
+    enriched["discovery_split_class"] = enriched["value_lane_flag"].map(
+        lambda flag: "value_candidate_lane" if int(flag) == 1 else "monitor_candidate_lane"
+    )
+    enriched["split_rule_name"] = str(split_rule["rule_name"])
+    enriched["split_reason_ko"] = enriched.apply(split_reason, axis=1, split_rule=split_rule)
+    return enriched.loc[:, DISCOVERY_COLS].copy()
+
+
+def build_lane_outputs(discovery_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    value_df = discovery_df.loc[discovery_df["value_lane_flag"].eq(1)].copy()
+    monitor_df = discovery_df.loc[discovery_df["monitor_lane_flag"].eq(1)].copy()
+    value_df = value_df.sort_values(
+        [REFERENCE_SCORE_COL, DISCOVERY_SCORE_COL, "run_day_count", "site", "panel_id", "run_start_date", "run_end_date"],
+        ascending=[False, False, False, True, True, True, True],
+        kind="mergesort",
+    ).reset_index(drop=True)
+    monitor_df = monitor_df.sort_values(
+        [DISCOVERY_SCORE_COL, REFERENCE_SCORE_COL, "run_day_count", "site", "panel_id", "run_start_date", "run_end_date"],
+        ascending=[False, False, False, True, True, True, True],
+        kind="mergesort",
+    ).reset_index(drop=True)
+    return value_df, monitor_df
+
+
+def build_summary(candidate_df: pd.DataFrame, selected_df: pd.DataFrame, fate_ref_df: pd.DataFrame, split_rule_name: str) -> pd.DataFrame:
+    selected_df = selected_df.merge(
+        fate_ref_df,
+        on=KEY_COLS,
+        how="left",
+        validate="one_to_one",
+    )
+    for col in ["future_fault_linked_ref_flag", "future_truth_linked_ref_flag"]:
+        selected_df[col] = pd.to_numeric(selected_df[col], errors="coerce").fillna(0).astype(int)
     rows: list[dict[str, object]] = []
 
     def summarize(site: str, record_type: str) -> None:
@@ -268,21 +452,44 @@ def build_summary(candidate_df: pd.DataFrame, selected_df: pd.DataFrame) -> pd.D
         else:
             cand = candidate_df.loc[candidate_df["site"].eq(site)].copy()
             sel = selected_df.loc[selected_df["site"].eq(site)].copy()
+        value_sel = sel.loc[sel["value_lane_flag"].eq(1)].copy()
+        monitor_sel = sel.loc[sel["monitor_lane_flag"].eq(1)].copy()
 
         row = {
             "record_type": record_type,
             "site": site,
             "candidate_universe_count": int(len(cand)),
             "selected_discovery_count": int(len(sel)),
+            "value_lane_count": int(len(value_sel)),
+            "monitor_lane_count": int(len(monitor_sel)),
             "selected_chronic_count": 0,
             "selected_medium_count": 0,
             "selected_short_count": 0,
+            "value_lane_chronic_count": 0,
+            "value_lane_medium_count": 0,
+            "value_lane_short_count": 0,
+            "monitor_lane_chronic_count": 0,
+            "monitor_lane_medium_count": 0,
+            "monitor_lane_short_count": 0,
+            "value_lane_future_fault_linked_ref_count": int(value_sel["future_fault_linked_ref_flag"].sum()) if not value_sel.empty else 0,
+            "value_lane_future_truth_linked_ref_count": int(value_sel["future_truth_linked_ref_flag"].sum()) if not value_sel.empty else 0,
+            "monitor_lane_future_fault_linked_ref_count": int(monitor_sel["future_fault_linked_ref_flag"].sum()) if not monitor_sel.empty else 0,
+            "monitor_lane_future_truth_linked_ref_count": int(monitor_sel["future_truth_linked_ref_flag"].sum()) if not monitor_sel.empty else 0,
+            "split_rule_name": split_rule_name,
             "median_discovery_score": sel[DISCOVERY_SCORE_COL].median() if not sel.empty else None,
             "max_discovery_score": sel[DISCOVERY_SCORE_COL].max() if not sel.empty else None,
-            "note_ko": "hidden unlabeled_other non-attention run만 learned secondary discovery lane으로 별도 노출",
+            "note_ko": "main operator baseline은 그대로 두고, learned secondary discovery를 value vs monitor 하위 lane으로만 분리",
         }
         for col_name, shape_name in SHAPE_BUCKETS.items():
             row[col_name] = int(sel["run_shape_class"].eq(shape_name).sum()) if not sel.empty else 0
+        shape_to_lane_cols = {
+            "chronic_alert_run": ("value_lane_chronic_count", "monitor_lane_chronic_count"),
+            "medium_alert_run": ("value_lane_medium_count", "monitor_lane_medium_count"),
+            "short_alert_run": ("value_lane_short_count", "monitor_lane_short_count"),
+        }
+        for shape_name, (value_col, monitor_col) in shape_to_lane_cols.items():
+            row[value_col] = int(value_sel["run_shape_class"].eq(shape_name).sum()) if not value_sel.empty else 0
+            row[monitor_col] = int(monitor_sel["run_shape_class"].eq(shape_name).sum()) if not monitor_sel.empty else 0
         rows.append(row)
 
     summarize("", "overall")
@@ -292,11 +499,13 @@ def build_summary(candidate_df: pd.DataFrame, selected_df: pd.DataFrame) -> pd.D
     return pd.DataFrame(rows, columns=SUMMARY_COLS)
 
 
-def save_outputs(root: Path, discovery_df: pd.DataFrame, summary_df: pd.DataFrame) -> None:
+def save_outputs(root: Path, discovery_df: pd.DataFrame, summary_df: pd.DataFrame, value_df: pd.DataFrame, monitor_df: pd.DataFrame) -> None:
     share_dir = root / "_share"
     share_dir.mkdir(parents=True, exist_ok=True)
     discovery_df.to_csv(share_dir / DISCOVERY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary_df.to_csv(share_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
+    value_df.to_csv(share_dir / VALUE_OUTPUT_NAME, index=False, encoding="utf-8-sig")
+    monitor_df.to_csv(share_dir / MONITOR_OUTPUT_NAME, index=False, encoding="utf-8-sig")
 
 
 def main() -> None:
@@ -304,12 +513,16 @@ def main() -> None:
     root = args.root.resolve()
 
     load_guardrail(root)
+    split_rule = load_split_guardrail(root)
     scored_universe = prepare_scored_universe(root)
     attention_panels = load_attention_panels(root)
     candidate_df = build_candidate_universe(scored_universe, attention_panels)
     discovery_df = select_discovery_lane(candidate_df)
-    summary_df = build_summary(candidate_df, discovery_df)
-    save_outputs(root, discovery_df, summary_df)
+    discovery_df = apply_discovery_split(discovery_df, split_rule)
+    value_df, monitor_df = build_lane_outputs(discovery_df)
+    fate_ref_df = load_fate_references(root)
+    summary_df = build_summary(candidate_df, discovery_df, fate_ref_df, str(split_rule["rule_name"]))
+    save_outputs(root, discovery_df, summary_df, value_df, monitor_df)
 
 
 if __name__ == "__main__":
