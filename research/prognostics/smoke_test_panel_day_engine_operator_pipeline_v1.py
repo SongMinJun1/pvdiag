@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import subprocess
 import sys
 import tempfile
@@ -30,6 +31,12 @@ def load_module(path: Path, module_name: str):
 def write_script(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+
+
+def file_digest(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def build_stub_root(root: Path, *, mode: str) -> None:
@@ -140,7 +147,7 @@ def main() -> None:
     )
 
     official_paths = [repo_root / "_share" / "panel_day_engine_operator_pipeline_manifest_v1.csv"]
-    official_bytes = {path: path.read_bytes() for path in official_paths if path.exists()}
+    official_digests_before = {path: file_digest(path) for path in official_paths}
 
     compile_result = run(
         [
@@ -163,6 +170,10 @@ def main() -> None:
         )
         assert_true(result.returncode == 0, result.stderr or result.stdout)
         manifest = pd.read_csv(tmp_root / "_share" / "panel_day_engine_operator_pipeline_manifest_v1.csv", encoding="utf-8-sig")
+        assert_true(
+            manifest.columns.tolist() == build_module.PIPELINE_MANIFEST_COLS,
+            "pipeline manifest schema should include discovery preview enrichment fields",
+        )
         row = manifest.iloc[0]
         assert_true(int(row["refresh_succeeded_site_count"]) == 2, "happy path succeeded count mismatch")
         assert_true(int(row["refresh_failed_site_count"]) == 0, "happy path failed count mismatch")
@@ -257,8 +268,11 @@ def main() -> None:
         assert_true(row["note_ko"] == "QA 미통과로 운영 배포 보류", "qa-fail note mismatch")
         assert_true((tmp_root / "_share" / "qa_called.txt").exists(), "qa-fail path should still run QA")
 
-    for path, previous_bytes in official_bytes.items():
-        assert_true(path.read_bytes() == previous_bytes, f"official file changed during smoke: {path.name}")
+    official_digests_after = {path: file_digest(path) for path in official_paths}
+    assert_true(
+        official_digests_after == official_digests_before,
+        "smoke test must not modify official pipeline manifest under repository _share",
+    )
 
 
 if __name__ == "__main__":

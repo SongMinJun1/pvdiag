@@ -60,6 +60,7 @@ python research/prognostics/build_panel_day_engine_operator_pipeline_v1.py --sit
   - overall cluster preview count
   - overall discovery cluster count
   - overall cluster preview future fault/truth linked reference count
+- 이 값들은 refresh QA가 이미 consistency를 확인한 summary에서 가져오며, main operator baseline 자체를 바꾸지는 않습니다.
 - QA를 건너뛴 경우에는 `qa_skip_reason` 으로 이유를 바로 확인할 수 있습니다.
 - 운영자는 이 파일만 보고도
   - 지금 pipeline이 정상 종료되었는지
