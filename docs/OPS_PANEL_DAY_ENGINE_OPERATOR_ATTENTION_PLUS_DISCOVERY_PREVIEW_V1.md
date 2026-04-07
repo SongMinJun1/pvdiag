@@ -48,6 +48,38 @@
   - with a stricter discovery append policy
   - not as a replacement for queue/watch baseline attention
 
+## Why Panel-Level Discovery Preview Was Still Too Wide
+- Even after panel rollup and score-threshold narrowing, one active site could still contribute many separate secondary rows.
+- That keeps operator load higher than necessary and can still make the discovery side of the preview feel site-skewed.
+
+## Why Cluster Rollup Looked Promising
+- The cluster rollup audit showed that nearby secondary discovery value panels can be compressed into site-time clusters with a meaningful reduction in row count.
+- That makes cluster compression a good side-by-side operator preview candidate:
+  - same baseline queue/watch rows
+  - same discovery evidence family
+  - but fewer appended discovery items
+
+## Why Cluster Preview Is Added Side By Side
+- The cluster preview is added next to the existing panel-based previews instead of replacing them immediately.
+- This keeps three operator-facing views available for comparison:
+  - the original full panel preview
+  - the narrowed panel preview
+  - the new cluster preview
+- The baseline attention files themselves still do not change.
+
+## How To Interpret `secondary_value_cluster` Rows
+- `secondary_value_cluster` means:
+  - a site-level temporal cluster built from secondary discovery value panels
+  - compressed from nearby representative intervals within the same site
+- These rows should be read operationally as:
+  - a discovery burst worth one grouped review step
+  - not as a detector or scorer change
+  - not as a replacement for baseline queue/watch attention
+- `member_overlap_with_attention_count` is a validation field only:
+  - it checks whether any member panel inside the cluster is already present in current operator attention
+  - expected current value is zero
+  - but it is still reported explicitly for audit hygiene
+
 ## Scope Notes
 - This is a non-core operator-facing patch.
 - Detector logic is unchanged.
