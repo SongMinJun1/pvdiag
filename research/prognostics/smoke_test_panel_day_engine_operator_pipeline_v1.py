@@ -112,6 +112,10 @@ summary = pd.DataFrame([{
     "overall_watch_review_count": 56,
     "overall_backlog_count": 1014,
     "overall_changed_count": 3,
+    "overall_cluster_preview_count": 23,
+    "overall_discovery_cluster_count": 5,
+    "overall_cluster_preview_future_fault_linked_ref_count": 5,
+    "overall_cluster_preview_future_truth_linked_ref_count": 0,
 }])
 summary.to_csv(share / "panel_day_engine_operator_refresh_qa_summary_v1.csv", index=False, encoding="utf-8-sig")
 """
@@ -168,6 +172,22 @@ def main() -> None:
         assert_true(int(row["qa_pass_flag"]) == 1, "happy path qa_pass_flag mismatch")
         assert_true(int(row["final_pipeline_pass_flag"]) == 1, "happy path final pass mismatch")
         assert_true(int(row["final_recommended_exit_code"]) == 0, "happy path exit code mismatch")
+        assert_true(int(row["overall_attention_count"]) == 18, "happy path overall_attention_count mismatch")
+        assert_true(int(row["overall_queue_count"]) == 7, "happy path overall_queue_count mismatch")
+        assert_true(int(row["overall_watch_now_count"]) == 24, "happy path overall_watch_now_count mismatch")
+        assert_true(int(row["overall_watch_review_count"]) == 56, "happy path overall_watch_review_count mismatch")
+        assert_true(int(row["overall_backlog_count"]) == 1014, "happy path overall_backlog_count mismatch")
+        assert_true(int(row["overall_changed_count"]) == 3, "happy path overall_changed_count mismatch")
+        assert_true(int(row["overall_cluster_preview_count"]) == 23, "happy path overall_cluster_preview_count mismatch")
+        assert_true(int(row["overall_discovery_cluster_count"]) == 5, "happy path overall_discovery_cluster_count mismatch")
+        assert_true(
+            int(row["overall_cluster_preview_future_fault_linked_ref_count"]) == 5,
+            "happy path overall_cluster_preview_future_fault_linked_ref_count mismatch",
+        )
+        assert_true(
+            int(row["overall_cluster_preview_future_truth_linked_ref_count"]) == 0,
+            "happy path overall_cluster_preview_future_truth_linked_ref_count mismatch",
+        )
         assert_true(row["note_ko"] == "전체 operator pipeline 정상", "happy path note mismatch")
         assert_true(
             (tmp_root / "_share" / "refresh_call.txt").read_text(encoding="utf-8") == "alpha,beta",
@@ -191,6 +211,19 @@ def main() -> None:
         assert_true(row["qa_skip_reason"] == "baseline 미완료로 QA 건너뜀", "refresh-fail qa_skip_reason mismatch")
         assert_true(int(row["final_pipeline_pass_flag"]) == 0, "refresh-fail final pass mismatch")
         assert_true(int(row["final_recommended_exit_code"]) == 1, "refresh-fail recommended code mismatch")
+        assert_true(int(row["overall_cluster_preview_count"]) == 0, "refresh-fail cluster preview count should remain zero")
+        assert_true(
+            int(row["overall_discovery_cluster_count"]) == 0,
+            "refresh-fail discovery cluster count should remain zero",
+        )
+        assert_true(
+            int(row["overall_cluster_preview_future_fault_linked_ref_count"]) == 0,
+            "refresh-fail fault linked ref count should remain zero",
+        )
+        assert_true(
+            int(row["overall_cluster_preview_future_truth_linked_ref_count"]) == 0,
+            "refresh-fail truth linked ref count should remain zero",
+        )
         assert_true(row["note_ko"] == "site refresh 실패로 baseline/QA 미완료", "refresh-fail note mismatch")
         assert_true(not (tmp_root / "_share" / "qa_called.txt").exists(), "QA should not run after refresh failure")
 
@@ -211,6 +244,16 @@ def main() -> None:
         assert_true(int(row["qa_pass_flag"]) == 0, "qa-fail qa_pass_flag mismatch")
         assert_true(int(row["final_pipeline_pass_flag"]) == 0, "qa-fail final pass mismatch")
         assert_true(int(row["final_recommended_exit_code"]) == 1, "qa-fail recommended code mismatch")
+        assert_true(int(row["overall_cluster_preview_count"]) == 23, "qa-fail overall_cluster_preview_count mismatch")
+        assert_true(int(row["overall_discovery_cluster_count"]) == 5, "qa-fail overall_discovery_cluster_count mismatch")
+        assert_true(
+            int(row["overall_cluster_preview_future_fault_linked_ref_count"]) == 5,
+            "qa-fail overall_cluster_preview_future_fault_linked_ref_count mismatch",
+        )
+        assert_true(
+            int(row["overall_cluster_preview_future_truth_linked_ref_count"]) == 0,
+            "qa-fail overall_cluster_preview_future_truth_linked_ref_count mismatch",
+        )
         assert_true(row["note_ko"] == "QA 미통과로 운영 배포 보류", "qa-fail note mismatch")
         assert_true((tmp_root / "_share" / "qa_called.txt").exists(), "qa-fail path should still run QA")
 

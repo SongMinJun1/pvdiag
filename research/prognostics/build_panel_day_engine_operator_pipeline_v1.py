@@ -35,6 +35,10 @@ PIPELINE_MANIFEST_COLS = [
     "overall_watch_review_count",
     "overall_backlog_count",
     "overall_changed_count",
+    "overall_cluster_preview_count",
+    "overall_discovery_cluster_count",
+    "overall_cluster_preview_future_fault_linked_ref_count",
+    "overall_cluster_preview_future_truth_linked_ref_count",
     "note_ko",
 ]
 
@@ -134,6 +138,22 @@ def build_manifest(
     overall_watch_review_count = numeric_int(qa_summary_row.get("overall_watch_review_count")) if qa_summary_row is not None else 0
     overall_backlog_count = numeric_int(qa_summary_row.get("overall_backlog_count")) if qa_summary_row is not None else 0
     overall_changed_count = numeric_int(qa_summary_row.get("overall_changed_count")) if qa_summary_row is not None else 0
+    overall_cluster_preview_count = (
+        numeric_int(qa_summary_row.get("overall_cluster_preview_count")) if qa_summary_row is not None else 0
+    )
+    overall_discovery_cluster_count = (
+        numeric_int(qa_summary_row.get("overall_discovery_cluster_count")) if qa_summary_row is not None else 0
+    )
+    overall_cluster_preview_future_fault_linked_ref_count = (
+        numeric_int(qa_summary_row.get("overall_cluster_preview_future_fault_linked_ref_count"))
+        if qa_summary_row is not None
+        else 0
+    )
+    overall_cluster_preview_future_truth_linked_ref_count = (
+        numeric_int(qa_summary_row.get("overall_cluster_preview_future_truth_linked_ref_count"))
+        if qa_summary_row is not None
+        else 0
+    )
 
     final_pipeline_pass_flag, note_ko = determine_note(
         refresh_failed_site_count=refresh_failed_site_count,
@@ -161,6 +181,14 @@ def build_manifest(
         "overall_watch_review_count": overall_watch_review_count,
         "overall_backlog_count": overall_backlog_count,
         "overall_changed_count": overall_changed_count,
+        "overall_cluster_preview_count": overall_cluster_preview_count,
+        "overall_discovery_cluster_count": overall_discovery_cluster_count,
+        "overall_cluster_preview_future_fault_linked_ref_count": (
+            overall_cluster_preview_future_fault_linked_ref_count
+        ),
+        "overall_cluster_preview_future_truth_linked_ref_count": (
+            overall_cluster_preview_future_truth_linked_ref_count
+        ),
         "note_ko": note_ko,
     }
     return pd.DataFrame([row], columns=PIPELINE_MANIFEST_COLS)
