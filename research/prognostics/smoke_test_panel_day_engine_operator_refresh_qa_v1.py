@@ -23,13 +23,154 @@ def write_csv(path: Path, rows: list[dict[str, object]], columns: list[str]) -> 
     pd.DataFrame(rows).reindex(columns=columns).to_csv(path, index=False, encoding="utf-8-sig")
 
 
-def build_happy_fixture(root: Path, *, queue_count: int = 4, attention_count: int = 10, watch_now_count: int = 3) -> None:
+def build_happy_fixture(
+    root: Path,
+    *,
+    queue_count: int = 4,
+    attention_count: int = 10,
+    watch_now_count: int = 3,
+    cluster_secondary_count: int = 2,
+    cluster_fault_ref_count: int = 2,
+    cluster_truth_ref_count: int = 0,
+) -> None:
     share = root / "_share"
     share.mkdir(parents=True, exist_ok=True)
     watch_review_count = 2
     watchlist_count = watch_now_count + watch_review_count
     backlog_count = 120
     digest_watch_now = attention_count - queue_count
+    alpha_attention_count = attention_count // 2
+    beta_attention_count = attention_count - alpha_attention_count
+    alpha_queue_count = queue_count // 2
+    beta_queue_count = queue_count - alpha_queue_count
+    alpha_digest_watch = alpha_attention_count - alpha_queue_count
+    beta_digest_watch = digest_watch_now - alpha_digest_watch
+    alpha_cluster_count = cluster_secondary_count // 2
+    beta_cluster_count = cluster_secondary_count - alpha_cluster_count
+    cluster_preview_count = attention_count + cluster_secondary_count
+    alpha_cluster_preview_count = alpha_attention_count + alpha_cluster_count
+    beta_cluster_preview_count = beta_attention_count + beta_cluster_count
+    alpha_cluster_fault_ref_count = cluster_fault_ref_count // 2
+    beta_cluster_fault_ref_count = cluster_fault_ref_count - alpha_cluster_fault_ref_count
+    alpha_cluster_truth_ref_count = cluster_truth_ref_count // 2
+    beta_cluster_truth_ref_count = cluster_truth_ref_count - alpha_cluster_truth_ref_count
+    discovery_value_panel_count = cluster_secondary_count + 2
+
+    cluster_preview_rows: list[dict[str, object]] = []
+    for idx in range(alpha_queue_count):
+        cluster_preview_rows.append(
+            {
+                "preview_attention_class": "queue_run",
+                "site": "alpha",
+                "display_entity_id": f"alpha.queue.{idx + 1}",
+                "display_start_date": "2026-04-05",
+                "display_end_date": "2026-04-05",
+                "display_span_or_day_count": 1,
+                "display_shape_or_cluster_kind": "short_alert_run",
+                "display_status_or_tier": "ongoing_run",
+                "display_score": 9.0 - idx,
+                "linked_ref_flag": 0,
+                "truth_ref_flag": 0,
+                "cluster_panel_count": 1,
+                "member_overlap_with_attention_count": 0,
+                "preview_reason_ko": "fixture queue row",
+            }
+        )
+    for idx in range(beta_queue_count):
+        cluster_preview_rows.append(
+            {
+                "preview_attention_class": "queue_run",
+                "site": "beta",
+                "display_entity_id": f"beta.queue.{idx + 1}",
+                "display_start_date": "2026-04-05",
+                "display_end_date": "2026-04-05",
+                "display_span_or_day_count": 1,
+                "display_shape_or_cluster_kind": "short_alert_run",
+                "display_status_or_tier": "ongoing_run",
+                "display_score": 8.0 - idx,
+                "linked_ref_flag": 0,
+                "truth_ref_flag": 0,
+                "cluster_panel_count": 1,
+                "member_overlap_with_attention_count": 0,
+                "preview_reason_ko": "fixture queue row",
+            }
+        )
+    for idx in range(alpha_digest_watch):
+        cluster_preview_rows.append(
+            {
+                "preview_attention_class": "watch_now_panel",
+                "site": "alpha",
+                "display_entity_id": f"alpha.watch.{idx + 1}",
+                "display_start_date": "2026-04-04",
+                "display_end_date": "2026-04-05",
+                "display_span_or_day_count": 2,
+                "display_shape_or_cluster_kind": "chronic_alert_run",
+                "display_status_or_tier": "watch_now",
+                "display_score": 6.0 - idx,
+                "linked_ref_flag": 0,
+                "truth_ref_flag": 0,
+                "cluster_panel_count": 1,
+                "member_overlap_with_attention_count": 0,
+                "preview_reason_ko": "fixture watch row",
+            }
+        )
+    for idx in range(beta_digest_watch):
+        cluster_preview_rows.append(
+            {
+                "preview_attention_class": "watch_now_panel",
+                "site": "beta",
+                "display_entity_id": f"beta.watch.{idx + 1}",
+                "display_start_date": "2026-04-04",
+                "display_end_date": "2026-04-05",
+                "display_span_or_day_count": 2,
+                "display_shape_or_cluster_kind": "chronic_alert_run",
+                "display_status_or_tier": "watch_now",
+                "display_score": 5.0 - idx,
+                "linked_ref_flag": 0,
+                "truth_ref_flag": 0,
+                "cluster_panel_count": 1,
+                "member_overlap_with_attention_count": 0,
+                "preview_reason_ko": "fixture watch row",
+            }
+        )
+    for idx in range(alpha_cluster_count):
+        cluster_preview_rows.append(
+            {
+                "preview_attention_class": "secondary_value_cluster",
+                "site": "alpha",
+                "display_entity_id": f"alpha.cluster.{idx + 1}",
+                "display_start_date": "2026-04-03",
+                "display_end_date": "2026-04-05",
+                "display_span_or_day_count": 3,
+                "display_shape_or_cluster_kind": "discovery_cluster",
+                "display_status_or_tier": "secondary_discovery_cluster",
+                "display_score": 10.0 - idx,
+                "linked_ref_flag": 1 if idx < alpha_cluster_fault_ref_count else 0,
+                "truth_ref_flag": 1 if idx < alpha_cluster_truth_ref_count else 0,
+                "cluster_panel_count": 2,
+                "member_overlap_with_attention_count": 0,
+                "preview_reason_ko": "fixture cluster row",
+            }
+        )
+    for idx in range(beta_cluster_count):
+        cluster_preview_rows.append(
+            {
+                "preview_attention_class": "secondary_value_cluster",
+                "site": "beta",
+                "display_entity_id": f"beta.cluster.{idx + 1}",
+                "display_start_date": "2026-04-03",
+                "display_end_date": "2026-04-05",
+                "display_span_or_day_count": 3,
+                "display_shape_or_cluster_kind": "discovery_cluster",
+                "display_status_or_tier": "secondary_discovery_cluster",
+                "display_score": 9.5 - idx,
+                "linked_ref_flag": 1 if idx < beta_cluster_fault_ref_count else 0,
+                "truth_ref_flag": 1 if idx < beta_cluster_truth_ref_count else 0,
+                "cluster_panel_count": 2,
+                "member_overlap_with_attention_count": 0,
+                "preview_reason_ko": "fixture cluster row",
+            }
+        )
 
     write_csv(
         share / "panel_day_engine_operator_refresh_manifest_v1.csv",
@@ -103,6 +244,12 @@ def build_happy_fixture(root: Path, *, queue_count: int = 4, attention_count: in
                 "digest_changed_attention_count": 3,
                 "digest_queue_run_count": queue_count,
                 "digest_watch_now_panel_count": digest_watch_now,
+                "discovery_value_panel_count": discovery_value_panel_count,
+                "discovery_cluster_count": cluster_secondary_count,
+                "cluster_preview_count": cluster_preview_count,
+                "cluster_preview_secondary_value_cluster_count": cluster_secondary_count,
+                "cluster_preview_future_fault_linked_ref_count": cluster_fault_ref_count,
+                "cluster_preview_future_truth_linked_ref_count": cluster_truth_ref_count,
             }
         ],
         [
@@ -121,6 +268,12 @@ def build_happy_fixture(root: Path, *, queue_count: int = 4, attention_count: in
             "digest_changed_attention_count",
             "digest_queue_run_count",
             "digest_watch_now_panel_count",
+            "discovery_value_panel_count",
+            "discovery_cluster_count",
+            "cluster_preview_count",
+            "cluster_preview_secondary_value_cluster_count",
+            "cluster_preview_future_fault_linked_ref_count",
+            "cluster_preview_future_truth_linked_ref_count",
         ],
     )
     write_csv(
@@ -141,12 +294,16 @@ def build_happy_fixture(root: Path, *, queue_count: int = 4, attention_count: in
                 "digest_changed_attention_count": 3,
                 "digest_queue_run_count": queue_count,
                 "digest_watch_now_panel_count": digest_watch_now,
+                "discovery_value_panel_count": discovery_value_panel_count,
+                "discovery_cluster_count": cluster_secondary_count,
+                "cluster_preview_count": cluster_preview_count,
+                "cluster_preview_secondary_value_cluster_count": cluster_secondary_count,
             },
             {
                 "record_type": "site",
                 "site": "alpha",
-                "attention_count": attention_count // 2,
-                "queue_count": queue_count // 2,
+                "attention_count": alpha_attention_count,
+                "queue_count": alpha_queue_count,
                 "backlog_count": 70,
                 "watchlist_count": watchlist_count // 2,
                 "watch_now_count": 1,
@@ -155,14 +312,18 @@ def build_happy_fixture(root: Path, *, queue_count: int = 4, attention_count: in
                 "dropped_attention_count": 0,
                 "total_changed_count": 1,
                 "digest_changed_attention_count": 1,
-                "digest_queue_run_count": queue_count // 2,
-                "digest_watch_now_panel_count": attention_count // 2 - queue_count // 2,
+                "digest_queue_run_count": alpha_queue_count,
+                "digest_watch_now_panel_count": alpha_digest_watch,
+                "discovery_value_panel_count": alpha_cluster_count + 1,
+                "discovery_cluster_count": alpha_cluster_count,
+                "cluster_preview_count": alpha_cluster_preview_count,
+                "cluster_preview_secondary_value_cluster_count": alpha_cluster_count,
             },
             {
                 "record_type": "site",
                 "site": "beta",
-                "attention_count": attention_count - attention_count // 2,
-                "queue_count": queue_count - queue_count // 2,
+                "attention_count": beta_attention_count,
+                "queue_count": beta_queue_count,
                 "backlog_count": 50,
                 "watchlist_count": watchlist_count - watchlist_count // 2,
                 "watch_now_count": watch_now_count - 1,
@@ -171,8 +332,12 @@ def build_happy_fixture(root: Path, *, queue_count: int = 4, attention_count: in
                 "dropped_attention_count": 1,
                 "total_changed_count": 2,
                 "digest_changed_attention_count": 2,
-                "digest_queue_run_count": queue_count - queue_count // 2,
-                "digest_watch_now_panel_count": digest_watch_now - (attention_count // 2 - queue_count // 2),
+                "digest_queue_run_count": beta_queue_count,
+                "digest_watch_now_panel_count": beta_digest_watch,
+                "discovery_value_panel_count": beta_cluster_count + 1,
+                "discovery_cluster_count": beta_cluster_count,
+                "cluster_preview_count": beta_cluster_preview_count,
+                "cluster_preview_secondary_value_cluster_count": beta_cluster_count,
             },
         ],
         [
@@ -190,6 +355,10 @@ def build_happy_fixture(root: Path, *, queue_count: int = 4, attention_count: in
             "digest_changed_attention_count",
             "digest_queue_run_count",
             "digest_watch_now_panel_count",
+            "discovery_value_panel_count",
+            "discovery_cluster_count",
+            "cluster_preview_count",
+            "cluster_preview_secondary_value_cluster_count",
         ],
     )
     write_csv(
@@ -388,6 +557,83 @@ def build_happy_fixture(root: Path, *, queue_count: int = 4, attention_count: in
             "watch_review_future_truth_linked_count",
         ],
     )
+    write_csv(
+        share / "panel_day_engine_operator_attention_plus_discovery_cluster_preview_v1.csv",
+        cluster_preview_rows,
+        [
+            "preview_attention_class",
+            "site",
+            "display_entity_id",
+            "display_start_date",
+            "display_end_date",
+            "display_span_or_day_count",
+            "display_shape_or_cluster_kind",
+            "display_status_or_tier",
+            "display_score",
+            "linked_ref_flag",
+            "truth_ref_flag",
+            "cluster_panel_count",
+            "member_overlap_with_attention_count",
+            "preview_reason_ko",
+        ],
+    )
+    write_csv(
+        share / "panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv",
+        [
+            {
+                "record_type": "overall",
+                "site": "",
+                "cluster_preview_count": cluster_preview_count,
+                "queue_run_count": queue_count,
+                "watch_now_panel_count": digest_watch_now,
+                "secondary_value_cluster_count": cluster_secondary_count,
+                "cluster_panel_total_count": cluster_secondary_count * 2,
+                "clusters_with_future_fault_linked_ref_count": cluster_fault_ref_count,
+                "clusters_with_future_truth_linked_ref_count": cluster_truth_ref_count,
+                "total_member_overlap_with_attention_count": 0,
+                "note_ko": "fixture cluster preview summary",
+            },
+            {
+                "record_type": "site",
+                "site": "alpha",
+                "cluster_preview_count": alpha_cluster_preview_count,
+                "queue_run_count": alpha_queue_count,
+                "watch_now_panel_count": alpha_digest_watch,
+                "secondary_value_cluster_count": alpha_cluster_count,
+                "cluster_panel_total_count": alpha_cluster_count * 2,
+                "clusters_with_future_fault_linked_ref_count": alpha_cluster_fault_ref_count,
+                "clusters_with_future_truth_linked_ref_count": alpha_cluster_truth_ref_count,
+                "total_member_overlap_with_attention_count": 0,
+                "note_ko": "fixture cluster preview summary",
+            },
+            {
+                "record_type": "site",
+                "site": "beta",
+                "cluster_preview_count": beta_cluster_preview_count,
+                "queue_run_count": beta_queue_count,
+                "watch_now_panel_count": beta_digest_watch,
+                "secondary_value_cluster_count": beta_cluster_count,
+                "cluster_panel_total_count": beta_cluster_count * 2,
+                "clusters_with_future_fault_linked_ref_count": beta_cluster_fault_ref_count,
+                "clusters_with_future_truth_linked_ref_count": beta_cluster_truth_ref_count,
+                "total_member_overlap_with_attention_count": 0,
+                "note_ko": "fixture cluster preview summary",
+            },
+        ],
+        [
+            "record_type",
+            "site",
+            "cluster_preview_count",
+            "queue_run_count",
+            "watch_now_panel_count",
+            "secondary_value_cluster_count",
+            "cluster_panel_total_count",
+            "clusters_with_future_fault_linked_ref_count",
+            "clusters_with_future_truth_linked_ref_count",
+            "total_member_overlap_with_attention_count",
+            "note_ko",
+        ],
+    )
 
 
 def main() -> None:
@@ -453,8 +699,20 @@ def main() -> None:
             "missing file path should fail required existence check",
         )
         assert_true(
+            report.loc[report["check_name"].eq("cluster_preview_exists"), "status"].iloc[0] == "fail",
+            "missing cluster preview file should fail required existence check",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_preview_summary_exists"), "status"].iloc[0] == "fail",
+            "missing cluster preview summary should fail required existence check",
+        )
+        assert_true(
             report.loc[report["check_name"].eq("attention_digest_count_match"), "status"].iloc[0] == "skip",
             "downstream checks should skip when dependencies are missing",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_preview_count_match_manifest"), "status"].iloc[0] == "skip",
+            "cluster preview consistency checks should skip when dependencies are missing",
         )
         assert_true(int(summary.iloc[0]["qa_pass_flag"]) == 0, "missing-file path should not pass QA")
 
@@ -471,23 +729,76 @@ def main() -> None:
         assert_true(failed_rows.empty, f"happy path should not fail hard checks: {failed_rows.to_dict('records')}")
         assert_true(warned_rows.empty, f"happy path should not trigger warn thresholds: {warned_rows.to_dict('records')}")
         assert_true(int(summary.iloc[0]["qa_pass_flag"]) == 1, "happy path should pass QA")
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_preview_count_match_manifest"), "status"].iloc[0] == "pass",
+            "happy path cluster_preview_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_preview_secondary_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path cluster_preview_secondary_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_preview_fault_ref_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path cluster_preview_fault_ref_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_preview_truth_ref_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path cluster_preview_truth_ref_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_preview_count_matches_attention_plus_clusters"), "status"].iloc[0]
+            == "pass",
+            "happy path cluster_preview_count_matches_attention_plus_clusters should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_preview_site_sum_matches_overall"), "status"].iloc[0]
+            == "pass",
+            "happy path cluster_preview_site_sum_matches_overall should pass",
+        )
         assert_true(int(summary.iloc[0]["overall_attention_count"]) == 10, "happy path overall_attention_count mismatch")
         assert_true(int(summary.iloc[0]["overall_queue_count"]) == 4, "happy path overall_queue_count mismatch")
         assert_true(int(summary.iloc[0]["overall_watch_now_count"]) == 3, "happy path overall_watch_now_count mismatch")
         assert_true(int(summary.iloc[0]["overall_watch_review_count"]) == 2, "happy path overall_watch_review_count mismatch")
         assert_true(int(summary.iloc[0]["overall_backlog_count"]) == 120, "happy path overall_backlog_count mismatch")
         assert_true(int(summary.iloc[0]["overall_changed_count"]) == 3, "happy path overall_changed_count mismatch")
+        assert_true(int(summary.iloc[0]["overall_cluster_preview_count"]) == 12, "happy path overall_cluster_preview_count mismatch")
+        assert_true(int(summary.iloc[0]["overall_discovery_cluster_count"]) == 2, "happy path overall_discovery_cluster_count mismatch")
+        assert_true(
+            int(summary.iloc[0]["overall_cluster_preview_future_fault_linked_ref_count"]) == 2,
+            "happy path overall_cluster_preview_future_fault_linked_ref_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_cluster_preview_future_truth_linked_ref_count"]) == 0,
+            "happy path overall_cluster_preview_future_truth_linked_ref_count mismatch",
+        )
 
     with tempfile.TemporaryDirectory(prefix="operator_refresh_qa_warn_") as tmp_dir:
         tmp_root = Path(tmp_dir)
-        build_happy_fixture(tmp_root, queue_count=21, attention_count=25, watch_now_count=5)
+        build_happy_fixture(
+            tmp_root,
+            queue_count=21,
+            attention_count=25,
+            watch_now_count=5,
+            cluster_secondary_count=11,
+            cluster_fault_ref_count=4,
+        )
         build_result = run([sys.executable, str(build_path), "--root", str(tmp_root)], repo_root)
         assert_true(build_result.returncode == 0, build_result.stderr or build_result.stdout)
 
         report = pd.read_csv(tmp_root / "_share" / "panel_day_engine_operator_refresh_qa_report_v1.csv", encoding="utf-8-sig")
         summary = pd.read_csv(tmp_root / "_share" / "panel_day_engine_operator_refresh_qa_summary_v1.csv", encoding="utf-8-sig")
         queue_warn = report.loc[report["check_name"].eq("queue_count_too_large")].iloc[0]
+        cluster_preview_warn = report.loc[report["check_name"].eq("cluster_preview_too_large")].iloc[0]
+        discovery_cluster_warn = report.loc[report["check_name"].eq("discovery_cluster_count_too_large")].iloc[0]
         assert_true(queue_warn["status"] == "warn", "queue_count_too_large should warn above threshold")
+        assert_true(cluster_preview_warn["status"] == "warn", "cluster_preview_too_large should warn above threshold")
+        assert_true(
+            discovery_cluster_warn["status"] == "warn",
+            "discovery_cluster_count_too_large should warn above threshold",
+        )
         assert_true(int(summary.iloc[0]["warn_count"]) >= 1, "warn path should increment warn_count")
         assert_true(int(summary.iloc[0]["qa_pass_flag"]) == 1, "warn-only path should still pass QA")
 

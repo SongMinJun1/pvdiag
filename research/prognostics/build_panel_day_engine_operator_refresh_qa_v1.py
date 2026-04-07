@@ -16,6 +16,8 @@ DIGEST_SUMMARY_NAME = "panel_day_engine_operator_digest_summary_v1.csv"
 RUN_SUMMARY_NAME = "panel_day_engine_operator_run_summary_v1.csv"
 WATCHLIST_SUMMARY_NAME = "panel_day_engine_operator_watchlist_summary_v1.csv"
 RUN_WATCHLIST_SUMMARY_NAME = "panel_day_engine_operator_run_watchlist_summary_v1.csv"
+CLUSTER_PREVIEW_NAME = "panel_day_engine_operator_attention_plus_discovery_cluster_preview_v1.csv"
+CLUSTER_PREVIEW_SUMMARY_NAME = "panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv"
 
 QA_REPORT_NAME = "panel_day_engine_operator_refresh_qa_report_v1.csv"
 QA_SUMMARY_NAME = "panel_day_engine_operator_refresh_qa_summary_v1.csv"
@@ -24,6 +26,8 @@ QUEUE_COUNT_WARN_THRESHOLD = 20
 ATTENTION_COUNT_WARN_THRESHOLD = 50
 WATCH_NOW_COUNT_WARN_THRESHOLD = 40
 BACKLOG_QUEUE_RATIO_WARN_THRESHOLD = 500.0
+CLUSTER_PREVIEW_COUNT_WARN_THRESHOLD = 35
+DISCOVERY_CLUSTER_COUNT_WARN_THRESHOLD = 10
 
 QA_REPORT_COLS = [
     "check_name",
@@ -47,6 +51,10 @@ QA_SUMMARY_COLS = [
     "overall_watch_review_count",
     "overall_backlog_count",
     "overall_changed_count",
+    "overall_cluster_preview_count",
+    "overall_discovery_cluster_count",
+    "overall_cluster_preview_future_fault_linked_ref_count",
+    "overall_cluster_preview_future_truth_linked_ref_count",
 ]
 
 REQUIRED_SUMMARY_FILES = {
@@ -56,6 +64,8 @@ REQUIRED_SUMMARY_FILES = {
     "baseline_summary_exists": BASELINE_SUMMARY_NAME,
     "attention_summary_exists": ATTENTION_SUMMARY_NAME,
     "digest_summary_exists": DIGEST_SUMMARY_NAME,
+    "cluster_preview_exists": CLUSTER_PREVIEW_NAME,
+    "cluster_preview_summary_exists": CLUSTER_PREVIEW_SUMMARY_NAME,
 }
 
 
@@ -187,6 +197,7 @@ def run_hard_checks(
     attention_summary: pd.DataFrame | None,
     digest_summary: pd.DataFrame | None,
     run_summary: pd.DataFrame | None,
+    cluster_preview_summary: pd.DataFrame | None,
 ) -> None:
     refresh_manifest_row = refresh_manifest.iloc[0] if refresh_manifest is not None and not refresh_manifest.empty else None
     baseline_manifest_row = baseline_manifest.iloc[0] if baseline_manifest is not None and not baseline_manifest.empty else None
@@ -194,6 +205,8 @@ def run_hard_checks(
     baseline_sites = extract_site_rows(baseline_summary)
     digest_overall = extract_overall_row(digest_summary)
     run_overall = extract_overall_row(run_summary)
+    cluster_preview_overall = extract_overall_row(cluster_preview_summary)
+    cluster_preview_sites = extract_site_rows(cluster_preview_summary)
 
     if refresh_manifest_row is None:
         report.skip("all_requested_sites_succeeded", "fail", "refresh manifest 없음으로 site 성공 여부를 판정할 수 없음")
@@ -322,10 +335,138 @@ def run_hard_checks(
             detail_ko="baseline summary per-site watch_now_panel 합이 overall과 일치하는지 확인",
         )
 
+    if baseline_manifest_row is None or cluster_preview_overall is None:
+        report.skip(
+            "cluster_preview_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 cluster preview summary 없음으로 cluster preview count 검증을 건너뜀",
+        )
+        report.skip(
+            "cluster_preview_secondary_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 cluster preview summary 없음으로 discovery cluster count 검증을 건너뜀",
+        )
+        report.skip(
+            "cluster_preview_fault_ref_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 cluster preview summary 없음으로 cluster fault ref count 검증을 건너뜀",
+        )
+        report.skip(
+            "cluster_preview_truth_ref_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 cluster preview summary 없음으로 cluster truth ref count 검증을 건너뜀",
+        )
+    else:
+        manifest_cluster_preview_count = int(numeric_value(baseline_manifest_row.get("cluster_preview_count")))
+        summary_cluster_preview_count = int(numeric_value(cluster_preview_overall.get("cluster_preview_count")))
+        report.add(
+            "cluster_preview_count_match_manifest",
+            "fail",
+            "pass" if manifest_cluster_preview_count == summary_cluster_preview_count else "fail",
+            observed_value=f"{manifest_cluster_preview_count} vs {summary_cluster_preview_count}",
+            expected_value="baseline manifest cluster_preview_count == cluster preview summary overall cluster_preview_count",
+            detail_ko="baseline manifest와 cluster preview summary의 overall preview count가 일치하는지 확인",
+        )
 
-def run_soft_checks(report: QaReportBuilder, *, baseline_summary: pd.DataFrame | None, run_summary: pd.DataFrame | None) -> None:
+        manifest_secondary_cluster_count = int(
+            numeric_value(baseline_manifest_row.get("cluster_preview_secondary_value_cluster_count"))
+        )
+        summary_secondary_cluster_count = int(numeric_value(cluster_preview_overall.get("secondary_value_cluster_count")))
+        report.add(
+            "cluster_preview_secondary_count_match_manifest",
+            "fail",
+            "pass" if manifest_secondary_cluster_count == summary_secondary_cluster_count else "fail",
+            observed_value=f"{manifest_secondary_cluster_count} vs {summary_secondary_cluster_count}",
+            expected_value=(
+                "baseline manifest cluster_preview_secondary_value_cluster_count == "
+                "cluster preview summary overall secondary_value_cluster_count"
+            ),
+            detail_ko="baseline manifest와 cluster preview summary의 discovery cluster 수가 일치하는지 확인",
+        )
+
+        manifest_fault_ref_count = int(numeric_value(baseline_manifest_row.get("cluster_preview_future_fault_linked_ref_count")))
+        summary_fault_ref_count = int(
+            numeric_value(cluster_preview_overall.get("clusters_with_future_fault_linked_ref_count"))
+        )
+        report.add(
+            "cluster_preview_fault_ref_count_match_manifest",
+            "fail",
+            "pass" if manifest_fault_ref_count == summary_fault_ref_count else "fail",
+            observed_value=f"{manifest_fault_ref_count} vs {summary_fault_ref_count}",
+            expected_value=(
+                "baseline manifest cluster_preview_future_fault_linked_ref_count == "
+                "cluster preview summary overall clusters_with_future_fault_linked_ref_count"
+            ),
+            detail_ko="baseline manifest와 cluster preview summary의 retrospective future fault linked cluster 수가 일치하는지 확인",
+        )
+
+        manifest_truth_ref_count = int(numeric_value(baseline_manifest_row.get("cluster_preview_future_truth_linked_ref_count")))
+        summary_truth_ref_count = int(
+            numeric_value(cluster_preview_overall.get("clusters_with_future_truth_linked_ref_count"))
+        )
+        report.add(
+            "cluster_preview_truth_ref_count_match_manifest",
+            "fail",
+            "pass" if manifest_truth_ref_count == summary_truth_ref_count else "fail",
+            observed_value=f"{manifest_truth_ref_count} vs {summary_truth_ref_count}",
+            expected_value=(
+                "baseline manifest cluster_preview_future_truth_linked_ref_count == "
+                "cluster preview summary overall clusters_with_future_truth_linked_ref_count"
+            ),
+            detail_ko="baseline manifest와 cluster preview summary의 retrospective future truth linked cluster 수가 일치하는지 확인",
+        )
+
+    if baseline_overall is None or cluster_preview_overall is None:
+        report.skip(
+            "cluster_preview_count_matches_attention_plus_clusters",
+            "fail",
+            "baseline summary 또는 cluster preview summary 없음으로 preview total count 검증을 건너뜀",
+        )
+    else:
+        overall_attention = int(numeric_value(baseline_overall.get("attention_count")))
+        overall_secondary_clusters = int(numeric_value(cluster_preview_overall.get("secondary_value_cluster_count")))
+        overall_cluster_preview_count = int(numeric_value(cluster_preview_overall.get("cluster_preview_count")))
+        expected_cluster_preview_count = overall_attention + overall_secondary_clusters
+        report.add(
+            "cluster_preview_count_matches_attention_plus_clusters",
+            "fail",
+            "pass" if overall_cluster_preview_count == expected_cluster_preview_count else "fail",
+            observed_value=overall_cluster_preview_count,
+            expected_value=expected_cluster_preview_count,
+            detail_ko="cluster preview overall count가 baseline attention 수와 discovery cluster 수의 합과 일치하는지 확인",
+        )
+
+    if cluster_preview_overall is None or cluster_preview_sites is None:
+        report.skip(
+            "cluster_preview_site_sum_matches_overall",
+            "fail",
+            "cluster preview summary 없음으로 per-site cluster preview 합 검증을 건너뜀",
+        )
+    else:
+        overall_cluster_preview_count = int(numeric_value(cluster_preview_overall.get("cluster_preview_count")))
+        site_cluster_preview_sum = int(
+            pd.to_numeric(cluster_preview_sites["cluster_preview_count"], errors="coerce").fillna(0).sum()
+        )
+        report.add(
+            "cluster_preview_site_sum_matches_overall",
+            "fail",
+            "pass" if site_cluster_preview_sum == overall_cluster_preview_count else "fail",
+            observed_value=site_cluster_preview_sum,
+            expected_value=overall_cluster_preview_count,
+            detail_ko="cluster preview summary per-site preview count 합이 overall과 일치하는지 확인",
+        )
+
+
+def run_soft_checks(
+    report: QaReportBuilder,
+    *,
+    baseline_summary: pd.DataFrame | None,
+    run_summary: pd.DataFrame | None,
+    cluster_preview_summary: pd.DataFrame | None,
+) -> None:
     baseline_overall = extract_overall_row(baseline_summary)
     run_overall = extract_overall_row(run_summary)
+    cluster_preview_overall = extract_overall_row(cluster_preview_summary)
 
     if run_overall is None:
         report.skip("queue_count_too_large", "warn", "run summary 없음으로 queue 규모 경고 검사를 건너뜀")
@@ -374,10 +515,44 @@ def run_soft_checks(report: QaReportBuilder, *, baseline_summary: pd.DataFrame |
             detail_ko="attention 전체 건수가 운영 관점에서 과도한지 확인",
         )
 
+    if cluster_preview_overall is None:
+        report.skip("cluster_preview_too_large", "warn", "cluster preview summary 없음으로 cluster preview 규모 경고 검사를 건너뜀")
+        report.skip(
+            "discovery_cluster_count_too_large",
+            "warn",
+            "cluster preview summary 없음으로 discovery cluster 규모 경고 검사를 건너뜀",
+        )
+    else:
+        cluster_preview_count = int(numeric_value(cluster_preview_overall.get("cluster_preview_count")))
+        report.add(
+            "cluster_preview_too_large",
+            "warn",
+            "warn" if cluster_preview_count > CLUSTER_PREVIEW_COUNT_WARN_THRESHOLD else "pass",
+            observed_value=cluster_preview_count,
+            expected_value=f"<= {CLUSTER_PREVIEW_COUNT_WARN_THRESHOLD}",
+            detail_ko="cluster preview 전체 건수가 운영 preview로 보기 과도한지 확인",
+        )
+        discovery_cluster_count = int(numeric_value(cluster_preview_overall.get("secondary_value_cluster_count")))
+        report.add(
+            "discovery_cluster_count_too_large",
+            "warn",
+            "warn" if discovery_cluster_count > DISCOVERY_CLUSTER_COUNT_WARN_THRESHOLD else "pass",
+            observed_value=discovery_cluster_count,
+            expected_value=f"<= {DISCOVERY_CLUSTER_COUNT_WARN_THRESHOLD}",
+            detail_ko="secondary discovery cluster 수가 supplemental preview로 보기 과도한지 확인",
+        )
 
-def build_summary(report: pd.DataFrame, *, baseline_summary: pd.DataFrame | None, run_summary: pd.DataFrame | None) -> pd.DataFrame:
+
+def build_summary(
+    report: pd.DataFrame,
+    *,
+    baseline_summary: pd.DataFrame | None,
+    run_summary: pd.DataFrame | None,
+    cluster_preview_summary: pd.DataFrame | None,
+) -> pd.DataFrame:
     baseline_overall = extract_overall_row(baseline_summary)
     run_overall = extract_overall_row(run_summary)
+    cluster_preview_overall = extract_overall_row(cluster_preview_summary)
 
     def get_from_row(row: pd.Series | None, key: str) -> int:
         if row is None:
@@ -397,6 +572,14 @@ def build_summary(report: pd.DataFrame, *, baseline_summary: pd.DataFrame | None
         "overall_watch_review_count": get_from_row(run_overall, "watch_review_count"),
         "overall_backlog_count": get_from_row(run_overall, "backlog_count"),
         "overall_changed_count": get_from_row(baseline_overall, "total_changed_count"),
+        "overall_cluster_preview_count": get_from_row(cluster_preview_overall, "cluster_preview_count"),
+        "overall_discovery_cluster_count": get_from_row(cluster_preview_overall, "secondary_value_cluster_count"),
+        "overall_cluster_preview_future_fault_linked_ref_count": get_from_row(
+            cluster_preview_overall, "clusters_with_future_fault_linked_ref_count"
+        ),
+        "overall_cluster_preview_future_truth_linked_ref_count": get_from_row(
+            cluster_preview_overall, "clusters_with_future_truth_linked_ref_count"
+        ),
     }
     return pd.DataFrame([summary_row], columns=QA_SUMMARY_COLS)
 
@@ -430,11 +613,13 @@ def main() -> None:
         attention_summary=data_frames[ATTENTION_SUMMARY_NAME],
         digest_summary=data_frames[DIGEST_SUMMARY_NAME],
         run_summary=run_summary,
+        cluster_preview_summary=data_frames[CLUSTER_PREVIEW_SUMMARY_NAME],
     )
     run_soft_checks(
         report_builder,
         baseline_summary=data_frames[BASELINE_SUMMARY_NAME],
         run_summary=run_summary,
+        cluster_preview_summary=data_frames[CLUSTER_PREVIEW_SUMMARY_NAME],
     )
 
     report = report_builder.to_frame()
@@ -442,6 +627,7 @@ def main() -> None:
         report,
         baseline_summary=data_frames[BASELINE_SUMMARY_NAME],
         run_summary=run_summary,
+        cluster_preview_summary=data_frames[CLUSTER_PREVIEW_SUMMARY_NAME],
     )
 
     report.to_csv(share_dir / QA_REPORT_NAME, index=False, encoding="utf-8-sig")
