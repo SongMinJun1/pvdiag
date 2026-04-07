@@ -16,6 +16,19 @@ QA_SCRIPT = "research/prognostics/build_panel_day_engine_operator_refresh_qa_v1.
 REFRESH_MANIFEST_NAME = "panel_day_engine_operator_refresh_manifest_v1.csv"
 QA_SUMMARY_NAME = "panel_day_engine_operator_refresh_qa_summary_v1.csv"
 PIPELINE_MANIFEST_NAME = "panel_day_engine_operator_pipeline_manifest_v1.csv"
+REQUIRED_QA_SUMMARY_COLS = [
+    "qa_pass_flag",
+    "overall_attention_count",
+    "overall_queue_count",
+    "overall_watch_now_count",
+    "overall_watch_review_count",
+    "overall_backlog_count",
+    "overall_changed_count",
+    "overall_cluster_preview_count",
+    "overall_discovery_cluster_count",
+    "overall_cluster_preview_future_fault_linked_ref_count",
+    "overall_cluster_preview_future_truth_linked_ref_count",
+]
 
 PIPELINE_MANIFEST_COLS = [
     "pipeline_started_at_utc",
@@ -45,7 +58,7 @@ PIPELINE_MANIFEST_COLS = [
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run the operator refresh pipeline end-to-end: refresh selected sites, then QA-gate the rebuilt operator stack."
+        description="Run the operator refresh pipeline end-to-end and expose refresh-QA-validated discovery preview counts in the final pipeline manifest."
     )
     parser.add_argument(
         "--sites",
@@ -88,6 +101,12 @@ def read_required_csv(path: Path) -> pd.DataFrame:
     if not path.exists():
         raise SystemExit(f"missing required output: {path}")
     return pd.read_csv(path, low_memory=False, encoding="utf-8-sig")
+
+
+def ensure_columns(df: pd.DataFrame, required: list[str], name: str) -> None:
+    missing = [col for col in required if col not in df.columns]
+    if missing:
+        raise SystemExit(f"{name} missing columns: {missing}")
 
 
 def numeric_int(value: object) -> int:
@@ -219,6 +238,7 @@ def main() -> None:
         qa_summary = read_required_csv(share_dir / QA_SUMMARY_NAME)
         if qa_summary.empty:
             raise SystemExit("qa summary is empty")
+        ensure_columns(qa_summary, REQUIRED_QA_SUMMARY_COLS, QA_SUMMARY_NAME)
         qa_summary_row = qa_summary.iloc[0]
         qa_pass_flag = numeric_int(qa_summary_row.get("qa_pass_flag"))
 
