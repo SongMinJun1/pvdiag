@@ -10,12 +10,20 @@ import build_panel_day_engine_run_ranker_v2_holdout_audit as holdout_base
 
 ATTENTION_NOW_NAME = "panel_day_engine_operator_attention_now_v1.csv"
 SECONDARY_VALUE_PANELS_NAME = "panel_day_engine_operator_secondary_discovery_value_panels_v1.csv"
+POLICY_RECOMMENDATION_NAME = "panel_day_engine_operator_discovery_preview_policy_recommendation_v1.csv"
 
 PREVIEW_OUTPUT_NAME = "panel_day_engine_operator_attention_plus_discovery_preview_v1.csv"
 SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_attention_plus_discovery_preview_summary_v1.csv"
+NARROW_PREVIEW_OUTPUT_NAME = "panel_day_engine_operator_attention_plus_discovery_preview_narrow_v1.csv"
+NARROW_SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_attention_plus_discovery_preview_narrow_summary_v1.csv"
 
 PANEL_KEY_COLS = ["site", "panel_id"]
 ALLOWED_PREVIEW_CLASSES = {"queue_run", "watch_now_panel", "secondary_value_panel"}
+ALLOWED_POLICY_FAMILIES = {
+    "score_threshold",
+    "topk_per_site",
+    "threshold_plus_topk_per_site",
+}
 CLASS_PRIORITY = {
     "queue_run": 0,
     "watch_now_panel": 1,
@@ -52,6 +60,7 @@ REQUIRED_SECONDARY_COLS = [
     "any_future_truth_linked_ref_flag",
     "value_panel_reason_ko",
 ]
+REQUIRED_POLICY_RECOMMENDATION_COLS = ["recommended_policy_name"]
 
 PREVIEW_COLS = [
     "preview_attention_class",
@@ -69,6 +78,11 @@ PREVIEW_COLS = [
     "attention_any_future_truth_linked_ref_flag",
     "preview_reason_ko",
 ]
+NARROW_PREVIEW_COLS = [
+    *PREVIEW_COLS,
+    "preview_policy_name",
+    "is_narrow_discovery_row_flag",
+]
 
 SUMMARY_COLS = [
     "record_type",
@@ -81,6 +95,22 @@ SUMMARY_COLS = [
     "preview_future_fault_linked_ref_count",
     "preview_future_truth_linked_ref_count",
     "secondary_incremental_fault_or_truth_linked_panel_count",
+    "note_ko",
+]
+NARROW_SUMMARY_COLS = [
+    "record_type",
+    "site",
+    "preview_policy_name",
+    "narrow_preview_attention_count",
+    "queue_run_count",
+    "watch_now_panel_count",
+    "secondary_value_panel_count",
+    "overlap_panel_count",
+    "narrow_preview_future_fault_linked_ref_count",
+    "narrow_preview_future_truth_linked_ref_count",
+    "narrow_incremental_fault_or_truth_linked_panel_count",
+    "narrow_selected_site_count",
+    "narrow_max_single_site_share",
     "note_ko",
 ]
 
@@ -125,6 +155,84 @@ def ensure_unique_panels(df: pd.DataFrame, name: str) -> None:
     if df.duplicated(subset=PANEL_KEY_COLS).any():
         dup_df = df.loc[df.duplicated(subset=PANEL_KEY_COLS, keep=False), PANEL_KEY_COLS].drop_duplicates()
         raise SystemExit(f"{name} must be unique by {PANEL_KEY_COLS}, got duplicates: {dup_df.to_dict('records')}")
+
+
+def parse_numeric(value: str) -> float:
+    try:
+        return float(value)
+    except ValueError as exc:
+        raise SystemExit(f"invalid numeric threshold in preview policy recommendation: {value}") from exc
+
+
+def parse_policy_name(policy_name: str) -> dict[str, object]:
+    text = holdout_base.normalize_text(policy_name)
+    if not text or "|" not in text:
+        raise SystemExit(f"recommended_policy_name must be '<family>|<policy_spec>', got: {policy_name}")
+    family, policy_spec = text.split("|", 1)
+    family = holdout_base.normalize_text(family)
+    policy_spec = holdout_base.normalize_text(policy_spec)
+    if family not in ALLOWED_POLICY_FAMILIES:
+        raise SystemExit(f"unsupported recommended policy family: {family}")
+
+    if family == "score_threshold":
+        if ">=" not in policy_spec:
+            raise SystemExit(f"score_threshold policy must look like 'field>=value', got: {policy_spec}")
+        field, threshold = policy_spec.split(">=", 1)
+        field = holdout_base.normalize_text(field)
+        if field != "representative_electrical_core_minus_broadshape_050":
+            raise SystemExit(f"score_threshold field must be representative_electrical_core_minus_broadshape_050, got: {field}")
+        return {
+            "policy_name": text,
+            "policy_family": family,
+            "policy_spec": policy_spec,
+            "threshold": parse_numeric(holdout_base.normalize_text(threshold)),
+        }
+
+    if family == "topk_per_site":
+        prefix = "top_"
+        suffix = "_per_site_by_representative_electrical_core_minus_broadshape_050"
+        if not policy_spec.startswith(prefix) or not policy_spec.endswith(suffix):
+            raise SystemExit(f"topk_per_site policy must match 'top_K_per_site_by_representative_electrical_core_minus_broadshape_050', got: {policy_spec}")
+        top_k_text = policy_spec[len(prefix) : -len(suffix)]
+        if not top_k_text.isdigit():
+            raise SystemExit(f"topk_per_site K must be integer, got: {top_k_text}")
+        return {
+            "policy_name": text,
+            "policy_family": family,
+            "policy_spec": policy_spec,
+            "top_k": int(top_k_text),
+        }
+
+    if family == "threshold_plus_topk_per_site":
+        parts = policy_spec.split("&")
+        if len(parts) != 2:
+            raise SystemExit(
+                "threshold_plus_topk_per_site policy must look like "
+                "'representative_electrical_core_minus_broadshape_050>=T&top_K_per_site_by_representative_electrical_core_minus_broadshape_050'"
+            )
+        threshold_policy = parse_policy_name(f"score_threshold|{parts[0]}")
+        topk_policy = parse_policy_name(f"topk_per_site|{parts[1]}")
+        return {
+            "policy_name": text,
+            "policy_family": family,
+            "policy_spec": policy_spec,
+            "threshold": float(threshold_policy["threshold"]),
+            "top_k": int(topk_policy["top_k"]),
+        }
+
+    raise SystemExit(f"unsupported recommended policy family: {family}")
+
+
+def load_policy_recommendation(root: Path) -> dict[str, object]:
+    path = root / "_share" / POLICY_RECOMMENDATION_NAME
+    df = holdout_base.drop_repeated_header_rows(read_csv(path))
+    ensure_columns(df, REQUIRED_POLICY_RECOMMENDATION_COLS, path.name)
+    if len(df) != 1:
+        raise SystemExit(f"{path.name} must contain exactly one row")
+    policy_name = holdout_base.normalize_text(df.iloc[0]["recommended_policy_name"])
+    if not policy_name:
+        raise SystemExit(f"{path.name} must provide recommended_policy_name")
+    return parse_policy_name(policy_name)
 
 
 def load_baseline_attention(root: Path) -> pd.DataFrame:
@@ -175,7 +283,7 @@ def load_baseline_attention(root: Path) -> pd.DataFrame:
     return preview_df.loc[:, PREVIEW_COLS].copy()
 
 
-def load_secondary_value_panels(root: Path) -> pd.DataFrame:
+def load_secondary_value_panel_source(root: Path) -> pd.DataFrame:
     path = root / "_share" / SECONDARY_VALUE_PANELS_NAME
     df = holdout_base.drop_repeated_header_rows(read_csv(path))
     ensure_columns(df, REQUIRED_SECONDARY_COLS, path.name)
@@ -193,7 +301,10 @@ def load_secondary_value_panels(root: Path) -> pd.DataFrame:
     df["value_run_count_for_panel"] = pd.to_numeric(df["value_run_count_for_panel"], errors="coerce")
     df["any_future_fault_linked_ref_flag"] = normalize_flag(df["any_future_fault_linked_ref_flag"])
     df["any_future_truth_linked_ref_flag"] = normalize_flag(df["any_future_truth_linked_ref_flag"])
+    return df.loc[:, REQUIRED_SECONDARY_COLS].copy()
 
+
+def build_secondary_preview_rows(df: pd.DataFrame) -> pd.DataFrame:
     preview_reason = (
         "baseline attention에 없는 secondary discovery value panel preview, "
         + df["value_panel_reason_ko"].fillna("").astype(str)
@@ -218,6 +329,10 @@ def load_secondary_value_panels(root: Path) -> pd.DataFrame:
         }
     )
     return preview_df.loc[:, PREVIEW_COLS].copy()
+
+
+def load_secondary_value_panels(root: Path) -> pd.DataFrame:
+    return build_secondary_preview_rows(load_secondary_value_panel_source(root))
 
 
 def sort_preview(preview_df: pd.DataFrame) -> pd.DataFrame:
@@ -245,6 +360,64 @@ def build_preview(baseline_df: pd.DataFrame, secondary_df: pd.DataFrame) -> tupl
     preview_df = pd.concat([baseline_df, appended_secondary_df.loc[:, PREVIEW_COLS]], ignore_index=True)
     preview_df = sort_preview(preview_df)
     return preview_df, secondary_df
+
+
+def select_policy_source_rows(source_df: pd.DataFrame, policy: dict[str, object]) -> pd.DataFrame:
+    family = str(policy["policy_family"])
+    working = source_df.copy()
+    working["site_rank_by_score"] = (
+        working.sort_values(
+            ["representative_electrical_core_minus_broadshape_050", "site", "panel_id"],
+            ascending=[False, True, True],
+            kind="mergesort",
+        )
+        .groupby("site", dropna=False)
+        .cumcount()
+        .add(1)
+    )
+    if family == "score_threshold":
+        return working.loc[
+            working["representative_electrical_core_minus_broadshape_050"].ge(float(policy["threshold"]))
+        ].copy()
+    if family == "topk_per_site":
+        return working.loc[working["site_rank_by_score"].le(int(policy["top_k"]))].copy()
+    if family == "threshold_plus_topk_per_site":
+        return working.loc[
+            working["representative_electrical_core_minus_broadshape_050"].ge(float(policy["threshold"]))
+            & working["site_rank_by_score"].le(int(policy["top_k"]))
+        ].copy()
+    raise SystemExit(f"unsupported recommended policy family: {family}")
+
+
+def build_narrow_preview(
+    baseline_df: pd.DataFrame,
+    narrow_secondary_df: pd.DataFrame,
+    policy_name: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    baseline_keys = set(map(tuple, baseline_df.loc[:, PANEL_KEY_COLS].itertuples(index=False, name=None)))
+    secondary_enriched_df = narrow_secondary_df.copy()
+    secondary_enriched_df["overlap_with_baseline_flag"] = secondary_enriched_df.apply(
+        lambda row: (row["site"], row["panel_id"]) in baseline_keys,
+        axis=1,
+    ).astype(int)
+
+    baseline_rows = baseline_df.copy()
+    baseline_rows["preview_policy_name"] = policy_name
+    baseline_rows["is_narrow_discovery_row_flag"] = 0
+
+    appended_secondary_df = secondary_enriched_df.loc[secondary_enriched_df["overlap_with_baseline_flag"].eq(0)].copy()
+    appended_secondary_df["preview_policy_name"] = policy_name
+    appended_secondary_df["is_narrow_discovery_row_flag"] = 1
+
+    narrow_preview_df = pd.concat(
+        [
+            baseline_rows.loc[:, NARROW_PREVIEW_COLS],
+            appended_secondary_df.loc[:, NARROW_PREVIEW_COLS],
+        ],
+        ignore_index=True,
+    )
+    narrow_preview_df = sort_preview(narrow_preview_df)
+    return narrow_preview_df, secondary_enriched_df
 
 
 def build_summary(preview_df: pd.DataFrame, baseline_df: pd.DataFrame, secondary_df: pd.DataFrame) -> pd.DataFrame:
@@ -306,11 +479,93 @@ def build_summary(preview_df: pd.DataFrame, baseline_df: pd.DataFrame, secondary
     return pd.DataFrame(rows, columns=SUMMARY_COLS)
 
 
-def save_outputs(root: Path, preview_df: pd.DataFrame, summary_df: pd.DataFrame) -> None:
+def build_narrow_summary(
+    narrow_preview_df: pd.DataFrame,
+    baseline_df: pd.DataFrame,
+    narrow_secondary_df: pd.DataFrame,
+    policy_name: str,
+) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    narrow_secondary_df = narrow_secondary_df.copy()
+    narrow_secondary_df["narrow_incremental_fault_or_truth_linked_panel_flag"] = (
+        narrow_secondary_df["overlap_with_baseline_flag"].eq(0)
+        & (
+            narrow_secondary_df["attention_any_future_fault_linked_ref_flag"].eq(1)
+            | narrow_secondary_df["attention_any_future_truth_linked_ref_flag"].eq(1)
+        )
+    ).astype(int)
+    narrow_secondary_df["included_in_narrow_preview_flag"] = narrow_secondary_df["overlap_with_baseline_flag"].eq(0).astype(int)
+
+    def summarize(site: str, record_type: str) -> None:
+        if record_type == "overall":
+            preview_subset = narrow_preview_df.copy()
+            secondary_subset = narrow_secondary_df.copy()
+        else:
+            preview_subset = narrow_preview_df.loc[narrow_preview_df["site"].eq(site)].copy()
+            secondary_subset = narrow_secondary_df.loc[narrow_secondary_df["site"].eq(site)].copy()
+        included_secondary = secondary_subset.loc[secondary_subset["included_in_narrow_preview_flag"].eq(1)].copy()
+        if not included_secondary.empty:
+            site_counts = included_secondary.groupby("site", dropna=False).size()
+            max_site_share = float(site_counts.max()) / float(len(included_secondary))
+            selected_site_count = int(included_secondary["site"].nunique())
+        else:
+            max_site_share = None
+            selected_site_count = 0
+        rows.append(
+            {
+                "record_type": record_type,
+                "site": site,
+                "preview_policy_name": policy_name,
+                "narrow_preview_attention_count": int(len(preview_subset)),
+                "queue_run_count": int(preview_subset["preview_attention_class"].eq("queue_run").sum()),
+                "watch_now_panel_count": int(preview_subset["preview_attention_class"].eq("watch_now_panel").sum()),
+                "secondary_value_panel_count": int(preview_subset["preview_attention_class"].eq("secondary_value_panel").sum()),
+                "overlap_panel_count": int(secondary_subset["overlap_with_baseline_flag"].sum()) if not secondary_subset.empty else 0,
+                "narrow_preview_future_fault_linked_ref_count": int(
+                    normalize_flag(preview_subset["attention_any_future_fault_linked_ref_flag"]).sum()
+                )
+                if not preview_subset.empty
+                else 0,
+                "narrow_preview_future_truth_linked_ref_count": int(
+                    normalize_flag(preview_subset["attention_any_future_truth_linked_ref_flag"]).sum()
+                )
+                if not preview_subset.empty
+                else 0,
+                "narrow_incremental_fault_or_truth_linked_panel_count": int(
+                    included_secondary["narrow_incremental_fault_or_truth_linked_panel_flag"].sum()
+                )
+                if not included_secondary.empty
+                else 0,
+                "narrow_selected_site_count": selected_site_count,
+                "narrow_max_single_site_share": max_site_share,
+                "note_ko": "full preview는 유지하고, recommended current-state policy를 적용한 narrow discovery preview variant를 side-by-side로 제공",
+            }
+        )
+
+    summarize("", "overall")
+    all_sites = sorted(
+        set(baseline_df["site"].dropna().map(holdout_base.normalize_text).unique()).union(
+            set(narrow_secondary_df["site"].dropna().map(holdout_base.normalize_text).unique())
+        )
+    )
+    for site in all_sites:
+        summarize(site, "site")
+    return pd.DataFrame(rows, columns=NARROW_SUMMARY_COLS)
+
+
+def save_outputs(
+    root: Path,
+    preview_df: pd.DataFrame,
+    summary_df: pd.DataFrame,
+    narrow_preview_df: pd.DataFrame,
+    narrow_summary_df: pd.DataFrame,
+) -> None:
     share_dir = root / "_share"
     share_dir.mkdir(parents=True, exist_ok=True)
     preview_df.to_csv(share_dir / PREVIEW_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary_df.to_csv(share_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
+    narrow_preview_df.to_csv(share_dir / NARROW_PREVIEW_OUTPUT_NAME, index=False, encoding="utf-8-sig")
+    narrow_summary_df.to_csv(share_dir / NARROW_SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
 
 
 def main() -> None:
@@ -318,10 +573,26 @@ def main() -> None:
     root = args.root.resolve()
 
     baseline_df = load_baseline_attention(root)
-    secondary_df = load_secondary_value_panels(root)
+    secondary_source_df = load_secondary_value_panel_source(root)
+    secondary_df = build_secondary_preview_rows(secondary_source_df)
     preview_df, secondary_enriched_df = build_preview(baseline_df, secondary_df)
     summary_df = build_summary(preview_df, baseline_df, secondary_enriched_df)
-    save_outputs(root, preview_df, summary_df)
+
+    policy = load_policy_recommendation(root)
+    narrow_source_df = select_policy_source_rows(secondary_source_df, policy)
+    narrow_secondary_df = build_secondary_preview_rows(narrow_source_df)
+    narrow_preview_df, narrow_secondary_enriched_df = build_narrow_preview(
+        baseline_df,
+        narrow_secondary_df,
+        str(policy["policy_name"]),
+    )
+    narrow_summary_df = build_narrow_summary(
+        narrow_preview_df,
+        baseline_df,
+        narrow_secondary_enriched_df,
+        str(policy["policy_name"]),
+    )
+    save_outputs(root, preview_df, summary_df, narrow_preview_df, narrow_summary_df)
 
 
 if __name__ == "__main__":

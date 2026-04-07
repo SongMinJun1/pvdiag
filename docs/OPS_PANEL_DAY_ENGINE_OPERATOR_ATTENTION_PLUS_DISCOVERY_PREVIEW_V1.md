@@ -12,6 +12,11 @@
   - current baseline watch-now rows
   - non-overlapping secondary discovery value panels
 - This keeps the baseline files unchanged while still making the potential additive coverage visible.
+- The full preview remains unchanged even after the later policy audit.
+- Instead, a second narrower preview variant is added side by side so we can compare:
+  - the full exploratory preview
+  - the recommended current-state narrowed preview
+  before changing any operator-facing baseline behavior.
 
 ## Why Queue / Watch Remain The Primary Baseline
 - Queue and watch-now rows remain the primary operator baseline because they are the existing, deterministic, already-adopted attention surfaces.
@@ -19,6 +24,10 @@
 - In other words:
   - baseline rows stay authoritative
   - discovery rows are additive preview only
+- This remains a preview-layer integration only:
+  - detector logic is unchanged
+  - scorer logic is unchanged
+  - baseline artifacts are unchanged
 
 ## How To Interpret `secondary_value_panel` Rows
 - `secondary_value_panel` means:
@@ -30,6 +39,14 @@
 - Retrospective future fault / truth flags remain reference-only context:
   - useful for audit and calibration
   - not an online input to the preview creation logic
+
+## Why The Current Narrow Recommendation Is Score-Threshold Based
+- The completed preview policy audit found that a simple threshold on `representative_electrical_core_minus_broadshape_050` preserved most linked retrospective value while trimming preview load.
+- That means the currently recommended narrow preview is deterministic and electrical-score based, not a new learned selector.
+- The narrow preview should therefore be interpreted as:
+  - the same operator-facing preview concept
+  - with a stricter discovery append policy
+  - not as a replacement for queue/watch baseline attention
 
 ## Scope Notes
 - This is a non-core operator-facing patch.

@@ -43,6 +43,10 @@ SECONDARY_COLS = [
     "value_panel_reason_ko",
 ]
 
+POLICY_RECOMMENDATION_COLS = [
+    "recommended_policy_name",
+]
+
 
 def run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True)
@@ -160,6 +164,11 @@ def build_fixture_root(tmp_root: Path) -> None:
         secondary_rows,
         SECONDARY_COLS,
     )
+    write_csv(
+        share_dir / "panel_day_engine_operator_discovery_preview_policy_recommendation_v1.csv",
+        [{"recommended_policy_name": "score_threshold|representative_electrical_core_minus_broadshape_050>=9"}],
+        POLICY_RECOMMENDATION_COLS,
+    )
 
 
 def normalize_df_for_compare(df: pd.DataFrame) -> pd.DataFrame:
@@ -190,16 +199,54 @@ def main() -> None:
 
         preview_path = tmp_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_preview_v1.csv"
         summary_path = tmp_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_preview_summary_v1.csv"
+        narrow_preview_path = tmp_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_preview_narrow_v1.csv"
+        narrow_summary_path = tmp_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_preview_narrow_summary_v1.csv"
         assert_true(preview_path.exists(), "missing preview output")
         assert_true(summary_path.exists(), "missing preview summary output")
+        assert_true(narrow_preview_path.exists(), "missing narrow preview output")
+        assert_true(narrow_summary_path.exists(), "missing narrow preview summary output")
 
         observed_preview = pd.read_csv(preview_path, encoding="utf-8-sig")
         observed_summary = pd.read_csv(summary_path, encoding="utf-8-sig")
+        observed_narrow_preview = pd.read_csv(narrow_preview_path, encoding="utf-8-sig")
+        observed_narrow_summary = pd.read_csv(narrow_summary_path, encoding="utf-8-sig")
 
         baseline_df = builder_mod.load_baseline_attention(tmp_root)
-        secondary_df = builder_mod.load_secondary_value_panels(tmp_root)
+        secondary_source_df = builder_mod.load_secondary_value_panel_source(tmp_root)
+        secondary_df = builder_mod.build_secondary_preview_rows(secondary_source_df)
         expected_preview, secondary_enriched_df = builder_mod.build_preview(baseline_df, secondary_df)
         expected_summary = builder_mod.build_summary(expected_preview, baseline_df, secondary_enriched_df)
+        policy = builder_mod.load_policy_recommendation(tmp_root)
+        narrow_source_df = builder_mod.select_policy_source_rows(secondary_source_df, policy)
+        narrow_secondary_df = builder_mod.build_secondary_preview_rows(narrow_source_df)
+        expected_narrow_preview, narrow_secondary_enriched_df = builder_mod.build_narrow_preview(
+            baseline_df,
+            narrow_secondary_df,
+            str(policy["policy_name"]),
+        )
+        expected_narrow_summary = builder_mod.build_narrow_summary(
+            expected_narrow_preview,
+            baseline_df,
+            narrow_secondary_enriched_df,
+            str(policy["policy_name"]),
+        )
+
+        assert_true(
+            observed_preview.columns.tolist() == builder_mod.PREVIEW_COLS,
+            "full preview schema should remain unchanged",
+        )
+        assert_true(
+            observed_summary.columns.tolist() == builder_mod.SUMMARY_COLS,
+            "full preview summary schema should remain unchanged",
+        )
+        assert_true(
+            observed_narrow_preview.columns.tolist() == builder_mod.NARROW_PREVIEW_COLS,
+            "narrow preview schema mismatch",
+        )
+        assert_true(
+            observed_narrow_summary.columns.tolist() == builder_mod.NARROW_SUMMARY_COLS,
+            "narrow preview summary schema mismatch",
+        )
 
         assert_true(
             normalize_df_for_compare(observed_preview.loc[:, builder_mod.PREVIEW_COLS]).equals(
@@ -212,6 +259,18 @@ def main() -> None:
                 normalize_df_for_compare(expected_summary.loc[:, builder_mod.SUMMARY_COLS])
             ),
             "preview summary does not match expected counts",
+        )
+        assert_true(
+            normalize_df_for_compare(observed_narrow_preview.loc[:, builder_mod.NARROW_PREVIEW_COLS]).equals(
+                normalize_df_for_compare(expected_narrow_preview.loc[:, builder_mod.NARROW_PREVIEW_COLS])
+            ),
+            "narrow preview output does not match expected policy-filtered append",
+        )
+        assert_true(
+            normalize_df_for_compare(observed_narrow_summary.loc[:, builder_mod.NARROW_SUMMARY_COLS]).equals(
+                normalize_df_for_compare(expected_narrow_summary.loc[:, builder_mod.NARROW_SUMMARY_COLS])
+            ),
+            "narrow preview summary does not match expected policy-filtered counts",
         )
 
         baseline_keys = set(map(tuple, baseline_df.loc[:, ["site", "panel_id"]].itertuples(index=False, name=None)))
@@ -231,6 +290,67 @@ def main() -> None:
             "appended secondary row should use secondary_value_panel class",
         )
 
+        parsed_score_policy = builder_mod.parse_policy_name(
+            "score_threshold|representative_electrical_core_minus_broadshape_050>=9"
+        )
+        parsed_topk_policy = builder_mod.parse_policy_name(
+            "topk_per_site|top_2_per_site_by_representative_electrical_core_minus_broadshape_050"
+        )
+        parsed_combined_policy = builder_mod.parse_policy_name(
+            "threshold_plus_topk_per_site|representative_electrical_core_minus_broadshape_050>=10&top_3_per_site_by_representative_electrical_core_minus_broadshape_050"
+        )
+        assert_true(parsed_score_policy["policy_family"] == "score_threshold", "score_threshold policy parse failed")
+        assert_true(int(parsed_topk_policy["top_k"]) == 2, "topk_per_site policy parse failed")
+        assert_true(
+            parsed_combined_policy["policy_family"] == "threshold_plus_topk_per_site",
+            "threshold_plus_topk_per_site policy parse failed",
+        )
+
+        narrow_keys = list(
+            map(tuple, observed_narrow_preview.loc[:, ["site", "panel_id"]].itertuples(index=False, name=None))
+        )
+        full_discovery_keys = set(
+            map(
+                tuple,
+                observed_preview.loc[
+                    observed_preview["preview_attention_class"].astype(str).eq("secondary_value_panel"),
+                    ["site", "panel_id"],
+                ].itertuples(index=False, name=None),
+            )
+        )
+        narrow_discovery_keys = set(
+            map(
+                tuple,
+                observed_narrow_preview.loc[
+                    observed_narrow_preview["is_narrow_discovery_row_flag"].astype(int).eq(1),
+                    ["site", "panel_id"],
+                ].itertuples(index=False, name=None),
+            )
+        )
+        assert_true(
+            narrow_discovery_keys.issubset(full_discovery_keys),
+            "narrowed discovery rows should be a subset of full preview discovery rows",
+        )
+        for key in baseline_keys:
+            assert_true(key in narrow_keys, f"baseline row {key} should still be present in narrow preview")
+        assert_true(("beta", "beta.new") in narrow_discovery_keys, "policy-selected discovery panel should be present")
+        assert_true(("gamma", "gamma.new") not in narrow_discovery_keys, "below-threshold discovery panel should be excluded")
+        assert_true(("beta", "beta.overlap") not in narrow_discovery_keys, "overlapping discovery panel should stay suppressed")
+
+        beta_new_narrow_row = observed_narrow_preview.loc[
+            observed_narrow_preview["site"].astype(str).eq("beta")
+            & observed_narrow_preview["panel_id"].astype(str).eq("beta.new")
+        ].iloc[0]
+        assert_true(
+            str(beta_new_narrow_row["preview_policy_name"])
+            == "score_threshold|representative_electrical_core_minus_broadshape_050>=9",
+            "narrow preview policy name mismatch",
+        )
+        assert_true(
+            int(beta_new_narrow_row["is_narrow_discovery_row_flag"]) == 1,
+            "narrow discovery row flag mismatch",
+        )
+
         overall_row = observed_summary.loc[observed_summary["record_type"].astype(str).eq("overall")].iloc[0]
         assert_true(int(overall_row["preview_attention_count"]) == 5, "overall preview count mismatch")
         assert_true(int(overall_row["queue_run_count"]) == 2, "overall queue_run_count mismatch")
@@ -240,6 +360,29 @@ def main() -> None:
         assert_true(
             int(overall_row["secondary_incremental_fault_or_truth_linked_panel_count"]) == 1,
             "overall secondary incremental linked panel count mismatch",
+        )
+
+        narrow_overall_row = observed_narrow_summary.loc[
+            observed_narrow_summary["record_type"].astype(str).eq("overall")
+        ].iloc[0]
+        assert_true(
+            str(narrow_overall_row["preview_policy_name"])
+            == "score_threshold|representative_electrical_core_minus_broadshape_050>=9",
+            "overall narrow preview policy name mismatch",
+        )
+        assert_true(int(narrow_overall_row["narrow_preview_attention_count"]) == 4, "overall narrow preview count mismatch")
+        assert_true(int(narrow_overall_row["queue_run_count"]) == 2, "overall narrow queue_run_count mismatch")
+        assert_true(int(narrow_overall_row["watch_now_panel_count"]) == 1, "overall narrow watch_now_panel_count mismatch")
+        assert_true(int(narrow_overall_row["secondary_value_panel_count"]) == 1, "overall narrow secondary count mismatch")
+        assert_true(int(narrow_overall_row["overlap_panel_count"]) == 1, "overall narrow overlap count mismatch")
+        assert_true(
+            int(narrow_overall_row["narrow_incremental_fault_or_truth_linked_panel_count"]) == 1,
+            "overall narrow incremental linked count mismatch",
+        )
+        assert_true(int(narrow_overall_row["narrow_selected_site_count"]) == 1, "overall narrow selected site count mismatch")
+        assert_true(
+            abs(float(narrow_overall_row["narrow_max_single_site_share"]) - 1.0) < 1e-9,
+            "overall narrow max single site share mismatch",
         )
 
     print("smoke_test_panel_day_engine_operator_attention_plus_discovery_preview_v1.py: PASS")
