@@ -10,12 +10,15 @@ import build_panel_day_engine_run_ranker_v2_holdout_audit as holdout_base
 
 ATTENTION_NOW_NAME = "panel_day_engine_operator_attention_now_v1.csv"
 SECONDARY_VALUE_PANELS_NAME = "panel_day_engine_operator_secondary_discovery_value_panels_v1.csv"
+SECONDARY_CLUSTER_ROLLUP_NAME = "panel_day_engine_operator_secondary_discovery_cluster_rollup_v1.csv"
 POLICY_RECOMMENDATION_NAME = "panel_day_engine_operator_discovery_preview_policy_recommendation_v1.csv"
 
 PREVIEW_OUTPUT_NAME = "panel_day_engine_operator_attention_plus_discovery_preview_v1.csv"
 SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_attention_plus_discovery_preview_summary_v1.csv"
 NARROW_PREVIEW_OUTPUT_NAME = "panel_day_engine_operator_attention_plus_discovery_preview_narrow_v1.csv"
 NARROW_SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_attention_plus_discovery_preview_narrow_summary_v1.csv"
+CLUSTER_PREVIEW_OUTPUT_NAME = "panel_day_engine_operator_attention_plus_discovery_cluster_preview_v1.csv"
+CLUSTER_PREVIEW_SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv"
 
 PANEL_KEY_COLS = ["site", "panel_id"]
 ALLOWED_PREVIEW_CLASSES = {"queue_run", "watch_now_panel", "secondary_value_panel"}
@@ -28,6 +31,7 @@ CLASS_PRIORITY = {
     "queue_run": 0,
     "watch_now_panel": 1,
     "secondary_value_panel": 2,
+    "secondary_value_cluster": 3,
 }
 
 REQUIRED_ATTENTION_COLS = [
@@ -60,6 +64,19 @@ REQUIRED_SECONDARY_COLS = [
     "any_future_truth_linked_ref_flag",
     "value_panel_reason_ko",
 ]
+REQUIRED_CLUSTER_ROLLUP_COLS = [
+    "site",
+    "cluster_id",
+    "cluster_start_date",
+    "cluster_end_date",
+    "cluster_span_days",
+    "panel_count",
+    "panel_ids_csv",
+    "max_electrical_core_minus_broadshape_050_in_cluster",
+    "any_future_fault_linked_ref_flag",
+    "any_future_truth_linked_ref_flag",
+    "cluster_reason_ko",
+]
 REQUIRED_POLICY_RECOMMENDATION_COLS = ["recommended_policy_name"]
 
 PREVIEW_COLS = [
@@ -82,6 +99,22 @@ NARROW_PREVIEW_COLS = [
     *PREVIEW_COLS,
     "preview_policy_name",
     "is_narrow_discovery_row_flag",
+]
+CLUSTER_PREVIEW_COLS = [
+    "preview_attention_class",
+    "site",
+    "display_entity_id",
+    "display_start_date",
+    "display_end_date",
+    "display_span_or_day_count",
+    "display_shape_or_cluster_kind",
+    "display_status_or_tier",
+    "display_score",
+    "linked_ref_flag",
+    "truth_ref_flag",
+    "cluster_panel_count",
+    "member_overlap_with_attention_count",
+    "preview_reason_ko",
 ]
 
 SUMMARY_COLS = [
@@ -111,6 +144,19 @@ NARROW_SUMMARY_COLS = [
     "narrow_incremental_fault_or_truth_linked_panel_count",
     "narrow_selected_site_count",
     "narrow_max_single_site_share",
+    "note_ko",
+]
+CLUSTER_PREVIEW_SUMMARY_COLS = [
+    "record_type",
+    "site",
+    "cluster_preview_count",
+    "queue_run_count",
+    "watch_now_panel_count",
+    "secondary_value_cluster_count",
+    "cluster_panel_total_count",
+    "clusters_with_future_fault_linked_ref_count",
+    "clusters_with_future_truth_linked_ref_count",
+    "total_member_overlap_with_attention_count",
     "note_ko",
 ]
 
@@ -304,6 +350,28 @@ def load_secondary_value_panel_source(root: Path) -> pd.DataFrame:
     return df.loc[:, REQUIRED_SECONDARY_COLS].copy()
 
 
+def load_cluster_rollup_source(root: Path) -> pd.DataFrame:
+    path = root / "_share" / SECONDARY_CLUSTER_ROLLUP_NAME
+    df = holdout_base.drop_repeated_header_rows(read_csv(path))
+    ensure_columns(df, REQUIRED_CLUSTER_ROLLUP_COLS, path.name)
+    df = df.copy()
+    df["site"] = df["site"].map(holdout_base.normalize_text)
+    df["cluster_id"] = df["cluster_id"].map(holdout_base.normalize_text)
+    if df.duplicated(subset=["site", "cluster_id"]).any():
+        dup_df = df.loc[df.duplicated(subset=["site", "cluster_id"], keep=False), ["site", "cluster_id"]].drop_duplicates()
+        raise SystemExit(f"{path.name} must be unique by ['site', 'cluster_id'], got duplicates: {dup_df.to_dict('records')}")
+    df["cluster_span_days"] = pd.to_numeric(df["cluster_span_days"], errors="coerce")
+    df["panel_count"] = pd.to_numeric(df["panel_count"], errors="coerce")
+    df["max_electrical_core_minus_broadshape_050_in_cluster"] = pd.to_numeric(
+        df["max_electrical_core_minus_broadshape_050_in_cluster"],
+        errors="coerce",
+    )
+    df["any_future_fault_linked_ref_flag"] = normalize_flag(df["any_future_fault_linked_ref_flag"])
+    df["any_future_truth_linked_ref_flag"] = normalize_flag(df["any_future_truth_linked_ref_flag"])
+    df["panel_ids_csv"] = df["panel_ids_csv"].fillna("").astype(str)
+    return df.loc[:, REQUIRED_CLUSTER_ROLLUP_COLS].copy()
+
+
 def build_secondary_preview_rows(df: pd.DataFrame) -> pd.DataFrame:
     preview_reason = (
         "baseline attention에 없는 secondary discovery value panel preview, "
@@ -344,6 +412,97 @@ def sort_preview(preview_df: pd.DataFrame) -> pd.DataFrame:
     sorted_df = sorted_df.sort_values(
         ["_class_priority", "clipped_operator_score", "display_day_count", "site", "panel_id"],
         ascending=[True, False, False, True, True],
+        kind="mergesort",
+    ).reset_index(drop=True)
+    return sorted_df.drop(columns="_class_priority")
+
+
+def count_member_overlap(panel_ids_csv: str, site: str, baseline_keys: set[tuple[str, str]]) -> int:
+    panel_ids = [
+        holdout_base.normalize_text(panel_id)
+        for panel_id in str(panel_ids_csv).split(",")
+        if holdout_base.normalize_text(panel_id)
+    ]
+    site_text = holdout_base.normalize_text(site)
+    return int(sum((site_text, panel_id) in baseline_keys for panel_id in panel_ids))
+
+
+def build_cluster_preview(
+    baseline_df: pd.DataFrame,
+    cluster_source_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    baseline_keys = set(map(tuple, baseline_df.loc[:, PANEL_KEY_COLS].itertuples(index=False, name=None)))
+    baseline_rows = pd.DataFrame(
+        {
+            "preview_attention_class": baseline_df["preview_attention_class"],
+            "site": baseline_df["site"],
+            "display_entity_id": baseline_df["panel_id"],
+            "display_start_date": baseline_df["display_start_date"],
+            "display_end_date": baseline_df["display_end_date"],
+            "display_span_or_day_count": baseline_df["display_day_count"],
+            "display_shape_or_cluster_kind": baseline_df["display_shape_class"],
+            "display_status_or_tier": baseline_df["display_status_or_tier"],
+            "display_score": baseline_df["clipped_operator_score"],
+            "linked_ref_flag": baseline_df["attention_any_future_fault_linked_ref_flag"],
+            "truth_ref_flag": baseline_df["attention_any_future_truth_linked_ref_flag"],
+            "cluster_panel_count": 1,
+            "member_overlap_with_attention_count": 0,
+            "preview_reason_ko": baseline_df["preview_reason_ko"],
+        }
+    )
+
+    cluster_enriched_df = cluster_source_df.copy()
+    cluster_enriched_df["member_overlap_with_attention_count"] = cluster_enriched_df.apply(
+        lambda row: count_member_overlap(row["panel_ids_csv"], row["site"], baseline_keys),
+        axis=1,
+    ).astype(int)
+
+    cluster_reason_prefix = cluster_enriched_df["any_future_fault_linked_ref_flag"].eq(1).map(
+        lambda flag: "cluster 압축 preview이며 retrospective fault linkage reference가 있음"
+        if flag
+        else None
+    )
+    cluster_reason_prefix = cluster_reason_prefix.where(
+        cluster_reason_prefix.notna(),
+        cluster_enriched_df["any_future_truth_linked_ref_flag"].eq(1).map(
+            lambda flag: "cluster 압축 preview이며 retrospective truth linkage reference가 있음"
+            if flag
+            else "cluster 압축 preview로 site skew와 operator load를 낮춤"
+        ),
+    )
+    cluster_rows = pd.DataFrame(
+        {
+            "preview_attention_class": "secondary_value_cluster",
+            "site": cluster_enriched_df["site"],
+            "display_entity_id": cluster_enriched_df["cluster_id"],
+            "display_start_date": cluster_enriched_df["cluster_start_date"],
+            "display_end_date": cluster_enriched_df["cluster_end_date"],
+            "display_span_or_day_count": cluster_enriched_df["cluster_span_days"],
+            "display_shape_or_cluster_kind": "discovery_cluster",
+            "display_status_or_tier": "secondary_discovery_cluster",
+            "display_score": cluster_enriched_df["max_electrical_core_minus_broadshape_050_in_cluster"],
+            "linked_ref_flag": cluster_enriched_df["any_future_fault_linked_ref_flag"],
+            "truth_ref_flag": cluster_enriched_df["any_future_truth_linked_ref_flag"],
+            "cluster_panel_count": cluster_enriched_df["panel_count"],
+            "member_overlap_with_attention_count": cluster_enriched_df["member_overlap_with_attention_count"],
+            "preview_reason_ko": cluster_reason_prefix + ", " + cluster_enriched_df["cluster_reason_ko"].fillna("").astype(str),
+        }
+    )
+
+    preview_df = pd.concat([baseline_rows.loc[:, CLUSTER_PREVIEW_COLS], cluster_rows.loc[:, CLUSTER_PREVIEW_COLS]], ignore_index=True)
+    preview_df = sort_cluster_preview(preview_df)
+    return preview_df, cluster_enriched_df
+
+
+def sort_cluster_preview(preview_df: pd.DataFrame) -> pd.DataFrame:
+    sorted_df = preview_df.copy()
+    sorted_df["_class_priority"] = sorted_df["preview_attention_class"].map(CLASS_PRIORITY).fillna(99)
+    sorted_df["display_score"] = pd.to_numeric(sorted_df["display_score"], errors="coerce")
+    sorted_df["cluster_panel_count"] = pd.to_numeric(sorted_df["cluster_panel_count"], errors="coerce")
+    sorted_df["display_span_or_day_count"] = pd.to_numeric(sorted_df["display_span_or_day_count"], errors="coerce")
+    sorted_df = sorted_df.sort_values(
+        ["_class_priority", "display_score", "cluster_panel_count", "display_span_or_day_count", "site", "display_entity_id"],
+        ascending=[True, False, False, False, True, True],
         kind="mergesort",
     ).reset_index(drop=True)
     return sorted_df.drop(columns="_class_priority")
@@ -553,12 +712,60 @@ def build_narrow_summary(
     return pd.DataFrame(rows, columns=NARROW_SUMMARY_COLS)
 
 
+def build_cluster_preview_summary(
+    cluster_preview_df: pd.DataFrame,
+    cluster_source_df: pd.DataFrame,
+) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+
+    def summarize(site: str, record_type: str) -> None:
+        if record_type == "overall":
+            preview_subset = cluster_preview_df.copy()
+            cluster_subset = cluster_source_df.copy()
+        else:
+            preview_subset = cluster_preview_df.loc[cluster_preview_df["site"].eq(site)].copy()
+            cluster_subset = cluster_source_df.loc[cluster_source_df["site"].eq(site)].copy()
+        rows.append(
+            {
+                "record_type": record_type,
+                "site": site,
+                "cluster_preview_count": int(len(preview_subset)),
+                "queue_run_count": int(preview_subset["preview_attention_class"].eq("queue_run").sum()),
+                "watch_now_panel_count": int(preview_subset["preview_attention_class"].eq("watch_now_panel").sum()),
+                "secondary_value_cluster_count": int(preview_subset["preview_attention_class"].eq("secondary_value_cluster").sum()),
+                "cluster_panel_total_count": int(cluster_subset["panel_count"].sum()) if not cluster_subset.empty else 0,
+                "clusters_with_future_fault_linked_ref_count": int(cluster_subset["any_future_fault_linked_ref_flag"].sum())
+                if not cluster_subset.empty
+                else 0,
+                "clusters_with_future_truth_linked_ref_count": int(cluster_subset["any_future_truth_linked_ref_flag"].sum())
+                if not cluster_subset.empty
+                else 0,
+                "total_member_overlap_with_attention_count": int(cluster_subset["member_overlap_with_attention_count"].sum())
+                if not cluster_subset.empty
+                else 0,
+                "note_ko": "baseline queue/watch는 유지하고, secondary discovery cluster를 side-by-side preview로 추가",
+            }
+        )
+
+    summarize("", "overall")
+    all_sites = sorted(
+        set(cluster_preview_df["site"].dropna().map(holdout_base.normalize_text).unique()).union(
+            set(cluster_source_df["site"].dropna().map(holdout_base.normalize_text).unique())
+        )
+    )
+    for site in all_sites:
+        summarize(site, "site")
+    return pd.DataFrame(rows, columns=CLUSTER_PREVIEW_SUMMARY_COLS)
+
+
 def save_outputs(
     root: Path,
     preview_df: pd.DataFrame,
     summary_df: pd.DataFrame,
     narrow_preview_df: pd.DataFrame,
     narrow_summary_df: pd.DataFrame,
+    cluster_preview_df: pd.DataFrame,
+    cluster_preview_summary_df: pd.DataFrame,
 ) -> None:
     share_dir = root / "_share"
     share_dir.mkdir(parents=True, exist_ok=True)
@@ -566,6 +773,8 @@ def save_outputs(
     summary_df.to_csv(share_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     narrow_preview_df.to_csv(share_dir / NARROW_PREVIEW_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     narrow_summary_df.to_csv(share_dir / NARROW_SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
+    cluster_preview_df.to_csv(share_dir / CLUSTER_PREVIEW_OUTPUT_NAME, index=False, encoding="utf-8-sig")
+    cluster_preview_summary_df.to_csv(share_dir / CLUSTER_PREVIEW_SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
 
 
 def main() -> None:
@@ -592,7 +801,18 @@ def main() -> None:
         narrow_secondary_enriched_df,
         str(policy["policy_name"]),
     )
-    save_outputs(root, preview_df, summary_df, narrow_preview_df, narrow_summary_df)
+    cluster_source_df = load_cluster_rollup_source(root)
+    cluster_preview_df, cluster_enriched_df = build_cluster_preview(baseline_df, cluster_source_df)
+    cluster_preview_summary_df = build_cluster_preview_summary(cluster_preview_df, cluster_enriched_df)
+    save_outputs(
+        root,
+        preview_df,
+        summary_df,
+        narrow_preview_df,
+        narrow_summary_df,
+        cluster_preview_df,
+        cluster_preview_summary_df,
+    )
 
 
 if __name__ == "__main__":

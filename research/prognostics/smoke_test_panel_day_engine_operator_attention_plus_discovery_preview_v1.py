@@ -43,6 +43,29 @@ SECONDARY_COLS = [
     "value_panel_reason_ko",
 ]
 
+CLUSTER_ROLLUP_COLS = [
+    "site",
+    "cluster_id",
+    "cluster_start_date",
+    "cluster_end_date",
+    "cluster_span_days",
+    "panel_count",
+    "panel_ids_csv",
+    "representative_panel_id",
+    "representative_run_start_date",
+    "representative_run_end_date",
+    "representative_run_day_count",
+    "representative_electrical_core_minus_broadshape_050",
+    "representative_logistic_v3_discovery_score",
+    "max_electrical_core_minus_broadshape_050_in_cluster",
+    "max_logistic_v3_discovery_score_in_cluster",
+    "future_fault_linked_ref_panel_count",
+    "future_truth_linked_ref_panel_count",
+    "any_future_fault_linked_ref_flag",
+    "any_future_truth_linked_ref_flag",
+    "cluster_reason_ko",
+]
+
 POLICY_RECOMMENDATION_COLS = [
     "recommended_policy_name",
 ]
@@ -169,6 +192,56 @@ def build_fixture_root(tmp_root: Path) -> None:
         [{"recommended_policy_name": "score_threshold|representative_electrical_core_minus_broadshape_050>=9"}],
         POLICY_RECOMMENDATION_COLS,
     )
+    write_csv(
+        share_dir / "panel_day_engine_operator_secondary_discovery_cluster_rollup_v1.csv",
+        [
+            {
+                "site": "alpha",
+                "cluster_id": "alpha_cluster_001",
+                "cluster_start_date": "2026-01-07",
+                "cluster_end_date": "2026-01-10",
+                "cluster_span_days": 4,
+                "panel_count": 2,
+                "panel_ids_csv": "alpha.queue,alpha.hidden",
+                "representative_panel_id": "alpha.hidden",
+                "representative_run_start_date": "2026-01-08",
+                "representative_run_end_date": "2026-01-10",
+                "representative_run_day_count": 3,
+                "representative_electrical_core_minus_broadshape_050": 11.0,
+                "representative_logistic_v3_discovery_score": 0.98,
+                "max_electrical_core_minus_broadshape_050_in_cluster": 11.0,
+                "max_logistic_v3_discovery_score_in_cluster": 0.98,
+                "future_fault_linked_ref_panel_count": 1,
+                "future_truth_linked_ref_panel_count": 0,
+                "any_future_fault_linked_ref_flag": 1,
+                "any_future_truth_linked_ref_flag": 0,
+                "cluster_reason_ko": "fixture alpha cluster",
+            },
+            {
+                "site": "beta",
+                "cluster_id": "beta_cluster_001",
+                "cluster_start_date": "2026-01-08",
+                "cluster_end_date": "2026-01-09",
+                "cluster_span_days": 2,
+                "panel_count": 1,
+                "panel_ids_csv": "beta.new",
+                "representative_panel_id": "beta.new",
+                "representative_run_start_date": "2026-01-08",
+                "representative_run_end_date": "2026-01-09",
+                "representative_run_day_count": 2,
+                "representative_electrical_core_minus_broadshape_050": 9.0,
+                "representative_logistic_v3_discovery_score": 0.97,
+                "max_electrical_core_minus_broadshape_050_in_cluster": 9.0,
+                "max_logistic_v3_discovery_score_in_cluster": 0.97,
+                "future_fault_linked_ref_panel_count": 0,
+                "future_truth_linked_ref_panel_count": 1,
+                "any_future_fault_linked_ref_flag": 0,
+                "any_future_truth_linked_ref_flag": 1,
+                "cluster_reason_ko": "fixture beta cluster",
+            },
+        ],
+        CLUSTER_ROLLUP_COLS,
+    )
 
 
 def normalize_df_for_compare(df: pd.DataFrame) -> pd.DataFrame:
@@ -201,15 +274,21 @@ def main() -> None:
         summary_path = tmp_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_preview_summary_v1.csv"
         narrow_preview_path = tmp_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_preview_narrow_v1.csv"
         narrow_summary_path = tmp_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_preview_narrow_summary_v1.csv"
+        cluster_preview_path = tmp_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_cluster_preview_v1.csv"
+        cluster_preview_summary_path = tmp_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv"
         assert_true(preview_path.exists(), "missing preview output")
         assert_true(summary_path.exists(), "missing preview summary output")
         assert_true(narrow_preview_path.exists(), "missing narrow preview output")
         assert_true(narrow_summary_path.exists(), "missing narrow preview summary output")
+        assert_true(cluster_preview_path.exists(), "missing cluster preview output")
+        assert_true(cluster_preview_summary_path.exists(), "missing cluster preview summary output")
 
         observed_preview = pd.read_csv(preview_path, encoding="utf-8-sig")
         observed_summary = pd.read_csv(summary_path, encoding="utf-8-sig")
         observed_narrow_preview = pd.read_csv(narrow_preview_path, encoding="utf-8-sig")
         observed_narrow_summary = pd.read_csv(narrow_summary_path, encoding="utf-8-sig")
+        observed_cluster_preview = pd.read_csv(cluster_preview_path, encoding="utf-8-sig")
+        observed_cluster_preview_summary = pd.read_csv(cluster_preview_summary_path, encoding="utf-8-sig")
 
         baseline_df = builder_mod.load_baseline_attention(tmp_root)
         secondary_source_df = builder_mod.load_secondary_value_panel_source(tmp_root)
@@ -230,6 +309,12 @@ def main() -> None:
             narrow_secondary_enriched_df,
             str(policy["policy_name"]),
         )
+        cluster_source_df = builder_mod.load_cluster_rollup_source(tmp_root)
+        expected_cluster_preview, cluster_enriched_df = builder_mod.build_cluster_preview(baseline_df, cluster_source_df)
+        expected_cluster_preview_summary = builder_mod.build_cluster_preview_summary(
+            expected_cluster_preview,
+            cluster_enriched_df,
+        )
 
         assert_true(
             observed_preview.columns.tolist() == builder_mod.PREVIEW_COLS,
@@ -246,6 +331,14 @@ def main() -> None:
         assert_true(
             observed_narrow_summary.columns.tolist() == builder_mod.NARROW_SUMMARY_COLS,
             "narrow preview summary schema mismatch",
+        )
+        assert_true(
+            observed_cluster_preview.columns.tolist() == builder_mod.CLUSTER_PREVIEW_COLS,
+            "cluster preview schema mismatch",
+        )
+        assert_true(
+            observed_cluster_preview_summary.columns.tolist() == builder_mod.CLUSTER_PREVIEW_SUMMARY_COLS,
+            "cluster preview summary schema mismatch",
         )
 
         assert_true(
@@ -271,6 +364,18 @@ def main() -> None:
                 normalize_df_for_compare(expected_narrow_summary.loc[:, builder_mod.NARROW_SUMMARY_COLS])
             ),
             "narrow preview summary does not match expected policy-filtered counts",
+        )
+        assert_true(
+            normalize_df_for_compare(observed_cluster_preview.loc[:, builder_mod.CLUSTER_PREVIEW_COLS]).equals(
+                normalize_df_for_compare(expected_cluster_preview.loc[:, builder_mod.CLUSTER_PREVIEW_COLS])
+            ),
+            "cluster preview output does not match expected baseline + cluster append",
+        )
+        assert_true(
+            normalize_df_for_compare(observed_cluster_preview_summary.loc[:, builder_mod.CLUSTER_PREVIEW_SUMMARY_COLS]).equals(
+                normalize_df_for_compare(expected_cluster_preview_summary.loc[:, builder_mod.CLUSTER_PREVIEW_SUMMARY_COLS])
+            ),
+            "cluster preview summary does not match expected counts",
         )
 
         baseline_keys = set(map(tuple, baseline_df.loc[:, ["site", "panel_id"]].itertuples(index=False, name=None)))
@@ -383,6 +488,65 @@ def main() -> None:
         assert_true(
             abs(float(narrow_overall_row["narrow_max_single_site_share"]) - 1.0) < 1e-9,
             "overall narrow max single site share mismatch",
+        )
+
+        cluster_preview_keys = list(
+            map(
+                tuple,
+                observed_cluster_preview.loc[
+                    observed_cluster_preview["preview_attention_class"].astype(str).isin(["queue_run", "watch_now_panel"]),
+                    ["site", "display_entity_id"],
+                ].itertuples(index=False, name=None),
+            )
+        )
+        for key in baseline_keys:
+            assert_true(key in cluster_preview_keys, f"baseline row {key} should be preserved in cluster preview")
+
+        cluster_ids = set(
+            observed_cluster_preview.loc[
+                observed_cluster_preview["preview_attention_class"].astype(str).eq("secondary_value_cluster"),
+                "display_entity_id",
+            ].astype(str)
+        )
+        assert_true(
+            cluster_ids == {"alpha_cluster_001", "beta_cluster_001"},
+            "cluster preview should append both cluster rows with cluster_id as display_entity_id",
+        )
+        alpha_cluster_row = observed_cluster_preview.loc[
+            observed_cluster_preview["display_entity_id"].astype(str).eq("alpha_cluster_001")
+        ].iloc[0]
+        assert_true(
+            int(alpha_cluster_row["member_overlap_with_attention_count"]) == 1,
+            "member_overlap_with_attention_count should detect overlapping attention member panels",
+        )
+        assert_true(
+            str(alpha_cluster_row["display_shape_or_cluster_kind"]) == "discovery_cluster",
+            "cluster row should use discovery_cluster shape/kind",
+        )
+        assert_true(
+            str(alpha_cluster_row["display_status_or_tier"]) == "secondary_discovery_cluster",
+            "cluster row should use secondary_discovery_cluster status",
+        )
+
+        cluster_overall_row = observed_cluster_preview_summary.loc[
+            observed_cluster_preview_summary["record_type"].astype(str).eq("overall")
+        ].iloc[0]
+        assert_true(int(cluster_overall_row["cluster_preview_count"]) == 5, "overall cluster preview count mismatch")
+        assert_true(int(cluster_overall_row["queue_run_count"]) == 2, "overall cluster queue count mismatch")
+        assert_true(int(cluster_overall_row["watch_now_panel_count"]) == 1, "overall cluster watch count mismatch")
+        assert_true(int(cluster_overall_row["secondary_value_cluster_count"]) == 2, "overall cluster row count mismatch")
+        assert_true(int(cluster_overall_row["cluster_panel_total_count"]) == 3, "overall cluster panel total mismatch")
+        assert_true(
+            int(cluster_overall_row["clusters_with_future_fault_linked_ref_count"]) == 1,
+            "overall cluster future fault-linked count mismatch",
+        )
+        assert_true(
+            int(cluster_overall_row["clusters_with_future_truth_linked_ref_count"]) == 1,
+            "overall cluster future truth-linked count mismatch",
+        )
+        assert_true(
+            int(cluster_overall_row["total_member_overlap_with_attention_count"]) == 1,
+            "overall cluster member overlap count mismatch",
         )
 
     print("smoke_test_panel_day_engine_operator_attention_plus_discovery_preview_v1.py: PASS")
