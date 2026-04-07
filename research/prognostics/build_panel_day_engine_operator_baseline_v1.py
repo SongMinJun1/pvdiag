@@ -12,13 +12,28 @@ import pandas as pd
 RUN_CONSOLIDATION_SCRIPT = "research/prognostics/build_panel_day_engine_operator_run_consolidation_v1.py"
 ATTENTION_DELTA_SCRIPT = "research/prognostics/build_panel_day_engine_operator_attention_delta_v1.py"
 DIGEST_SCRIPT = "research/prognostics/build_panel_day_engine_operator_digest_v1.py"
-BUILDER_SEQUENCE = [RUN_CONSOLIDATION_SCRIPT, ATTENTION_DELTA_SCRIPT, DIGEST_SCRIPT]
+SECONDARY_DISCOVERY_SCRIPT = "research/prognostics/build_panel_day_engine_operator_secondary_discovery_v1.py"
+SECONDARY_DISCOVERY_CLUSTER_ROLLUP_SCRIPT = "research/prognostics/build_panel_day_engine_operator_secondary_discovery_cluster_rollup_v1.py"
+ATTENTION_PLUS_DISCOVERY_PREVIEW_SCRIPT = (
+    "research/prognostics/build_panel_day_engine_operator_attention_plus_discovery_preview_v1.py"
+)
+BUILDER_SEQUENCE = [
+    RUN_CONSOLIDATION_SCRIPT,
+    ATTENTION_DELTA_SCRIPT,
+    DIGEST_SCRIPT,
+    SECONDARY_DISCOVERY_SCRIPT,
+    SECONDARY_DISCOVERY_CLUSTER_ROLLUP_SCRIPT,
+    ATTENTION_PLUS_DISCOVERY_PREVIEW_SCRIPT,
+]
 
 RUN_SUMMARY_NAME = "panel_day_engine_operator_run_summary_v1.csv"
 ATTENTION_NOW_NAME = "panel_day_engine_operator_attention_now_v1.csv"
 ATTENTION_DELTA_NAME = "panel_day_engine_operator_attention_delta_v1.csv"
 ATTENTION_DELTA_SUMMARY_NAME = "panel_day_engine_operator_attention_delta_summary_v1.csv"
 DIGEST_SUMMARY_NAME = "panel_day_engine_operator_digest_summary_v1.csv"
+DISCOVERY_VALUE_PANELS_SUMMARY_NAME = "panel_day_engine_operator_secondary_discovery_value_panels_summary_v1.csv"
+DISCOVERY_CLUSTER_ROLLUP_SUMMARY_NAME = "panel_day_engine_operator_secondary_discovery_cluster_rollup_summary_v1.csv"
+DISCOVERY_CLUSTER_PREVIEW_SUMMARY_NAME = "panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv"
 BASELINE_MANIFEST_NAME = "panel_day_engine_operator_baseline_manifest_v1.csv"
 BASELINE_SUMMARY_NAME = "panel_day_engine_operator_baseline_summary_v1.csv"
 
@@ -55,6 +70,24 @@ DIGEST_SUMMARY_REQUIRED_COLS = [
     "metadata_changed_count",
     "generated_at_utc",
 ]
+DISCOVERY_VALUE_PANELS_SUMMARY_REQUIRED_COLS = [
+    "record_type",
+    "site",
+    "value_panel_count",
+]
+DISCOVERY_CLUSTER_ROLLUP_SUMMARY_REQUIRED_COLS = [
+    "record_type",
+    "site",
+    "cluster_count",
+]
+DISCOVERY_CLUSTER_PREVIEW_SUMMARY_REQUIRED_COLS = [
+    "record_type",
+    "site",
+    "cluster_preview_count",
+    "secondary_value_cluster_count",
+    "clusters_with_future_fault_linked_ref_count",
+    "clusters_with_future_truth_linked_ref_count",
+]
 
 MANIFEST_OUTPUT_COLS = [
     "generated_at_utc",
@@ -72,6 +105,12 @@ MANIFEST_OUTPUT_COLS = [
     "digest_changed_attention_count",
     "digest_queue_run_count",
     "digest_watch_now_panel_count",
+    "discovery_value_panel_count",
+    "discovery_cluster_count",
+    "cluster_preview_count",
+    "cluster_preview_secondary_value_cluster_count",
+    "cluster_preview_future_fault_linked_ref_count",
+    "cluster_preview_future_truth_linked_ref_count",
 ]
 
 SUMMARY_OUTPUT_COLS = [
@@ -89,6 +128,10 @@ SUMMARY_OUTPUT_COLS = [
     "digest_changed_attention_count",
     "digest_queue_run_count",
     "digest_watch_now_panel_count",
+    "discovery_value_panel_count",
+    "discovery_cluster_count",
+    "cluster_preview_count",
+    "cluster_preview_secondary_value_cluster_count",
 ]
 
 
@@ -142,6 +185,9 @@ def build_manifest_and_summary(
     generated_at_utc: str,
     *,
     digest_summary: pd.DataFrame | None = None,
+    discovery_value_panels_summary: pd.DataFrame | None = None,
+    discovery_cluster_rollup_summary: pd.DataFrame | None = None,
+    discovery_cluster_preview_summary: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     share_dir = root / "_share"
     run_summary = read_csv(share_dir / RUN_SUMMARY_NAME)
@@ -192,6 +238,74 @@ def build_manifest_and_summary(
         merged["queue_run_count"] = 0
         merged["watch_now_panel_count"] = 0
 
+    if discovery_value_panels_summary is not None:
+        ensure_columns(
+            discovery_value_panels_summary,
+            DISCOVERY_VALUE_PANELS_SUMMARY_REQUIRED_COLS,
+            DISCOVERY_VALUE_PANELS_SUMMARY_NAME,
+        )
+        discovery_value_panels_summary = discovery_value_panels_summary.copy()
+        discovery_value_panels_summary["record_type"] = discovery_value_panels_summary["record_type"].map(normalize_text)
+        discovery_value_panels_summary["site"] = discovery_value_panels_summary["site"].map(normalize_text)
+        merged = merged.merge(
+            discovery_value_panels_summary.loc[:, DISCOVERY_VALUE_PANELS_SUMMARY_REQUIRED_COLS].rename(
+                columns={"value_panel_count": "discovery_value_panel_count"}
+            ),
+            on=["record_type", "site"],
+            how="outer",
+            validate="one_to_one",
+        )
+    else:
+        merged["discovery_value_panel_count"] = 0
+
+    if discovery_cluster_rollup_summary is not None:
+        ensure_columns(
+            discovery_cluster_rollup_summary,
+            DISCOVERY_CLUSTER_ROLLUP_SUMMARY_REQUIRED_COLS,
+            DISCOVERY_CLUSTER_ROLLUP_SUMMARY_NAME,
+        )
+        discovery_cluster_rollup_summary = discovery_cluster_rollup_summary.copy()
+        discovery_cluster_rollup_summary["record_type"] = discovery_cluster_rollup_summary["record_type"].map(normalize_text)
+        discovery_cluster_rollup_summary["site"] = discovery_cluster_rollup_summary["site"].map(normalize_text)
+        merged = merged.merge(
+            discovery_cluster_rollup_summary.loc[:, DISCOVERY_CLUSTER_ROLLUP_SUMMARY_REQUIRED_COLS].rename(
+                columns={"cluster_count": "discovery_cluster_count"}
+            ),
+            on=["record_type", "site"],
+            how="outer",
+            validate="one_to_one",
+        )
+    else:
+        merged["discovery_cluster_count"] = 0
+
+    if discovery_cluster_preview_summary is not None:
+        ensure_columns(
+            discovery_cluster_preview_summary,
+            DISCOVERY_CLUSTER_PREVIEW_SUMMARY_REQUIRED_COLS,
+            DISCOVERY_CLUSTER_PREVIEW_SUMMARY_NAME,
+        )
+        discovery_cluster_preview_summary = discovery_cluster_preview_summary.copy()
+        discovery_cluster_preview_summary["record_type"] = discovery_cluster_preview_summary["record_type"].map(normalize_text)
+        discovery_cluster_preview_summary["site"] = discovery_cluster_preview_summary["site"].map(normalize_text)
+        merged = merged.merge(
+            discovery_cluster_preview_summary.loc[:, DISCOVERY_CLUSTER_PREVIEW_SUMMARY_REQUIRED_COLS].rename(
+                columns={
+                    "cluster_preview_count": "cluster_preview_count",
+                    "secondary_value_cluster_count": "cluster_preview_secondary_value_cluster_count",
+                    "clusters_with_future_fault_linked_ref_count": "cluster_preview_future_fault_linked_ref_count",
+                    "clusters_with_future_truth_linked_ref_count": "cluster_preview_future_truth_linked_ref_count",
+                }
+            ),
+            on=["record_type", "site"],
+            how="outer",
+            validate="one_to_one",
+        )
+    else:
+        merged["cluster_preview_count"] = 0
+        merged["cluster_preview_secondary_value_cluster_count"] = 0
+        merged["cluster_preview_future_fault_linked_ref_count"] = 0
+        merged["cluster_preview_future_truth_linked_ref_count"] = 0
+
     for col in [
         "queue_count",
         "backlog_count",
@@ -206,6 +320,12 @@ def build_manifest_and_summary(
         "changed_attention_count",
         "queue_run_count",
         "watch_now_panel_count",
+        "discovery_value_panel_count",
+        "discovery_cluster_count",
+        "cluster_preview_count",
+        "cluster_preview_secondary_value_cluster_count",
+        "cluster_preview_future_fault_linked_ref_count",
+        "cluster_preview_future_truth_linked_ref_count",
     ]:
         merged[col] = pd.to_numeric(merged[col], errors="coerce").fillna(0).astype(int)
 
@@ -225,6 +345,10 @@ def build_manifest_and_summary(
             "digest_changed_attention_count": merged["changed_attention_count"],
             "digest_queue_run_count": merged["queue_run_count"],
             "digest_watch_now_panel_count": merged["watch_now_panel_count"],
+            "discovery_value_panel_count": merged["discovery_value_panel_count"],
+            "discovery_cluster_count": merged["discovery_cluster_count"],
+            "cluster_preview_count": merged["cluster_preview_count"],
+            "cluster_preview_secondary_value_cluster_count": merged["cluster_preview_secondary_value_cluster_count"],
         },
         columns=SUMMARY_OUTPUT_COLS,
     )
@@ -256,6 +380,18 @@ def build_manifest_and_summary(
                 "digest_changed_attention_count": int(overall_row["digest_changed_attention_count"]),
                 "digest_queue_run_count": int(overall_row["digest_queue_run_count"]),
                 "digest_watch_now_panel_count": int(overall_row["digest_watch_now_panel_count"]),
+                "discovery_value_panel_count": int(overall_row["discovery_value_panel_count"]),
+                "discovery_cluster_count": int(overall_row["discovery_cluster_count"]),
+                "cluster_preview_count": int(overall_row["cluster_preview_count"]),
+                "cluster_preview_secondary_value_cluster_count": int(
+                    overall_row["cluster_preview_secondary_value_cluster_count"]
+                ),
+                "cluster_preview_future_fault_linked_ref_count": int(
+                    merged.loc[merged["record_type"].eq("overall"), "cluster_preview_future_fault_linked_ref_count"].iloc[0]
+                ),
+                "cluster_preview_future_truth_linked_ref_count": int(
+                    merged.loc[merged["record_type"].eq("overall"), "cluster_preview_future_truth_linked_ref_count"].iloc[0]
+                ),
             }
         ],
         columns=MANIFEST_OUTPUT_COLS,
@@ -281,10 +417,21 @@ def main() -> None:
     manifest.to_csv(share_dir / BASELINE_MANIFEST_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(share_dir / BASELINE_SUMMARY_NAME, index=False, encoding="utf-8-sig")
 
-    run_builder(repo_root, root, DIGEST_SCRIPT)
+    for script_relative_path in BUILDER_SEQUENCE[2:]:
+        run_builder(repo_root, root, script_relative_path)
 
     digest_summary = read_csv(share_dir / DIGEST_SUMMARY_NAME)
-    manifest, summary = build_manifest_and_summary(root, generated_at_utc, digest_summary=digest_summary)
+    discovery_value_panels_summary = read_csv(share_dir / DISCOVERY_VALUE_PANELS_SUMMARY_NAME)
+    discovery_cluster_rollup_summary = read_csv(share_dir / DISCOVERY_CLUSTER_ROLLUP_SUMMARY_NAME)
+    discovery_cluster_preview_summary = read_csv(share_dir / DISCOVERY_CLUSTER_PREVIEW_SUMMARY_NAME)
+    manifest, summary = build_manifest_and_summary(
+        root,
+        generated_at_utc,
+        digest_summary=digest_summary,
+        discovery_value_panels_summary=discovery_value_panels_summary,
+        discovery_cluster_rollup_summary=discovery_cluster_rollup_summary,
+        discovery_cluster_preview_summary=discovery_cluster_preview_summary,
+    )
     manifest.to_csv(share_dir / BASELINE_MANIFEST_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(share_dir / BASELINE_SUMMARY_NAME, index=False, encoding="utf-8-sig")
 
