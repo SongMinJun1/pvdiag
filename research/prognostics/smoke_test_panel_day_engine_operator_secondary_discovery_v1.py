@@ -196,7 +196,10 @@ def build_fixture_root(tmp_root: Path) -> None:
 
         for run_idx in range(8):
             start, end = date_for(site_offset, run_idx)
-            panel_id = f"{site}.cand.{run_idx}"
+            if site == "beta" and run_idx <= 2:
+                panel_id = "beta.value.shared"
+            else:
+                panel_id = f"{site}.cand.{run_idx}"
             base = 0.88 - run_idx * 0.04
             if site == "delta":
                 base -= 0.22
@@ -326,15 +329,21 @@ def main() -> None:
         summary_path = tmp_root / "_share" / "panel_day_engine_operator_secondary_discovery_summary_v1.csv"
         value_path = tmp_root / "_share" / "panel_day_engine_operator_secondary_discovery_value_v1.csv"
         monitor_path = tmp_root / "_share" / "panel_day_engine_operator_secondary_discovery_monitor_v1.csv"
+        value_panels_path = tmp_root / "_share" / "panel_day_engine_operator_secondary_discovery_value_panels_v1.csv"
+        value_panels_summary_path = tmp_root / "_share" / "panel_day_engine_operator_secondary_discovery_value_panels_summary_v1.csv"
         assert_true(discovery_path.exists(), "missing discovery output")
         assert_true(summary_path.exists(), "missing summary output")
         assert_true(value_path.exists(), "missing value lane output")
         assert_true(monitor_path.exists(), "missing monitor lane output")
+        assert_true(value_panels_path.exists(), "missing value panel rollup output")
+        assert_true(value_panels_summary_path.exists(), "missing value panel summary output")
 
         discovery_df = pd.read_csv(discovery_path, encoding="utf-8-sig")
         summary_df = pd.read_csv(summary_path, encoding="utf-8-sig")
         value_df = pd.read_csv(value_path, encoding="utf-8-sig")
         monitor_df = pd.read_csv(monitor_path, encoding="utf-8-sig")
+        value_panels_df = pd.read_csv(value_panels_path, encoding="utf-8-sig")
+        value_panels_summary_df = pd.read_csv(value_panels_summary_path, encoding="utf-8-sig")
         assert_true(not discovery_df.empty, "discovery output should not be empty")
         assert_true(not summary_df.empty, "summary output should not be empty")
 
@@ -349,10 +358,22 @@ def main() -> None:
         scored_universe = builder_mod.prepare_scored_universe(tmp_root)
         attention_panels = builder_mod.load_attention_panels(tmp_root)
         candidate_df = builder_mod.build_candidate_universe(scored_universe, attention_panels)
+        fate_ref_df = builder_mod.load_fate_references(tmp_root)
         expected_df = builder_mod.apply_discovery_split(builder_mod.select_discovery_lane(candidate_df), split_rule)
         expected_value_df, expected_monitor_df = builder_mod.build_lane_outputs(expected_df)
-        fate_ref_df = builder_mod.load_fate_references(tmp_root)
-        expected_summary_df = builder_mod.build_summary(candidate_df, expected_df, fate_ref_df, str(split_rule["rule_name"]))
+        expected_df_with_ref = builder_mod.attach_fate_references(expected_df, fate_ref_df)
+        expected_value_with_ref_df = builder_mod.attach_fate_references(expected_value_df, fate_ref_df)
+        expected_value_panels_df = builder_mod.build_value_panel_rollup(expected_value_with_ref_df)
+        expected_value_panels_summary_df = builder_mod.build_value_panel_summary(
+            expected_value_with_ref_df,
+            expected_value_panels_df,
+        )
+        expected_summary_df = builder_mod.build_summary(
+            candidate_df,
+            expected_df_with_ref,
+            expected_value_panels_df,
+            str(split_rule["rule_name"]),
+        )
 
         observed_cmp = normalize_df_for_compare(discovery_df.loc[:, builder_mod.DISCOVERY_COLS].copy())
         expected_cmp = normalize_df_for_compare(expected_df.loc[:, builder_mod.DISCOVERY_COLS].copy())
@@ -377,6 +398,18 @@ def main() -> None:
                 normalize_df_for_compare(expected_summary_df.loc[:, builder_mod.SUMMARY_COLS].copy())
             ),
             "summary output does not match expected lane counts and retrospective reference counts",
+        )
+        assert_true(
+            normalize_df_for_compare(value_panels_df.loc[:, builder_mod.VALUE_PANEL_COLS].copy()).equals(
+                normalize_df_for_compare(expected_value_panels_df.loc[:, builder_mod.VALUE_PANEL_COLS].copy())
+            ),
+            "value panel rollup does not match expected panel representative selection",
+        )
+        assert_true(
+            normalize_df_for_compare(value_panels_summary_df.loc[:, builder_mod.VALUE_PANEL_SUMMARY_COLS].copy()).equals(
+                normalize_df_for_compare(expected_value_panels_summary_df.loc[:, builder_mod.VALUE_PANEL_SUMMARY_COLS].copy())
+            ),
+            "value panel summary does not match expected panel counts",
         )
 
         assert_true(
@@ -406,6 +439,10 @@ def main() -> None:
             "overall selected_discovery_count mismatch",
         )
         assert_true(
+            int(overall_row["value_panel_count"]) == int(len(value_panels_df)),
+            "overall value_panel_count mismatch",
+        )
+        assert_true(
             int(overall_row["value_lane_count"]) == int(len(value_df)),
             "overall value_lane_count mismatch",
         )
@@ -420,6 +457,187 @@ def main() -> None:
         assert_true(
             str(overall_row["split_rule_name"]) == "electrical_only|electrical_core_minus_broadshape_050>=4",
             "summary should carry split_rule_name",
+        )
+        value_panel_overall = value_panels_summary_df.loc[
+            value_panels_summary_df["record_type"].astype(str).eq("overall")
+        ].iloc[0]
+        assert_true(
+            int(value_panel_overall["value_panel_count"]) == int(len(value_panels_df)),
+            "value panel summary should match value panel rows",
+        )
+        assert_true(
+            int(value_panel_overall["value_run_count"]) == int(len(value_df)),
+            "value panel summary should match value lane row count",
+        )
+
+        shared_panel_rows = value_df.loc[
+            value_df["site"].astype(str).eq("beta") & value_df["panel_id"].astype(str).eq("beta.value.shared")
+        ].copy()
+        assert_true(len(shared_panel_rows) >= 2, "fixture should contain multiple value runs from one panel")
+        shared_panel_rollup = value_panels_df.loc[
+            value_panels_df["site"].astype(str).eq("beta") & value_panels_df["panel_id"].astype(str).eq("beta.value.shared")
+        ].copy()
+        assert_true(len(shared_panel_rollup) == 1, "multiple value runs from one panel should collapse to one panel row")
+        shared_panel_rollup_row = shared_panel_rollup.iloc[0]
+        expected_shared_rep = shared_panel_rows.sort_values(
+            [
+                "electrical_core_minus_broadshape_050",
+                "logistic_v3_discovery_score",
+                "run_end_date",
+                "run_day_count",
+                "run_start_date",
+            ],
+            ascending=[False, False, False, False, True],
+            kind="mergesort",
+        ).iloc[0]
+        assert_true(
+            str(shared_panel_rollup_row["representative_run_start_date"]) == str(expected_shared_rep["run_start_date"]),
+            "representative run start should follow selection priority",
+        )
+        assert_true(
+            str(shared_panel_rollup_row["representative_run_end_date"]) == str(expected_shared_rep["run_end_date"]),
+            "representative run end should follow selection priority",
+        )
+
+        single_panel_value = value_df.groupby(["site", "panel_id"]).size().reset_index(name="n")
+        single_panel_value = single_panel_value.loc[single_panel_value["n"].eq(1)].iloc[0]
+        single_panel_rollup = value_panels_df.loc[
+            value_panels_df["site"].astype(str).eq(str(single_panel_value["site"]))
+            & value_panels_df["panel_id"].astype(str).eq(str(single_panel_value["panel_id"]))
+        ].iloc[0]
+        single_panel_source = value_df.loc[
+            value_df["site"].astype(str).eq(str(single_panel_value["site"]))
+            & value_df["panel_id"].astype(str).eq(str(single_panel_value["panel_id"]))
+        ].iloc[0]
+        assert_true(
+            int(single_panel_rollup["value_run_count_for_panel"]) == 1,
+            "single-run value panel should pass through with count 1",
+        )
+        assert_true(
+            str(single_panel_rollup["representative_run_end_date"]) == str(single_panel_source["run_end_date"]),
+            "single-run value panel representative should match original run",
+        )
+
+        representative_priority_df = pd.DataFrame(
+            [
+                {
+                    "site": "tie",
+                    "panel_id": "tie.panel",
+                    "run_start_date": "2026-01-03",
+                    "run_end_date": "2026-01-05",
+                    "run_day_count": 2,
+                    "run_shape_class": "short_alert_run",
+                    "electrical_core_minus_broadshape_050": 10.0,
+                    "logistic_v3_discovery_score": 0.96,
+                    "future_fault_linked_ref_flag": 0,
+                    "future_truth_linked_ref_flag": 0,
+                },
+                {
+                    "site": "tie",
+                    "panel_id": "tie.panel",
+                    "run_start_date": "2026-01-02",
+                    "run_end_date": "2026-01-05",
+                    "run_day_count": 3,
+                    "run_shape_class": "medium_alert_run",
+                    "electrical_core_minus_broadshape_050": 10.0,
+                    "logistic_v3_discovery_score": 0.96,
+                    "future_fault_linked_ref_flag": 0,
+                    "future_truth_linked_ref_flag": 0,
+                },
+                {
+                    "site": "tie",
+                    "panel_id": "tie.panel",
+                    "run_start_date": "2026-01-01",
+                    "run_end_date": "2026-01-05",
+                    "run_day_count": 3,
+                    "run_shape_class": "chronic_alert_run",
+                    "electrical_core_minus_broadshape_050": 10.0,
+                    "logistic_v3_discovery_score": 0.96,
+                    "future_fault_linked_ref_flag": 1,
+                    "future_truth_linked_ref_flag": 0,
+                },
+                {
+                    "site": "tie",
+                    "panel_id": "tie.panel",
+                    "run_start_date": "2026-01-04",
+                    "run_end_date": "2026-01-04",
+                    "run_day_count": 1,
+                    "run_shape_class": "short_alert_run",
+                    "electrical_core_minus_broadshape_050": 10.0,
+                    "logistic_v3_discovery_score": 0.97,
+                    "future_fault_linked_ref_flag": 0,
+                    "future_truth_linked_ref_flag": 0,
+                },
+                {
+                    "site": "tie",
+                    "panel_id": "tie.panel",
+                    "run_start_date": "2026-01-01",
+                    "run_end_date": "2026-01-06",
+                    "run_day_count": 1,
+                    "run_shape_class": "short_alert_run",
+                    "electrical_core_minus_broadshape_050": 11.0,
+                    "logistic_v3_discovery_score": 0.10,
+                    "future_fault_linked_ref_flag": 0,
+                    "future_truth_linked_ref_flag": 0,
+                },
+            ]
+        )
+        representative_rollup = builder_mod.build_value_panel_rollup(representative_priority_df)
+        representative_row = representative_rollup.iloc[0]
+        assert_true(
+            str(representative_row["representative_run_end_date"]) == "2026-01-06",
+            "representative selection should prioritize electrical score before other tie-breakers",
+        )
+        assert_true(
+            int(representative_row["value_run_count_for_panel"]) == 5,
+            "representative rollup should preserve total run count for the panel",
+        )
+
+        late_tie_df = pd.DataFrame(
+            [
+                {
+                    "site": "tie2",
+                    "panel_id": "tie2.panel",
+                    "run_start_date": "2026-02-02",
+                    "run_end_date": "2026-02-05",
+                    "run_day_count": 2,
+                    "run_shape_class": "short_alert_run",
+                    "electrical_core_minus_broadshape_050": 9.0,
+                    "logistic_v3_discovery_score": 0.95,
+                    "future_fault_linked_ref_flag": 0,
+                    "future_truth_linked_ref_flag": 0,
+                },
+                {
+                    "site": "tie2",
+                    "panel_id": "tie2.panel",
+                    "run_start_date": "2026-02-01",
+                    "run_end_date": "2026-02-05",
+                    "run_day_count": 4,
+                    "run_shape_class": "medium_alert_run",
+                    "electrical_core_minus_broadshape_050": 9.0,
+                    "logistic_v3_discovery_score": 0.95,
+                    "future_fault_linked_ref_flag": 0,
+                    "future_truth_linked_ref_flag": 0,
+                },
+                {
+                    "site": "tie2",
+                    "panel_id": "tie2.panel",
+                    "run_start_date": "2026-01-31",
+                    "run_end_date": "2026-02-05",
+                    "run_day_count": 4,
+                    "run_shape_class": "chronic_alert_run",
+                    "electrical_core_minus_broadshape_050": 9.0,
+                    "logistic_v3_discovery_score": 0.95,
+                    "future_fault_linked_ref_flag": 0,
+                    "future_truth_linked_ref_flag": 1,
+                },
+            ]
+        )
+        late_tie_rollup = builder_mod.build_value_panel_rollup(late_tie_df)
+        late_tie_row = late_tie_rollup.iloc[0]
+        assert_true(
+            str(late_tie_row["representative_run_start_date"]) == "2026-01-31",
+            "representative selection should use larger day count then earliest start date as later tie-breakers",
         )
 
         sample_df = pd.DataFrame(

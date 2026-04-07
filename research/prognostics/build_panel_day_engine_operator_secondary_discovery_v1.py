@@ -21,6 +21,8 @@ DISCOVERY_OUTPUT_NAME = "panel_day_engine_operator_secondary_discovery_v1.csv"
 SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_secondary_discovery_summary_v1.csv"
 VALUE_OUTPUT_NAME = "panel_day_engine_operator_secondary_discovery_value_v1.csv"
 MONITOR_OUTPUT_NAME = "panel_day_engine_operator_secondary_discovery_monitor_v1.csv"
+VALUE_PANELS_OUTPUT_NAME = "panel_day_engine_operator_secondary_discovery_value_panels_v1.csv"
+VALUE_PANELS_SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_secondary_discovery_value_panels_summary_v1.csv"
 
 EXPECTED_RECOMMENDATION = "use_logistic_as_secondary_discovery_lane"
 EXPECTED_SPLIT_DIRECTION = "split_secondary_discovery_into_value_vs_monitor"
@@ -43,6 +45,7 @@ REQUIRED_SPLIT_RECOMMENDATION_COLS = ["recommended_split_rule", "recommended_nex
 REQUIRED_ATTENTION_COLS = ["site", "panel_id"]
 REQUIRED_V0_COLS = [*KEY_COLS, REFERENCE_SCORE_COL]
 REQUIRED_FATE_CASES_COLS = [*KEY_COLS, "discovery_fate_class"]
+FATE_REF_FLAG_COLS = ["future_fault_linked_ref_flag", "future_truth_linked_ref_flag"]
 ALLOWED_SPLIT_FAMILIES = {
     "electrical_only",
     "logistic_only",
@@ -89,6 +92,9 @@ SUMMARY_COLS = [
     "site",
     "candidate_universe_count",
     "selected_discovery_count",
+    "value_panel_count",
+    "panels_with_multiple_value_runs",
+    "median_value_runs_per_panel",
     "value_lane_count",
     "monitor_lane_count",
     "selected_chronic_count",
@@ -107,6 +113,39 @@ SUMMARY_COLS = [
     "split_rule_name",
     "median_discovery_score",
     "max_discovery_score",
+    "note_ko",
+]
+
+VALUE_PANEL_COLS = [
+    "site",
+    "panel_id",
+    "representative_run_start_date",
+    "representative_run_end_date",
+    "representative_run_day_count",
+    "representative_run_shape_class",
+    "representative_electrical_core_minus_broadshape_050",
+    "representative_logistic_v3_discovery_score",
+    "value_run_count_for_panel",
+    "value_total_day_count_for_panel",
+    "earliest_value_run_start_date",
+    "latest_value_run_end_date",
+    "max_electrical_core_minus_broadshape_050_for_panel",
+    "max_logistic_v3_discovery_score_for_panel",
+    "any_future_fault_linked_ref_flag",
+    "any_future_truth_linked_ref_flag",
+    "value_panel_reason_ko",
+]
+
+VALUE_PANEL_SUMMARY_COLS = [
+    "record_type",
+    "site",
+    "value_panel_count",
+    "value_run_count",
+    "panels_with_multiple_value_runs",
+    "median_value_runs_per_panel",
+    "max_value_runs_per_panel",
+    "panels_with_future_fault_linked_ref_count",
+    "panels_with_future_truth_linked_ref_count",
     "note_ko",
 ]
 
@@ -275,6 +314,18 @@ def load_fate_references(root: Path) -> pd.DataFrame:
     )
 
 
+def attach_fate_references(df: pd.DataFrame, fate_ref_df: pd.DataFrame) -> pd.DataFrame:
+    merged = df.merge(
+        fate_ref_df,
+        on=KEY_COLS,
+        how="left",
+        validate="one_to_one",
+    )
+    for col in FATE_REF_FLAG_COLS:
+        merged[col] = pd.to_numeric(merged[col], errors="coerce").fillna(0).astype(int)
+    return merged
+
+
 def prepare_scored_universe(root: Path) -> pd.DataFrame:
     feature_df = holdout_base.load_feature_table(root)
     label_df = load_label_pack_v3(root)
@@ -434,32 +485,153 @@ def build_lane_outputs(discovery_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Dat
     return value_df, monitor_df
 
 
-def build_summary(candidate_df: pd.DataFrame, selected_df: pd.DataFrame, fate_ref_df: pd.DataFrame, split_rule_name: str) -> pd.DataFrame:
-    selected_df = selected_df.merge(
-        fate_ref_df,
-        on=KEY_COLS,
-        how="left",
-        validate="one_to_one",
-    )
-    for col in ["future_fault_linked_ref_flag", "future_truth_linked_ref_flag"]:
-        selected_df[col] = pd.to_numeric(selected_df[col], errors="coerce").fillna(0).astype(int)
+def value_panel_reason(row: pd.Series) -> str:
+    reasons: list[str] = []
+    if int(row["value_run_count_for_panel"]) > 1:
+        reasons.append("반복 hidden value run, 대표 1건만 표시")
+    else:
+        reasons.append("단일 hidden value run panel")
+    if int(row["any_future_fault_linked_ref_flag"]) == 1:
+        reasons.append("retrospective fault linkage reference 있음")
+    elif int(row["any_future_truth_linked_ref_flag"]) == 1:
+        reasons.append("retrospective truth linkage reference 있음")
+    return ", ".join(reasons)
+
+
+def build_value_panel_rollup(value_df: pd.DataFrame) -> pd.DataFrame:
+    if value_df.empty:
+        return pd.DataFrame(columns=VALUE_PANEL_COLS)
+
+    working = value_df.copy()
+    working["run_day_count"] = pd.to_numeric(working["run_day_count"], errors="coerce")
+    working[REFERENCE_SCORE_COL] = pd.to_numeric(working[REFERENCE_SCORE_COL], errors="coerce")
+    working[DISCOVERY_SCORE_COL] = pd.to_numeric(working[DISCOVERY_SCORE_COL], errors="coerce")
+    for col in FATE_REF_FLAG_COLS:
+        working[col] = pd.to_numeric(working[col], errors="coerce").fillna(0).astype(int)
+    working["run_start_date_dt"] = pd.to_datetime(working["run_start_date"], errors="coerce")
+    working["run_end_date_dt"] = pd.to_datetime(working["run_end_date"], errors="coerce")
+
+    rows: list[dict[str, object]] = []
+    for (site, panel_id), group in working.groupby(["site", "panel_id"], dropna=False, sort=False):
+        representative = group.sort_values(
+            [
+                REFERENCE_SCORE_COL,
+                DISCOVERY_SCORE_COL,
+                "run_end_date_dt",
+                "run_day_count",
+                "run_start_date_dt",
+            ],
+            ascending=[False, False, False, False, True],
+            kind="mergesort",
+        ).iloc[0]
+        row = {
+            "site": site,
+            "panel_id": panel_id,
+            "representative_run_start_date": representative["run_start_date"],
+            "representative_run_end_date": representative["run_end_date"],
+            "representative_run_day_count": int(representative["run_day_count"]) if pd.notna(representative["run_day_count"]) else None,
+            "representative_run_shape_class": representative["run_shape_class"],
+            "representative_electrical_core_minus_broadshape_050": representative[REFERENCE_SCORE_COL],
+            "representative_logistic_v3_discovery_score": representative[DISCOVERY_SCORE_COL],
+            "value_run_count_for_panel": int(len(group)),
+            "value_total_day_count_for_panel": int(group["run_day_count"].fillna(0).sum()),
+            "earliest_value_run_start_date": group["run_start_date_dt"].min(),
+            "latest_value_run_end_date": group["run_end_date_dt"].max(),
+            "max_electrical_core_minus_broadshape_050_for_panel": group[REFERENCE_SCORE_COL].max(),
+            "max_logistic_v3_discovery_score_for_panel": group[DISCOVERY_SCORE_COL].max(),
+            "any_future_fault_linked_ref_flag": int(group["future_fault_linked_ref_flag"].max()),
+            "any_future_truth_linked_ref_flag": int(group["future_truth_linked_ref_flag"].max()),
+        }
+        row["value_panel_reason_ko"] = value_panel_reason(pd.Series(row))
+        rows.append(row)
+
+    panel_df = pd.DataFrame(rows)
+    for col in ["earliest_value_run_start_date", "latest_value_run_end_date"]:
+        panel_df[col] = pd.to_datetime(panel_df[col], errors="coerce").dt.strftime("%Y-%m-%d")
+    panel_df = panel_df.sort_values(
+        [
+            "representative_electrical_core_minus_broadshape_050",
+            "value_run_count_for_panel",
+            "representative_run_day_count",
+            "site",
+            "panel_id",
+        ],
+        ascending=[False, False, False, True, True],
+        kind="mergesort",
+    ).reset_index(drop=True)
+    return panel_df.loc[:, VALUE_PANEL_COLS].copy()
+
+
+def build_value_panel_summary(value_df: pd.DataFrame, value_panel_df: pd.DataFrame) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+
+    def summarize(site: str, record_type: str) -> None:
+        if record_type == "overall":
+            value_runs = value_df.copy()
+            value_panels = value_panel_df.copy()
+        else:
+            value_runs = value_df.loc[value_df["site"].eq(site)].copy()
+            value_panels = value_panel_df.loc[value_panel_df["site"].eq(site)].copy()
+
+        runs_per_panel = pd.to_numeric(value_panels.get("value_run_count_for_panel"), errors="coerce")
+        rows.append(
+            {
+                "record_type": record_type,
+                "site": site,
+                "value_panel_count": int(len(value_panels)),
+                "value_run_count": int(len(value_runs)),
+                "panels_with_multiple_value_runs": int(runs_per_panel.gt(1).sum()) if not value_panels.empty else 0,
+                "median_value_runs_per_panel": runs_per_panel.median() if not value_panels.empty else None,
+                "max_value_runs_per_panel": int(runs_per_panel.max()) if not value_panels.empty else 0,
+                "panels_with_future_fault_linked_ref_count": int(
+                    pd.to_numeric(value_panels.get("any_future_fault_linked_ref_flag"), errors="coerce").fillna(0).sum()
+                )
+                if not value_panels.empty
+                else 0,
+                "panels_with_future_truth_linked_ref_count": int(
+                    pd.to_numeric(value_panels.get("any_future_truth_linked_ref_flag"), errors="coerce").fillna(0).sum()
+                )
+                if not value_panels.empty
+                else 0,
+                "note_ko": "반복 hidden value run을 panel 단위 대표 row로 접어 operator secondary discovery value lane을 더 좁게 본다",
+            }
+        )
+
+    summarize("", "overall")
+    for site in sorted(value_df["site"].dropna().map(holdout_base.normalize_text).unique()):
+        summarize(site, "site")
+    return pd.DataFrame(rows, columns=VALUE_PANEL_SUMMARY_COLS)
+
+
+def build_summary(
+    candidate_df: pd.DataFrame,
+    selected_df: pd.DataFrame,
+    value_panel_df: pd.DataFrame,
+    split_rule_name: str,
+) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
 
     def summarize(site: str, record_type: str) -> None:
         if record_type == "overall":
             cand = candidate_df.copy()
             sel = selected_df.copy()
+            value_panels = value_panel_df.copy()
         else:
             cand = candidate_df.loc[candidate_df["site"].eq(site)].copy()
             sel = selected_df.loc[selected_df["site"].eq(site)].copy()
+            value_panels = value_panel_df.loc[value_panel_df["site"].eq(site)].copy()
         value_sel = sel.loc[sel["value_lane_flag"].eq(1)].copy()
         monitor_sel = sel.loc[sel["monitor_lane_flag"].eq(1)].copy()
+        runs_per_panel = pd.to_numeric(value_panels.get("value_run_count_for_panel"), errors="coerce")
 
         row = {
             "record_type": record_type,
             "site": site,
             "candidate_universe_count": int(len(cand)),
             "selected_discovery_count": int(len(sel)),
+            "value_panel_count": int(len(value_panels)),
+            "panels_with_multiple_value_runs": int(runs_per_panel.gt(1).sum()) if not value_panels.empty else 0,
+            "median_value_runs_per_panel": runs_per_panel.median() if not value_panels.empty else None,
             "value_lane_count": int(len(value_sel)),
             "monitor_lane_count": int(len(monitor_sel)),
             "selected_chronic_count": 0,
@@ -499,13 +671,23 @@ def build_summary(candidate_df: pd.DataFrame, selected_df: pd.DataFrame, fate_re
     return pd.DataFrame(rows, columns=SUMMARY_COLS)
 
 
-def save_outputs(root: Path, discovery_df: pd.DataFrame, summary_df: pd.DataFrame, value_df: pd.DataFrame, monitor_df: pd.DataFrame) -> None:
+def save_outputs(
+    root: Path,
+    discovery_df: pd.DataFrame,
+    summary_df: pd.DataFrame,
+    value_df: pd.DataFrame,
+    monitor_df: pd.DataFrame,
+    value_panel_df: pd.DataFrame,
+    value_panel_summary_df: pd.DataFrame,
+) -> None:
     share_dir = root / "_share"
     share_dir.mkdir(parents=True, exist_ok=True)
     discovery_df.to_csv(share_dir / DISCOVERY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary_df.to_csv(share_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     value_df.to_csv(share_dir / VALUE_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     monitor_df.to_csv(share_dir / MONITOR_OUTPUT_NAME, index=False, encoding="utf-8-sig")
+    value_panel_df.to_csv(share_dir / VALUE_PANELS_OUTPUT_NAME, index=False, encoding="utf-8-sig")
+    value_panel_summary_df.to_csv(share_dir / VALUE_PANELS_SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
 
 
 def main() -> None:
@@ -519,10 +701,14 @@ def main() -> None:
     candidate_df = build_candidate_universe(scored_universe, attention_panels)
     discovery_df = select_discovery_lane(candidate_df)
     discovery_df = apply_discovery_split(discovery_df, split_rule)
-    value_df, monitor_df = build_lane_outputs(discovery_df)
     fate_ref_df = load_fate_references(root)
-    summary_df = build_summary(candidate_df, discovery_df, fate_ref_df, str(split_rule["rule_name"]))
-    save_outputs(root, discovery_df, summary_df, value_df, monitor_df)
+    discovery_with_ref_df = attach_fate_references(discovery_df, fate_ref_df)
+    value_df, monitor_df = build_lane_outputs(discovery_df)
+    value_with_ref_df = attach_fate_references(value_df, fate_ref_df)
+    value_panel_df = build_value_panel_rollup(value_with_ref_df)
+    value_panel_summary_df = build_value_panel_summary(value_with_ref_df, value_panel_df)
+    summary_df = build_summary(candidate_df, discovery_with_ref_df, value_panel_df, str(split_rule["rule_name"]))
+    save_outputs(root, discovery_df, summary_df, value_df, monitor_df, value_panel_df, value_panel_summary_df)
 
 
 if __name__ == "__main__":
