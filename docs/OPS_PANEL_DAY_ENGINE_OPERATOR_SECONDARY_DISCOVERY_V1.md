@@ -19,12 +19,22 @@
   - from monitor-burden or noisier candidates
 - This patch applies that split only inside the secondary discovery lane and keeps the main operator baseline unchanged.
 
+## Why The Value Lane Still Needed A Panel-Level Rollup
+- The value lane remained promising after the split, but it was still too wide at run level because the same hidden panel could appear multiple times through repeated runs.
+- That makes the lane less operator-friendly:
+  - repeated hidden runs from one panel can occupy multiple top-level rows
+  - while the operational question is often panel-level follow-up first
+- This patch therefore keeps the run-level files, but adds a separate panel-level value rollup for operator use.
+
 ## Why The Selected Split Rule Is Currently Deterministic / Electrical
 - The completed threshold-split audit selected a deterministic electrical rule as the best simple splitter.
 - That outcome means the learned scorer is still useful for discovering the hidden candidate pool, but the strongest current operational split inside that pool is driven by electrical severity.
 - In other words:
   - learned scoring finds the lane
   - deterministic/electrical severity currently splits the lane more cleanly into value vs monitor candidates
+- The new panel rollup follows the same principle:
+  - keep the learned lane discovery logic
+  - but present the value side in a tighter, operationally simpler panel-first view
 
 ## Why Only `unlabeled_other` And Non-Attention Panels Are Included
 - `unlabeled_other`
@@ -53,6 +63,21 @@
   - the original discovery file with added split columns
   - a value-lane file
   - a monitor-lane file
+  - a panel-level value rollup file
+  - a panel-level value summary file
+
+## How Representative Value Runs Are Chosen
+- Value panel rollup is built only from the existing `value_candidate_lane` rows.
+- Runs are collapsed by:
+  - `site`
+  - `panel_id`
+- The representative run is chosen by this priority:
+  - highest `electrical_core_minus_broadshape_050`
+  - then highest `logistic_v3_discovery_score`
+  - then latest `run_end_date`
+  - then larger `run_day_count`
+  - then earliest `run_start_date`
+- This keeps the strongest and most recent electrical value signal visible, while still preserving how many hidden value runs were seen for that panel.
 
 ## How Operators And Analysts Should Read The Discovery File
 - This file is not the baseline operator queue.
@@ -65,6 +90,10 @@
     - stronger current hidden-value candidate inside the learned discovery lane
   - `monitor_candidate_lane`
     - still potentially useful, but more consistent with monitor burden or weaker/noisier review priority
+- The new value-panel rollup should be interpreted as:
+  - one operator-facing row per hidden value panel
+  - with repeated value runs collapsed underneath that representative row
+  - while `future_*` linkage fields remain retrospective reference only and are not used to create the split or the rollup itself
 - Analysts should treat these runs as:
   - candidate discovery leads
   - useful for label expansion, side review, or manual pattern inspection
@@ -76,3 +105,6 @@
 - Current operator baseline files and pipeline scripts remain unchanged.
 - The main operator baseline is not re-ranked, replaced, or expanded by this patch.
 - Canonical truth template contract is unchanged.
+- `future_*` linkage fields in summaries or panel rollups are retrospective reference only:
+  - they help validate whether the lane is finding hidden value
+  - but they are not used in the current-state split or representative-run selection
