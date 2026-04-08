@@ -22,6 +22,8 @@ CLUSTER_DELTA_NAME = "panel_day_engine_operator_secondary_discovery_cluster_delt
 CLUSTER_DELTA_SUMMARY_NAME = "panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv"
 UNIFIED_DIGEST_NAME = "panel_day_engine_operator_unified_digest_v1.csv"
 UNIFIED_DIGEST_SUMMARY_NAME = "panel_day_engine_operator_unified_digest_summary_v1.csv"
+WORKFLOW_DEFAULT_NAME = "panel_day_engine_operator_workflow_default_v1.csv"
+WORKFLOW_DEFAULT_SUMMARY_NAME = "panel_day_engine_operator_workflow_default_summary_v1.csv"
 
 QA_REPORT_NAME = "panel_day_engine_operator_refresh_qa_report_v1.csv"
 QA_SUMMARY_NAME = "panel_day_engine_operator_refresh_qa_summary_v1.csv"
@@ -33,6 +35,7 @@ BACKLOG_QUEUE_RATIO_WARN_THRESHOLD = 500.0
 CLUSTER_PREVIEW_COUNT_WARN_THRESHOLD = 35
 DISCOVERY_CLUSTER_COUNT_WARN_THRESHOLD = 10
 UNIFIED_DIGEST_COUNT_WARN_THRESHOLD = 30
+WORKFLOW_DEFAULT_COUNT_WARN_THRESHOLD = 30
 
 QA_REPORT_COLS = [
     "check_name",
@@ -73,6 +76,15 @@ QA_SUMMARY_COLS = [
     "overall_unified_digest_changed_count",
     "overall_unified_digest_changed_attention_count",
     "overall_unified_digest_changed_cluster_count",
+    "overall_workflow_default_count",
+    "overall_workflow_default_queue_run_count",
+    "overall_workflow_default_watch_now_panel_count",
+    "overall_workflow_default_secondary_value_cluster_count",
+    "overall_workflow_default_changed_count",
+    "overall_workflow_default_primary_attention_count",
+    "overall_workflow_default_supplemental_discovery_count",
+    "overall_workflow_default_linked_ref_count",
+    "overall_workflow_default_truth_ref_count",
 ]
 
 REQUIRED_SUMMARY_FILES = {
@@ -88,6 +100,8 @@ REQUIRED_SUMMARY_FILES = {
     "cluster_delta_summary_exists": CLUSTER_DELTA_SUMMARY_NAME,
     "unified_digest_exists": UNIFIED_DIGEST_NAME,
     "unified_digest_summary_exists": UNIFIED_DIGEST_SUMMARY_NAME,
+    "workflow_default_exists": WORKFLOW_DEFAULT_NAME,
+    "workflow_default_summary_exists": WORKFLOW_DEFAULT_SUMMARY_NAME,
 }
 
 
@@ -222,6 +236,7 @@ def run_hard_checks(
     cluster_preview_summary: pd.DataFrame | None,
     cluster_delta_summary: pd.DataFrame | None,
     unified_digest_summary: pd.DataFrame | None,
+    workflow_default_summary: pd.DataFrame | None,
 ) -> None:
     refresh_manifest_row = refresh_manifest.iloc[0] if refresh_manifest is not None and not refresh_manifest.empty else None
     baseline_manifest_row = baseline_manifest.iloc[0] if baseline_manifest is not None and not baseline_manifest.empty else None
@@ -235,6 +250,8 @@ def run_hard_checks(
     cluster_delta_sites = extract_site_rows(cluster_delta_summary)
     unified_digest_overall = extract_overall_row(unified_digest_summary)
     unified_digest_sites = extract_site_rows(unified_digest_summary)
+    workflow_default_overall = extract_overall_row(workflow_default_summary)
+    workflow_default_sites = extract_site_rows(workflow_default_summary)
 
     if refresh_manifest_row is None:
         report.skip("all_requested_sites_succeeded", "fail", "refresh manifest 없음으로 site 성공 여부를 판정할 수 없음")
@@ -822,6 +839,234 @@ def run_hard_checks(
             detail_ko="unified digest summary per-site digest/queue/watch/cluster/changed 합이 overall과 각각 일치하는지 확인",
         )
 
+    if baseline_manifest_row is None or workflow_default_overall is None:
+        report.skip(
+            "workflow_default_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 workflow default summary 없음으로 workflow default count 검증을 건너뜀",
+        )
+        report.skip(
+            "workflow_default_queue_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 workflow default summary 없음으로 workflow default queue count 검증을 건너뜀",
+        )
+        report.skip(
+            "workflow_default_watch_now_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 workflow default summary 없음으로 workflow default watch_now count 검증을 건너뜀",
+        )
+        report.skip(
+            "workflow_default_secondary_cluster_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 workflow default summary 없음으로 workflow default secondary cluster count 검증을 건너뜀",
+        )
+        report.skip(
+            "workflow_default_changed_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 workflow default summary 없음으로 workflow default changed count 검증을 건너뜀",
+        )
+        report.skip(
+            "workflow_default_primary_attention_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 workflow default summary 없음으로 workflow default primary attention count 검증을 건너뜀",
+        )
+        report.skip(
+            "workflow_default_supplemental_discovery_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 workflow default summary 없음으로 workflow default supplemental discovery count 검증을 건너뜀",
+        )
+        report.skip(
+            "workflow_default_linked_ref_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 workflow default summary 없음으로 workflow default linked ref count 검증을 건너뜀",
+        )
+        report.skip(
+            "workflow_default_truth_ref_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 workflow default summary 없음으로 workflow default truth ref count 검증을 건너뜀",
+        )
+    else:
+        workflow_manifest_count = int(numeric_value(baseline_manifest_row.get("workflow_default_item_count")))
+        workflow_summary_count = int(numeric_value(workflow_default_overall.get("workflow_item_count")))
+        report.add(
+            "workflow_default_count_match_manifest",
+            "fail",
+            "pass" if workflow_manifest_count == workflow_summary_count else "fail",
+            observed_value=f"{workflow_manifest_count} vs {workflow_summary_count}",
+            expected_value="baseline manifest workflow_default_item_count == workflow default summary overall workflow_item_count",
+            detail_ko="baseline manifest와 workflow default summary의 overall workflow item count가 일치하는지 확인",
+        )
+        workflow_manifest_queue = int(numeric_value(baseline_manifest_row.get("workflow_default_queue_run_count")))
+        workflow_summary_queue = int(numeric_value(workflow_default_overall.get("queue_run_count")))
+        report.add(
+            "workflow_default_queue_count_match_manifest",
+            "fail",
+            "pass" if workflow_manifest_queue == workflow_summary_queue else "fail",
+            observed_value=f"{workflow_manifest_queue} vs {workflow_summary_queue}",
+            expected_value="baseline manifest workflow_default_queue_run_count == workflow default summary overall queue_run_count",
+            detail_ko="baseline manifest와 workflow default summary의 overall queue_run count가 일치하는지 확인",
+        )
+        workflow_manifest_watch = int(
+            numeric_value(baseline_manifest_row.get("workflow_default_watch_now_panel_count"))
+        )
+        workflow_summary_watch = int(numeric_value(workflow_default_overall.get("watch_now_panel_count")))
+        report.add(
+            "workflow_default_watch_now_count_match_manifest",
+            "fail",
+            "pass" if workflow_manifest_watch == workflow_summary_watch else "fail",
+            observed_value=f"{workflow_manifest_watch} vs {workflow_summary_watch}",
+            expected_value=(
+                "baseline manifest workflow_default_watch_now_panel_count == workflow default summary overall watch_now_panel_count"
+            ),
+            detail_ko="baseline manifest와 workflow default summary의 overall watch_now_panel count가 일치하는지 확인",
+        )
+        workflow_manifest_cluster = int(
+            numeric_value(baseline_manifest_row.get("workflow_default_secondary_value_cluster_count"))
+        )
+        workflow_summary_cluster = int(numeric_value(workflow_default_overall.get("secondary_value_cluster_count")))
+        report.add(
+            "workflow_default_secondary_cluster_count_match_manifest",
+            "fail",
+            "pass" if workflow_manifest_cluster == workflow_summary_cluster else "fail",
+            observed_value=f"{workflow_manifest_cluster} vs {workflow_summary_cluster}",
+            expected_value=(
+                "baseline manifest workflow_default_secondary_value_cluster_count == "
+                "workflow default summary overall secondary_value_cluster_count"
+            ),
+            detail_ko="baseline manifest와 workflow default summary의 overall secondary_value_cluster count가 일치하는지 확인",
+        )
+        workflow_manifest_changed = int(numeric_value(baseline_manifest_row.get("workflow_default_changed_count")))
+        workflow_summary_changed = int(numeric_value(workflow_default_overall.get("changed_count")))
+        report.add(
+            "workflow_default_changed_count_match_manifest",
+            "fail",
+            "pass" if workflow_manifest_changed == workflow_summary_changed else "fail",
+            observed_value=f"{workflow_manifest_changed} vs {workflow_summary_changed}",
+            expected_value="baseline manifest workflow_default_changed_count == workflow default summary overall changed_count",
+            detail_ko="baseline manifest와 workflow default summary의 overall changed count가 일치하는지 확인",
+        )
+        workflow_manifest_primary = int(
+            numeric_value(baseline_manifest_row.get("workflow_default_primary_attention_count"))
+        )
+        workflow_summary_primary = int(numeric_value(workflow_default_overall.get("primary_attention_count")))
+        report.add(
+            "workflow_default_primary_attention_count_match_manifest",
+            "fail",
+            "pass" if workflow_manifest_primary == workflow_summary_primary else "fail",
+            observed_value=f"{workflow_manifest_primary} vs {workflow_summary_primary}",
+            expected_value=(
+                "baseline manifest workflow_default_primary_attention_count == "
+                "workflow default summary overall primary_attention_count"
+            ),
+            detail_ko="baseline manifest와 workflow default summary의 overall primary attention count가 일치하는지 확인",
+        )
+        workflow_manifest_supplemental = int(
+            numeric_value(baseline_manifest_row.get("workflow_default_supplemental_discovery_count"))
+        )
+        workflow_summary_supplemental = int(
+            numeric_value(workflow_default_overall.get("supplemental_discovery_count"))
+        )
+        report.add(
+            "workflow_default_supplemental_discovery_count_match_manifest",
+            "fail",
+            "pass" if workflow_manifest_supplemental == workflow_summary_supplemental else "fail",
+            observed_value=f"{workflow_manifest_supplemental} vs {workflow_summary_supplemental}",
+            expected_value=(
+                "baseline manifest workflow_default_supplemental_discovery_count == "
+                "workflow default summary overall supplemental_discovery_count"
+            ),
+            detail_ko="baseline manifest와 workflow default summary의 overall supplemental discovery count가 일치하는지 확인",
+        )
+        workflow_manifest_linked = int(numeric_value(baseline_manifest_row.get("workflow_default_linked_ref_count")))
+        workflow_summary_linked = int(numeric_value(workflow_default_overall.get("linked_ref_count")))
+        report.add(
+            "workflow_default_linked_ref_count_match_manifest",
+            "fail",
+            "pass" if workflow_manifest_linked == workflow_summary_linked else "fail",
+            observed_value=f"{workflow_manifest_linked} vs {workflow_summary_linked}",
+            expected_value="baseline manifest workflow_default_linked_ref_count == workflow default summary overall linked_ref_count",
+            detail_ko="baseline manifest와 workflow default summary의 overall linked ref count가 일치하는지 확인",
+        )
+        workflow_manifest_truth = int(numeric_value(baseline_manifest_row.get("workflow_default_truth_ref_count")))
+        workflow_summary_truth = int(numeric_value(workflow_default_overall.get("truth_ref_count")))
+        report.add(
+            "workflow_default_truth_ref_count_match_manifest",
+            "fail",
+            "pass" if workflow_manifest_truth == workflow_summary_truth else "fail",
+            observed_value=f"{workflow_manifest_truth} vs {workflow_summary_truth}",
+            expected_value="baseline manifest workflow_default_truth_ref_count == workflow default summary overall truth_ref_count",
+            detail_ko="baseline manifest와 workflow default summary의 overall truth ref count가 일치하는지 확인",
+        )
+
+    if workflow_default_overall is None or unified_digest_overall is None:
+        report.skip(
+            "workflow_default_count_matches_unified_digest",
+            "fail",
+            "workflow default summary 또는 unified digest summary 없음으로 workflow/unified digest total count 검증을 건너뜀",
+        )
+    else:
+        overall_workflow_default_count = int(numeric_value(workflow_default_overall.get("workflow_item_count")))
+        overall_unified_digest_count = int(numeric_value(unified_digest_overall.get("digest_count")))
+        report.add(
+            "workflow_default_count_matches_unified_digest",
+            "fail",
+            "pass" if overall_workflow_default_count == overall_unified_digest_count else "fail",
+            observed_value=overall_workflow_default_count,
+            expected_value=overall_unified_digest_count,
+            detail_ko="workflow default overall count가 unified digest overall count와 일치하는지 확인",
+        )
+
+    if workflow_default_overall is None or workflow_default_sites is None:
+        report.skip(
+            "workflow_default_site_sum_matches_overall",
+            "fail",
+            "workflow default summary 없음으로 per-site workflow default 합 검증을 건너뜀",
+        )
+    else:
+        overall_workflow_item_count = int(numeric_value(workflow_default_overall.get("workflow_item_count")))
+        overall_queue_run_count = int(numeric_value(workflow_default_overall.get("queue_run_count")))
+        overall_watch_now_panel_count = int(numeric_value(workflow_default_overall.get("watch_now_panel_count")))
+        overall_secondary_value_cluster_count = int(
+            numeric_value(workflow_default_overall.get("secondary_value_cluster_count"))
+        )
+        overall_changed_count = int(numeric_value(workflow_default_overall.get("changed_count")))
+        site_workflow_item_sum = int(
+            pd.to_numeric(workflow_default_sites["workflow_item_count"], errors="coerce").fillna(0).sum()
+        )
+        site_queue_run_sum = int(
+            pd.to_numeric(workflow_default_sites["queue_run_count"], errors="coerce").fillna(0).sum()
+        )
+        site_watch_now_sum = int(
+            pd.to_numeric(workflow_default_sites["watch_now_panel_count"], errors="coerce").fillna(0).sum()
+        )
+        site_secondary_cluster_sum = int(
+            pd.to_numeric(workflow_default_sites["secondary_value_cluster_count"], errors="coerce").fillna(0).sum()
+        )
+        site_changed_sum = int(
+            pd.to_numeric(workflow_default_sites["changed_count"], errors="coerce").fillna(0).sum()
+        )
+        sums_ok = (
+            site_workflow_item_sum == overall_workflow_item_count
+            and site_queue_run_sum == overall_queue_run_count
+            and site_watch_now_sum == overall_watch_now_panel_count
+            and site_secondary_cluster_sum == overall_secondary_value_cluster_count
+            and site_changed_sum == overall_changed_count
+        )
+        report.add(
+            "workflow_default_site_sum_matches_overall",
+            "fail",
+            "pass" if sums_ok else "fail",
+            observed_value=(
+                f"workflow {site_workflow_item_sum}/{overall_workflow_item_count}, "
+                f"queue {site_queue_run_sum}/{overall_queue_run_count}, "
+                f"watch {site_watch_now_sum}/{overall_watch_now_panel_count}, "
+                f"cluster {site_secondary_cluster_sum}/{overall_secondary_value_cluster_count}, "
+                f"changed {site_changed_sum}/{overall_changed_count}"
+            ),
+            expected_value="per-site workflow/queue/watch/cluster/changed sums == overall",
+            detail_ko="workflow default summary per-site workflow/queue/watch/cluster/changed 합이 overall과 각각 일치하는지 확인",
+        )
+
 
 def run_soft_checks(
     report: QaReportBuilder,
@@ -830,11 +1075,13 @@ def run_soft_checks(
     run_summary: pd.DataFrame | None,
     cluster_preview_summary: pd.DataFrame | None,
     unified_digest_summary: pd.DataFrame | None,
+    workflow_default_summary: pd.DataFrame | None,
 ) -> None:
     baseline_overall = extract_overall_row(baseline_summary)
     run_overall = extract_overall_row(run_summary)
     cluster_preview_overall = extract_overall_row(cluster_preview_summary)
     unified_digest_overall = extract_overall_row(unified_digest_summary)
+    workflow_default_overall = extract_overall_row(workflow_default_summary)
 
     if run_overall is None:
         report.skip("queue_count_too_large", "warn", "run summary 없음으로 queue 규모 경고 검사를 건너뜀")
@@ -923,6 +1170,19 @@ def run_soft_checks(
             detail_ko="unified digest 전체 건수가 operator digest로 보기 과도한지 확인",
         )
 
+    if workflow_default_overall is None:
+        report.skip("workflow_default_too_large", "warn", "workflow default summary 없음으로 workflow default 규모 경고 검사를 건너뜀")
+    else:
+        workflow_default_count = int(numeric_value(workflow_default_overall.get("workflow_item_count")))
+        report.add(
+            "workflow_default_too_large",
+            "warn",
+            "warn" if workflow_default_count > WORKFLOW_DEFAULT_COUNT_WARN_THRESHOLD else "pass",
+            observed_value=workflow_default_count,
+            expected_value=f"<= {WORKFLOW_DEFAULT_COUNT_WARN_THRESHOLD}",
+            detail_ko="workflow default 전체 건수가 기본 operator workflow로 보기 과도한지 확인",
+        )
+
 
 def build_summary(
     report: pd.DataFrame,
@@ -932,12 +1192,14 @@ def build_summary(
     cluster_preview_summary: pd.DataFrame | None,
     cluster_delta_summary: pd.DataFrame | None,
     unified_digest_summary: pd.DataFrame | None,
+    workflow_default_summary: pd.DataFrame | None,
 ) -> pd.DataFrame:
     baseline_overall = extract_overall_row(baseline_summary)
     run_overall = extract_overall_row(run_summary)
     cluster_preview_overall = extract_overall_row(cluster_preview_summary)
     cluster_delta_overall = extract_overall_row(cluster_delta_summary)
     unified_digest_overall = extract_overall_row(unified_digest_summary)
+    workflow_default_overall = extract_overall_row(workflow_default_summary)
 
     def get_from_row(row: pd.Series | None, key: str) -> int:
         if row is None:
@@ -988,6 +1250,23 @@ def build_summary(
         "overall_unified_digest_changed_cluster_count": get_from_row(
             unified_digest_overall, "changed_cluster_count"
         ),
+        "overall_workflow_default_count": get_from_row(workflow_default_overall, "workflow_item_count"),
+        "overall_workflow_default_queue_run_count": get_from_row(workflow_default_overall, "queue_run_count"),
+        "overall_workflow_default_watch_now_panel_count": get_from_row(
+            workflow_default_overall, "watch_now_panel_count"
+        ),
+        "overall_workflow_default_secondary_value_cluster_count": get_from_row(
+            workflow_default_overall, "secondary_value_cluster_count"
+        ),
+        "overall_workflow_default_changed_count": get_from_row(workflow_default_overall, "changed_count"),
+        "overall_workflow_default_primary_attention_count": get_from_row(
+            workflow_default_overall, "primary_attention_count"
+        ),
+        "overall_workflow_default_supplemental_discovery_count": get_from_row(
+            workflow_default_overall, "supplemental_discovery_count"
+        ),
+        "overall_workflow_default_linked_ref_count": get_from_row(workflow_default_overall, "linked_ref_count"),
+        "overall_workflow_default_truth_ref_count": get_from_row(workflow_default_overall, "truth_ref_count"),
     }
     return pd.DataFrame([summary_row], columns=QA_SUMMARY_COLS)
 
@@ -1024,6 +1303,7 @@ def main() -> None:
         cluster_preview_summary=data_frames[CLUSTER_PREVIEW_SUMMARY_NAME],
         cluster_delta_summary=data_frames[CLUSTER_DELTA_SUMMARY_NAME],
         unified_digest_summary=data_frames[UNIFIED_DIGEST_SUMMARY_NAME],
+        workflow_default_summary=data_frames[WORKFLOW_DEFAULT_SUMMARY_NAME],
     )
     run_soft_checks(
         report_builder,
@@ -1031,6 +1311,7 @@ def main() -> None:
         run_summary=run_summary,
         cluster_preview_summary=data_frames[CLUSTER_PREVIEW_SUMMARY_NAME],
         unified_digest_summary=data_frames[UNIFIED_DIGEST_SUMMARY_NAME],
+        workflow_default_summary=data_frames[WORKFLOW_DEFAULT_SUMMARY_NAME],
     )
 
     report = report_builder.to_frame()
@@ -1041,6 +1322,7 @@ def main() -> None:
         cluster_preview_summary=data_frames[CLUSTER_PREVIEW_SUMMARY_NAME],
         cluster_delta_summary=data_frames[CLUSTER_DELTA_SUMMARY_NAME],
         unified_digest_summary=data_frames[UNIFIED_DIGEST_SUMMARY_NAME],
+        workflow_default_summary=data_frames[WORKFLOW_DEFAULT_SUMMARY_NAME],
     )
 
     report.to_csv(share_dir / QA_REPORT_NAME, index=False, encoding="utf-8-sig")
