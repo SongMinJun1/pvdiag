@@ -425,8 +425,9 @@ def main() -> None:
             "research/prognostics/build_panel_day_engine_operator_secondary_discovery_v1.py",
             "research/prognostics/build_panel_day_engine_operator_secondary_discovery_cluster_rollup_v1.py",
             "research/prognostics/build_panel_day_engine_operator_attention_plus_discovery_preview_v1.py",
+            "research/prognostics/build_panel_day_engine_operator_secondary_discovery_cluster_delta_v1.py",
         ],
-        "orchestrator should keep baseline builders plus discovery preview builders in order",
+        "orchestrator should keep baseline builders plus discovery preview and cluster delta builders in order",
     )
 
     with tempfile.TemporaryDirectory(prefix="operator_baseline_order_") as tmp_dir:
@@ -495,6 +496,25 @@ def main() -> None:
                     index=False,
                     encoding="utf-8-sig",
                 )
+            elif script_relative_path == build_module.SECONDARY_DISCOVERY_CLUSTER_DELTA_SCRIPT:
+                pd.DataFrame(
+                    [
+                        {
+                            "record_type": "overall",
+                            "site": "",
+                            "current_cluster_count": 1,
+                            "changed_cluster_count": 1,
+                            "new_cluster_count": 1,
+                            "dropped_cluster_count": 0,
+                            "representative_changed_count": 0,
+                            "linked_ref_changed_count": 0,
+                        }
+                    ]
+                ).to_csv(
+                    share_dir / build_module.DISCOVERY_CLUSTER_DELTA_SUMMARY_NAME,
+                    index=False,
+                    encoding="utf-8-sig",
+                )
 
         def fake_build_manifest_and_summary(
             root: Path,
@@ -504,6 +524,7 @@ def main() -> None:
             discovery_value_panels_summary: pd.DataFrame | None = None,
             discovery_cluster_rollup_summary: pd.DataFrame | None = None,
             discovery_cluster_preview_summary: pd.DataFrame | None = None,
+            discovery_cluster_delta_summary: pd.DataFrame | None = None,
         ) -> tuple[pd.DataFrame, pd.DataFrame]:
             manifest_row = {col: 0 for col in build_module.MANIFEST_OUTPUT_COLS}
             manifest_row["generated_at_utc"] = generated_at_utc
@@ -548,6 +569,12 @@ def main() -> None:
         repo_root / "_share" / "panel_day_engine_operator_attention_delta_summary_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_digest_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_digest_summary_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_secondary_discovery_cluster_rollup_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_secondary_discovery_cluster_rollup_v1_previous.csv",
+        repo_root / "_share" / "panel_day_engine_operator_secondary_discovery_cluster_delta_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_cluster_preview_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv",
     ]
     official_bytes = {path: path.read_bytes() for path in official_paths if path.exists()}
 
@@ -582,10 +609,13 @@ def main() -> None:
         manifest_path = share_dir / "panel_day_engine_operator_baseline_manifest_v1.csv"
         summary_path = share_dir / "panel_day_engine_operator_baseline_summary_v1.csv"
         previous_snapshot_path = share_dir / "panel_day_engine_operator_attention_now_v1_previous.csv"
+        cluster_current_path = share_dir / "panel_day_engine_operator_secondary_discovery_cluster_rollup_v1.csv"
+        cluster_previous_path = share_dir / "panel_day_engine_operator_secondary_discovery_cluster_rollup_v1_previous.csv"
 
         assert_true(manifest_path.exists(), "baseline manifest should be generated")
         assert_true(summary_path.exists(), "baseline summary should be generated")
         assert_true(previous_snapshot_path.exists(), "first-run bootstrap should still write previous snapshot")
+        assert_true(cluster_previous_path.exists(), "cluster delta bootstrap should still write previous cluster snapshot")
 
         manifest = pd.read_csv(manifest_path, encoding="utf-8-sig")
         summary = pd.read_csv(summary_path, encoding="utf-8-sig")
@@ -604,6 +634,10 @@ def main() -> None:
         )
         discovery_cluster_preview_summary = pd.read_csv(
             share_dir / "panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv",
+            encoding="utf-8-sig",
+        )
+        discovery_cluster_delta_summary = pd.read_csv(
+            share_dir / "panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv",
             encoding="utf-8-sig",
         )
 
@@ -643,6 +677,9 @@ def main() -> None:
         cluster_preview_overall = discovery_cluster_preview_summary.loc[
             discovery_cluster_preview_summary["record_type"].astype(str).eq("overall")
         ].iloc[0]
+        cluster_delta_overall = discovery_cluster_delta_summary.loc[
+            discovery_cluster_delta_summary["record_type"].astype(str).eq("overall")
+        ].iloc[0]
         assert_true(
             int(manifest_row["discovery_value_panel_count"]) == int(discovery_value_overall["value_panel_count"]),
             "manifest discovery_value_panel_count mismatch",
@@ -669,6 +706,32 @@ def main() -> None:
             int(manifest_row["cluster_preview_future_truth_linked_ref_count"])
             == int(cluster_preview_overall["clusters_with_future_truth_linked_ref_count"]),
             "manifest cluster_preview_future_truth_linked_ref_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["cluster_delta_current_count"]) == int(cluster_delta_overall["current_cluster_count"]),
+            "manifest cluster_delta_current_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["cluster_delta_changed_count"]) == int(cluster_delta_overall["changed_cluster_count"]),
+            "manifest cluster_delta_changed_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["cluster_delta_new_count"]) == int(cluster_delta_overall["new_cluster_count"]),
+            "manifest cluster_delta_new_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["cluster_delta_dropped_count"]) == int(cluster_delta_overall["dropped_cluster_count"]),
+            "manifest cluster_delta_dropped_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["cluster_delta_representative_changed_count"])
+            == int(cluster_delta_overall["representative_changed_count"]),
+            "manifest cluster_delta_representative_changed_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["cluster_delta_linked_ref_changed_count"])
+            == int(cluster_delta_overall["linked_ref_changed_count"]),
+            "manifest cluster_delta_linked_ref_changed_count mismatch",
         )
 
         assert_true(int(overall_summary["attention_count"]) == 2, "summary attention_count mismatch")
@@ -709,6 +772,22 @@ def main() -> None:
             == int(cluster_preview_overall["secondary_value_cluster_count"]),
             "summary cluster_preview_secondary_value_cluster_count mismatch",
         )
+        assert_true(
+            int(overall_summary["cluster_delta_current_count"]) == int(cluster_delta_overall["current_cluster_count"]),
+            "summary cluster_delta_current_count mismatch",
+        )
+        assert_true(
+            int(overall_summary["cluster_delta_changed_count"]) == int(cluster_delta_overall["changed_cluster_count"]),
+            "summary cluster_delta_changed_count mismatch",
+        )
+        assert_true(
+            int(overall_summary["cluster_delta_new_count"]) == int(cluster_delta_overall["new_cluster_count"]),
+            "summary cluster_delta_new_count mismatch",
+        )
+        assert_true(
+            int(overall_summary["cluster_delta_dropped_count"]) == int(cluster_delta_overall["dropped_cluster_count"]),
+            "summary cluster_delta_dropped_count mismatch",
+        )
 
         assert_true(int(overall_delta["current_attention_count"]) == len(attention_now), "delta summary should reflect current attention count")
         assert_true(len(attention_delta) == 2, "bootstrap delta should treat all current attention rows as new")
@@ -732,7 +811,13 @@ def main() -> None:
         )
 
         previous_snapshot = pd.read_csv(previous_snapshot_path, encoding="utf-8-sig")
+        previous_cluster_snapshot = pd.read_csv(cluster_previous_path, encoding="utf-8-sig")
+        current_cluster_snapshot = pd.read_csv(cluster_current_path, encoding="utf-8-sig")
         assert_true(previous_snapshot.equals(attention_now), "previous snapshot should match current attention after bootstrap")
+        assert_true(
+            previous_cluster_snapshot.equals(current_cluster_snapshot),
+            "previous cluster snapshot should match current cluster rollup after bootstrap",
+        )
 
     for path, previous_bytes in official_bytes.items():
         assert_true(path.read_bytes() == previous_bytes, f"official file changed during smoke: {path.name}")
