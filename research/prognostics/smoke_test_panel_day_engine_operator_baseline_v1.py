@@ -426,8 +426,9 @@ def main() -> None:
             "research/prognostics/build_panel_day_engine_operator_secondary_discovery_cluster_rollup_v1.py",
             "research/prognostics/build_panel_day_engine_operator_attention_plus_discovery_preview_v1.py",
             "research/prognostics/build_panel_day_engine_operator_secondary_discovery_cluster_delta_v1.py",
+            "research/prognostics/build_panel_day_engine_operator_unified_digest_v1.py",
         ],
-        "orchestrator should keep baseline builders plus discovery preview and cluster delta builders in order",
+        "orchestrator should keep baseline builders plus discovery preview, cluster delta, and unified digest builders in order",
     )
 
     with tempfile.TemporaryDirectory(prefix="operator_baseline_order_") as tmp_dir:
@@ -515,6 +516,30 @@ def main() -> None:
                     index=False,
                     encoding="utf-8-sig",
                 )
+            elif script_relative_path == build_module.UNIFIED_DIGEST_SCRIPT:
+                pd.DataFrame(
+                    [
+                        {
+                            "record_type": "overall",
+                            "site": "",
+                            "digest_count": 2,
+                            "queue_run_count": 1,
+                            "watch_now_panel_count": 0,
+                            "secondary_value_cluster_count": 1,
+                            "changed_count": 1,
+                            "changed_attention_count": 0,
+                            "changed_cluster_count": 1,
+                            "changed_queue_run_count": 0,
+                            "changed_watch_now_panel_count": 0,
+                            "changed_secondary_value_cluster_count": 1,
+                            "note_ko": "fixture unified digest",
+                        }
+                    ]
+                ).to_csv(
+                    share_dir / build_module.UNIFIED_DIGEST_SUMMARY_NAME,
+                    index=False,
+                    encoding="utf-8-sig",
+                )
 
         def fake_build_manifest_and_summary(
             root: Path,
@@ -525,6 +550,7 @@ def main() -> None:
             discovery_cluster_rollup_summary: pd.DataFrame | None = None,
             discovery_cluster_preview_summary: pd.DataFrame | None = None,
             discovery_cluster_delta_summary: pd.DataFrame | None = None,
+            unified_digest_summary: pd.DataFrame | None = None,
         ) -> tuple[pd.DataFrame, pd.DataFrame]:
             manifest_row = {col: 0 for col in build_module.MANIFEST_OUTPUT_COLS}
             manifest_row["generated_at_utc"] = generated_at_utc
@@ -575,6 +601,8 @@ def main() -> None:
         repo_root / "_share" / "panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_cluster_preview_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_unified_digest_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_unified_digest_summary_v1.csv",
     ]
     official_bytes = {path: path.read_bytes() for path in official_paths if path.exists()}
 
@@ -640,6 +668,11 @@ def main() -> None:
             share_dir / "panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv",
             encoding="utf-8-sig",
         )
+        unified_digest = pd.read_csv(share_dir / "panel_day_engine_operator_unified_digest_v1.csv", encoding="utf-8-sig")
+        unified_digest_summary = pd.read_csv(
+            share_dir / "panel_day_engine_operator_unified_digest_summary_v1.csv",
+            encoding="utf-8-sig",
+        )
 
         assert_true(len(manifest) == 1, "manifest should emit one row")
         manifest_row = manifest.iloc[0]
@@ -679,6 +712,9 @@ def main() -> None:
         ].iloc[0]
         cluster_delta_overall = discovery_cluster_delta_summary.loc[
             discovery_cluster_delta_summary["record_type"].astype(str).eq("overall")
+        ].iloc[0]
+        unified_digest_overall = unified_digest_summary.loc[
+            unified_digest_summary["record_type"].astype(str).eq("overall")
         ].iloc[0]
         assert_true(
             int(manifest_row["discovery_value_panel_count"]) == int(discovery_value_overall["value_panel_count"]),
@@ -732,6 +768,38 @@ def main() -> None:
             int(manifest_row["cluster_delta_linked_ref_changed_count"])
             == int(cluster_delta_overall["linked_ref_changed_count"]),
             "manifest cluster_delta_linked_ref_changed_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["unified_digest_count"]) == int(unified_digest_overall["digest_count"]),
+            "manifest unified_digest_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["unified_digest_queue_run_count"]) == int(unified_digest_overall["queue_run_count"]),
+            "manifest unified_digest_queue_run_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["unified_digest_watch_now_panel_count"])
+            == int(unified_digest_overall["watch_now_panel_count"]),
+            "manifest unified_digest_watch_now_panel_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["unified_digest_secondary_value_cluster_count"])
+            == int(unified_digest_overall["secondary_value_cluster_count"]),
+            "manifest unified_digest_secondary_value_cluster_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["unified_digest_changed_count"]) == int(unified_digest_overall["changed_count"]),
+            "manifest unified_digest_changed_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["unified_digest_changed_attention_count"])
+            == int(unified_digest_overall["changed_attention_count"]),
+            "manifest unified_digest_changed_attention_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["unified_digest_changed_cluster_count"])
+            == int(unified_digest_overall["changed_cluster_count"]),
+            "manifest unified_digest_changed_cluster_count mismatch",
         )
 
         assert_true(int(overall_summary["attention_count"]) == 2, "summary attention_count mismatch")
@@ -788,6 +856,28 @@ def main() -> None:
             int(overall_summary["cluster_delta_dropped_count"]) == int(cluster_delta_overall["dropped_cluster_count"]),
             "summary cluster_delta_dropped_count mismatch",
         )
+        assert_true(
+            int(overall_summary["unified_digest_count"]) == int(unified_digest_overall["digest_count"]),
+            "summary unified_digest_count mismatch",
+        )
+        assert_true(
+            int(overall_summary["unified_digest_queue_run_count"]) == int(unified_digest_overall["queue_run_count"]),
+            "summary unified_digest_queue_run_count mismatch",
+        )
+        assert_true(
+            int(overall_summary["unified_digest_watch_now_panel_count"])
+            == int(unified_digest_overall["watch_now_panel_count"]),
+            "summary unified_digest_watch_now_panel_count mismatch",
+        )
+        assert_true(
+            int(overall_summary["unified_digest_secondary_value_cluster_count"])
+            == int(unified_digest_overall["secondary_value_cluster_count"]),
+            "summary unified_digest_secondary_value_cluster_count mismatch",
+        )
+        assert_true(
+            int(overall_summary["unified_digest_changed_count"]) == int(unified_digest_overall["changed_count"]),
+            "summary unified_digest_changed_count mismatch",
+        )
 
         assert_true(int(overall_delta["current_attention_count"]) == len(attention_now), "delta summary should reflect current attention count")
         assert_true(len(attention_delta) == 2, "bootstrap delta should treat all current attention rows as new")
@@ -808,6 +898,18 @@ def main() -> None:
         assert_true(
             int(overall_digest["watch_now_panel_count"]) == 1,
             "digest summary watch_now_panel_count mismatch",
+        )
+        assert_true(len(unified_digest) == int(unified_digest_overall["digest_count"]), "unified digest count mismatch")
+        assert_true(
+            int(unified_digest_overall["queue_run_count"])
+            + int(unified_digest_overall["watch_now_panel_count"])
+            + int(unified_digest_overall["secondary_value_cluster_count"])
+            == len(unified_digest),
+            "unified digest class counts should sum to digest_count",
+        )
+        assert_true(
+            int(unified_digest_overall["changed_count"]) <= len(unified_digest),
+            "unified digest changed_count should not exceed digest_count",
         )
 
         previous_snapshot = pd.read_csv(previous_snapshot_path, encoding="utf-8-sig")
