@@ -123,6 +123,12 @@ summary = pd.DataFrame([{
     "overall_discovery_cluster_count": 5,
     "overall_cluster_preview_future_fault_linked_ref_count": 5,
     "overall_cluster_preview_future_truth_linked_ref_count": 0,
+    "overall_cluster_delta_current_count": 5,
+    "overall_cluster_delta_changed_count": 2,
+    "overall_cluster_delta_new_count": 1,
+    "overall_cluster_delta_dropped_count": 1,
+    "overall_cluster_delta_representative_changed_count": 1,
+    "overall_cluster_delta_linked_ref_changed_count": 1,
 }])
 summary.to_csv(share / "panel_day_engine_operator_refresh_qa_summary_v1.csv", index=False, encoding="utf-8-sig")
 """
@@ -199,6 +205,30 @@ def main() -> None:
             int(row["overall_cluster_preview_future_truth_linked_ref_count"]) == 0,
             "happy path overall_cluster_preview_future_truth_linked_ref_count mismatch",
         )
+        assert_true(
+            int(row["overall_cluster_delta_current_count"]) == 5,
+            "happy path overall_cluster_delta_current_count mismatch",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_changed_count"]) == 2,
+            "happy path overall_cluster_delta_changed_count mismatch",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_new_count"]) == 1,
+            "happy path overall_cluster_delta_new_count mismatch",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_dropped_count"]) == 1,
+            "happy path overall_cluster_delta_dropped_count mismatch",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_representative_changed_count"]) == 1,
+            "happy path overall_cluster_delta_representative_changed_count mismatch",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_linked_ref_changed_count"]) == 1,
+            "happy path overall_cluster_delta_linked_ref_changed_count mismatch",
+        )
         assert_true(row["note_ko"] == "전체 operator pipeline 정상", "happy path note mismatch")
         assert_true(
             (tmp_root / "_share" / "refresh_call.txt").read_text(encoding="utf-8") == "alpha,beta",
@@ -235,6 +265,30 @@ def main() -> None:
             int(row["overall_cluster_preview_future_truth_linked_ref_count"]) == 0,
             "refresh-fail truth linked ref count should remain zero",
         )
+        assert_true(
+            int(row["overall_cluster_delta_current_count"]) == 0,
+            "refresh-fail cluster delta current count should remain zero",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_changed_count"]) == 0,
+            "refresh-fail cluster delta changed count should remain zero",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_new_count"]) == 0,
+            "refresh-fail cluster delta new count should remain zero",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_dropped_count"]) == 0,
+            "refresh-fail cluster delta dropped count should remain zero",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_representative_changed_count"]) == 0,
+            "refresh-fail representative changed count should remain zero",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_linked_ref_changed_count"]) == 0,
+            "refresh-fail linked ref changed count should remain zero",
+        )
         assert_true(row["note_ko"] == "site refresh 실패로 baseline/QA 미완료", "refresh-fail note mismatch")
         assert_true(not (tmp_root / "_share" / "qa_called.txt").exists(), "QA should not run after refresh failure")
 
@@ -264,6 +318,30 @@ def main() -> None:
         assert_true(
             int(row["overall_cluster_preview_future_truth_linked_ref_count"]) == 0,
             "qa-fail overall_cluster_preview_future_truth_linked_ref_count mismatch",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_current_count"]) == 5,
+            "qa-fail overall_cluster_delta_current_count mismatch",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_changed_count"]) == 2,
+            "qa-fail overall_cluster_delta_changed_count mismatch",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_new_count"]) == 1,
+            "qa-fail overall_cluster_delta_new_count mismatch",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_dropped_count"]) == 1,
+            "qa-fail overall_cluster_delta_dropped_count mismatch",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_representative_changed_count"]) == 1,
+            "qa-fail overall_cluster_delta_representative_changed_count mismatch",
+        )
+        assert_true(
+            int(row["overall_cluster_delta_linked_ref_changed_count"]) == 1,
+            "qa-fail overall_cluster_delta_linked_ref_changed_count mismatch",
         )
         assert_true(row["note_ko"] == "QA 미통과로 운영 배포 보류", "qa-fail note mismatch")
         assert_true((tmp_root / "_share" / "qa_called.txt").exists(), "qa-fail path should still run QA")

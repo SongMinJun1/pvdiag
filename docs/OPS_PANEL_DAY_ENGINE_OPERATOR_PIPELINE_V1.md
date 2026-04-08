@@ -12,8 +12,8 @@
 
 이 패치는 packaging/orchestration only 이며 detector 변경이 아닙니다.
 
-이제 baseline orchestrator와 refresh QA가 secondary discovery cluster preview stack까지 함께 재생성하고 검증하므로,
-pipeline manifest도 그 supplemental discovery preview 규모를 함께 노출합니다.
+이제 baseline orchestrator와 refresh QA가 secondary discovery cluster preview stack과 discovery cluster delta stack까지 함께 재생성하고 검증하므로,
+pipeline manifest도 그 supplemental discovery preview/delta 규모를 함께 노출합니다.
 
 ## 실행
 
@@ -35,7 +35,7 @@ python research/prognostics/build_panel_day_engine_operator_pipeline_v1.py --sit
 - refresh manifest 기준 `baseline_built_flag == 1` 일 때만 `operator_refresh_qa_v1` 를 실행합니다.
 - baseline 이 안 만들어졌으면 QA는 건너뛰고 final manifest 에 실패 상태를 남깁니다.
 - 이 실행 순서는 그대로 유지됩니다.
-- 이번 확장은 QA summary에 이미 들어간 discovery cluster preview count를 pipeline manifest에 추가로 싣는 packaging change뿐입니다.
+- 이번 확장은 QA summary에 이미 들어간 discovery cluster preview / cluster delta count를 pipeline manifest에 추가로 싣는 packaging change뿐입니다.
 
 ## final_pipeline_pass_flag 해석
 
@@ -60,15 +60,18 @@ python research/prognostics/build_panel_day_engine_operator_pipeline_v1.py --sit
   - overall cluster preview count
   - overall discovery cluster count
   - overall cluster preview future fault/truth linked reference count
+- 그리고 supplemental discovery cluster delta 규모도 함께 확인할 수 있습니다.
+  - overall cluster delta current/changed/new/dropped count
+  - overall cluster delta representative-changed / linked-ref-changed count
 - 이 값들은 refresh QA가 이미 consistency를 확인한 summary에서 가져오며, main operator baseline 자체를 바꾸지는 않습니다.
 - QA를 건너뛴 경우에는 `qa_skip_reason` 으로 이유를 바로 확인할 수 있습니다.
 - 운영자는 이 파일만 보고도
   - 지금 pipeline이 정상 종료되었는지
   - 배포 보류가 필요한지
   - attention 규모가 어느 정도인지
-  - supplemental discovery preview 규모가 어느 정도인지
+  - supplemental discovery preview와 cluster delta 규모가 어느 정도인지
   를 바로 판단할 수 있습니다.
 
 중요한 점:
 - main operator baseline (`queue_run`, `watch_now_panel`, 기존 attention stack)은 그대로입니다.
-- pipeline manifest에 추가된 discovery preview count는 baseline 대체가 아니라, 이미 QA를 통과한 supplemental preview layer의 규모를 노출하는 용도입니다.
+- pipeline manifest에 추가된 discovery preview / cluster delta count는 baseline 대체가 아니라, 이미 QA를 통과한 supplemental preview/delta layer의 규모를 노출하는 용도입니다.

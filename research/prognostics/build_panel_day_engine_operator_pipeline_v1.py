@@ -28,6 +28,12 @@ REQUIRED_QA_SUMMARY_COLS = [
     "overall_discovery_cluster_count",
     "overall_cluster_preview_future_fault_linked_ref_count",
     "overall_cluster_preview_future_truth_linked_ref_count",
+    "overall_cluster_delta_current_count",
+    "overall_cluster_delta_changed_count",
+    "overall_cluster_delta_new_count",
+    "overall_cluster_delta_dropped_count",
+    "overall_cluster_delta_representative_changed_count",
+    "overall_cluster_delta_linked_ref_changed_count",
 ]
 
 PIPELINE_MANIFEST_COLS = [
@@ -52,13 +58,19 @@ PIPELINE_MANIFEST_COLS = [
     "overall_discovery_cluster_count",
     "overall_cluster_preview_future_fault_linked_ref_count",
     "overall_cluster_preview_future_truth_linked_ref_count",
+    "overall_cluster_delta_current_count",
+    "overall_cluster_delta_changed_count",
+    "overall_cluster_delta_new_count",
+    "overall_cluster_delta_dropped_count",
+    "overall_cluster_delta_representative_changed_count",
+    "overall_cluster_delta_linked_ref_changed_count",
     "note_ko",
 ]
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run the operator refresh pipeline end-to-end and expose refresh-QA-validated discovery preview counts in the final pipeline manifest."
+        description="Run the operator refresh pipeline end-to-end and expose refresh-QA-validated discovery preview and cluster delta counts in the final pipeline manifest."
     )
     parser.add_argument(
         "--sites",
@@ -173,6 +185,28 @@ def build_manifest(
         if qa_summary_row is not None
         else 0
     )
+    overall_cluster_delta_current_count = (
+        numeric_int(qa_summary_row.get("overall_cluster_delta_current_count")) if qa_summary_row is not None else 0
+    )
+    overall_cluster_delta_changed_count = (
+        numeric_int(qa_summary_row.get("overall_cluster_delta_changed_count")) if qa_summary_row is not None else 0
+    )
+    overall_cluster_delta_new_count = (
+        numeric_int(qa_summary_row.get("overall_cluster_delta_new_count")) if qa_summary_row is not None else 0
+    )
+    overall_cluster_delta_dropped_count = (
+        numeric_int(qa_summary_row.get("overall_cluster_delta_dropped_count")) if qa_summary_row is not None else 0
+    )
+    overall_cluster_delta_representative_changed_count = (
+        numeric_int(qa_summary_row.get("overall_cluster_delta_representative_changed_count"))
+        if qa_summary_row is not None
+        else 0
+    )
+    overall_cluster_delta_linked_ref_changed_count = (
+        numeric_int(qa_summary_row.get("overall_cluster_delta_linked_ref_changed_count"))
+        if qa_summary_row is not None
+        else 0
+    )
 
     final_pipeline_pass_flag, note_ko = determine_note(
         refresh_failed_site_count=refresh_failed_site_count,
@@ -208,6 +242,12 @@ def build_manifest(
         "overall_cluster_preview_future_truth_linked_ref_count": (
             overall_cluster_preview_future_truth_linked_ref_count
         ),
+        "overall_cluster_delta_current_count": overall_cluster_delta_current_count,
+        "overall_cluster_delta_changed_count": overall_cluster_delta_changed_count,
+        "overall_cluster_delta_new_count": overall_cluster_delta_new_count,
+        "overall_cluster_delta_dropped_count": overall_cluster_delta_dropped_count,
+        "overall_cluster_delta_representative_changed_count": overall_cluster_delta_representative_changed_count,
+        "overall_cluster_delta_linked_ref_changed_count": overall_cluster_delta_linked_ref_changed_count,
         "note_ko": note_ko,
     }
     return pd.DataFrame([row], columns=PIPELINE_MANIFEST_COLS)
