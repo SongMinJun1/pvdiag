@@ -32,6 +32,11 @@ def build_happy_fixture(
     cluster_secondary_count: int = 2,
     cluster_fault_ref_count: int = 2,
     cluster_truth_ref_count: int = 0,
+    cluster_delta_changed_count: int = 1,
+    cluster_delta_new_count: int = 1,
+    cluster_delta_dropped_count: int = 0,
+    cluster_delta_representative_changed_count: int = 1,
+    cluster_delta_linked_ref_changed_count: int = 0,
 ) -> None:
     share = root / "_share"
     share.mkdir(parents=True, exist_ok=True)
@@ -55,8 +60,17 @@ def build_happy_fixture(
     alpha_cluster_truth_ref_count = cluster_truth_ref_count // 2
     beta_cluster_truth_ref_count = cluster_truth_ref_count - alpha_cluster_truth_ref_count
     discovery_value_panel_count = cluster_secondary_count + 2
+    alpha_cluster_delta_current_count = cluster_secondary_count // 2
+    beta_cluster_delta_current_count = cluster_secondary_count - alpha_cluster_delta_current_count
+    alpha_cluster_delta_changed_count = cluster_delta_changed_count // 2
+    beta_cluster_delta_changed_count = cluster_delta_changed_count - alpha_cluster_delta_changed_count
+    alpha_cluster_delta_new_count = cluster_delta_new_count // 2
+    beta_cluster_delta_new_count = cluster_delta_new_count - alpha_cluster_delta_new_count
+    alpha_cluster_delta_dropped_count = cluster_delta_dropped_count // 2
+    beta_cluster_delta_dropped_count = cluster_delta_dropped_count - alpha_cluster_delta_dropped_count
 
     cluster_preview_rows: list[dict[str, object]] = []
+    cluster_delta_rows: list[dict[str, object]] = []
     for idx in range(alpha_queue_count):
         cluster_preview_rows.append(
             {
@@ -171,6 +185,75 @@ def build_happy_fixture(
                 "preview_reason_ko": "fixture cluster row",
             }
         )
+    for idx in range(cluster_delta_changed_count):
+        cluster_delta_rows.append(
+            {
+                "site": "alpha" if idx < alpha_cluster_delta_changed_count else "beta",
+                "delta_class": "representative_changed" if idx < cluster_delta_representative_changed_count else "linked_ref_changed",
+                "previous_cluster_id": f"prev.cluster.{idx + 1}",
+                "current_cluster_id": f"cur.cluster.{idx + 1}",
+                "previous_cluster_start_date": "2026-04-01",
+                "previous_cluster_end_date": "2026-04-03",
+                "current_cluster_start_date": "2026-04-01",
+                "current_cluster_end_date": "2026-04-03",
+                "previous_panel_count": 2,
+                "current_panel_count": 2,
+                "previous_representative_panel_id": f"prev.rep.{idx + 1}",
+                "current_representative_panel_id": f"cur.rep.{idx + 1}",
+                "previous_fault_linked_ref_flag": 0,
+                "current_fault_linked_ref_flag": 0 if idx < cluster_delta_representative_changed_count else 1,
+                "previous_truth_linked_ref_flag": 0,
+                "current_truth_linked_ref_flag": 0,
+                "overlap_days": 2,
+                "delta_reason_ko": "fixture cluster delta row",
+            }
+        )
+    for idx in range(cluster_delta_new_count):
+        cluster_delta_rows.append(
+            {
+                "site": "alpha" if idx < alpha_cluster_delta_new_count else "beta",
+                "delta_class": "new_cluster",
+                "previous_cluster_id": "",
+                "current_cluster_id": f"new.cluster.{idx + 1}",
+                "previous_cluster_start_date": "",
+                "previous_cluster_end_date": "",
+                "current_cluster_start_date": "2026-04-02",
+                "current_cluster_end_date": "2026-04-03",
+                "previous_panel_count": "",
+                "current_panel_count": 1,
+                "previous_representative_panel_id": "",
+                "current_representative_panel_id": f"new.rep.{idx + 1}",
+                "previous_fault_linked_ref_flag": "",
+                "current_fault_linked_ref_flag": 0,
+                "previous_truth_linked_ref_flag": "",
+                "current_truth_linked_ref_flag": 0,
+                "overlap_days": 0,
+                "delta_reason_ko": "fixture new cluster row",
+            }
+        )
+    for idx in range(cluster_delta_dropped_count):
+        cluster_delta_rows.append(
+            {
+                "site": "alpha" if idx < alpha_cluster_delta_dropped_count else "beta",
+                "delta_class": "dropped_cluster",
+                "previous_cluster_id": f"dropped.cluster.{idx + 1}",
+                "current_cluster_id": "",
+                "previous_cluster_start_date": "2026-03-29",
+                "previous_cluster_end_date": "2026-03-30",
+                "current_cluster_start_date": "",
+                "current_cluster_end_date": "",
+                "previous_panel_count": 1,
+                "current_panel_count": "",
+                "previous_representative_panel_id": f"dropped.rep.{idx + 1}",
+                "current_representative_panel_id": "",
+                "previous_fault_linked_ref_flag": 0,
+                "current_fault_linked_ref_flag": "",
+                "previous_truth_linked_ref_flag": 0,
+                "current_truth_linked_ref_flag": "",
+                "overlap_days": 0,
+                "delta_reason_ko": "fixture dropped cluster row",
+            }
+        )
 
     write_csv(
         share / "panel_day_engine_operator_refresh_manifest_v1.csv",
@@ -250,6 +333,12 @@ def build_happy_fixture(
                 "cluster_preview_secondary_value_cluster_count": cluster_secondary_count,
                 "cluster_preview_future_fault_linked_ref_count": cluster_fault_ref_count,
                 "cluster_preview_future_truth_linked_ref_count": cluster_truth_ref_count,
+                "cluster_delta_current_count": cluster_secondary_count,
+                "cluster_delta_changed_count": cluster_delta_changed_count,
+                "cluster_delta_new_count": cluster_delta_new_count,
+                "cluster_delta_dropped_count": cluster_delta_dropped_count,
+                "cluster_delta_representative_changed_count": cluster_delta_representative_changed_count,
+                "cluster_delta_linked_ref_changed_count": cluster_delta_linked_ref_changed_count,
             }
         ],
         [
@@ -274,6 +363,12 @@ def build_happy_fixture(
             "cluster_preview_secondary_value_cluster_count",
             "cluster_preview_future_fault_linked_ref_count",
             "cluster_preview_future_truth_linked_ref_count",
+            "cluster_delta_current_count",
+            "cluster_delta_changed_count",
+            "cluster_delta_new_count",
+            "cluster_delta_dropped_count",
+            "cluster_delta_representative_changed_count",
+            "cluster_delta_linked_ref_changed_count",
         ],
     )
     write_csv(
@@ -298,6 +393,10 @@ def build_happy_fixture(
                 "discovery_cluster_count": cluster_secondary_count,
                 "cluster_preview_count": cluster_preview_count,
                 "cluster_preview_secondary_value_cluster_count": cluster_secondary_count,
+                "cluster_delta_current_count": cluster_secondary_count,
+                "cluster_delta_changed_count": cluster_delta_changed_count,
+                "cluster_delta_new_count": cluster_delta_new_count,
+                "cluster_delta_dropped_count": cluster_delta_dropped_count,
             },
             {
                 "record_type": "site",
@@ -318,6 +417,10 @@ def build_happy_fixture(
                 "discovery_cluster_count": alpha_cluster_count,
                 "cluster_preview_count": alpha_cluster_preview_count,
                 "cluster_preview_secondary_value_cluster_count": alpha_cluster_count,
+                "cluster_delta_current_count": alpha_cluster_delta_current_count,
+                "cluster_delta_changed_count": alpha_cluster_delta_changed_count,
+                "cluster_delta_new_count": alpha_cluster_delta_new_count,
+                "cluster_delta_dropped_count": alpha_cluster_delta_dropped_count,
             },
             {
                 "record_type": "site",
@@ -338,6 +441,10 @@ def build_happy_fixture(
                 "discovery_cluster_count": beta_cluster_count,
                 "cluster_preview_count": beta_cluster_preview_count,
                 "cluster_preview_secondary_value_cluster_count": beta_cluster_count,
+                "cluster_delta_current_count": beta_cluster_delta_current_count,
+                "cluster_delta_changed_count": beta_cluster_delta_changed_count,
+                "cluster_delta_new_count": beta_cluster_delta_new_count,
+                "cluster_delta_dropped_count": beta_cluster_delta_dropped_count,
             },
         ],
         [
@@ -359,6 +466,10 @@ def build_happy_fixture(
             "discovery_cluster_count",
             "cluster_preview_count",
             "cluster_preview_secondary_value_cluster_count",
+            "cluster_delta_current_count",
+            "cluster_delta_changed_count",
+            "cluster_delta_new_count",
+            "cluster_delta_dropped_count",
         ],
     )
     write_csv(
@@ -634,6 +745,87 @@ def build_happy_fixture(
             "note_ko",
         ],
     )
+    write_csv(
+        share / "panel_day_engine_operator_secondary_discovery_cluster_delta_v1.csv",
+        cluster_delta_rows,
+        [
+            "site",
+            "delta_class",
+            "previous_cluster_id",
+            "current_cluster_id",
+            "previous_cluster_start_date",
+            "previous_cluster_end_date",
+            "current_cluster_start_date",
+            "current_cluster_end_date",
+            "previous_panel_count",
+            "current_panel_count",
+            "previous_representative_panel_id",
+            "current_representative_panel_id",
+            "previous_fault_linked_ref_flag",
+            "current_fault_linked_ref_flag",
+            "previous_truth_linked_ref_flag",
+            "current_truth_linked_ref_flag",
+            "overlap_days",
+            "delta_reason_ko",
+        ],
+    )
+    write_csv(
+        share / "panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv",
+        [
+            {
+                "record_type": "overall",
+                "site": "",
+                "current_cluster_count": cluster_secondary_count,
+                "previous_cluster_count": cluster_secondary_count,
+                "changed_cluster_count": cluster_delta_changed_count,
+                "new_cluster_count": cluster_delta_new_count,
+                "dropped_cluster_count": cluster_delta_dropped_count,
+                "representative_changed_count": cluster_delta_representative_changed_count,
+                "linked_ref_changed_count": cluster_delta_linked_ref_changed_count,
+                "panel_count_changed_count": 0,
+                "cluster_span_changed_count": 0,
+            },
+            {
+                "record_type": "site",
+                "site": "alpha",
+                "current_cluster_count": alpha_cluster_delta_current_count,
+                "previous_cluster_count": alpha_cluster_delta_current_count,
+                "changed_cluster_count": alpha_cluster_delta_changed_count,
+                "new_cluster_count": alpha_cluster_delta_new_count,
+                "dropped_cluster_count": alpha_cluster_delta_dropped_count,
+                "representative_changed_count": min(alpha_cluster_delta_changed_count, cluster_delta_representative_changed_count),
+                "linked_ref_changed_count": 0,
+                "panel_count_changed_count": 0,
+                "cluster_span_changed_count": 0,
+            },
+            {
+                "record_type": "site",
+                "site": "beta",
+                "current_cluster_count": beta_cluster_delta_current_count,
+                "previous_cluster_count": beta_cluster_delta_current_count,
+                "changed_cluster_count": beta_cluster_delta_changed_count,
+                "new_cluster_count": beta_cluster_delta_new_count,
+                "dropped_cluster_count": beta_cluster_delta_dropped_count,
+                "representative_changed_count": max(0, cluster_delta_representative_changed_count - min(alpha_cluster_delta_changed_count, cluster_delta_representative_changed_count)),
+                "linked_ref_changed_count": cluster_delta_linked_ref_changed_count,
+                "panel_count_changed_count": 0,
+                "cluster_span_changed_count": 0,
+            },
+        ],
+        [
+            "record_type",
+            "site",
+            "current_cluster_count",
+            "previous_cluster_count",
+            "changed_cluster_count",
+            "new_cluster_count",
+            "dropped_cluster_count",
+            "representative_changed_count",
+            "linked_ref_changed_count",
+            "panel_count_changed_count",
+            "cluster_span_changed_count",
+        ],
+    )
 
 
 def main() -> None:
@@ -643,6 +835,8 @@ def main() -> None:
     official_paths = [
         repo_root / "_share" / "panel_day_engine_operator_refresh_qa_report_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_refresh_qa_summary_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_secondary_discovery_cluster_delta_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv",
     ]
     official_bytes = {path: path.read_bytes() for path in official_paths if path.exists()}
 
@@ -707,12 +901,24 @@ def main() -> None:
             "missing cluster preview summary should fail required existence check",
         )
         assert_true(
+            report.loc[report["check_name"].eq("cluster_delta_exists"), "status"].iloc[0] == "fail",
+            "missing cluster delta file should fail required existence check",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_delta_summary_exists"), "status"].iloc[0] == "fail",
+            "missing cluster delta summary should fail required existence check",
+        )
+        assert_true(
             report.loc[report["check_name"].eq("attention_digest_count_match"), "status"].iloc[0] == "skip",
             "downstream checks should skip when dependencies are missing",
         )
         assert_true(
             report.loc[report["check_name"].eq("cluster_preview_count_match_manifest"), "status"].iloc[0] == "skip",
             "cluster preview consistency checks should skip when dependencies are missing",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_delta_current_count_match_manifest"), "status"].iloc[0] == "skip",
+            "cluster delta consistency checks should skip when dependencies are missing",
         )
         assert_true(int(summary.iloc[0]["qa_pass_flag"]) == 0, "missing-file path should not pass QA")
 
@@ -758,6 +964,41 @@ def main() -> None:
             == "pass",
             "happy path cluster_preview_site_sum_matches_overall should pass",
         )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_delta_current_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path cluster_delta_current_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_delta_changed_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path cluster_delta_changed_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_delta_new_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path cluster_delta_new_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_delta_dropped_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path cluster_delta_dropped_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_delta_representative_changed_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path cluster_delta_representative_changed_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_delta_linked_ref_changed_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path cluster_delta_linked_ref_changed_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("cluster_delta_site_sum_matches_overall"), "status"].iloc[0]
+            == "pass",
+            "happy path cluster_delta_site_sum_matches_overall should pass",
+        )
         assert_true(int(summary.iloc[0]["overall_attention_count"]) == 10, "happy path overall_attention_count mismatch")
         assert_true(int(summary.iloc[0]["overall_queue_count"]) == 4, "happy path overall_queue_count mismatch")
         assert_true(int(summary.iloc[0]["overall_watch_now_count"]) == 3, "happy path overall_watch_now_count mismatch")
@@ -773,6 +1014,30 @@ def main() -> None:
         assert_true(
             int(summary.iloc[0]["overall_cluster_preview_future_truth_linked_ref_count"]) == 0,
             "happy path overall_cluster_preview_future_truth_linked_ref_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_cluster_delta_current_count"]) == 2,
+            "happy path overall_cluster_delta_current_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_cluster_delta_changed_count"]) == 1,
+            "happy path overall_cluster_delta_changed_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_cluster_delta_new_count"]) == 1,
+            "happy path overall_cluster_delta_new_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_cluster_delta_dropped_count"]) == 0,
+            "happy path overall_cluster_delta_dropped_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_cluster_delta_representative_changed_count"]) == 1,
+            "happy path overall_cluster_delta_representative_changed_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_cluster_delta_linked_ref_changed_count"]) == 0,
+            "happy path overall_cluster_delta_linked_ref_changed_count mismatch",
         )
 
     with tempfile.TemporaryDirectory(prefix="operator_refresh_qa_warn_") as tmp_dir:

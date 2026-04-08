@@ -3,7 +3,7 @@
 ## 목적
 
 refresh가 끝났다고 해서 operator stack이 바로 신뢰 가능한 것은 아닙니다.  
-site rerun 성공, baseline rebuild 성공, attention/digest/run summary 상호 일치, 그리고 baseline에 함께 packaging된 discovery preview stack 일관성까지 확인되어야 운영자가 현재 산출물을 그대로 받아들일 수 있습니다.
+site rerun 성공, baseline rebuild 성공, attention/digest/run summary 상호 일치, 그리고 baseline에 함께 packaging된 discovery preview stack과 discovery cluster delta stack 일관성까지 확인되어야 운영자가 현재 산출물을 그대로 받아들일 수 있습니다.
 
 `operator_refresh_qa_v1` 는 이 마지막 QA gate를 추가하는 operator-facing 점검 레이어입니다.  
 detector 변경이 아니라 refresh 이후 결과물 coherence 검사입니다.
@@ -19,6 +19,8 @@ detector 변경이 아니라 refresh 이후 결과물 coherence 검사입니다.
 - `panel_day_engine_operator_digest_summary_v1.csv`
 - `panel_day_engine_operator_attention_plus_discovery_cluster_preview_v1.csv`
 - `panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv`
+- `panel_day_engine_operator_secondary_discovery_cluster_delta_v1.csv`
+- `panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv`
 - `panel_day_engine_operator_run_summary_v1.csv`
 - optional watchlist summary
 
@@ -34,8 +36,10 @@ Hard fail:
 - baseline rebuild 여부
 - attention / digest / watchlist / site aggregate 간 count consistency
 - baseline manifest 와 discovery cluster preview summary 간 count consistency
+- baseline manifest 와 discovery cluster delta summary 간 count consistency
 - cluster preview overall count = baseline attention + discovery cluster count consistency
 - cluster preview per-site sum = cluster preview overall consistency
+- cluster delta per-site current/changed/new/dropped sum = cluster delta overall consistency
 - refresh 시간 순서와 duration 유효성
 
 Soft warning:
@@ -65,12 +69,22 @@ soft warning은 운영자가 바로 눈여겨볼 신호지만, detector 또는 r
 - refresh success alone is not enough:
   - site 실행은 성공했는데 summary가 서로 어긋날 수 있습니다.
 - operator stack now needs a QA gate:
-  - baseline/digest/delta 레이어가 쌓였고, 이제 secondary discovery cluster preview도 baseline packaging에 같이 들어오므로 상호 consistency 확인이 필요해졌습니다.
+  - baseline/digest/delta 레이어가 쌓였고, 이제 secondary discovery cluster preview와 discovery cluster delta도 baseline packaging에 같이 들어오므로 상호 consistency 확인이 필요해졌습니다.
 - hard fail vs soft warning 분리:
   - 운영 불가 상태와 단순 규모 이상징후를 구분해 보여 주기 위함입니다.
 
-## 왜 discovery preview까지 QA에 포함하는가
+## 왜 discovery preview와 cluster delta까지 QA에 포함하는가
 
-- baseline orchestrator는 이제 primary attention stack만이 아니라 supplemental discovery cluster preview stack도 함께 재생성합니다.
-- 따라서 QA gate도 baseline manifest가 기록한 discovery preview count와 실제 cluster preview summary가 서로 맞는지 검증해야 합니다.
+- baseline orchestrator는 이제 primary attention stack만이 아니라 supplemental discovery cluster preview stack과 discovery cluster delta stack도 함께 재생성합니다.
+- 따라서 QA gate도 baseline manifest가 기록한 discovery preview / cluster delta count와 실제 summary가 서로 맞는지 검증해야 합니다.
 - 이 검사는 detector/scorer 변경이 아니라, refresh 결과 packaging coherence를 점검하는 운영 QA입니다.
+
+정리:
+- hard fail
+  - preview/delta 필수 파일 누락
+  - baseline manifest 와 preview/delta summary 불일치
+  - preview/delta per-site 합과 overall 불일치
+- soft warn
+  - queue/watch_now/attention/cluster preview 규모 이상치
+
+즉 이 QA는 operator baseline stack과 그 위에 붙은 supplemental discovery preview/delta stack이 함께 coherent 한지 보는 gate일 뿐, detector/scorer를 바꾸는 로직은 아닙니다.
