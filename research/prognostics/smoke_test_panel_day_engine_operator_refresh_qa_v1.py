@@ -81,10 +81,22 @@ def build_happy_fixture(
     unified_digest_changed_count = (
         unified_digest_changed_attention_count + unified_digest_changed_cluster_count
     )
+    workflow_default_changed_count = unified_digest_changed_count
+    workflow_default_primary_attention_count = attention_count
+    workflow_default_supplemental_discovery_count = cluster_secondary_count
+    workflow_default_linked_ref_count = cluster_fault_ref_count
+    workflow_default_truth_ref_count = cluster_truth_ref_count
+    alpha_workflow_default_changed_count = (
+        alpha_unified_digest_changed_attention_count + alpha_unified_digest_changed_cluster_count
+    )
+    beta_workflow_default_changed_count = (
+        beta_unified_digest_changed_attention_count + beta_unified_digest_changed_cluster_count
+    )
 
     cluster_preview_rows: list[dict[str, object]] = []
     cluster_delta_rows: list[dict[str, object]] = []
     unified_digest_rows: list[dict[str, object]] = []
+    workflow_default_rows: list[dict[str, object]] = []
     for idx in range(alpha_queue_count):
         cluster_preview_rows.append(
             {
@@ -360,6 +372,15 @@ def build_happy_fixture(
                 "unified_digest_changed_count": unified_digest_changed_count,
                 "unified_digest_changed_attention_count": unified_digest_changed_attention_count,
                 "unified_digest_changed_cluster_count": unified_digest_changed_cluster_count,
+                "workflow_default_item_count": cluster_preview_count,
+                "workflow_default_queue_run_count": queue_count,
+                "workflow_default_watch_now_panel_count": digest_watch_now,
+                "workflow_default_secondary_value_cluster_count": cluster_secondary_count,
+                "workflow_default_changed_count": workflow_default_changed_count,
+                "workflow_default_primary_attention_count": workflow_default_primary_attention_count,
+                "workflow_default_supplemental_discovery_count": workflow_default_supplemental_discovery_count,
+                "workflow_default_linked_ref_count": workflow_default_linked_ref_count,
+                "workflow_default_truth_ref_count": workflow_default_truth_ref_count,
             }
         ],
         [
@@ -397,6 +418,15 @@ def build_happy_fixture(
             "unified_digest_changed_count",
             "unified_digest_changed_attention_count",
             "unified_digest_changed_cluster_count",
+            "workflow_default_item_count",
+            "workflow_default_queue_run_count",
+            "workflow_default_watch_now_panel_count",
+            "workflow_default_secondary_value_cluster_count",
+            "workflow_default_changed_count",
+            "workflow_default_primary_attention_count",
+            "workflow_default_supplemental_discovery_count",
+            "workflow_default_linked_ref_count",
+            "workflow_default_truth_ref_count",
         ],
     )
     write_csv(
@@ -430,6 +460,11 @@ def build_happy_fixture(
                 "unified_digest_watch_now_panel_count": digest_watch_now,
                 "unified_digest_secondary_value_cluster_count": cluster_secondary_count,
                 "unified_digest_changed_count": unified_digest_changed_count,
+                "workflow_default_item_count": cluster_preview_count,
+                "workflow_default_queue_run_count": queue_count,
+                "workflow_default_watch_now_panel_count": digest_watch_now,
+                "workflow_default_secondary_value_cluster_count": cluster_secondary_count,
+                "workflow_default_changed_count": workflow_default_changed_count,
             },
             {
                 "record_type": "site",
@@ -461,6 +496,11 @@ def build_happy_fixture(
                 "unified_digest_changed_count": (
                     alpha_unified_digest_changed_attention_count + alpha_unified_digest_changed_cluster_count
                 ),
+                "workflow_default_item_count": alpha_cluster_preview_count,
+                "workflow_default_queue_run_count": alpha_queue_count,
+                "workflow_default_watch_now_panel_count": alpha_digest_watch,
+                "workflow_default_secondary_value_cluster_count": alpha_cluster_count,
+                "workflow_default_changed_count": alpha_workflow_default_changed_count,
             },
             {
                 "record_type": "site",
@@ -492,6 +532,11 @@ def build_happy_fixture(
                 "unified_digest_changed_count": (
                     beta_unified_digest_changed_attention_count + beta_unified_digest_changed_cluster_count
                 ),
+                "workflow_default_item_count": beta_cluster_preview_count,
+                "workflow_default_queue_run_count": beta_queue_count,
+                "workflow_default_watch_now_panel_count": beta_digest_watch,
+                "workflow_default_secondary_value_cluster_count": beta_cluster_count,
+                "workflow_default_changed_count": beta_workflow_default_changed_count,
             },
         ],
         [
@@ -522,6 +567,11 @@ def build_happy_fixture(
             "unified_digest_watch_now_panel_count",
             "unified_digest_secondary_value_cluster_count",
             "unified_digest_changed_count",
+            "workflow_default_item_count",
+            "workflow_default_queue_run_count",
+            "workflow_default_watch_now_panel_count",
+            "workflow_default_secondary_value_cluster_count",
+            "workflow_default_changed_count",
         ],
     )
     write_csv(
@@ -917,6 +967,36 @@ def build_happy_fixture(
                 "digest_reason_ko": "fixture unified digest row",
             }
         )
+        workflow_default_rows.append(
+            {
+                **row,
+                "changed_since_previous_flag": changed_flag,
+                "latest_delta_source": latest_delta_source,
+                "latest_delta_class": latest_delta_class,
+                "latest_delta_reason_ko": latest_delta_reason_ko,
+                "digest_reason_ko": "fixture unified digest row",
+                "workflow_policy_name": "baseline_plus_discovery_cluster",
+                "workflow_role": (
+                    "supplemental_discovery"
+                    if preview_attention_class == "secondary_value_cluster"
+                    else "primary_attention"
+                ),
+                "workflow_priority_class": (
+                    "queue_priority"
+                    if preview_attention_class == "queue_run"
+                    else "watch_priority"
+                    if preview_attention_class == "watch_now_panel"
+                    else "discovery_priority"
+                ),
+                "workflow_reason_ko": (
+                    "기본 queue attention"
+                    if preview_attention_class == "queue_run"
+                    else "기본 watch attention"
+                    if preview_attention_class == "watch_now_panel"
+                    else "기본 workflow에 포함된 discovery cluster"
+                ),
+            }
+        )
 
     write_csv(
         share / "panel_day_engine_operator_unified_digest_v1.csv",
@@ -1006,6 +1086,98 @@ def build_happy_fixture(
             "note_ko",
         ],
     )
+    write_csv(
+        share / "panel_day_engine_operator_workflow_default_v1.csv",
+        workflow_default_rows,
+        [
+            "preview_attention_class",
+            "site",
+            "display_entity_id",
+            "display_start_date",
+            "display_end_date",
+            "display_span_or_day_count",
+            "display_shape_or_cluster_kind",
+            "display_status_or_tier",
+            "display_score",
+            "linked_ref_flag",
+            "truth_ref_flag",
+            "cluster_panel_count",
+            "changed_since_previous_flag",
+            "latest_delta_source",
+            "latest_delta_class",
+            "latest_delta_reason_ko",
+            "digest_reason_ko",
+            "workflow_policy_name",
+            "workflow_role",
+            "workflow_priority_class",
+            "workflow_reason_ko",
+        ],
+    )
+    write_csv(
+        share / "panel_day_engine_operator_workflow_default_summary_v1.csv",
+        [
+            {
+                "record_type": "overall",
+                "site": "",
+                "workflow_policy_name": "baseline_plus_discovery_cluster",
+                "workflow_item_count": cluster_preview_count,
+                "queue_run_count": queue_count,
+                "watch_now_panel_count": digest_watch_now,
+                "secondary_value_cluster_count": cluster_secondary_count,
+                "changed_count": workflow_default_changed_count,
+                "primary_attention_count": workflow_default_primary_attention_count,
+                "supplemental_discovery_count": workflow_default_supplemental_discovery_count,
+                "linked_ref_count": workflow_default_linked_ref_count,
+                "truth_ref_count": workflow_default_truth_ref_count,
+                "note_ko": "fixture workflow default summary",
+            },
+            {
+                "record_type": "site",
+                "site": "alpha",
+                "workflow_policy_name": "baseline_plus_discovery_cluster",
+                "workflow_item_count": alpha_cluster_preview_count,
+                "queue_run_count": alpha_queue_count,
+                "watch_now_panel_count": alpha_digest_watch,
+                "secondary_value_cluster_count": alpha_cluster_count,
+                "changed_count": alpha_workflow_default_changed_count,
+                "primary_attention_count": alpha_attention_count,
+                "supplemental_discovery_count": alpha_cluster_count,
+                "linked_ref_count": alpha_cluster_fault_ref_count,
+                "truth_ref_count": alpha_cluster_truth_ref_count,
+                "note_ko": "fixture workflow default summary",
+            },
+            {
+                "record_type": "site",
+                "site": "beta",
+                "workflow_policy_name": "baseline_plus_discovery_cluster",
+                "workflow_item_count": beta_cluster_preview_count,
+                "queue_run_count": beta_queue_count,
+                "watch_now_panel_count": beta_digest_watch,
+                "secondary_value_cluster_count": beta_cluster_count,
+                "changed_count": beta_workflow_default_changed_count,
+                "primary_attention_count": beta_attention_count,
+                "supplemental_discovery_count": beta_cluster_count,
+                "linked_ref_count": beta_cluster_fault_ref_count,
+                "truth_ref_count": beta_cluster_truth_ref_count,
+                "note_ko": "fixture workflow default summary",
+            },
+        ],
+        [
+            "record_type",
+            "site",
+            "workflow_policy_name",
+            "workflow_item_count",
+            "queue_run_count",
+            "watch_now_panel_count",
+            "secondary_value_cluster_count",
+            "changed_count",
+            "primary_attention_count",
+            "supplemental_discovery_count",
+            "linked_ref_count",
+            "truth_ref_count",
+            "note_ko",
+        ],
+    )
 
 
 def main() -> None:
@@ -1019,6 +1191,8 @@ def main() -> None:
         repo_root / "_share" / "panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_unified_digest_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_unified_digest_summary_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_workflow_default_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_workflow_default_summary_v1.csv",
     ]
     official_bytes = {path: path.read_bytes() for path in official_paths if path.exists()}
 
@@ -1099,6 +1273,14 @@ def main() -> None:
             "missing unified digest summary should fail required existence check",
         )
         assert_true(
+            report.loc[report["check_name"].eq("workflow_default_exists"), "status"].iloc[0] == "fail",
+            "missing workflow default file should fail required existence check",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("workflow_default_summary_exists"), "status"].iloc[0] == "fail",
+            "missing workflow default summary should fail required existence check",
+        )
+        assert_true(
             report.loc[report["check_name"].eq("attention_digest_count_match"), "status"].iloc[0] == "skip",
             "downstream checks should skip when dependencies are missing",
         )
@@ -1113,6 +1295,10 @@ def main() -> None:
         assert_true(
             report.loc[report["check_name"].eq("unified_digest_count_match_manifest"), "status"].iloc[0] == "skip",
             "unified digest consistency checks should skip when dependencies are missing",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("workflow_default_count_match_manifest"), "status"].iloc[0] == "skip",
+            "workflow default consistency checks should skip when dependencies are missing",
         )
         assert_true(int(summary.iloc[0]["qa_pass_flag"]) == 0, "missing-file path should not pass QA")
 
@@ -1236,6 +1422,60 @@ def main() -> None:
             == "pass",
             "happy path unified_digest_site_sum_matches_overall should pass",
         )
+        assert_true(
+            report.loc[report["check_name"].eq("workflow_default_count_match_manifest"), "status"].iloc[0] == "pass",
+            "happy path workflow_default_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("workflow_default_queue_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path workflow_default_queue_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("workflow_default_watch_now_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path workflow_default_watch_now_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("workflow_default_secondary_cluster_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path workflow_default_secondary_cluster_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("workflow_default_changed_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path workflow_default_changed_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("workflow_default_primary_attention_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path workflow_default_primary_attention_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("workflow_default_supplemental_discovery_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path workflow_default_supplemental_discovery_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("workflow_default_linked_ref_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path workflow_default_linked_ref_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("workflow_default_truth_ref_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path workflow_default_truth_ref_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("workflow_default_count_matches_unified_digest"), "status"].iloc[0]
+            == "pass",
+            "happy path workflow_default_count_matches_unified_digest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("workflow_default_site_sum_matches_overall"), "status"].iloc[0]
+            == "pass",
+            "happy path workflow_default_site_sum_matches_overall should pass",
+        )
         assert_true(int(summary.iloc[0]["overall_attention_count"]) == 10, "happy path overall_attention_count mismatch")
         assert_true(int(summary.iloc[0]["overall_queue_count"]) == 4, "happy path overall_queue_count mismatch")
         assert_true(int(summary.iloc[0]["overall_watch_now_count"]) == 3, "happy path overall_watch_now_count mismatch")
@@ -1301,6 +1541,42 @@ def main() -> None:
             int(summary.iloc[0]["overall_unified_digest_changed_cluster_count"]) == 2,
             "happy path overall_unified_digest_changed_cluster_count mismatch",
         )
+        assert_true(
+            int(summary.iloc[0]["overall_workflow_default_count"]) == 12,
+            "happy path overall_workflow_default_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_workflow_default_queue_run_count"]) == 4,
+            "happy path overall_workflow_default_queue_run_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_workflow_default_watch_now_panel_count"]) == 6,
+            "happy path overall_workflow_default_watch_now_panel_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_workflow_default_secondary_value_cluster_count"]) == 2,
+            "happy path overall_workflow_default_secondary_value_cluster_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_workflow_default_changed_count"]) == 5,
+            "happy path overall_workflow_default_changed_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_workflow_default_primary_attention_count"]) == 10,
+            "happy path overall_workflow_default_primary_attention_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_workflow_default_supplemental_discovery_count"]) == 2,
+            "happy path overall_workflow_default_supplemental_discovery_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_workflow_default_linked_ref_count"]) == 2,
+            "happy path overall_workflow_default_linked_ref_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_workflow_default_truth_ref_count"]) == 0,
+            "happy path overall_workflow_default_truth_ref_count mismatch",
+        )
 
     with tempfile.TemporaryDirectory(prefix="operator_refresh_qa_warn_") as tmp_dir:
         tmp_root = Path(tmp_dir)
@@ -1321,6 +1597,7 @@ def main() -> None:
         cluster_preview_warn = report.loc[report["check_name"].eq("cluster_preview_too_large")].iloc[0]
         discovery_cluster_warn = report.loc[report["check_name"].eq("discovery_cluster_count_too_large")].iloc[0]
         unified_digest_warn = report.loc[report["check_name"].eq("unified_digest_too_large")].iloc[0]
+        workflow_default_warn = report.loc[report["check_name"].eq("workflow_default_too_large")].iloc[0]
         assert_true(queue_warn["status"] == "warn", "queue_count_too_large should warn above threshold")
         assert_true(cluster_preview_warn["status"] == "warn", "cluster_preview_too_large should warn above threshold")
         assert_true(
@@ -1328,6 +1605,7 @@ def main() -> None:
             "discovery_cluster_count_too_large should warn above threshold",
         )
         assert_true(unified_digest_warn["status"] == "warn", "unified_digest_too_large should warn above threshold")
+        assert_true(workflow_default_warn["status"] == "warn", "workflow_default_too_large should warn above threshold")
         assert_true(int(summary.iloc[0]["warn_count"]) >= 1, "warn path should increment warn_count")
         assert_true(int(summary.iloc[0]["qa_pass_flag"]) == 1, "warn-only path should still pass QA")
 
