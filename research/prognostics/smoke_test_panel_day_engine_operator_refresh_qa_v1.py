@@ -68,9 +68,23 @@ def build_happy_fixture(
     beta_cluster_delta_new_count = cluster_delta_new_count - alpha_cluster_delta_new_count
     alpha_cluster_delta_dropped_count = cluster_delta_dropped_count // 2
     beta_cluster_delta_dropped_count = cluster_delta_dropped_count - alpha_cluster_delta_dropped_count
+    alpha_unified_digest_changed_attention_count = 1
+    beta_unified_digest_changed_attention_count = 2
+    unified_digest_changed_attention_count = (
+        alpha_unified_digest_changed_attention_count + beta_unified_digest_changed_attention_count
+    )
+    alpha_unified_digest_changed_cluster_count = alpha_cluster_delta_changed_count + alpha_cluster_delta_new_count
+    beta_unified_digest_changed_cluster_count = beta_cluster_delta_changed_count + beta_cluster_delta_new_count
+    unified_digest_changed_cluster_count = (
+        alpha_unified_digest_changed_cluster_count + beta_unified_digest_changed_cluster_count
+    )
+    unified_digest_changed_count = (
+        unified_digest_changed_attention_count + unified_digest_changed_cluster_count
+    )
 
     cluster_preview_rows: list[dict[str, object]] = []
     cluster_delta_rows: list[dict[str, object]] = []
+    unified_digest_rows: list[dict[str, object]] = []
     for idx in range(alpha_queue_count):
         cluster_preview_rows.append(
             {
@@ -339,6 +353,13 @@ def build_happy_fixture(
                 "cluster_delta_dropped_count": cluster_delta_dropped_count,
                 "cluster_delta_representative_changed_count": cluster_delta_representative_changed_count,
                 "cluster_delta_linked_ref_changed_count": cluster_delta_linked_ref_changed_count,
+                "unified_digest_count": cluster_preview_count,
+                "unified_digest_queue_run_count": queue_count,
+                "unified_digest_watch_now_panel_count": digest_watch_now,
+                "unified_digest_secondary_value_cluster_count": cluster_secondary_count,
+                "unified_digest_changed_count": unified_digest_changed_count,
+                "unified_digest_changed_attention_count": unified_digest_changed_attention_count,
+                "unified_digest_changed_cluster_count": unified_digest_changed_cluster_count,
             }
         ],
         [
@@ -369,6 +390,13 @@ def build_happy_fixture(
             "cluster_delta_dropped_count",
             "cluster_delta_representative_changed_count",
             "cluster_delta_linked_ref_changed_count",
+            "unified_digest_count",
+            "unified_digest_queue_run_count",
+            "unified_digest_watch_now_panel_count",
+            "unified_digest_secondary_value_cluster_count",
+            "unified_digest_changed_count",
+            "unified_digest_changed_attention_count",
+            "unified_digest_changed_cluster_count",
         ],
     )
     write_csv(
@@ -397,6 +425,11 @@ def build_happy_fixture(
                 "cluster_delta_changed_count": cluster_delta_changed_count,
                 "cluster_delta_new_count": cluster_delta_new_count,
                 "cluster_delta_dropped_count": cluster_delta_dropped_count,
+                "unified_digest_count": cluster_preview_count,
+                "unified_digest_queue_run_count": queue_count,
+                "unified_digest_watch_now_panel_count": digest_watch_now,
+                "unified_digest_secondary_value_cluster_count": cluster_secondary_count,
+                "unified_digest_changed_count": unified_digest_changed_count,
             },
             {
                 "record_type": "site",
@@ -421,6 +454,13 @@ def build_happy_fixture(
                 "cluster_delta_changed_count": alpha_cluster_delta_changed_count,
                 "cluster_delta_new_count": alpha_cluster_delta_new_count,
                 "cluster_delta_dropped_count": alpha_cluster_delta_dropped_count,
+                "unified_digest_count": alpha_cluster_preview_count,
+                "unified_digest_queue_run_count": alpha_queue_count,
+                "unified_digest_watch_now_panel_count": alpha_digest_watch,
+                "unified_digest_secondary_value_cluster_count": alpha_cluster_count,
+                "unified_digest_changed_count": (
+                    alpha_unified_digest_changed_attention_count + alpha_unified_digest_changed_cluster_count
+                ),
             },
             {
                 "record_type": "site",
@@ -445,6 +485,13 @@ def build_happy_fixture(
                 "cluster_delta_changed_count": beta_cluster_delta_changed_count,
                 "cluster_delta_new_count": beta_cluster_delta_new_count,
                 "cluster_delta_dropped_count": beta_cluster_delta_dropped_count,
+                "unified_digest_count": beta_cluster_preview_count,
+                "unified_digest_queue_run_count": beta_queue_count,
+                "unified_digest_watch_now_panel_count": beta_digest_watch,
+                "unified_digest_secondary_value_cluster_count": beta_cluster_count,
+                "unified_digest_changed_count": (
+                    beta_unified_digest_changed_attention_count + beta_unified_digest_changed_cluster_count
+                ),
             },
         ],
         [
@@ -470,6 +517,11 @@ def build_happy_fixture(
             "cluster_delta_changed_count",
             "cluster_delta_new_count",
             "cluster_delta_dropped_count",
+            "unified_digest_count",
+            "unified_digest_queue_run_count",
+            "unified_digest_watch_now_panel_count",
+            "unified_digest_secondary_value_cluster_count",
+            "unified_digest_changed_count",
         ],
     )
     write_csv(
@@ -827,6 +879,134 @@ def build_happy_fixture(
         ],
     )
 
+    attention_change_remaining = {
+        "alpha": alpha_unified_digest_changed_attention_count,
+        "beta": beta_unified_digest_changed_attention_count,
+    }
+    cluster_change_remaining = {
+        "alpha": alpha_unified_digest_changed_cluster_count,
+        "beta": beta_unified_digest_changed_cluster_count,
+    }
+    for row in cluster_preview_rows:
+        site = str(row["site"])
+        preview_attention_class = str(row["preview_attention_class"])
+        changed_flag = 0
+        latest_delta_source = "none"
+        latest_delta_class = ""
+        latest_delta_reason_ko = ""
+        if preview_attention_class in {"queue_run", "watch_now_panel"} and attention_change_remaining[site] > 0:
+            changed_flag = 1
+            latest_delta_source = "attention_delta"
+            latest_delta_class = "new_attention" if attention_change_remaining[site] > 1 else "status_or_tier_changed"
+            latest_delta_reason_ko = "fixture attention delta row"
+            attention_change_remaining[site] -= 1
+        elif preview_attention_class == "secondary_value_cluster" and cluster_change_remaining[site] > 0:
+            changed_flag = 1
+            latest_delta_source = "cluster_delta"
+            latest_delta_class = "representative_changed" if cluster_change_remaining[site] > 1 else "new_cluster"
+            latest_delta_reason_ko = "fixture cluster delta row"
+            cluster_change_remaining[site] -= 1
+
+        unified_digest_rows.append(
+            {
+                **row,
+                "changed_since_previous_flag": changed_flag,
+                "latest_delta_source": latest_delta_source,
+                "latest_delta_class": latest_delta_class,
+                "latest_delta_reason_ko": latest_delta_reason_ko,
+                "digest_reason_ko": "fixture unified digest row",
+            }
+        )
+
+    write_csv(
+        share / "panel_day_engine_operator_unified_digest_v1.csv",
+        unified_digest_rows,
+        [
+            "preview_attention_class",
+            "site",
+            "display_entity_id",
+            "display_start_date",
+            "display_end_date",
+            "display_span_or_day_count",
+            "display_shape_or_cluster_kind",
+            "display_status_or_tier",
+            "display_score",
+            "linked_ref_flag",
+            "truth_ref_flag",
+            "cluster_panel_count",
+            "changed_since_previous_flag",
+            "latest_delta_source",
+            "latest_delta_class",
+            "latest_delta_reason_ko",
+            "digest_reason_ko",
+        ],
+    )
+    write_csv(
+        share / "panel_day_engine_operator_unified_digest_summary_v1.csv",
+        [
+            {
+                "record_type": "overall",
+                "site": "",
+                "digest_count": cluster_preview_count,
+                "queue_run_count": queue_count,
+                "watch_now_panel_count": digest_watch_now,
+                "secondary_value_cluster_count": cluster_secondary_count,
+                "changed_count": unified_digest_changed_count,
+                "changed_attention_count": unified_digest_changed_attention_count,
+                "changed_cluster_count": unified_digest_changed_cluster_count,
+                "changed_queue_run_count": min(queue_count, unified_digest_changed_attention_count),
+                "changed_watch_now_panel_count": max(0, unified_digest_changed_attention_count - min(queue_count, unified_digest_changed_attention_count)),
+                "changed_secondary_value_cluster_count": unified_digest_changed_cluster_count,
+                "note_ko": "fixture unified digest summary",
+            },
+            {
+                "record_type": "site",
+                "site": "alpha",
+                "digest_count": alpha_cluster_preview_count,
+                "queue_run_count": alpha_queue_count,
+                "watch_now_panel_count": alpha_digest_watch,
+                "secondary_value_cluster_count": alpha_cluster_count,
+                "changed_count": alpha_unified_digest_changed_attention_count + alpha_unified_digest_changed_cluster_count,
+                "changed_attention_count": alpha_unified_digest_changed_attention_count,
+                "changed_cluster_count": alpha_unified_digest_changed_cluster_count,
+                "changed_queue_run_count": min(alpha_queue_count, alpha_unified_digest_changed_attention_count),
+                "changed_watch_now_panel_count": max(0, alpha_unified_digest_changed_attention_count - min(alpha_queue_count, alpha_unified_digest_changed_attention_count)),
+                "changed_secondary_value_cluster_count": alpha_unified_digest_changed_cluster_count,
+                "note_ko": "fixture unified digest summary",
+            },
+            {
+                "record_type": "site",
+                "site": "beta",
+                "digest_count": beta_cluster_preview_count,
+                "queue_run_count": beta_queue_count,
+                "watch_now_panel_count": beta_digest_watch,
+                "secondary_value_cluster_count": beta_cluster_count,
+                "changed_count": beta_unified_digest_changed_attention_count + beta_unified_digest_changed_cluster_count,
+                "changed_attention_count": beta_unified_digest_changed_attention_count,
+                "changed_cluster_count": beta_unified_digest_changed_cluster_count,
+                "changed_queue_run_count": min(beta_queue_count, beta_unified_digest_changed_attention_count),
+                "changed_watch_now_panel_count": max(0, beta_unified_digest_changed_attention_count - min(beta_queue_count, beta_unified_digest_changed_attention_count)),
+                "changed_secondary_value_cluster_count": beta_unified_digest_changed_cluster_count,
+                "note_ko": "fixture unified digest summary",
+            },
+        ],
+        [
+            "record_type",
+            "site",
+            "digest_count",
+            "queue_run_count",
+            "watch_now_panel_count",
+            "secondary_value_cluster_count",
+            "changed_count",
+            "changed_attention_count",
+            "changed_cluster_count",
+            "changed_queue_run_count",
+            "changed_watch_now_panel_count",
+            "changed_secondary_value_cluster_count",
+            "note_ko",
+        ],
+    )
+
 
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
@@ -837,6 +1017,8 @@ def main() -> None:
         repo_root / "_share" / "panel_day_engine_operator_refresh_qa_summary_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_secondary_discovery_cluster_delta_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_unified_digest_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_unified_digest_summary_v1.csv",
     ]
     official_bytes = {path: path.read_bytes() for path in official_paths if path.exists()}
 
@@ -909,6 +1091,14 @@ def main() -> None:
             "missing cluster delta summary should fail required existence check",
         )
         assert_true(
+            report.loc[report["check_name"].eq("unified_digest_exists"), "status"].iloc[0] == "fail",
+            "missing unified digest file should fail required existence check",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("unified_digest_summary_exists"), "status"].iloc[0] == "fail",
+            "missing unified digest summary should fail required existence check",
+        )
+        assert_true(
             report.loc[report["check_name"].eq("attention_digest_count_match"), "status"].iloc[0] == "skip",
             "downstream checks should skip when dependencies are missing",
         )
@@ -919,6 +1109,10 @@ def main() -> None:
         assert_true(
             report.loc[report["check_name"].eq("cluster_delta_current_count_match_manifest"), "status"].iloc[0] == "skip",
             "cluster delta consistency checks should skip when dependencies are missing",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("unified_digest_count_match_manifest"), "status"].iloc[0] == "skip",
+            "unified digest consistency checks should skip when dependencies are missing",
         )
         assert_true(int(summary.iloc[0]["qa_pass_flag"]) == 0, "missing-file path should not pass QA")
 
@@ -999,6 +1193,49 @@ def main() -> None:
             == "pass",
             "happy path cluster_delta_site_sum_matches_overall should pass",
         )
+        assert_true(
+            report.loc[report["check_name"].eq("unified_digest_count_match_manifest"), "status"].iloc[0] == "pass",
+            "happy path unified_digest_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("unified_digest_queue_count_match_manifest"), "status"].iloc[0] == "pass",
+            "happy path unified_digest_queue_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("unified_digest_watch_now_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path unified_digest_watch_now_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("unified_digest_secondary_cluster_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path unified_digest_secondary_cluster_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("unified_digest_changed_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path unified_digest_changed_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("unified_digest_changed_attention_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path unified_digest_changed_attention_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("unified_digest_changed_cluster_count_match_manifest"), "status"].iloc[0]
+            == "pass",
+            "happy path unified_digest_changed_cluster_count_match_manifest should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("unified_digest_count_matches_attention_plus_clusters"), "status"].iloc[0]
+            == "pass",
+            "happy path unified_digest_count_matches_attention_plus_clusters should pass",
+        )
+        assert_true(
+            report.loc[report["check_name"].eq("unified_digest_site_sum_matches_overall"), "status"].iloc[0]
+            == "pass",
+            "happy path unified_digest_site_sum_matches_overall should pass",
+        )
         assert_true(int(summary.iloc[0]["overall_attention_count"]) == 10, "happy path overall_attention_count mismatch")
         assert_true(int(summary.iloc[0]["overall_queue_count"]) == 4, "happy path overall_queue_count mismatch")
         assert_true(int(summary.iloc[0]["overall_watch_now_count"]) == 3, "happy path overall_watch_now_count mismatch")
@@ -1039,6 +1276,31 @@ def main() -> None:
             int(summary.iloc[0]["overall_cluster_delta_linked_ref_changed_count"]) == 0,
             "happy path overall_cluster_delta_linked_ref_changed_count mismatch",
         )
+        assert_true(int(summary.iloc[0]["overall_unified_digest_count"]) == 12, "happy path overall_unified_digest_count mismatch")
+        assert_true(
+            int(summary.iloc[0]["overall_unified_digest_queue_run_count"]) == 4,
+            "happy path overall_unified_digest_queue_run_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_unified_digest_watch_now_panel_count"]) == 6,
+            "happy path overall_unified_digest_watch_now_panel_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_unified_digest_secondary_value_cluster_count"]) == 2,
+            "happy path overall_unified_digest_secondary_value_cluster_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_unified_digest_changed_count"]) == 5,
+            "happy path overall_unified_digest_changed_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_unified_digest_changed_attention_count"]) == 3,
+            "happy path overall_unified_digest_changed_attention_count mismatch",
+        )
+        assert_true(
+            int(summary.iloc[0]["overall_unified_digest_changed_cluster_count"]) == 2,
+            "happy path overall_unified_digest_changed_cluster_count mismatch",
+        )
 
     with tempfile.TemporaryDirectory(prefix="operator_refresh_qa_warn_") as tmp_dir:
         tmp_root = Path(tmp_dir)
@@ -1058,12 +1320,14 @@ def main() -> None:
         queue_warn = report.loc[report["check_name"].eq("queue_count_too_large")].iloc[0]
         cluster_preview_warn = report.loc[report["check_name"].eq("cluster_preview_too_large")].iloc[0]
         discovery_cluster_warn = report.loc[report["check_name"].eq("discovery_cluster_count_too_large")].iloc[0]
+        unified_digest_warn = report.loc[report["check_name"].eq("unified_digest_too_large")].iloc[0]
         assert_true(queue_warn["status"] == "warn", "queue_count_too_large should warn above threshold")
         assert_true(cluster_preview_warn["status"] == "warn", "cluster_preview_too_large should warn above threshold")
         assert_true(
             discovery_cluster_warn["status"] == "warn",
             "discovery_cluster_count_too_large should warn above threshold",
         )
+        assert_true(unified_digest_warn["status"] == "warn", "unified_digest_too_large should warn above threshold")
         assert_true(int(summary.iloc[0]["warn_count"]) >= 1, "warn path should increment warn_count")
         assert_true(int(summary.iloc[0]["qa_pass_flag"]) == 1, "warn-only path should still pass QA")
 
