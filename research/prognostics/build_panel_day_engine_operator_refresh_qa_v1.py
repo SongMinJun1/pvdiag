@@ -18,6 +18,8 @@ WATCHLIST_SUMMARY_NAME = "panel_day_engine_operator_watchlist_summary_v1.csv"
 RUN_WATCHLIST_SUMMARY_NAME = "panel_day_engine_operator_run_watchlist_summary_v1.csv"
 CLUSTER_PREVIEW_NAME = "panel_day_engine_operator_attention_plus_discovery_cluster_preview_v1.csv"
 CLUSTER_PREVIEW_SUMMARY_NAME = "panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv"
+CLUSTER_DELTA_NAME = "panel_day_engine_operator_secondary_discovery_cluster_delta_v1.csv"
+CLUSTER_DELTA_SUMMARY_NAME = "panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv"
 
 QA_REPORT_NAME = "panel_day_engine_operator_refresh_qa_report_v1.csv"
 QA_SUMMARY_NAME = "panel_day_engine_operator_refresh_qa_summary_v1.csv"
@@ -55,6 +57,12 @@ QA_SUMMARY_COLS = [
     "overall_discovery_cluster_count",
     "overall_cluster_preview_future_fault_linked_ref_count",
     "overall_cluster_preview_future_truth_linked_ref_count",
+    "overall_cluster_delta_current_count",
+    "overall_cluster_delta_changed_count",
+    "overall_cluster_delta_new_count",
+    "overall_cluster_delta_dropped_count",
+    "overall_cluster_delta_representative_changed_count",
+    "overall_cluster_delta_linked_ref_changed_count",
 ]
 
 REQUIRED_SUMMARY_FILES = {
@@ -66,6 +74,8 @@ REQUIRED_SUMMARY_FILES = {
     "digest_summary_exists": DIGEST_SUMMARY_NAME,
     "cluster_preview_exists": CLUSTER_PREVIEW_NAME,
     "cluster_preview_summary_exists": CLUSTER_PREVIEW_SUMMARY_NAME,
+    "cluster_delta_exists": CLUSTER_DELTA_NAME,
+    "cluster_delta_summary_exists": CLUSTER_DELTA_SUMMARY_NAME,
 }
 
 
@@ -198,6 +208,7 @@ def run_hard_checks(
     digest_summary: pd.DataFrame | None,
     run_summary: pd.DataFrame | None,
     cluster_preview_summary: pd.DataFrame | None,
+    cluster_delta_summary: pd.DataFrame | None,
 ) -> None:
     refresh_manifest_row = refresh_manifest.iloc[0] if refresh_manifest is not None and not refresh_manifest.empty else None
     baseline_manifest_row = baseline_manifest.iloc[0] if baseline_manifest is not None and not baseline_manifest.empty else None
@@ -207,6 +218,8 @@ def run_hard_checks(
     run_overall = extract_overall_row(run_summary)
     cluster_preview_overall = extract_overall_row(cluster_preview_summary)
     cluster_preview_sites = extract_site_rows(cluster_preview_summary)
+    cluster_delta_overall = extract_overall_row(cluster_delta_summary)
+    cluster_delta_sites = extract_site_rows(cluster_delta_summary)
 
     if refresh_manifest_row is None:
         report.skip("all_requested_sites_succeeded", "fail", "refresh manifest 없음으로 site 성공 여부를 판정할 수 없음")
@@ -456,6 +469,152 @@ def run_hard_checks(
             detail_ko="cluster preview summary per-site preview count 합이 overall과 일치하는지 확인",
         )
 
+    if baseline_manifest_row is None or cluster_delta_overall is None:
+        report.skip(
+            "cluster_delta_current_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 cluster delta summary 없음으로 cluster delta current count 검증을 건너뜀",
+        )
+        report.skip(
+            "cluster_delta_changed_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 cluster delta summary 없음으로 cluster delta changed count 검증을 건너뜀",
+        )
+        report.skip(
+            "cluster_delta_new_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 cluster delta summary 없음으로 cluster delta new count 검증을 건너뜀",
+        )
+        report.skip(
+            "cluster_delta_dropped_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 cluster delta summary 없음으로 cluster delta dropped count 검증을 건너뜀",
+        )
+        report.skip(
+            "cluster_delta_representative_changed_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 cluster delta summary 없음으로 representative changed count 검증을 건너뜀",
+        )
+        report.skip(
+            "cluster_delta_linked_ref_changed_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 cluster delta summary 없음으로 linked ref changed count 검증을 건너뜀",
+        )
+    else:
+        manifest_current_cluster_count = int(numeric_value(baseline_manifest_row.get("cluster_delta_current_count")))
+        summary_current_cluster_count = int(numeric_value(cluster_delta_overall.get("current_cluster_count")))
+        report.add(
+            "cluster_delta_current_count_match_manifest",
+            "fail",
+            "pass" if manifest_current_cluster_count == summary_current_cluster_count else "fail",
+            observed_value=f"{manifest_current_cluster_count} vs {summary_current_cluster_count}",
+            expected_value="baseline manifest cluster_delta_current_count == cluster delta summary overall current_cluster_count",
+            detail_ko="baseline manifest와 cluster delta summary의 overall current cluster 수가 일치하는지 확인",
+        )
+        manifest_changed_cluster_count = int(numeric_value(baseline_manifest_row.get("cluster_delta_changed_count")))
+        summary_changed_cluster_count = int(numeric_value(cluster_delta_overall.get("changed_cluster_count")))
+        report.add(
+            "cluster_delta_changed_count_match_manifest",
+            "fail",
+            "pass" if manifest_changed_cluster_count == summary_changed_cluster_count else "fail",
+            observed_value=f"{manifest_changed_cluster_count} vs {summary_changed_cluster_count}",
+            expected_value="baseline manifest cluster_delta_changed_count == cluster delta summary overall changed_cluster_count",
+            detail_ko="baseline manifest와 cluster delta summary의 overall changed cluster 수가 일치하는지 확인",
+        )
+        manifest_new_cluster_count = int(numeric_value(baseline_manifest_row.get("cluster_delta_new_count")))
+        summary_new_cluster_count = int(numeric_value(cluster_delta_overall.get("new_cluster_count")))
+        report.add(
+            "cluster_delta_new_count_match_manifest",
+            "fail",
+            "pass" if manifest_new_cluster_count == summary_new_cluster_count else "fail",
+            observed_value=f"{manifest_new_cluster_count} vs {summary_new_cluster_count}",
+            expected_value="baseline manifest cluster_delta_new_count == cluster delta summary overall new_cluster_count",
+            detail_ko="baseline manifest와 cluster delta summary의 overall new cluster 수가 일치하는지 확인",
+        )
+        manifest_dropped_cluster_count = int(numeric_value(baseline_manifest_row.get("cluster_delta_dropped_count")))
+        summary_dropped_cluster_count = int(numeric_value(cluster_delta_overall.get("dropped_cluster_count")))
+        report.add(
+            "cluster_delta_dropped_count_match_manifest",
+            "fail",
+            "pass" if manifest_dropped_cluster_count == summary_dropped_cluster_count else "fail",
+            observed_value=f"{manifest_dropped_cluster_count} vs {summary_dropped_cluster_count}",
+            expected_value="baseline manifest cluster_delta_dropped_count == cluster delta summary overall dropped_cluster_count",
+            detail_ko="baseline manifest와 cluster delta summary의 overall dropped cluster 수가 일치하는지 확인",
+        )
+        manifest_representative_changed_count = int(
+            numeric_value(baseline_manifest_row.get("cluster_delta_representative_changed_count"))
+        )
+        summary_representative_changed_count = int(numeric_value(cluster_delta_overall.get("representative_changed_count")))
+        report.add(
+            "cluster_delta_representative_changed_count_match_manifest",
+            "fail",
+            "pass" if manifest_representative_changed_count == summary_representative_changed_count else "fail",
+            observed_value=f"{manifest_representative_changed_count} vs {summary_representative_changed_count}",
+            expected_value=(
+                "baseline manifest cluster_delta_representative_changed_count == "
+                "cluster delta summary overall representative_changed_count"
+            ),
+            detail_ko="baseline manifest와 cluster delta summary의 representative changed 수가 일치하는지 확인",
+        )
+        manifest_linked_ref_changed_count = int(
+            numeric_value(baseline_manifest_row.get("cluster_delta_linked_ref_changed_count"))
+        )
+        summary_linked_ref_changed_count = int(numeric_value(cluster_delta_overall.get("linked_ref_changed_count")))
+        report.add(
+            "cluster_delta_linked_ref_changed_count_match_manifest",
+            "fail",
+            "pass" if manifest_linked_ref_changed_count == summary_linked_ref_changed_count else "fail",
+            observed_value=f"{manifest_linked_ref_changed_count} vs {summary_linked_ref_changed_count}",
+            expected_value=(
+                "baseline manifest cluster_delta_linked_ref_changed_count == "
+                "cluster delta summary overall linked_ref_changed_count"
+            ),
+            detail_ko="baseline manifest와 cluster delta summary의 linked ref changed 수가 일치하는지 확인",
+        )
+
+    if cluster_delta_overall is None or cluster_delta_sites is None:
+        report.skip(
+            "cluster_delta_site_sum_matches_overall",
+            "fail",
+            "cluster delta summary 없음으로 per-site cluster delta 합 검증을 건너뜀",
+        )
+    else:
+        overall_current_cluster_count = int(numeric_value(cluster_delta_overall.get("current_cluster_count")))
+        site_current_cluster_sum = int(
+            pd.to_numeric(cluster_delta_sites["current_cluster_count"], errors="coerce").fillna(0).sum()
+        )
+        overall_changed_cluster_count = int(numeric_value(cluster_delta_overall.get("changed_cluster_count")))
+        site_changed_cluster_sum = int(
+            pd.to_numeric(cluster_delta_sites["changed_cluster_count"], errors="coerce").fillna(0).sum()
+        )
+        overall_new_cluster_count = int(numeric_value(cluster_delta_overall.get("new_cluster_count")))
+        site_new_cluster_sum = int(
+            pd.to_numeric(cluster_delta_sites["new_cluster_count"], errors="coerce").fillna(0).sum()
+        )
+        overall_dropped_cluster_count = int(numeric_value(cluster_delta_overall.get("dropped_cluster_count")))
+        site_dropped_cluster_sum = int(
+            pd.to_numeric(cluster_delta_sites["dropped_cluster_count"], errors="coerce").fillna(0).sum()
+        )
+        sums_ok = (
+            site_current_cluster_sum == overall_current_cluster_count
+            and site_changed_cluster_sum == overall_changed_cluster_count
+            and site_new_cluster_sum == overall_new_cluster_count
+            and site_dropped_cluster_sum == overall_dropped_cluster_count
+        )
+        report.add(
+            "cluster_delta_site_sum_matches_overall",
+            "fail",
+            "pass" if sums_ok else "fail",
+            observed_value=(
+                f"current {site_current_cluster_sum}/{overall_current_cluster_count}, "
+                f"changed {site_changed_cluster_sum}/{overall_changed_cluster_count}, "
+                f"new {site_new_cluster_sum}/{overall_new_cluster_count}, "
+                f"dropped {site_dropped_cluster_sum}/{overall_dropped_cluster_count}"
+            ),
+            expected_value="per-site current/changed/new/dropped sums == overall",
+            detail_ko="cluster delta summary per-site current/changed/new/dropped 합이 overall과 각각 일치하는지 확인",
+        )
+
 
 def run_soft_checks(
     report: QaReportBuilder,
@@ -549,10 +708,12 @@ def build_summary(
     baseline_summary: pd.DataFrame | None,
     run_summary: pd.DataFrame | None,
     cluster_preview_summary: pd.DataFrame | None,
+    cluster_delta_summary: pd.DataFrame | None,
 ) -> pd.DataFrame:
     baseline_overall = extract_overall_row(baseline_summary)
     run_overall = extract_overall_row(run_summary)
     cluster_preview_overall = extract_overall_row(cluster_preview_summary)
+    cluster_delta_overall = extract_overall_row(cluster_delta_summary)
 
     def get_from_row(row: pd.Series | None, key: str) -> int:
         if row is None:
@@ -579,6 +740,16 @@ def build_summary(
         ),
         "overall_cluster_preview_future_truth_linked_ref_count": get_from_row(
             cluster_preview_overall, "clusters_with_future_truth_linked_ref_count"
+        ),
+        "overall_cluster_delta_current_count": get_from_row(cluster_delta_overall, "current_cluster_count"),
+        "overall_cluster_delta_changed_count": get_from_row(cluster_delta_overall, "changed_cluster_count"),
+        "overall_cluster_delta_new_count": get_from_row(cluster_delta_overall, "new_cluster_count"),
+        "overall_cluster_delta_dropped_count": get_from_row(cluster_delta_overall, "dropped_cluster_count"),
+        "overall_cluster_delta_representative_changed_count": get_from_row(
+            cluster_delta_overall, "representative_changed_count"
+        ),
+        "overall_cluster_delta_linked_ref_changed_count": get_from_row(
+            cluster_delta_overall, "linked_ref_changed_count"
         ),
     }
     return pd.DataFrame([summary_row], columns=QA_SUMMARY_COLS)
@@ -614,6 +785,7 @@ def main() -> None:
         digest_summary=data_frames[DIGEST_SUMMARY_NAME],
         run_summary=run_summary,
         cluster_preview_summary=data_frames[CLUSTER_PREVIEW_SUMMARY_NAME],
+        cluster_delta_summary=data_frames[CLUSTER_DELTA_SUMMARY_NAME],
     )
     run_soft_checks(
         report_builder,
@@ -628,6 +800,7 @@ def main() -> None:
         baseline_summary=data_frames[BASELINE_SUMMARY_NAME],
         run_summary=run_summary,
         cluster_preview_summary=data_frames[CLUSTER_PREVIEW_SUMMARY_NAME],
+        cluster_delta_summary=data_frames[CLUSTER_DELTA_SUMMARY_NAME],
     )
 
     report.to_csv(share_dir / QA_REPORT_NAME, index=False, encoding="utf-8-sig")
