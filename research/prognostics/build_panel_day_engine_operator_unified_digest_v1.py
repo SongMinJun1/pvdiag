@@ -9,8 +9,12 @@ import pandas as pd
 CURRENT_PREVIEW_NAME = "panel_day_engine_operator_attention_plus_discovery_cluster_preview_v1.csv"
 ATTENTION_DELTA_NAME = "panel_day_engine_operator_attention_delta_v1.csv"
 CLUSTER_DELTA_NAME = "panel_day_engine_operator_secondary_discovery_cluster_delta_v1.csv"
+ATTENTION_POLICY_RECOMMENDATION_NAME = "panel_day_engine_operator_attention_policy_recommendation_v1.csv"
 UNIFIED_DIGEST_OUTPUT_NAME = "panel_day_engine_operator_unified_digest_v1.csv"
 UNIFIED_DIGEST_SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_unified_digest_summary_v1.csv"
+WORKFLOW_DEFAULT_OUTPUT_NAME = "panel_day_engine_operator_workflow_default_v1.csv"
+WORKFLOW_DEFAULT_SUMMARY_OUTPUT_NAME = "panel_day_engine_operator_workflow_default_summary_v1.csv"
+DEFAULT_WORKFLOW_POLICY_NAME = "baseline_plus_discovery_cluster"
 
 ALLOWED_PREVIEW_CLASSES = {"queue_run", "watch_now_panel", "secondary_value_cluster"}
 ATTENTION_PREVIEW_CLASSES = {"queue_run", "watch_now_panel"}
@@ -36,6 +40,7 @@ REQUIRED_PREVIEW_COLS = [
 ]
 REQUIRED_ATTENTION_DELTA_COLS = ["site", "panel_id", "delta_class", "delta_reason_ko"]
 REQUIRED_CLUSTER_DELTA_COLS = ["site", "current_cluster_id", "delta_class", "delta_reason_ko"]
+REQUIRED_ATTENTION_POLICY_RECOMMENDATION_COLS = ["recommended_policy_name"]
 
 UNIFIED_DIGEST_COLS = [
     "preview_attention_class",
@@ -69,6 +74,28 @@ UNIFIED_DIGEST_SUMMARY_COLS = [
     "changed_queue_run_count",
     "changed_watch_now_panel_count",
     "changed_secondary_value_cluster_count",
+    "note_ko",
+]
+WORKFLOW_DEFAULT_COLS = [
+    *UNIFIED_DIGEST_COLS,
+    "workflow_policy_name",
+    "workflow_role",
+    "workflow_priority_class",
+    "workflow_reason_ko",
+]
+WORKFLOW_DEFAULT_SUMMARY_COLS = [
+    "record_type",
+    "site",
+    "workflow_policy_name",
+    "workflow_item_count",
+    "queue_run_count",
+    "watch_now_panel_count",
+    "secondary_value_cluster_count",
+    "changed_count",
+    "primary_attention_count",
+    "supplemental_discovery_count",
+    "linked_ref_count",
+    "truth_ref_count",
     "note_ko",
 ]
 
@@ -174,6 +201,23 @@ def prepare_cluster_delta(path: Path) -> pd.DataFrame:
         return pd.DataFrame(columns=REQUIRED_CLUSTER_DELTA_COLS)
     ensure_unique(current_delta, CLUSTER_DELTA_KEY_COLS, path.name)
     return current_delta.loc[:, REQUIRED_CLUSTER_DELTA_COLS].copy()
+
+
+def load_attention_policy_recommendation(path: Path) -> str:
+    df = drop_repeated_header_rows(read_csv(path)).copy()
+    ensure_columns(df, REQUIRED_ATTENTION_POLICY_RECOMMENDATION_COLS, path.name)
+    if df.empty:
+        raise SystemExit(f"{path.name} must contain exactly one recommendation row")
+    df["recommended_policy_name"] = df["recommended_policy_name"].map(normalize_text)
+    if len(df) != 1:
+        raise SystemExit(f"{path.name} must contain exactly one recommendation row")
+    recommended_policy_name = normalize_text(df.iloc[0]["recommended_policy_name"])
+    if recommended_policy_name != DEFAULT_WORKFLOW_POLICY_NAME:
+        raise SystemExit(
+            "workflow default can only be emitted when attention policy recommendation is "
+            f"{DEFAULT_WORKFLOW_POLICY_NAME}, got {recommended_policy_name or 'blank'}"
+        )
+    return recommended_policy_name
 
 
 def digest_reason_ko(
@@ -336,14 +380,86 @@ def build_summary(digest: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=UNIFIED_DIGEST_SUMMARY_COLS)
 
 
-def build_outputs(root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+def workflow_role(preview_attention_class: str) -> str:
+    if preview_attention_class in ATTENTION_PREVIEW_CLASSES:
+        return "primary_attention"
+    return "supplemental_discovery"
+
+
+def workflow_priority_class(preview_attention_class: str) -> str:
+    if preview_attention_class == "queue_run":
+        return "queue_priority"
+    if preview_attention_class == "watch_now_panel":
+        return "watch_priority"
+    return "discovery_priority"
+
+
+def workflow_reason_ko(preview_attention_class: str) -> str:
+    if preview_attention_class == "queue_run":
+        return "기본 queue attention"
+    if preview_attention_class == "watch_now_panel":
+        return "기본 watch attention"
+    return "기본 workflow에 포함된 discovery cluster"
+
+
+def build_workflow_default(digest: pd.DataFrame, workflow_policy_name: str) -> pd.DataFrame:
+    workflow = digest.copy()
+    workflow["workflow_policy_name"] = workflow_policy_name
+    workflow["workflow_role"] = workflow["preview_attention_class"].map(workflow_role)
+    workflow["workflow_priority_class"] = workflow["preview_attention_class"].map(workflow_priority_class)
+    workflow["workflow_reason_ko"] = workflow["preview_attention_class"].map(workflow_reason_ko)
+    return workflow.loc[:, WORKFLOW_DEFAULT_COLS].reset_index(drop=True)
+
+
+def build_workflow_default_summary(workflow: pd.DataFrame, workflow_policy_name: str) -> pd.DataFrame:
+    sites = sorted(workflow["site"].dropna().map(normalize_text).unique())
+    rows: list[dict[str, object]] = []
+
+    def build_row(site: str | None) -> dict[str, object]:
+        if site is None:
+            scope = workflow
+            record_type = "overall"
+            site_value = ""
+        else:
+            scope = workflow.loc[workflow["site"].eq(site)]
+            record_type = "site"
+            site_value = site
+        queue_run_count = int(scope["preview_attention_class"].eq("queue_run").sum())
+        watch_now_panel_count = int(scope["preview_attention_class"].eq("watch_now_panel").sum())
+        secondary_value_cluster_count = int(scope["preview_attention_class"].eq("secondary_value_cluster").sum())
+        return {
+            "record_type": record_type,
+            "site": site_value,
+            "workflow_policy_name": workflow_policy_name,
+            "workflow_item_count": int(len(scope)),
+            "queue_run_count": queue_run_count,
+            "watch_now_panel_count": watch_now_panel_count,
+            "secondary_value_cluster_count": secondary_value_cluster_count,
+            "changed_count": int(scope["changed_since_previous_flag"].sum()),
+            "primary_attention_count": queue_run_count + watch_now_panel_count,
+            "supplemental_discovery_count": secondary_value_cluster_count,
+            "linked_ref_count": int(scope["linked_ref_flag"].sum()),
+            "truth_ref_count": int(scope["truth_ref_flag"].sum()),
+            "note_ko": "attention policy audit가 고른 기본 operator workflow를 unified digest 위에 공식화",
+        }
+
+    rows.append(build_row(None))
+    for site in sites:
+        rows.append(build_row(site))
+    return pd.DataFrame(rows, columns=WORKFLOW_DEFAULT_SUMMARY_COLS)
+
+
+def build_outputs(root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     share_dir = root / "_share"
+    workflow_policy_name = load_attention_policy_recommendation(share_dir / ATTENTION_POLICY_RECOMMENDATION_NAME)
     preview = prepare_preview(share_dir / CURRENT_PREVIEW_NAME)
     attention_delta = prepare_attention_delta(share_dir / ATTENTION_DELTA_NAME)
     cluster_delta = prepare_cluster_delta(share_dir / CLUSTER_DELTA_NAME)
     digest = build_digest(preview, attention_delta, cluster_delta)
     summary = build_summary(digest)
-    return digest, summary
+    workflow_default = build_workflow_default(digest, workflow_policy_name)
+    workflow_default_summary = build_workflow_default_summary(workflow_default, workflow_policy_name)
+    return digest, summary, workflow_default, workflow_default_summary
 
 
 def main() -> None:
@@ -352,9 +468,11 @@ def main() -> None:
     share_dir = root / "_share"
     share_dir.mkdir(parents=True, exist_ok=True)
 
-    digest, summary = build_outputs(root)
+    digest, summary, workflow_default, workflow_default_summary = build_outputs(root)
     digest.to_csv(share_dir / UNIFIED_DIGEST_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(share_dir / UNIFIED_DIGEST_SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
+    workflow_default.to_csv(share_dir / WORKFLOW_DEFAULT_OUTPUT_NAME, index=False, encoding="utf-8-sig")
+    workflow_default_summary.to_csv(share_dir / WORKFLOW_DEFAULT_SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
 
 
 if __name__ == "__main__":

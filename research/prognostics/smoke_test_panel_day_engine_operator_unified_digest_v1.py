@@ -71,6 +71,12 @@ CLUSTER_DELTA_COLS = [
     "overlap_days",
     "delta_reason_ko",
 ]
+POLICY_RECOMMENDATION_COLS = [
+    "recommended_policy_name",
+    "recommended_policy_reason_ko",
+    "expected_use_ko",
+    "caution_ko",
+]
 
 
 def assert_true(condition: bool, message: str) -> None:
@@ -189,7 +195,7 @@ def cluster_delta_row(site: str, current_cluster_id: str, delta_class: str, delt
     }
 
 
-def run_build(repo_root: Path, root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+def run_build(repo_root: Path, root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     result = run(
         [
             sys.executable,
@@ -203,7 +209,9 @@ def run_build(repo_root: Path, root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     share_dir = root / "_share"
     digest = read_csv(share_dir / "panel_day_engine_operator_unified_digest_v1.csv")
     summary = read_csv(share_dir / "panel_day_engine_operator_unified_digest_summary_v1.csv")
-    return digest, summary
+    workflow = read_csv(share_dir / "panel_day_engine_operator_workflow_default_v1.csv")
+    workflow_summary = read_csv(share_dir / "panel_day_engine_operator_workflow_default_summary_v1.csv")
+    return digest, summary, workflow, workflow_summary
 
 
 def main() -> None:
@@ -214,8 +222,11 @@ def main() -> None:
         repo_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_cluster_preview_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_attention_delta_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_secondary_discovery_cluster_delta_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_attention_policy_recommendation_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_unified_digest_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_unified_digest_summary_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_workflow_default_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_workflow_default_summary_v1.csv",
     ]
     official_state = {
         path: (path.exists(), hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else "")
@@ -233,6 +244,48 @@ def main() -> None:
         repo_root,
     )
     assert_true(compile_result.returncode == 0, compile_result.stderr)
+
+    with tempfile.TemporaryDirectory(prefix="operator_unified_digest_guardrail_") as tmp_dir:
+        tmp_root = Path(tmp_dir)
+        share_dir = tmp_root / "_share"
+        write_csv(
+            share_dir / "panel_day_engine_operator_attention_plus_discovery_cluster_preview_v1.csv",
+            [preview_row("queue_run", "alpha", "alpha.queue.only")],
+            PREVIEW_COLS,
+        )
+        write_csv(share_dir / "panel_day_engine_operator_attention_delta_v1.csv", [], ATTENTION_DELTA_COLS)
+        write_csv(
+            share_dir / "panel_day_engine_operator_secondary_discovery_cluster_delta_v1.csv",
+            [],
+            CLUSTER_DELTA_COLS,
+        )
+        write_csv(
+            share_dir / "panel_day_engine_operator_attention_policy_recommendation_v1.csv",
+            [
+                {
+                    "recommended_policy_name": "baseline_only",
+                    "recommended_policy_reason_ko": "fixture",
+                    "expected_use_ko": "fixture",
+                    "caution_ko": "fixture",
+                }
+            ],
+            POLICY_RECOMMENDATION_COLS,
+        )
+        guardrail_result = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_operator_unified_digest_v1.py",
+                "--root",
+                str(tmp_root),
+            ],
+            repo_root,
+        )
+        assert_true(guardrail_result.returncode != 0, "guardrail should fail for non-cluster default policy")
+        combined_output = (guardrail_result.stderr or "") + (guardrail_result.stdout or "")
+        assert_true(
+            "baseline_plus_discovery_cluster" in combined_output,
+            "guardrail failure should explain required recommended policy",
+        )
 
     with tempfile.TemporaryDirectory(prefix="operator_unified_digest_") as tmp_dir:
         tmp_root = Path(tmp_dir)
@@ -297,12 +350,29 @@ def main() -> None:
         write_csv(share_dir / "panel_day_engine_operator_attention_plus_discovery_cluster_preview_v1.csv", preview_rows, PREVIEW_COLS)
         write_csv(share_dir / "panel_day_engine_operator_attention_delta_v1.csv", attention_delta_rows, ATTENTION_DELTA_COLS)
         write_csv(share_dir / "panel_day_engine_operator_secondary_discovery_cluster_delta_v1.csv", cluster_delta_rows, CLUSTER_DELTA_COLS)
+        write_csv(
+            share_dir / "panel_day_engine_operator_attention_policy_recommendation_v1.csv",
+            [
+                {
+                    "recommended_policy_name": "baseline_plus_discovery_cluster",
+                    "recommended_policy_reason_ko": "fixture cluster default",
+                    "expected_use_ko": "fixture",
+                    "caution_ko": "fixture",
+                }
+            ],
+            POLICY_RECOMMENDATION_COLS,
+        )
 
-        expected_digest, expected_summary = builder_mod.build_outputs(tmp_root)
-        digest, summary = run_build(repo_root, tmp_root)
+        expected_digest, expected_summary, expected_workflow, expected_workflow_summary = builder_mod.build_outputs(tmp_root)
+        digest, summary, workflow, workflow_summary = run_build(repo_root, tmp_root)
 
         assert_true(frame_as_text(digest).equals(frame_as_text(expected_digest)), "unified digest output mismatch against build_outputs")
         assert_true(frame_as_text(summary).equals(frame_as_text(expected_summary)), "unified digest summary mismatch against build_outputs")
+        assert_true(frame_as_text(workflow).equals(frame_as_text(expected_workflow)), "workflow default output mismatch against build_outputs")
+        assert_true(
+            frame_as_text(workflow_summary).equals(frame_as_text(expected_workflow_summary)),
+            "workflow default summary mismatch against build_outputs",
+        )
 
         queue_changed = digest.loc[
             (digest["preview_attention_class"].eq("queue_run")) & (digest["display_entity_id"].eq("alpha.queue.changed"))
@@ -332,6 +402,38 @@ def main() -> None:
         assert_true(
             cluster_changed["latest_delta_reason_ko"] == "대표 panel/run 변경",
             "changed cluster row delta reason mismatch",
+        )
+
+        assert_true(
+            frame_as_text(workflow.loc[:, builder_mod.UNIFIED_DIGEST_COLS]).equals(frame_as_text(digest)),
+            "workflow default should preserve unified digest rows and order",
+        )
+        assert_true(
+            workflow["workflow_policy_name"].eq("baseline_plus_discovery_cluster").all(),
+            "workflow_policy_name should be constant baseline_plus_discovery_cluster",
+        )
+
+        queue_workflow = workflow.loc[
+            (workflow["preview_attention_class"].eq("queue_run")) & (workflow["display_entity_id"].eq("alpha.queue.changed"))
+        ].iloc[0]
+        watch_workflow = workflow.loc[
+            (workflow["preview_attention_class"].eq("watch_now_panel")) & (workflow["display_entity_id"].eq("alpha.watch.changed"))
+        ].iloc[0]
+        cluster_workflow = workflow.loc[
+            (workflow["preview_attention_class"].eq("secondary_value_cluster"))
+            & (workflow["display_entity_id"].eq("alpha.cluster.changed"))
+        ].iloc[0]
+        assert_true(queue_workflow["workflow_role"] == "primary_attention", "queue row workflow_role mismatch")
+        assert_true(queue_workflow["workflow_priority_class"] == "queue_priority", "queue row workflow_priority_class mismatch")
+        assert_true(queue_workflow["workflow_reason_ko"] == "기본 queue attention", "queue row workflow_reason_ko mismatch")
+        assert_true(watch_workflow["workflow_role"] == "primary_attention", "watch row workflow_role mismatch")
+        assert_true(watch_workflow["workflow_priority_class"] == "watch_priority", "watch row workflow_priority_class mismatch")
+        assert_true(watch_workflow["workflow_reason_ko"] == "기본 watch attention", "watch row workflow_reason_ko mismatch")
+        assert_true(cluster_workflow["workflow_role"] == "supplemental_discovery", "cluster row workflow_role mismatch")
+        assert_true(cluster_workflow["workflow_priority_class"] == "discovery_priority", "cluster row workflow_priority_class mismatch")
+        assert_true(
+            cluster_workflow["workflow_reason_ko"] == "기본 workflow에 포함된 discovery cluster",
+            "cluster row workflow_reason_ko mismatch",
         )
 
         expected_order = [
@@ -366,6 +468,41 @@ def main() -> None:
         )
         assert_true(int(alpha_site["changed_count"]) == 3, "alpha changed_count mismatch")
         assert_true(int(beta_site["changed_count"]) == 0, "beta changed_count mismatch")
+
+        workflow_overall = workflow_summary.loc[workflow_summary["record_type"].eq("overall")].iloc[0]
+        alpha_workflow = workflow_summary.loc[
+            (workflow_summary["record_type"].eq("site")) & (workflow_summary["site"].eq("alpha"))
+        ].iloc[0]
+        beta_workflow = workflow_summary.loc[
+            (workflow_summary["record_type"].eq("site")) & (workflow_summary["site"].eq("beta"))
+        ].iloc[0]
+        assert_true(
+            workflow_overall["workflow_policy_name"] == "baseline_plus_discovery_cluster",
+            "workflow summary policy name mismatch",
+        )
+        assert_true(int(workflow_overall["workflow_item_count"]) == 7, "workflow overall item count mismatch")
+        assert_true(int(workflow_overall["queue_run_count"]) == 3, "workflow overall queue_run_count mismatch")
+        assert_true(
+            int(workflow_overall["watch_now_panel_count"]) == 2,
+            "workflow overall watch_now_panel_count mismatch",
+        )
+        assert_true(
+            int(workflow_overall["secondary_value_cluster_count"]) == 2,
+            "workflow overall secondary_value_cluster_count mismatch",
+        )
+        assert_true(int(workflow_overall["changed_count"]) == 3, "workflow overall changed_count mismatch")
+        assert_true(
+            int(workflow_overall["primary_attention_count"]) == 5,
+            "workflow overall primary_attention_count mismatch",
+        )
+        assert_true(
+            int(workflow_overall["supplemental_discovery_count"]) == 2,
+            "workflow overall supplemental_discovery_count mismatch",
+        )
+        assert_true(int(workflow_overall["linked_ref_count"]) == 1, "workflow overall linked_ref_count mismatch")
+        assert_true(int(workflow_overall["truth_ref_count"]) == 0, "workflow overall truth_ref_count mismatch")
+        assert_true(int(alpha_workflow["workflow_item_count"]) == 4, "alpha workflow item count mismatch")
+        assert_true(int(beta_workflow["workflow_item_count"]) == 3, "beta workflow item count mismatch")
 
     for path, (existed_before, digest_before) in official_state.items():
         assert_true(path.exists() == existed_before, f"official file existence changed during smoke: {path.name}")
