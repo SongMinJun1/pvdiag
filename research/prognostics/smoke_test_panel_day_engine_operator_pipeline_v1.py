@@ -129,6 +129,13 @@ summary = pd.DataFrame([{
     "overall_cluster_delta_dropped_count": 1,
     "overall_cluster_delta_representative_changed_count": 1,
     "overall_cluster_delta_linked_ref_changed_count": 1,
+    "overall_unified_digest_count": 23,
+    "overall_unified_digest_queue_run_count": 7,
+    "overall_unified_digest_watch_now_panel_count": 11,
+    "overall_unified_digest_secondary_value_cluster_count": 5,
+    "overall_unified_digest_changed_count": 4,
+    "overall_unified_digest_changed_attention_count": 2,
+    "overall_unified_digest_changed_cluster_count": 2,
 }])
 summary.to_csv(share / "panel_day_engine_operator_refresh_qa_summary_v1.csv", index=False, encoding="utf-8-sig")
 """
@@ -229,6 +236,31 @@ def main() -> None:
             int(row["overall_cluster_delta_linked_ref_changed_count"]) == 1,
             "happy path overall_cluster_delta_linked_ref_changed_count mismatch",
         )
+        assert_true(int(row["overall_unified_digest_count"]) == 23, "happy path overall_unified_digest_count mismatch")
+        assert_true(
+            int(row["overall_unified_digest_queue_run_count"]) == 7,
+            "happy path overall_unified_digest_queue_run_count mismatch",
+        )
+        assert_true(
+            int(row["overall_unified_digest_watch_now_panel_count"]) == 11,
+            "happy path overall_unified_digest_watch_now_panel_count mismatch",
+        )
+        assert_true(
+            int(row["overall_unified_digest_secondary_value_cluster_count"]) == 5,
+            "happy path overall_unified_digest_secondary_value_cluster_count mismatch",
+        )
+        assert_true(
+            int(row["overall_unified_digest_changed_count"]) == 4,
+            "happy path overall_unified_digest_changed_count mismatch",
+        )
+        assert_true(
+            int(row["overall_unified_digest_changed_attention_count"]) == 2,
+            "happy path overall_unified_digest_changed_attention_count mismatch",
+        )
+        assert_true(
+            int(row["overall_unified_digest_changed_cluster_count"]) == 2,
+            "happy path overall_unified_digest_changed_cluster_count mismatch",
+        )
         assert_true(row["note_ko"] == "전체 operator pipeline 정상", "happy path note mismatch")
         assert_true(
             (tmp_root / "_share" / "refresh_call.txt").read_text(encoding="utf-8") == "alpha,beta",
@@ -289,6 +321,34 @@ def main() -> None:
             int(row["overall_cluster_delta_linked_ref_changed_count"]) == 0,
             "refresh-fail linked ref changed count should remain zero",
         )
+        assert_true(
+            int(row["overall_unified_digest_count"]) == 0,
+            "refresh-fail unified digest count should remain zero",
+        )
+        assert_true(
+            int(row["overall_unified_digest_queue_run_count"]) == 0,
+            "refresh-fail unified digest queue count should remain zero",
+        )
+        assert_true(
+            int(row["overall_unified_digest_watch_now_panel_count"]) == 0,
+            "refresh-fail unified digest watch count should remain zero",
+        )
+        assert_true(
+            int(row["overall_unified_digest_secondary_value_cluster_count"]) == 0,
+            "refresh-fail unified digest cluster count should remain zero",
+        )
+        assert_true(
+            int(row["overall_unified_digest_changed_count"]) == 0,
+            "refresh-fail unified digest changed count should remain zero",
+        )
+        assert_true(
+            int(row["overall_unified_digest_changed_attention_count"]) == 0,
+            "refresh-fail unified digest changed attention count should remain zero",
+        )
+        assert_true(
+            int(row["overall_unified_digest_changed_cluster_count"]) == 0,
+            "refresh-fail unified digest changed cluster count should remain zero",
+        )
         assert_true(row["note_ko"] == "site refresh 실패로 baseline/QA 미완료", "refresh-fail note mismatch")
         assert_true(not (tmp_root / "_share" / "qa_called.txt").exists(), "QA should not run after refresh failure")
 
@@ -342,6 +402,31 @@ def main() -> None:
         assert_true(
             int(row["overall_cluster_delta_linked_ref_changed_count"]) == 1,
             "qa-fail overall_cluster_delta_linked_ref_changed_count mismatch",
+        )
+        assert_true(int(row["overall_unified_digest_count"]) == 23, "qa-fail overall_unified_digest_count mismatch")
+        assert_true(
+            int(row["overall_unified_digest_queue_run_count"]) == 7,
+            "qa-fail overall_unified_digest_queue_run_count mismatch",
+        )
+        assert_true(
+            int(row["overall_unified_digest_watch_now_panel_count"]) == 11,
+            "qa-fail overall_unified_digest_watch_now_panel_count mismatch",
+        )
+        assert_true(
+            int(row["overall_unified_digest_secondary_value_cluster_count"]) == 5,
+            "qa-fail overall_unified_digest_secondary_value_cluster_count mismatch",
+        )
+        assert_true(
+            int(row["overall_unified_digest_changed_count"]) == 4,
+            "qa-fail overall_unified_digest_changed_count mismatch",
+        )
+        assert_true(
+            int(row["overall_unified_digest_changed_attention_count"]) == 2,
+            "qa-fail overall_unified_digest_changed_attention_count mismatch",
+        )
+        assert_true(
+            int(row["overall_unified_digest_changed_cluster_count"]) == 2,
+            "qa-fail overall_unified_digest_changed_cluster_count mismatch",
         )
         assert_true(row["note_ko"] == "QA 미통과로 운영 배포 보류", "qa-fail note mismatch")
         assert_true((tmp_root / "_share" / "qa_called.txt").exists(), "qa-fail path should still run QA")
