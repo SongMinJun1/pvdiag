@@ -71,6 +71,12 @@ LABEL_PACK_V3_COLS = [
 COMPLEMENT_RECOMMENDATION_COLS = ["recommended_next_direction", "rationale_ko"]
 THRESHOLD_SPLIT_RECOMMENDATION_COLS = ["recommended_split_rule", "recommended_next_direction", "rationale_ko"]
 PREVIEW_POLICY_RECOMMENDATION_COLS = ["recommended_policy_name"]
+ATTENTION_POLICY_RECOMMENDATION_COLS = [
+    "recommended_policy_name",
+    "recommended_policy_reason_ko",
+    "expected_use_ko",
+    "caution_ko",
+]
 FATE_CASES_COLS = [
     "site",
     "panel_id",
@@ -405,6 +411,18 @@ def build_fixture_root(root: Path) -> None:
         PREVIEW_POLICY_RECOMMENDATION_COLS,
     )
     write_csv(
+        root / "_share" / "panel_day_engine_operator_attention_policy_recommendation_v1.csv",
+        [
+            {
+                "recommended_policy_name": "baseline_plus_discovery_cluster",
+                "recommended_policy_reason_ko": "fixture default workflow",
+                "expected_use_ko": "fixture workflow",
+                "caution_ko": "fixture only",
+            }
+        ],
+        ATTENTION_POLICY_RECOMMENDATION_COLS,
+    )
+    write_csv(
         root / "_share" / "panel_day_engine_operator_secondary_discovery_fate_cases_v1.csv",
         fate_case_rows,
         FATE_CASES_COLS,
@@ -540,6 +558,29 @@ def main() -> None:
                     index=False,
                     encoding="utf-8-sig",
                 )
+                pd.DataFrame(
+                    [
+                        {
+                            "record_type": "overall",
+                            "site": "",
+                            "workflow_policy_name": "baseline_plus_discovery_cluster",
+                            "workflow_item_count": 2,
+                            "queue_run_count": 1,
+                            "watch_now_panel_count": 0,
+                            "secondary_value_cluster_count": 1,
+                            "changed_count": 1,
+                            "primary_attention_count": 1,
+                            "supplemental_discovery_count": 1,
+                            "linked_ref_count": 1,
+                            "truth_ref_count": 0,
+                            "note_ko": "fixture workflow default",
+                        }
+                    ]
+                ).to_csv(
+                    share_dir / build_module.WORKFLOW_DEFAULT_SUMMARY_NAME,
+                    index=False,
+                    encoding="utf-8-sig",
+                )
 
         def fake_build_manifest_and_summary(
             root: Path,
@@ -551,6 +592,7 @@ def main() -> None:
             discovery_cluster_preview_summary: pd.DataFrame | None = None,
             discovery_cluster_delta_summary: pd.DataFrame | None = None,
             unified_digest_summary: pd.DataFrame | None = None,
+            workflow_default_summary: pd.DataFrame | None = None,
         ) -> tuple[pd.DataFrame, pd.DataFrame]:
             manifest_row = {col: 0 for col in build_module.MANIFEST_OUTPUT_COLS}
             manifest_row["generated_at_utc"] = generated_at_utc
@@ -603,6 +645,8 @@ def main() -> None:
         repo_root / "_share" / "panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_unified_digest_v1.csv",
         repo_root / "_share" / "panel_day_engine_operator_unified_digest_summary_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_workflow_default_v1.csv",
+        repo_root / "_share" / "panel_day_engine_operator_workflow_default_summary_v1.csv",
     ]
     official_bytes = {path: path.read_bytes() for path in official_paths if path.exists()}
 
@@ -673,6 +717,10 @@ def main() -> None:
             share_dir / "panel_day_engine_operator_unified_digest_summary_v1.csv",
             encoding="utf-8-sig",
         )
+        workflow_default_summary = pd.read_csv(
+            share_dir / "panel_day_engine_operator_workflow_default_summary_v1.csv",
+            encoding="utf-8-sig",
+        )
 
         assert_true(len(manifest) == 1, "manifest should emit one row")
         manifest_row = manifest.iloc[0]
@@ -715,6 +763,9 @@ def main() -> None:
         ].iloc[0]
         unified_digest_overall = unified_digest_summary.loc[
             unified_digest_summary["record_type"].astype(str).eq("overall")
+        ].iloc[0]
+        workflow_default_overall = workflow_default_summary.loc[
+            workflow_default_summary["record_type"].astype(str).eq("overall")
         ].iloc[0]
         assert_true(
             int(manifest_row["discovery_value_panel_count"]) == int(discovery_value_overall["value_panel_count"]),
@@ -801,6 +852,48 @@ def main() -> None:
             == int(unified_digest_overall["changed_cluster_count"]),
             "manifest unified_digest_changed_cluster_count mismatch",
         )
+        assert_true(
+            int(manifest_row["workflow_default_item_count"]) == int(workflow_default_overall["workflow_item_count"]),
+            "manifest workflow_default_item_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["workflow_default_queue_run_count"]) == int(workflow_default_overall["queue_run_count"]),
+            "manifest workflow_default_queue_run_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["workflow_default_watch_now_panel_count"])
+            == int(workflow_default_overall["watch_now_panel_count"]),
+            "manifest workflow_default_watch_now_panel_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["workflow_default_secondary_value_cluster_count"])
+            == int(workflow_default_overall["secondary_value_cluster_count"]),
+            "manifest workflow_default_secondary_value_cluster_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["workflow_default_changed_count"]) == int(workflow_default_overall["changed_count"]),
+            "manifest workflow_default_changed_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["workflow_default_primary_attention_count"])
+            == int(workflow_default_overall["primary_attention_count"]),
+            "manifest workflow_default_primary_attention_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["workflow_default_supplemental_discovery_count"])
+            == int(workflow_default_overall["supplemental_discovery_count"]),
+            "manifest workflow_default_supplemental_discovery_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["workflow_default_linked_ref_count"])
+            == int(workflow_default_overall["linked_ref_count"]),
+            "manifest workflow_default_linked_ref_count mismatch",
+        )
+        assert_true(
+            int(manifest_row["workflow_default_truth_ref_count"])
+            == int(workflow_default_overall["truth_ref_count"]),
+            "manifest workflow_default_truth_ref_count mismatch",
+        )
 
         assert_true(int(overall_summary["attention_count"]) == 2, "summary attention_count mismatch")
         assert_true(int(overall_summary["queue_count"]) == 1, "summary queue_count mismatch")
@@ -878,6 +971,29 @@ def main() -> None:
             int(overall_summary["unified_digest_changed_count"]) == int(unified_digest_overall["changed_count"]),
             "summary unified_digest_changed_count mismatch",
         )
+        assert_true(
+            int(overall_summary["workflow_default_item_count"]) == int(workflow_default_overall["workflow_item_count"]),
+            "summary workflow_default_item_count mismatch",
+        )
+        assert_true(
+            int(overall_summary["workflow_default_queue_run_count"])
+            == int(workflow_default_overall["queue_run_count"]),
+            "summary workflow_default_queue_run_count mismatch",
+        )
+        assert_true(
+            int(overall_summary["workflow_default_watch_now_panel_count"])
+            == int(workflow_default_overall["watch_now_panel_count"]),
+            "summary workflow_default_watch_now_panel_count mismatch",
+        )
+        assert_true(
+            int(overall_summary["workflow_default_secondary_value_cluster_count"])
+            == int(workflow_default_overall["secondary_value_cluster_count"]),
+            "summary workflow_default_secondary_value_cluster_count mismatch",
+        )
+        assert_true(
+            int(overall_summary["workflow_default_changed_count"]) == int(workflow_default_overall["changed_count"]),
+            "summary workflow_default_changed_count mismatch",
+        )
 
         assert_true(int(overall_delta["current_attention_count"]) == len(attention_now), "delta summary should reflect current attention count")
         assert_true(len(attention_delta) == 2, "bootstrap delta should treat all current attention rows as new")
@@ -911,6 +1027,41 @@ def main() -> None:
             int(unified_digest_overall["changed_count"]) <= len(unified_digest),
             "unified digest changed_count should not exceed digest_count",
         )
+        assert_true(
+            int(workflow_default_overall["workflow_item_count"]) == len(unified_digest),
+            "workflow default should preserve unified digest row count",
+        )
+        for workflow_site_row in workflow_default_summary.loc[
+            workflow_default_summary["record_type"].astype(str).eq("site")
+        ].itertuples():
+            summary_site_row = summary.loc[
+                summary["record_type"].astype(str).eq("site")
+                & summary["site"].astype(str).eq(workflow_site_row.site)
+            ]
+            assert_true(not summary_site_row.empty, f"baseline summary missing workflow site row: {workflow_site_row.site}")
+            summary_site_row = summary_site_row.iloc[0]
+            assert_true(
+                int(summary_site_row["workflow_default_item_count"]) == int(workflow_site_row.workflow_item_count),
+                f"summary workflow_default_item_count mismatch for {workflow_site_row.site}",
+            )
+            assert_true(
+                int(summary_site_row["workflow_default_queue_run_count"]) == int(workflow_site_row.queue_run_count),
+                f"summary workflow_default_queue_run_count mismatch for {workflow_site_row.site}",
+            )
+            assert_true(
+                int(summary_site_row["workflow_default_watch_now_panel_count"])
+                == int(workflow_site_row.watch_now_panel_count),
+                f"summary workflow_default_watch_now_panel_count mismatch for {workflow_site_row.site}",
+            )
+            assert_true(
+                int(summary_site_row["workflow_default_secondary_value_cluster_count"])
+                == int(workflow_site_row.secondary_value_cluster_count),
+                f"summary workflow_default_secondary_value_cluster_count mismatch for {workflow_site_row.site}",
+            )
+            assert_true(
+                int(summary_site_row["workflow_default_changed_count"]) == int(workflow_site_row.changed_count),
+                f"summary workflow_default_changed_count mismatch for {workflow_site_row.site}",
+            )
 
         previous_snapshot = pd.read_csv(previous_snapshot_path, encoding="utf-8-sig")
         previous_cluster_snapshot = pd.read_csv(cluster_previous_path, encoding="utf-8-sig")

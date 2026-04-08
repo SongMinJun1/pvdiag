@@ -42,6 +42,7 @@ DISCOVERY_CLUSTER_ROLLUP_SUMMARY_NAME = "panel_day_engine_operator_secondary_dis
 DISCOVERY_CLUSTER_PREVIEW_SUMMARY_NAME = "panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv"
 DISCOVERY_CLUSTER_DELTA_SUMMARY_NAME = "panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv"
 UNIFIED_DIGEST_SUMMARY_NAME = "panel_day_engine_operator_unified_digest_summary_v1.csv"
+WORKFLOW_DEFAULT_SUMMARY_NAME = "panel_day_engine_operator_workflow_default_summary_v1.csv"
 BASELINE_MANIFEST_NAME = "panel_day_engine_operator_baseline_manifest_v1.csv"
 BASELINE_SUMMARY_NAME = "panel_day_engine_operator_baseline_summary_v1.csv"
 
@@ -117,6 +118,19 @@ UNIFIED_DIGEST_SUMMARY_REQUIRED_COLS = [
     "changed_attention_count",
     "changed_cluster_count",
 ]
+WORKFLOW_DEFAULT_SUMMARY_REQUIRED_COLS = [
+    "record_type",
+    "site",
+    "workflow_item_count",
+    "queue_run_count",
+    "watch_now_panel_count",
+    "secondary_value_cluster_count",
+    "changed_count",
+    "primary_attention_count",
+    "supplemental_discovery_count",
+    "linked_ref_count",
+    "truth_ref_count",
+]
 
 MANIFEST_OUTPUT_COLS = [
     "generated_at_utc",
@@ -153,6 +167,15 @@ MANIFEST_OUTPUT_COLS = [
     "unified_digest_changed_count",
     "unified_digest_changed_attention_count",
     "unified_digest_changed_cluster_count",
+    "workflow_default_item_count",
+    "workflow_default_queue_run_count",
+    "workflow_default_watch_now_panel_count",
+    "workflow_default_secondary_value_cluster_count",
+    "workflow_default_changed_count",
+    "workflow_default_primary_attention_count",
+    "workflow_default_supplemental_discovery_count",
+    "workflow_default_linked_ref_count",
+    "workflow_default_truth_ref_count",
 ]
 
 SUMMARY_OUTPUT_COLS = [
@@ -183,6 +206,11 @@ SUMMARY_OUTPUT_COLS = [
     "unified_digest_watch_now_panel_count",
     "unified_digest_secondary_value_cluster_count",
     "unified_digest_changed_count",
+    "workflow_default_item_count",
+    "workflow_default_queue_run_count",
+    "workflow_default_watch_now_panel_count",
+    "workflow_default_secondary_value_cluster_count",
+    "workflow_default_changed_count",
 ]
 
 
@@ -241,6 +269,7 @@ def build_manifest_and_summary(
     discovery_cluster_preview_summary: pd.DataFrame | None = None,
     discovery_cluster_delta_summary: pd.DataFrame | None = None,
     unified_digest_summary: pd.DataFrame | None = None,
+    workflow_default_summary: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     share_dir = root / "_share"
     run_summary = read_csv(share_dir / RUN_SUMMARY_NAME)
@@ -427,6 +456,44 @@ def build_manifest_and_summary(
         merged["unified_digest_changed_attention_count"] = 0
         merged["unified_digest_changed_cluster_count"] = 0
 
+    if workflow_default_summary is not None:
+        ensure_columns(
+            workflow_default_summary,
+            WORKFLOW_DEFAULT_SUMMARY_REQUIRED_COLS,
+            WORKFLOW_DEFAULT_SUMMARY_NAME,
+        )
+        workflow_default_summary = workflow_default_summary.copy()
+        workflow_default_summary["record_type"] = workflow_default_summary["record_type"].map(normalize_text)
+        workflow_default_summary["site"] = workflow_default_summary["site"].map(normalize_text)
+        merged = merged.merge(
+            workflow_default_summary.loc[:, WORKFLOW_DEFAULT_SUMMARY_REQUIRED_COLS].rename(
+                columns={
+                    "workflow_item_count": "workflow_default_item_count",
+                    "queue_run_count": "workflow_default_queue_run_count",
+                    "watch_now_panel_count": "workflow_default_watch_now_panel_count",
+                    "secondary_value_cluster_count": "workflow_default_secondary_value_cluster_count",
+                    "changed_count": "workflow_default_changed_count",
+                    "primary_attention_count": "workflow_default_primary_attention_count",
+                    "supplemental_discovery_count": "workflow_default_supplemental_discovery_count",
+                    "linked_ref_count": "workflow_default_linked_ref_count",
+                    "truth_ref_count": "workflow_default_truth_ref_count",
+                }
+            ),
+            on=["record_type", "site"],
+            how="outer",
+            validate="one_to_one",
+        )
+    else:
+        merged["workflow_default_item_count"] = 0
+        merged["workflow_default_queue_run_count"] = 0
+        merged["workflow_default_watch_now_panel_count"] = 0
+        merged["workflow_default_secondary_value_cluster_count"] = 0
+        merged["workflow_default_changed_count"] = 0
+        merged["workflow_default_primary_attention_count"] = 0
+        merged["workflow_default_supplemental_discovery_count"] = 0
+        merged["workflow_default_linked_ref_count"] = 0
+        merged["workflow_default_truth_ref_count"] = 0
+
     for col in [
         "queue_count",
         "backlog_count",
@@ -460,6 +527,15 @@ def build_manifest_and_summary(
         "unified_digest_changed_count",
         "unified_digest_changed_attention_count",
         "unified_digest_changed_cluster_count",
+        "workflow_default_item_count",
+        "workflow_default_queue_run_count",
+        "workflow_default_watch_now_panel_count",
+        "workflow_default_secondary_value_cluster_count",
+        "workflow_default_changed_count",
+        "workflow_default_primary_attention_count",
+        "workflow_default_supplemental_discovery_count",
+        "workflow_default_linked_ref_count",
+        "workflow_default_truth_ref_count",
     ]:
         merged[col] = pd.to_numeric(merged[col], errors="coerce").fillna(0).astype(int)
 
@@ -492,6 +568,13 @@ def build_manifest_and_summary(
             "unified_digest_watch_now_panel_count": merged["unified_digest_watch_now_panel_count"],
             "unified_digest_secondary_value_cluster_count": merged["unified_digest_secondary_value_cluster_count"],
             "unified_digest_changed_count": merged["unified_digest_changed_count"],
+            "workflow_default_item_count": merged["workflow_default_item_count"],
+            "workflow_default_queue_run_count": merged["workflow_default_queue_run_count"],
+            "workflow_default_watch_now_panel_count": merged["workflow_default_watch_now_panel_count"],
+            "workflow_default_secondary_value_cluster_count": merged[
+                "workflow_default_secondary_value_cluster_count"
+            ],
+            "workflow_default_changed_count": merged["workflow_default_changed_count"],
         },
         columns=SUMMARY_OUTPUT_COLS,
     )
@@ -578,6 +661,41 @@ def build_manifest_and_summary(
                 "unified_digest_changed_cluster_count": int(
                     merged.loc[merged["record_type"].eq("overall"), "unified_digest_changed_cluster_count"].iloc[0]
                 ),
+                "workflow_default_item_count": int(
+                    merged.loc[merged["record_type"].eq("overall"), "workflow_default_item_count"].iloc[0]
+                ),
+                "workflow_default_queue_run_count": int(
+                    merged.loc[merged["record_type"].eq("overall"), "workflow_default_queue_run_count"].iloc[0]
+                ),
+                "workflow_default_watch_now_panel_count": int(
+                    merged.loc[
+                        merged["record_type"].eq("overall"), "workflow_default_watch_now_panel_count"
+                    ].iloc[0]
+                ),
+                "workflow_default_secondary_value_cluster_count": int(
+                    merged.loc[
+                        merged["record_type"].eq("overall"), "workflow_default_secondary_value_cluster_count"
+                    ].iloc[0]
+                ),
+                "workflow_default_changed_count": int(
+                    merged.loc[merged["record_type"].eq("overall"), "workflow_default_changed_count"].iloc[0]
+                ),
+                "workflow_default_primary_attention_count": int(
+                    merged.loc[
+                        merged["record_type"].eq("overall"), "workflow_default_primary_attention_count"
+                    ].iloc[0]
+                ),
+                "workflow_default_supplemental_discovery_count": int(
+                    merged.loc[
+                        merged["record_type"].eq("overall"), "workflow_default_supplemental_discovery_count"
+                    ].iloc[0]
+                ),
+                "workflow_default_linked_ref_count": int(
+                    merged.loc[merged["record_type"].eq("overall"), "workflow_default_linked_ref_count"].iloc[0]
+                ),
+                "workflow_default_truth_ref_count": int(
+                    merged.loc[merged["record_type"].eq("overall"), "workflow_default_truth_ref_count"].iloc[0]
+                ),
             }
         ],
         columns=MANIFEST_OUTPUT_COLS,
@@ -612,6 +730,7 @@ def main() -> None:
     discovery_cluster_preview_summary = read_csv(share_dir / DISCOVERY_CLUSTER_PREVIEW_SUMMARY_NAME)
     discovery_cluster_delta_summary = read_csv(share_dir / DISCOVERY_CLUSTER_DELTA_SUMMARY_NAME)
     unified_digest_summary = read_csv(share_dir / UNIFIED_DIGEST_SUMMARY_NAME)
+    workflow_default_summary = read_csv(share_dir / WORKFLOW_DEFAULT_SUMMARY_NAME)
     manifest, summary = build_manifest_and_summary(
         root,
         generated_at_utc,
@@ -621,6 +740,7 @@ def main() -> None:
         discovery_cluster_preview_summary=discovery_cluster_preview_summary,
         discovery_cluster_delta_summary=discovery_cluster_delta_summary,
         unified_digest_summary=unified_digest_summary,
+        workflow_default_summary=workflow_default_summary,
     )
     manifest.to_csv(share_dir / BASELINE_MANIFEST_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(share_dir / BASELINE_SUMMARY_NAME, index=False, encoding="utf-8-sig")
