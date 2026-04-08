@@ -17,6 +17,9 @@ SECONDARY_DISCOVERY_CLUSTER_ROLLUP_SCRIPT = "research/prognostics/build_panel_da
 ATTENTION_PLUS_DISCOVERY_PREVIEW_SCRIPT = (
     "research/prognostics/build_panel_day_engine_operator_attention_plus_discovery_preview_v1.py"
 )
+SECONDARY_DISCOVERY_CLUSTER_DELTA_SCRIPT = (
+    "research/prognostics/build_panel_day_engine_operator_secondary_discovery_cluster_delta_v1.py"
+)
 BUILDER_SEQUENCE = [
     RUN_CONSOLIDATION_SCRIPT,
     ATTENTION_DELTA_SCRIPT,
@@ -24,6 +27,7 @@ BUILDER_SEQUENCE = [
     SECONDARY_DISCOVERY_SCRIPT,
     SECONDARY_DISCOVERY_CLUSTER_ROLLUP_SCRIPT,
     ATTENTION_PLUS_DISCOVERY_PREVIEW_SCRIPT,
+    SECONDARY_DISCOVERY_CLUSTER_DELTA_SCRIPT,
 ]
 
 RUN_SUMMARY_NAME = "panel_day_engine_operator_run_summary_v1.csv"
@@ -34,6 +38,7 @@ DIGEST_SUMMARY_NAME = "panel_day_engine_operator_digest_summary_v1.csv"
 DISCOVERY_VALUE_PANELS_SUMMARY_NAME = "panel_day_engine_operator_secondary_discovery_value_panels_summary_v1.csv"
 DISCOVERY_CLUSTER_ROLLUP_SUMMARY_NAME = "panel_day_engine_operator_secondary_discovery_cluster_rollup_summary_v1.csv"
 DISCOVERY_CLUSTER_PREVIEW_SUMMARY_NAME = "panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv"
+DISCOVERY_CLUSTER_DELTA_SUMMARY_NAME = "panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv"
 BASELINE_MANIFEST_NAME = "panel_day_engine_operator_baseline_manifest_v1.csv"
 BASELINE_SUMMARY_NAME = "panel_day_engine_operator_baseline_summary_v1.csv"
 
@@ -88,6 +93,16 @@ DISCOVERY_CLUSTER_PREVIEW_SUMMARY_REQUIRED_COLS = [
     "clusters_with_future_fault_linked_ref_count",
     "clusters_with_future_truth_linked_ref_count",
 ]
+DISCOVERY_CLUSTER_DELTA_SUMMARY_REQUIRED_COLS = [
+    "record_type",
+    "site",
+    "current_cluster_count",
+    "changed_cluster_count",
+    "new_cluster_count",
+    "dropped_cluster_count",
+    "representative_changed_count",
+    "linked_ref_changed_count",
+]
 
 MANIFEST_OUTPUT_COLS = [
     "generated_at_utc",
@@ -111,6 +126,12 @@ MANIFEST_OUTPUT_COLS = [
     "cluster_preview_secondary_value_cluster_count",
     "cluster_preview_future_fault_linked_ref_count",
     "cluster_preview_future_truth_linked_ref_count",
+    "cluster_delta_current_count",
+    "cluster_delta_changed_count",
+    "cluster_delta_new_count",
+    "cluster_delta_dropped_count",
+    "cluster_delta_representative_changed_count",
+    "cluster_delta_linked_ref_changed_count",
 ]
 
 SUMMARY_OUTPUT_COLS = [
@@ -132,6 +153,10 @@ SUMMARY_OUTPUT_COLS = [
     "discovery_cluster_count",
     "cluster_preview_count",
     "cluster_preview_secondary_value_cluster_count",
+    "cluster_delta_current_count",
+    "cluster_delta_changed_count",
+    "cluster_delta_new_count",
+    "cluster_delta_dropped_count",
 ]
 
 
@@ -188,6 +213,7 @@ def build_manifest_and_summary(
     discovery_value_panels_summary: pd.DataFrame | None = None,
     discovery_cluster_rollup_summary: pd.DataFrame | None = None,
     discovery_cluster_preview_summary: pd.DataFrame | None = None,
+    discovery_cluster_delta_summary: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     share_dir = root / "_share"
     run_summary = read_csv(share_dir / RUN_SUMMARY_NAME)
@@ -306,6 +332,40 @@ def build_manifest_and_summary(
         merged["cluster_preview_future_fault_linked_ref_count"] = 0
         merged["cluster_preview_future_truth_linked_ref_count"] = 0
 
+    if discovery_cluster_delta_summary is not None:
+        ensure_columns(
+            discovery_cluster_delta_summary,
+            DISCOVERY_CLUSTER_DELTA_SUMMARY_REQUIRED_COLS,
+            DISCOVERY_CLUSTER_DELTA_SUMMARY_NAME,
+        )
+        discovery_cluster_delta_summary = discovery_cluster_delta_summary.copy()
+        discovery_cluster_delta_summary["record_type"] = discovery_cluster_delta_summary["record_type"].map(
+            normalize_text
+        )
+        discovery_cluster_delta_summary["site"] = discovery_cluster_delta_summary["site"].map(normalize_text)
+        merged = merged.merge(
+            discovery_cluster_delta_summary.loc[:, DISCOVERY_CLUSTER_DELTA_SUMMARY_REQUIRED_COLS].rename(
+                columns={
+                    "current_cluster_count": "cluster_delta_current_count",
+                    "changed_cluster_count": "cluster_delta_changed_count",
+                    "new_cluster_count": "cluster_delta_new_count",
+                    "dropped_cluster_count": "cluster_delta_dropped_count",
+                    "representative_changed_count": "cluster_delta_representative_changed_count",
+                    "linked_ref_changed_count": "cluster_delta_linked_ref_changed_count",
+                }
+            ),
+            on=["record_type", "site"],
+            how="outer",
+            validate="one_to_one",
+        )
+    else:
+        merged["cluster_delta_current_count"] = 0
+        merged["cluster_delta_changed_count"] = 0
+        merged["cluster_delta_new_count"] = 0
+        merged["cluster_delta_dropped_count"] = 0
+        merged["cluster_delta_representative_changed_count"] = 0
+        merged["cluster_delta_linked_ref_changed_count"] = 0
+
     for col in [
         "queue_count",
         "backlog_count",
@@ -326,6 +386,12 @@ def build_manifest_and_summary(
         "cluster_preview_secondary_value_cluster_count",
         "cluster_preview_future_fault_linked_ref_count",
         "cluster_preview_future_truth_linked_ref_count",
+        "cluster_delta_current_count",
+        "cluster_delta_changed_count",
+        "cluster_delta_new_count",
+        "cluster_delta_dropped_count",
+        "cluster_delta_representative_changed_count",
+        "cluster_delta_linked_ref_changed_count",
     ]:
         merged[col] = pd.to_numeric(merged[col], errors="coerce").fillna(0).astype(int)
 
@@ -349,6 +415,10 @@ def build_manifest_and_summary(
             "discovery_cluster_count": merged["discovery_cluster_count"],
             "cluster_preview_count": merged["cluster_preview_count"],
             "cluster_preview_secondary_value_cluster_count": merged["cluster_preview_secondary_value_cluster_count"],
+            "cluster_delta_current_count": merged["cluster_delta_current_count"],
+            "cluster_delta_changed_count": merged["cluster_delta_changed_count"],
+            "cluster_delta_new_count": merged["cluster_delta_new_count"],
+            "cluster_delta_dropped_count": merged["cluster_delta_dropped_count"],
         },
         columns=SUMMARY_OUTPUT_COLS,
     )
@@ -392,6 +462,24 @@ def build_manifest_and_summary(
                 "cluster_preview_future_truth_linked_ref_count": int(
                     merged.loc[merged["record_type"].eq("overall"), "cluster_preview_future_truth_linked_ref_count"].iloc[0]
                 ),
+                "cluster_delta_current_count": int(
+                    merged.loc[merged["record_type"].eq("overall"), "cluster_delta_current_count"].iloc[0]
+                ),
+                "cluster_delta_changed_count": int(
+                    merged.loc[merged["record_type"].eq("overall"), "cluster_delta_changed_count"].iloc[0]
+                ),
+                "cluster_delta_new_count": int(
+                    merged.loc[merged["record_type"].eq("overall"), "cluster_delta_new_count"].iloc[0]
+                ),
+                "cluster_delta_dropped_count": int(
+                    merged.loc[merged["record_type"].eq("overall"), "cluster_delta_dropped_count"].iloc[0]
+                ),
+                "cluster_delta_representative_changed_count": int(
+                    merged.loc[merged["record_type"].eq("overall"), "cluster_delta_representative_changed_count"].iloc[0]
+                ),
+                "cluster_delta_linked_ref_changed_count": int(
+                    merged.loc[merged["record_type"].eq("overall"), "cluster_delta_linked_ref_changed_count"].iloc[0]
+                ),
             }
         ],
         columns=MANIFEST_OUTPUT_COLS,
@@ -424,6 +512,7 @@ def main() -> None:
     discovery_value_panels_summary = read_csv(share_dir / DISCOVERY_VALUE_PANELS_SUMMARY_NAME)
     discovery_cluster_rollup_summary = read_csv(share_dir / DISCOVERY_CLUSTER_ROLLUP_SUMMARY_NAME)
     discovery_cluster_preview_summary = read_csv(share_dir / DISCOVERY_CLUSTER_PREVIEW_SUMMARY_NAME)
+    discovery_cluster_delta_summary = read_csv(share_dir / DISCOVERY_CLUSTER_DELTA_SUMMARY_NAME)
     manifest, summary = build_manifest_and_summary(
         root,
         generated_at_utc,
@@ -431,6 +520,7 @@ def main() -> None:
         discovery_value_panels_summary=discovery_value_panels_summary,
         discovery_cluster_rollup_summary=discovery_cluster_rollup_summary,
         discovery_cluster_preview_summary=discovery_cluster_preview_summary,
+        discovery_cluster_delta_summary=discovery_cluster_delta_summary,
     )
     manifest.to_csv(share_dir / BASELINE_MANIFEST_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(share_dir / BASELINE_SUMMARY_NAME, index=False, encoding="utf-8-sig")
