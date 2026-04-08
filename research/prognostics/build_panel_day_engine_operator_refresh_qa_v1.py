@@ -20,6 +20,8 @@ CLUSTER_PREVIEW_NAME = "panel_day_engine_operator_attention_plus_discovery_clust
 CLUSTER_PREVIEW_SUMMARY_NAME = "panel_day_engine_operator_attention_plus_discovery_cluster_preview_summary_v1.csv"
 CLUSTER_DELTA_NAME = "panel_day_engine_operator_secondary_discovery_cluster_delta_v1.csv"
 CLUSTER_DELTA_SUMMARY_NAME = "panel_day_engine_operator_secondary_discovery_cluster_delta_summary_v1.csv"
+UNIFIED_DIGEST_NAME = "panel_day_engine_operator_unified_digest_v1.csv"
+UNIFIED_DIGEST_SUMMARY_NAME = "panel_day_engine_operator_unified_digest_summary_v1.csv"
 
 QA_REPORT_NAME = "panel_day_engine_operator_refresh_qa_report_v1.csv"
 QA_SUMMARY_NAME = "panel_day_engine_operator_refresh_qa_summary_v1.csv"
@@ -30,6 +32,7 @@ WATCH_NOW_COUNT_WARN_THRESHOLD = 40
 BACKLOG_QUEUE_RATIO_WARN_THRESHOLD = 500.0
 CLUSTER_PREVIEW_COUNT_WARN_THRESHOLD = 35
 DISCOVERY_CLUSTER_COUNT_WARN_THRESHOLD = 10
+UNIFIED_DIGEST_COUNT_WARN_THRESHOLD = 30
 
 QA_REPORT_COLS = [
     "check_name",
@@ -63,6 +66,13 @@ QA_SUMMARY_COLS = [
     "overall_cluster_delta_dropped_count",
     "overall_cluster_delta_representative_changed_count",
     "overall_cluster_delta_linked_ref_changed_count",
+    "overall_unified_digest_count",
+    "overall_unified_digest_queue_run_count",
+    "overall_unified_digest_watch_now_panel_count",
+    "overall_unified_digest_secondary_value_cluster_count",
+    "overall_unified_digest_changed_count",
+    "overall_unified_digest_changed_attention_count",
+    "overall_unified_digest_changed_cluster_count",
 ]
 
 REQUIRED_SUMMARY_FILES = {
@@ -76,6 +86,8 @@ REQUIRED_SUMMARY_FILES = {
     "cluster_preview_summary_exists": CLUSTER_PREVIEW_SUMMARY_NAME,
     "cluster_delta_exists": CLUSTER_DELTA_NAME,
     "cluster_delta_summary_exists": CLUSTER_DELTA_SUMMARY_NAME,
+    "unified_digest_exists": UNIFIED_DIGEST_NAME,
+    "unified_digest_summary_exists": UNIFIED_DIGEST_SUMMARY_NAME,
 }
 
 
@@ -209,6 +221,7 @@ def run_hard_checks(
     run_summary: pd.DataFrame | None,
     cluster_preview_summary: pd.DataFrame | None,
     cluster_delta_summary: pd.DataFrame | None,
+    unified_digest_summary: pd.DataFrame | None,
 ) -> None:
     refresh_manifest_row = refresh_manifest.iloc[0] if refresh_manifest is not None and not refresh_manifest.empty else None
     baseline_manifest_row = baseline_manifest.iloc[0] if baseline_manifest is not None and not baseline_manifest.empty else None
@@ -220,6 +233,8 @@ def run_hard_checks(
     cluster_preview_sites = extract_site_rows(cluster_preview_summary)
     cluster_delta_overall = extract_overall_row(cluster_delta_summary)
     cluster_delta_sites = extract_site_rows(cluster_delta_summary)
+    unified_digest_overall = extract_overall_row(unified_digest_summary)
+    unified_digest_sites = extract_site_rows(unified_digest_summary)
 
     if refresh_manifest_row is None:
         report.skip("all_requested_sites_succeeded", "fail", "refresh manifest 없음으로 site 성공 여부를 판정할 수 없음")
@@ -615,6 +630,198 @@ def run_hard_checks(
             detail_ko="cluster delta summary per-site current/changed/new/dropped 합이 overall과 각각 일치하는지 확인",
         )
 
+    if baseline_manifest_row is None or unified_digest_overall is None:
+        report.skip(
+            "unified_digest_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 unified digest summary 없음으로 unified digest count 검증을 건너뜀",
+        )
+        report.skip(
+            "unified_digest_queue_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 unified digest summary 없음으로 unified digest queue count 검증을 건너뜀",
+        )
+        report.skip(
+            "unified_digest_watch_now_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 unified digest summary 없음으로 unified digest watch_now count 검증을 건너뜀",
+        )
+        report.skip(
+            "unified_digest_secondary_cluster_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 unified digest summary 없음으로 unified digest secondary cluster count 검증을 건너뜀",
+        )
+        report.skip(
+            "unified_digest_changed_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 unified digest summary 없음으로 unified digest changed count 검증을 건너뜀",
+        )
+        report.skip(
+            "unified_digest_changed_attention_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 unified digest summary 없음으로 unified digest changed attention count 검증을 건너뜀",
+        )
+        report.skip(
+            "unified_digest_changed_cluster_count_match_manifest",
+            "fail",
+            "baseline manifest 또는 unified digest summary 없음으로 unified digest changed cluster count 검증을 건너뜀",
+        )
+    else:
+        unified_manifest_count = int(numeric_value(baseline_manifest_row.get("unified_digest_count")))
+        unified_summary_count = int(numeric_value(unified_digest_overall.get("digest_count")))
+        report.add(
+            "unified_digest_count_match_manifest",
+            "fail",
+            "pass" if unified_manifest_count == unified_summary_count else "fail",
+            observed_value=f"{unified_manifest_count} vs {unified_summary_count}",
+            expected_value="baseline manifest unified_digest_count == unified digest summary overall digest_count",
+            detail_ko="baseline manifest와 unified digest summary의 overall digest count가 일치하는지 확인",
+        )
+        unified_manifest_queue = int(numeric_value(baseline_manifest_row.get("unified_digest_queue_run_count")))
+        unified_summary_queue = int(numeric_value(unified_digest_overall.get("queue_run_count")))
+        report.add(
+            "unified_digest_queue_count_match_manifest",
+            "fail",
+            "pass" if unified_manifest_queue == unified_summary_queue else "fail",
+            observed_value=f"{unified_manifest_queue} vs {unified_summary_queue}",
+            expected_value="baseline manifest unified_digest_queue_run_count == unified digest summary overall queue_run_count",
+            detail_ko="baseline manifest와 unified digest summary의 overall queue_run count가 일치하는지 확인",
+        )
+        unified_manifest_watch = int(numeric_value(baseline_manifest_row.get("unified_digest_watch_now_panel_count")))
+        unified_summary_watch = int(numeric_value(unified_digest_overall.get("watch_now_panel_count")))
+        report.add(
+            "unified_digest_watch_now_count_match_manifest",
+            "fail",
+            "pass" if unified_manifest_watch == unified_summary_watch else "fail",
+            observed_value=f"{unified_manifest_watch} vs {unified_summary_watch}",
+            expected_value=(
+                "baseline manifest unified_digest_watch_now_panel_count == unified digest summary overall watch_now_panel_count"
+            ),
+            detail_ko="baseline manifest와 unified digest summary의 overall watch_now_panel count가 일치하는지 확인",
+        )
+        unified_manifest_cluster = int(
+            numeric_value(baseline_manifest_row.get("unified_digest_secondary_value_cluster_count"))
+        )
+        unified_summary_cluster = int(numeric_value(unified_digest_overall.get("secondary_value_cluster_count")))
+        report.add(
+            "unified_digest_secondary_cluster_count_match_manifest",
+            "fail",
+            "pass" if unified_manifest_cluster == unified_summary_cluster else "fail",
+            observed_value=f"{unified_manifest_cluster} vs {unified_summary_cluster}",
+            expected_value=(
+                "baseline manifest unified_digest_secondary_value_cluster_count == "
+                "unified digest summary overall secondary_value_cluster_count"
+            ),
+            detail_ko="baseline manifest와 unified digest summary의 overall secondary_value_cluster count가 일치하는지 확인",
+        )
+        unified_manifest_changed = int(numeric_value(baseline_manifest_row.get("unified_digest_changed_count")))
+        unified_summary_changed = int(numeric_value(unified_digest_overall.get("changed_count")))
+        report.add(
+            "unified_digest_changed_count_match_manifest",
+            "fail",
+            "pass" if unified_manifest_changed == unified_summary_changed else "fail",
+            observed_value=f"{unified_manifest_changed} vs {unified_summary_changed}",
+            expected_value="baseline manifest unified_digest_changed_count == unified digest summary overall changed_count",
+            detail_ko="baseline manifest와 unified digest summary의 overall changed count가 일치하는지 확인",
+        )
+        unified_manifest_changed_attention = int(
+            numeric_value(baseline_manifest_row.get("unified_digest_changed_attention_count"))
+        )
+        unified_summary_changed_attention = int(numeric_value(unified_digest_overall.get("changed_attention_count")))
+        report.add(
+            "unified_digest_changed_attention_count_match_manifest",
+            "fail",
+            "pass" if unified_manifest_changed_attention == unified_summary_changed_attention else "fail",
+            observed_value=f"{unified_manifest_changed_attention} vs {unified_summary_changed_attention}",
+            expected_value=(
+                "baseline manifest unified_digest_changed_attention_count == "
+                "unified digest summary overall changed_attention_count"
+            ),
+            detail_ko="baseline manifest와 unified digest summary의 overall changed_attention count가 일치하는지 확인",
+        )
+        unified_manifest_changed_cluster = int(
+            numeric_value(baseline_manifest_row.get("unified_digest_changed_cluster_count"))
+        )
+        unified_summary_changed_cluster = int(numeric_value(unified_digest_overall.get("changed_cluster_count")))
+        report.add(
+            "unified_digest_changed_cluster_count_match_manifest",
+            "fail",
+            "pass" if unified_manifest_changed_cluster == unified_summary_changed_cluster else "fail",
+            observed_value=f"{unified_manifest_changed_cluster} vs {unified_summary_changed_cluster}",
+            expected_value=(
+                "baseline manifest unified_digest_changed_cluster_count == "
+                "unified digest summary overall changed_cluster_count"
+            ),
+            detail_ko="baseline manifest와 unified digest summary의 overall changed_cluster count가 일치하는지 확인",
+        )
+
+    if baseline_overall is None or unified_digest_overall is None:
+        report.skip(
+            "unified_digest_count_matches_attention_plus_clusters",
+            "fail",
+            "baseline summary 또는 unified digest summary 없음으로 unified digest total count 검증을 건너뜀",
+        )
+    else:
+        overall_attention = int(numeric_value(baseline_overall.get("attention_count")))
+        overall_discovery_clusters = int(numeric_value(baseline_overall.get("discovery_cluster_count")))
+        overall_unified_digest_count = int(numeric_value(unified_digest_overall.get("digest_count")))
+        expected_unified_digest_count = overall_attention + overall_discovery_clusters
+        report.add(
+            "unified_digest_count_matches_attention_plus_clusters",
+            "fail",
+            "pass" if overall_unified_digest_count == expected_unified_digest_count else "fail",
+            observed_value=overall_unified_digest_count,
+            expected_value=expected_unified_digest_count,
+            detail_ko="unified digest overall count가 baseline attention 수와 discovery cluster 수의 합과 일치하는지 확인",
+        )
+
+    if unified_digest_overall is None or unified_digest_sites is None:
+        report.skip(
+            "unified_digest_site_sum_matches_overall",
+            "fail",
+            "unified digest summary 없음으로 per-site unified digest 합 검증을 건너뜀",
+        )
+    else:
+        overall_digest_count = int(numeric_value(unified_digest_overall.get("digest_count")))
+        overall_queue_run_count = int(numeric_value(unified_digest_overall.get("queue_run_count")))
+        overall_watch_now_panel_count = int(numeric_value(unified_digest_overall.get("watch_now_panel_count")))
+        overall_secondary_value_cluster_count = int(
+            numeric_value(unified_digest_overall.get("secondary_value_cluster_count"))
+        )
+        overall_changed_count = int(numeric_value(unified_digest_overall.get("changed_count")))
+        site_digest_count_sum = int(pd.to_numeric(unified_digest_sites["digest_count"], errors="coerce").fillna(0).sum())
+        site_queue_run_sum = int(
+            pd.to_numeric(unified_digest_sites["queue_run_count"], errors="coerce").fillna(0).sum()
+        )
+        site_watch_now_sum = int(
+            pd.to_numeric(unified_digest_sites["watch_now_panel_count"], errors="coerce").fillna(0).sum()
+        )
+        site_secondary_cluster_sum = int(
+            pd.to_numeric(unified_digest_sites["secondary_value_cluster_count"], errors="coerce").fillna(0).sum()
+        )
+        site_changed_sum = int(pd.to_numeric(unified_digest_sites["changed_count"], errors="coerce").fillna(0).sum())
+        sums_ok = (
+            site_digest_count_sum == overall_digest_count
+            and site_queue_run_sum == overall_queue_run_count
+            and site_watch_now_sum == overall_watch_now_panel_count
+            and site_secondary_cluster_sum == overall_secondary_value_cluster_count
+            and site_changed_sum == overall_changed_count
+        )
+        report.add(
+            "unified_digest_site_sum_matches_overall",
+            "fail",
+            "pass" if sums_ok else "fail",
+            observed_value=(
+                f"digest {site_digest_count_sum}/{overall_digest_count}, "
+                f"queue {site_queue_run_sum}/{overall_queue_run_count}, "
+                f"watch {site_watch_now_sum}/{overall_watch_now_panel_count}, "
+                f"cluster {site_secondary_cluster_sum}/{overall_secondary_value_cluster_count}, "
+                f"changed {site_changed_sum}/{overall_changed_count}"
+            ),
+            expected_value="per-site digest/queue/watch/cluster/changed sums == overall",
+            detail_ko="unified digest summary per-site digest/queue/watch/cluster/changed 합이 overall과 각각 일치하는지 확인",
+        )
+
 
 def run_soft_checks(
     report: QaReportBuilder,
@@ -622,10 +829,12 @@ def run_soft_checks(
     baseline_summary: pd.DataFrame | None,
     run_summary: pd.DataFrame | None,
     cluster_preview_summary: pd.DataFrame | None,
+    unified_digest_summary: pd.DataFrame | None,
 ) -> None:
     baseline_overall = extract_overall_row(baseline_summary)
     run_overall = extract_overall_row(run_summary)
     cluster_preview_overall = extract_overall_row(cluster_preview_summary)
+    unified_digest_overall = extract_overall_row(unified_digest_summary)
 
     if run_overall is None:
         report.skip("queue_count_too_large", "warn", "run summary 없음으로 queue 규모 경고 검사를 건너뜀")
@@ -701,6 +910,19 @@ def run_soft_checks(
             detail_ko="secondary discovery cluster 수가 supplemental preview로 보기 과도한지 확인",
         )
 
+    if unified_digest_overall is None:
+        report.skip("unified_digest_too_large", "warn", "unified digest summary 없음으로 unified digest 규모 경고 검사를 건너뜀")
+    else:
+        unified_digest_count = int(numeric_value(unified_digest_overall.get("digest_count")))
+        report.add(
+            "unified_digest_too_large",
+            "warn",
+            "warn" if unified_digest_count > UNIFIED_DIGEST_COUNT_WARN_THRESHOLD else "pass",
+            observed_value=unified_digest_count,
+            expected_value=f"<= {UNIFIED_DIGEST_COUNT_WARN_THRESHOLD}",
+            detail_ko="unified digest 전체 건수가 operator digest로 보기 과도한지 확인",
+        )
+
 
 def build_summary(
     report: pd.DataFrame,
@@ -709,11 +931,13 @@ def build_summary(
     run_summary: pd.DataFrame | None,
     cluster_preview_summary: pd.DataFrame | None,
     cluster_delta_summary: pd.DataFrame | None,
+    unified_digest_summary: pd.DataFrame | None,
 ) -> pd.DataFrame:
     baseline_overall = extract_overall_row(baseline_summary)
     run_overall = extract_overall_row(run_summary)
     cluster_preview_overall = extract_overall_row(cluster_preview_summary)
     cluster_delta_overall = extract_overall_row(cluster_delta_summary)
+    unified_digest_overall = extract_overall_row(unified_digest_summary)
 
     def get_from_row(row: pd.Series | None, key: str) -> int:
         if row is None:
@@ -751,6 +975,19 @@ def build_summary(
         "overall_cluster_delta_linked_ref_changed_count": get_from_row(
             cluster_delta_overall, "linked_ref_changed_count"
         ),
+        "overall_unified_digest_count": get_from_row(unified_digest_overall, "digest_count"),
+        "overall_unified_digest_queue_run_count": get_from_row(unified_digest_overall, "queue_run_count"),
+        "overall_unified_digest_watch_now_panel_count": get_from_row(unified_digest_overall, "watch_now_panel_count"),
+        "overall_unified_digest_secondary_value_cluster_count": get_from_row(
+            unified_digest_overall, "secondary_value_cluster_count"
+        ),
+        "overall_unified_digest_changed_count": get_from_row(unified_digest_overall, "changed_count"),
+        "overall_unified_digest_changed_attention_count": get_from_row(
+            unified_digest_overall, "changed_attention_count"
+        ),
+        "overall_unified_digest_changed_cluster_count": get_from_row(
+            unified_digest_overall, "changed_cluster_count"
+        ),
     }
     return pd.DataFrame([summary_row], columns=QA_SUMMARY_COLS)
 
@@ -786,12 +1023,14 @@ def main() -> None:
         run_summary=run_summary,
         cluster_preview_summary=data_frames[CLUSTER_PREVIEW_SUMMARY_NAME],
         cluster_delta_summary=data_frames[CLUSTER_DELTA_SUMMARY_NAME],
+        unified_digest_summary=data_frames[UNIFIED_DIGEST_SUMMARY_NAME],
     )
     run_soft_checks(
         report_builder,
         baseline_summary=data_frames[BASELINE_SUMMARY_NAME],
         run_summary=run_summary,
         cluster_preview_summary=data_frames[CLUSTER_PREVIEW_SUMMARY_NAME],
+        unified_digest_summary=data_frames[UNIFIED_DIGEST_SUMMARY_NAME],
     )
 
     report = report_builder.to_frame()
@@ -801,6 +1040,7 @@ def main() -> None:
         run_summary=run_summary,
         cluster_preview_summary=data_frames[CLUSTER_PREVIEW_SUMMARY_NAME],
         cluster_delta_summary=data_frames[CLUSTER_DELTA_SUMMARY_NAME],
+        unified_digest_summary=data_frames[UNIFIED_DIGEST_SUMMARY_NAME],
     )
 
     report.to_csv(share_dir / QA_REPORT_NAME, index=False, encoding="utf-8-sig")
