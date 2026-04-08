@@ -41,6 +41,15 @@ REQUIRED_QA_SUMMARY_COLS = [
     "overall_unified_digest_changed_count",
     "overall_unified_digest_changed_attention_count",
     "overall_unified_digest_changed_cluster_count",
+    "overall_workflow_default_count",
+    "overall_workflow_default_queue_run_count",
+    "overall_workflow_default_watch_now_panel_count",
+    "overall_workflow_default_secondary_value_cluster_count",
+    "overall_workflow_default_changed_count",
+    "overall_workflow_default_primary_attention_count",
+    "overall_workflow_default_supplemental_discovery_count",
+    "overall_workflow_default_linked_ref_count",
+    "overall_workflow_default_truth_ref_count",
 ]
 
 PIPELINE_MANIFEST_COLS = [
@@ -78,6 +87,15 @@ PIPELINE_MANIFEST_COLS = [
     "overall_unified_digest_changed_count",
     "overall_unified_digest_changed_attention_count",
     "overall_unified_digest_changed_cluster_count",
+    "overall_workflow_default_count",
+    "overall_workflow_default_queue_run_count",
+    "overall_workflow_default_watch_now_panel_count",
+    "overall_workflow_default_secondary_value_cluster_count",
+    "overall_workflow_default_changed_count",
+    "overall_workflow_default_primary_attention_count",
+    "overall_workflow_default_supplemental_discovery_count",
+    "overall_workflow_default_linked_ref_count",
+    "overall_workflow_default_truth_ref_count",
     "note_ko",
 ]
 
@@ -250,6 +268,49 @@ def build_manifest(
         if qa_summary_row is not None
         else 0
     )
+    overall_workflow_default_count = (
+        numeric_int(qa_summary_row.get("overall_workflow_default_count")) if qa_summary_row is not None else 0
+    )
+    overall_workflow_default_queue_run_count = (
+        numeric_int(qa_summary_row.get("overall_workflow_default_queue_run_count"))
+        if qa_summary_row is not None
+        else 0
+    )
+    overall_workflow_default_watch_now_panel_count = (
+        numeric_int(qa_summary_row.get("overall_workflow_default_watch_now_panel_count"))
+        if qa_summary_row is not None
+        else 0
+    )
+    overall_workflow_default_secondary_value_cluster_count = (
+        numeric_int(qa_summary_row.get("overall_workflow_default_secondary_value_cluster_count"))
+        if qa_summary_row is not None
+        else 0
+    )
+    overall_workflow_default_changed_count = (
+        numeric_int(qa_summary_row.get("overall_workflow_default_changed_count"))
+        if qa_summary_row is not None
+        else 0
+    )
+    overall_workflow_default_primary_attention_count = (
+        numeric_int(qa_summary_row.get("overall_workflow_default_primary_attention_count"))
+        if qa_summary_row is not None
+        else 0
+    )
+    overall_workflow_default_supplemental_discovery_count = (
+        numeric_int(qa_summary_row.get("overall_workflow_default_supplemental_discovery_count"))
+        if qa_summary_row is not None
+        else 0
+    )
+    overall_workflow_default_linked_ref_count = (
+        numeric_int(qa_summary_row.get("overall_workflow_default_linked_ref_count"))
+        if qa_summary_row is not None
+        else 0
+    )
+    overall_workflow_default_truth_ref_count = (
+        numeric_int(qa_summary_row.get("overall_workflow_default_truth_ref_count"))
+        if qa_summary_row is not None
+        else 0
+    )
 
     final_pipeline_pass_flag, note_ko = determine_note(
         refresh_failed_site_count=refresh_failed_site_count,
@@ -298,6 +359,19 @@ def build_manifest(
         "overall_unified_digest_changed_count": overall_unified_digest_changed_count,
         "overall_unified_digest_changed_attention_count": overall_unified_digest_changed_attention_count,
         "overall_unified_digest_changed_cluster_count": overall_unified_digest_changed_cluster_count,
+        "overall_workflow_default_count": overall_workflow_default_count,
+        "overall_workflow_default_queue_run_count": overall_workflow_default_queue_run_count,
+        "overall_workflow_default_watch_now_panel_count": overall_workflow_default_watch_now_panel_count,
+        "overall_workflow_default_secondary_value_cluster_count": (
+            overall_workflow_default_secondary_value_cluster_count
+        ),
+        "overall_workflow_default_changed_count": overall_workflow_default_changed_count,
+        "overall_workflow_default_primary_attention_count": overall_workflow_default_primary_attention_count,
+        "overall_workflow_default_supplemental_discovery_count": (
+            overall_workflow_default_supplemental_discovery_count
+        ),
+        "overall_workflow_default_linked_ref_count": overall_workflow_default_linked_ref_count,
+        "overall_workflow_default_truth_ref_count": overall_workflow_default_truth_ref_count,
         "note_ko": note_ko,
     }
     return pd.DataFrame([row], columns=PIPELINE_MANIFEST_COLS)
