@@ -13,6 +13,8 @@ GPV7_PERF_SUMMARY_NAME = "panel_day_engine_gpv7_perf_summary_v1.csv"
 FINAL_DECISION_PACK_NAME = "panel_day_engine_project_final_decision_pack_v1.csv"
 PRECURSOR_ONSET_TRUTH_NAME = "panel_day_engine_precursor_onset_truth_v1.csv"
 COMMON_CAUSE_RETROFIT_NAME = "panel_day_engine_common_cause_descriptive_retrofit_cases_v1.csv"
+GPVS_ATTACH_FEASIBILITY_NAME = "panel_day_engine_gpvs_panel_attach_feasibility_v1.csv"
+GPVS_ATTACH_CANDIDATES_NAME = "panel_day_engine_gpvs_panel_attach_candidates_v1.csv"
 
 VERDICT_OUTPUT_NAME = "panel_day_engine_panel_multiaxis_verdict_v1.csv"
 EVENT_SUPPLEMENT_OUTPUT_NAME = "panel_day_engine_panel_multiaxis_event_supplement_v1.csv"
@@ -53,6 +55,7 @@ CLUSTER_COLS = [
     "대표판정_ko",
     "커널로그_증상명_ko",
     "GPVS_참고유형_ko",
+    "GPVS_근거_ko",
     "운영위치_ko",
     "판정주의_ko",
 ]
@@ -193,6 +196,8 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         "final_pack": read_csv(share_dir / FINAL_DECISION_PACK_NAME),
         "precursor_truth": read_csv(share_dir / PRECURSOR_ONSET_TRUTH_NAME),
         "common_cause": read_csv(share_dir / COMMON_CAUSE_RETROFIT_NAME),
+        "gpvs_attach_feasibility": read_csv(share_dir / GPVS_ATTACH_FEASIBILITY_NAME),
+        "gpvs_attach_candidates": read_csv(share_dir / GPVS_ATTACH_CANDIDATES_NAME),
     }
 
     ensure_columns(
@@ -245,6 +250,23 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         ],
         COMMON_CAUSE_RETROFIT_NAME,
     )
+    ensure_columns(
+        frames["gpvs_attach_feasibility"],
+        [
+            "GPVS_패널별_직접판정_가능여부",
+            "근거_ko",
+            "최선_후보_파일",
+            "overlap_panel_count",
+            "overlap_rate",
+            "다음권장조치_ko",
+        ],
+        GPVS_ATTACH_FEASIBILITY_NAME,
+    )
+    ensure_columns(
+        frames["gpvs_attach_candidates"],
+        ["site", "panel_id", "GPVS_참고유형_ko", "source_path", "source_key_ko", "비고_ko"],
+        GPVS_ATTACH_CANDIDATES_NAME,
+    )
     return normalize_frames(frames)
 
 
@@ -268,9 +290,25 @@ def validate_inputs(root: Path, frames: dict[str, pd.DataFrame]) -> None:
     if missing_scopes:
         raise SystemExit(f"{FINAL_DECISION_PACK_NAME} missing required scopes: {sorted(missing_scopes)}")
 
-    gpvs_dir = root / "data" / "gpvs" / "out"
-    if not gpvs_dir.exists():
-        raise SystemExit(f"missing GPVS artifact directory: {gpvs_dir}")
+    feasibility_df = frames["gpvs_attach_feasibility"]
+    if len(feasibility_df) != 1:
+        raise SystemExit(f"{GPVS_ATTACH_FEASIBILITY_NAME} must contain exactly one row, found {len(feasibility_df)}")
+    feasibility_value = normalize_text(feasibility_df.iloc[0]["GPVS_패널별_직접판정_가능여부"])
+    if feasibility_value not in {"가능", "불가"}:
+        raise SystemExit(
+            f"{GPVS_ATTACH_FEASIBILITY_NAME} has invalid GPVS_패널별_직접판정_가능여부: {feasibility_value}"
+        )
+    overlap_value = pd.to_numeric(feasibility_df.iloc[0]["overlap_panel_count"], errors="coerce")
+    if pd.isna(overlap_value):
+        raise SystemExit(f"{GPVS_ATTACH_FEASIBILITY_NAME} overlap_panel_count must be numeric")
+    candidates_df = frames["gpvs_attach_candidates"]
+    if feasibility_value == "가능" and candidates_df.empty:
+        raise SystemExit(f"{GPVS_ATTACH_CANDIDATES_NAME} is empty despite feasibility=가능")
+    if feasibility_value == "불가" and not candidates_df.empty:
+        raise SystemExit(f"{GPVS_ATTACH_CANDIDATES_NAME} must be empty when feasibility=불가")
+    if not candidates_df.empty and candidates_df.duplicated(subset=["site", "panel_id"]).any():
+        dup = candidates_df.loc[candidates_df.duplicated(subset=["site", "panel_id"], keep=False), ["site", "panel_id"]]
+        raise SystemExit(f"{GPVS_ATTACH_CANDIDATES_NAME} must be unique by (site, panel_id): {dup.to_dict(orient='records')[:5]}")
 
 
 def abrupt_lookup(abrupt_df: pd.DataFrame) -> dict[tuple[str, str], dict[str, object]]:
@@ -433,113 +471,41 @@ def map_operating_location(workflow_row: dict[str, object] | None) -> str:
     return "현재 workflow 미포함"
 
 
-def recover_gpvs_panel_level_reference(
-    root: Path,
+def recover_gpvs_panel_level_reference_from_audit(
+    feasibility_df: pd.DataFrame,
+    candidates_df: pd.DataFrame,
     panel_keys: set[tuple[str, str]],
-) -> tuple[dict[tuple[str, str], dict[str, str]], str]:
-    gpvs_dir = root / "data" / "gpvs" / "out"
-    panel_lookup: dict[tuple[str, str], dict[str, str]] = {}
-    panel_keys_by_id: dict[str, set[str]] = {}
-    scanned_files: list[str] = []
-    matched_files: list[str] = []
+) -> tuple[dict[tuple[str, str], dict[str, str]], str, int]:
+    feasibility_row = feasibility_df.iloc[0]
+    feasibility_value = normalize_text(feasibility_row["GPVS_패널별_직접판정_가능여부"])
+    overlap_expected = int(pd.to_numeric(feasibility_row["overlap_panel_count"], errors="raise"))
+    best_source = normalize_text(feasibility_row["최선_후보_파일"])
+    feasibility_reason = normalize_text(feasibility_row["근거_ko"])
 
-    for site, panel_id in panel_keys:
-        panel_keys_by_id.setdefault(panel_id, set()).add(site)
+    if feasibility_value == "불가":
+        return {}, f"{GPVS_ABSENCE_REASON} {feasibility_reason}".strip(), 0
 
-    for path in sorted(gpvs_dir.glob("*.csv")):
-        scanned_files.append(str(path.relative_to(root)))
-        try:
-            preview_df = pd.read_csv(path, nrows=0)
-        except Exception:
+    gpvs_lookup: dict[tuple[str, str], dict[str, str]] = {}
+    for row in candidates_df.to_dict(orient="records"):
+        key = (normalize_text(row["site"]), normalize_text(row["panel_id"]))
+        if key not in panel_keys:
             continue
-
-        columns = {column: normalize_text(column) for column in preview_df.columns}
-        available = set(columns.values())
-        id_col = ""
-        site_col = ""
-        type_col = ""
-        score_col = ""
-
-        if "panel_id" in available:
-            id_col = next(column for column, value in columns.items() if value == "panel_id")
-        elif "display_entity_id" in available:
-            id_col = next(column for column, value in columns.items() if value == "display_entity_id")
-
-        if "site" in available:
-            site_col = next(column for column, value in columns.items() if value == "site")
-
-        for candidate in ["fault_type", "gpvs_type", "type"]:
-            if candidate in available:
-                type_col = next(column for column, value in columns.items() if value == candidate)
-                break
-
-        for candidate in ["score", "score_value", "prob", "probability", "gpvs_score"]:
-            if candidate in available:
-                score_col = next(column for column, value in columns.items() if value == candidate)
-                break
-
-        if not id_col or not type_col:
-            continue
-
-        try:
-            df = pd.read_csv(path, low_memory=False)
-        except Exception:
-            continue
-
-        if id_col not in df.columns or type_col not in df.columns:
-            continue
-
-        matched_files.append(str(path.relative_to(root)))
-        for _, row in df.iterrows():
-            panel_id = normalize_text(row.get(id_col, ""))
-            if not panel_id:
-                continue
-
-            candidate_keys: list[tuple[str, str]] = []
-            if site_col:
-                site = normalize_text(row.get(site_col, ""))
-                candidate_key = (site, panel_id)
-                if candidate_key in panel_keys:
-                    candidate_keys.append(candidate_key)
-            else:
-                matched_sites = panel_keys_by_id.get(panel_id, set())
-                if len(matched_sites) == 1:
-                    candidate_keys.append((next(iter(matched_sites)), panel_id))
-
-            if not candidate_keys:
-                continue
-
-            score = pd.to_numeric(pd.Series([row.get(score_col, "")]), errors="coerce").iloc[0] if score_col else pd.NA
-            score_value = float(score) if not pd.isna(score) else float("-inf")
-            gpvs_type = normalize_text(row.get(type_col, "")) or "미부착"
-            gpvs_reason = f"{path.relative_to(root)}::{type_col}" + (f"/{score_col}" if score_col else "")
-
-            for key in candidate_keys:
-                existing = panel_lookup.get(key)
-                if existing is None or score_value > existing["__score__"]:
-                    panel_lookup[key] = {
-                        "GPVS_참고유형_ko": gpvs_type,
-                        "GPVS_근거_ko": gpvs_reason,
-                        "__score__": score_value,
-                    }
-
-    cleaned: dict[tuple[str, str], dict[str, str]] = {}
-    for key, row in panel_lookup.items():
-        cleaned[key] = {
-            "GPVS_참고유형_ko": row["GPVS_참고유형_ko"],
-            "GPVS_근거_ko": row["GPVS_근거_ko"],
+        source_path = normalize_text(row["source_path"])
+        source_key = normalize_text(row["source_key_ko"])
+        note = normalize_text(row["비고_ko"])
+        reason_parts = [part for part in [source_path, source_key, note] if part]
+        gpvs_lookup[key] = {
+            "GPVS_참고유형_ko": normalize_text(row["GPVS_참고유형_ko"]) or "미부착",
+            "GPVS_근거_ko": " | ".join(reason_parts) if reason_parts else GPVS_ABSENCE_REASON,
         }
 
-    if cleaned:
-        source_note = "panel-level GPVS direct reference attached from: " + ", ".join(sorted(set(matched_files)))
-    else:
-        source_note = GPVS_ABSENCE_REASON
-        if scanned_files:
-            source_note += f" (scanned: {', '.join(scanned_files[:4])}"
-            if len(scanned_files) > 4:
-                source_note += ", ..."
-            source_note += ")"
-    return cleaned, source_note
+    source_note = (
+        f"panel-level GPVS direct reference partially attached from {best_source} "
+        f"(expected overlap={overlap_expected}, matched={len(gpvs_lookup)})"
+    )
+    if feasibility_reason:
+        source_note += f". {feasibility_reason}"
+    return gpvs_lookup, source_note, overlap_expected
 
 
 def build_outputs(
@@ -562,7 +528,11 @@ def build_outputs(
     }
     panel_keys = set().union(workflow_keys, abrupt_keys, precursor_keys, common_keys)
 
-    gpvs_by_key, gpvs_source_note = recover_gpvs_panel_level_reference(root, panel_keys)
+    gpvs_by_key, gpvs_source_note, gpvs_expected_attach_count = recover_gpvs_panel_level_reference_from_audit(
+        frames["gpvs_attach_feasibility"],
+        frames["gpvs_attach_candidates"],
+        panel_keys,
+    )
 
     panel_rows: list[dict[str, object]] = []
     event_rows: list[dict[str, object]] = []
@@ -669,6 +639,7 @@ def build_outputs(
                 "대표판정_ko": "공통원인 이벤트",
                 "커널로그_증상명_ko": "패턴 이상형",
                 "GPVS_참고유형_ko": "미부착",
+                "GPVS_근거_ko": GPVS_ABSENCE_REASON,
                 "운영위치_ko": "추가 발견 후보",
                 "판정주의_ko": "secondary discovery cluster 보조 row이며 panel-level 개별 verdict로 확장하지 않는다. "
                 + GPVS_ABSENCE_REASON,
@@ -688,6 +659,7 @@ def build_outputs(
         "abrupt_expected": len(abrupt_keys),
         "precursor_expected": len(precursor_keys),
         "common_expected": len(common_keys),
+        "gpvs_expected_attach_count": gpvs_expected_attach_count,
     }
     return verdict_df, event_supplement_df, cluster_supplement_df, metrics, gpvs_source_note
 
@@ -707,6 +679,7 @@ def validate_real_coverage(
     abrupt_membership = int(to_numeric_flag(verdict_df["급작고장이력_flag"]).sum())
     precursor_membership = int(to_numeric_flag(verdict_df["전조형이력_flag"]).sum())
     common_membership = int(to_numeric_flag(verdict_df["공통원인이력_flag"]).sum())
+    gpvs_attached = int(verdict_df["GPVS_참고유형_ko"].ne("미부착").sum())
 
     if abrupt_membership != 6:
         raise SystemExit(f"panels with 급작고장이력_flag must be 6, found {abrupt_membership}")
@@ -714,9 +687,17 @@ def validate_real_coverage(
         raise SystemExit(f"panels with 전조형이력_flag must be 2, found {precursor_membership}")
     if common_membership != 4:
         raise SystemExit(f"panels with 공통원인이력_flag must be 4, found {common_membership}")
+    if gpvs_attached != int(metrics["gpvs_expected_attach_count"]):
+        raise SystemExit(
+            f"GPVS attached row count must equal feasibility overlap_panel_count {metrics['gpvs_expected_attach_count']}, found {gpvs_attached}"
+        )
 
     if metrics["workflow_cluster_count"] > 0 and len(cluster_supplement_df) <= 0:
         raise SystemExit("cluster supplement check failed: workflow has discovery clusters but supplement is empty")
+    if cluster_supplement_df["GPVS_참고유형_ko"].ne("미부착").any():
+        raise SystemExit("cluster supplement must stay GPVS_참고유형_ko=미부착")
+    if cluster_supplement_df["GPVS_근거_ko"].ne(GPVS_ABSENCE_REASON).any():
+        raise SystemExit(f"cluster supplement must stay GPVS_근거_ko={GPVS_ABSENCE_REASON}")
 
     insufficient_rows = verdict_df.loc[
         verdict_df["대표판정_ko"].eq("불충분"),
@@ -768,7 +749,7 @@ def build_summary(
             f"main panel table은 unique panel 대표 verdict 표이고 workflow panel {metrics['workflow_panel_count']}건을 기준으로 abrupt6 {metrics['abrupt_expected']}건, precursor {metrics['precursor_expected']}건, common-cause {metrics['common_expected']}건 membership을 함께 접었다. "
             "대표판정은 급작 > 전조형 > 공통원인 이벤트 > 반복 이상 > 불충분 우선순위를 쓴다. "
             "summary count는 final panel row와 membership flag에서 다시 계산했다. "
-            f"사건이력 multi-membership은 event supplement로 분리했다. {gpvs_source_note}"
+            f"사건이력 multi-membership은 event supplement로 분리했다. {gpvs_source_note} unmatched panel은 계속 `{GPVS_ABSENCE_REASON}` 으로 둔다."
         ),
     }
     return pd.DataFrame([row]).reindex(columns=SUMMARY_COLS)

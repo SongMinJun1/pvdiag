@@ -16,7 +16,8 @@
 - `_share/panel_day_engine_kernellog_project_mapping_v1.csv`
 - `_share/panel_day_engine_gpv7_perf_summary_v1.csv`
 - `_share/panel_day_engine_project_final_decision_pack_v1.csv`
-- `data/gpvs/out/*` 등 현재 repo 안 GPVS stored artifact
+- `_share/panel_day_engine_gpvs_panel_attach_feasibility_v1.csv`
+- `_share/panel_day_engine_gpvs_panel_attach_candidates_v1.csv`
 
 ## Base Universe
 - main panel table 은 workflow row 만으로 만들지 않는다.
@@ -77,11 +78,16 @@
 - abrupt6 direct row 가 없으면 `커널로그_원인군_ko` 는 `불충분` 으로 남긴다.
 
 ## GPVS 축
-- panel-level direct GPVS verdict 가 현재 stored artifact 에서 recover 될 때만 붙인다.
-- recover 되지 않으면:
+- panel-level GPVS direct attach 가능 여부는 별도 attach audit 결과를 그대로 따른다.
+- feasibility 가 `가능` 이면:
+  - `_share/panel_day_engine_gpvs_panel_attach_candidates_v1.csv` 를 `site + panel_id` 로 join 한다.
+  - 겹치는 panel 에만 `GPVS_참고유형_ko` 를 붙인다.
+  - `GPVS_근거_ko` 는 `source_path | source_key_ko | 비고_ko` 조합으로 짧게 남긴다.
+- feasibility 가 `불가` 이거나 panel 이 unmatched 면:
   - `GPVS_참고유형_ko = 미부착`
   - `GPVS_근거_ko = 현재 저장 산출물에는 패널별 GPVS 직접 판정이 없음`
-- panel-level stored join 이 없는데 GPVS type 을 억지로 발명하면 안 된다.
+- GPVS 는 여전히 reference axis 이고, 메인 사건 성격 판정축이 아니다.
+- current panel universe 와 겹치지 않는 panel 에까지 GPVS type 을 억지로 붙이면 안 된다.
 
 ## 운영 위치
 - workflow row 가 `queue_run` 이면 `바로 확인`
@@ -114,6 +120,7 @@
 - `_share/panel_day_engine_panel_multiaxis_cluster_supplement_v1.csv`
   - cluster 보조표
   - `대표판정_ko = 공통원인 이벤트`
+  - GPVS 는 cluster-level artifact 가 아직 없으므로 계속 `미부착`
 - `_share/panel_day_engine_panel_multiaxis_verdict_summary_v1.csv`
   - membership count / representative count / panel fault status / attach count 요약
 
@@ -125,6 +132,8 @@
   - `공통원인이력_flag == 1` 인 panel 수 = `4`
 - main panel verdict table 안에는 cluster row 가 있으면 안 된다.
 - workflow 에 discovery cluster 가 있으면 cluster supplement row 가 반드시 있어야 한다.
+- GPVS attach feasibility 가 `가능` 이면 main panel table 의 `GPVS_참고유형_ko != 미부착` row 수는 feasibility 의 `overlap_panel_count` 와 같아야 한다.
+- cluster supplement 는 계속 `GPVS_참고유형_ko = 미부착`, `GPVS_근거_ko = 현재 저장 산출물에는 패널별 GPVS 직접 판정이 없음` 이어야 한다.
 - `대표판정_ko = 불충분` 인 row 는 네 membership flag 가 모두 `0` 일 때만 허용한다.
 
 ## Smoke Test 기준
@@ -132,5 +141,6 @@
 - main table 이 unique by panel 이어야 한다.
 - event supplement 가 multi-membership 을 보존해야 한다.
 - abrupt / precursor / common membership count 가 현재 규칙대로 나와야 한다.
-- GPVS panel-level absence path 가 clean 하게 동작해야 한다.
+- GPVS attachable panel 은 candidates file 기준으로 실제 부착돼야 한다.
+- unmatched panel 과 cluster row 는 계속 미부착이어야 한다.
 - official outputs 는 smoke 중 바뀌면 안 된다.
