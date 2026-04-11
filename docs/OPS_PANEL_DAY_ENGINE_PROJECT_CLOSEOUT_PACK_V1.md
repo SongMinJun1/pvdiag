@@ -8,9 +8,14 @@
 - final decision pack 까지 오면 scope별 사용 범위와 overclaim 금지선은 이미 정리돼 있다.
 - handoff pack 과 clean internal-share pack 까지 만들어지면, 다음 필요는 "이제 무엇을 먼저 읽고 어디를 기준 문서로 삼을지"를 한 번 더 정리하는 closeout index다.
 - 그래서 closeout pack 은 metric table 추가가 아니라, 사람이 프로젝트를 다시 열 때 바로 들어갈 entrance 문서와 artifact index를 제공한다.
+- 이제 panel-level 3축 대표판정표까지 완성됐기 때문에, closeout pack 은 그 표를 포함한 최종 reader-facing entrance를 제공해야 한다.
 
 ## 입력과 원칙
 - 다음 승인 산출물만 재사용한다.
+  - `panel_day_engine_panel_multiaxis_verdict_v1.csv`
+  - `panel_day_engine_panel_multiaxis_event_supplement_v1.csv`
+  - `panel_day_engine_panel_multiaxis_cluster_supplement_v1.csv`
+  - `panel_day_engine_panel_multiaxis_verdict_summary_v1.csv`
   - `panel_day_engine_project_final_decision_pack_v1.csv`
   - `panel_day_engine_project_final_decision_summary_v1.csv`
   - `panel_day_engine_project_final_do_and_dont_v1.csv`
@@ -46,6 +51,10 @@
   - `6. 프로젝트를 다시 열면 어디서 시작할지`
 
 ## 문서에 반드시 들어갈 내용
+- 패널별 대표판정표가 이제 완성됐다는 점
+- 한 패널에 대해 우리판정 / 커널로그 판정 / GPVS 참고판정 / 운영위치를 한 줄로 볼 수 있다는 점
+- GPVS 는 현재 25개 패널 중 12개만 부분 부착이고 나머지는 미부착이라는 점
+- 전조형 2건은 대표판정에서는 급작 고장으로 접힐 수 있어 사건이력 보조표를 함께 봐야 한다는 점
 - 전조형 성능은 표본이 작아 탐색적이라는 점
 - 급작 고장은 bounded current-data 수준으로는 사용 가능하다는 점
 - common-cause / 같이 흔들리는 이상은 탐색적이라는 점
@@ -55,6 +64,10 @@
 
 ## Artifact Index 원칙
 - index 는 최소한 아래 산출물을 포함한다.
+  - `panel_day_engine_panel_multiaxis_verdict_v1.csv`
+  - `panel_day_engine_panel_multiaxis_event_supplement_v1.csv`
+  - `panel_day_engine_panel_multiaxis_cluster_supplement_v1.csv`
+  - `panel_day_engine_panel_multiaxis_verdict_summary_v1.csv`
   - `panel_day_engine_project_final_decision_pack_v1.csv`
   - `panel_day_engine_project_final_do_and_dont_v1.csv`
   - `panel_day_engine_project_handoff_pack_v1.md`
@@ -77,16 +90,24 @@
   - `pipeline_통과여부`
   - `현재_데이터_한계`
   - `최종_권장_사용_범위`
+  - `패널_3축통합판정_행수`
+  - `패널_3축통합판정_GPVS부착수`
+  - `패널_3축통합판정_GPVS미부착수`
+  - `패널_3축통합판정_커널로그원인군부착수`
 - git 정보는 subprocess git command 로 읽는다.
+- 위 4개 panel multiaxis 숫자는 `panel_day_engine_panel_multiaxis_verdict_summary_v1.csv` 에서 직접 읽는다.
 
 ## 사용법
 - 내부 인수인계:
   - 먼저 `panel_day_engine_project_closeout_pack_v1.md` 를 읽는다.
   - 그 다음 `panel_day_engine_project_status_snapshot_v1.csv` 로 현재 branch / HEAD / workflow / pass 상태를 확인한다.
+  - 그 다음엔 `panel_day_engine_panel_multiaxis_verdict_v1.csv` 를 먼저 열어 panel-level 대표상태를 본다.
+  - 한 panel 이 여러 사건군에 동시에 속할 수 있으면 `panel_day_engine_panel_multiaxis_event_supplement_v1.csv` 를 같이 본다.
   - 필요한 세부는 `panel_day_engine_project_artifact_index_v1.csv` 를 보고 해당 산출물로 바로 이동한다.
 - 발표/보고:
   - closeout markdown 3, 4, 5 섹션을 claim boundary 체크리스트로 쓴다.
   - workflow 사용 가능 상태를 detector 일반 성능 고정으로 바꾸어 말하지 않는다.
+  - GPVS 는 부분 부착된 reference axis 이지 primary decision axis 가 아니라는 점을 유지한다.
 
 ## Smoke Test 기준
 - 새 builder / smoke script 가 compile 되어야 한다.

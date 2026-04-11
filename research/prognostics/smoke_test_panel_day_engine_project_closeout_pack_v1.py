@@ -511,6 +511,138 @@ def build_fixture(root: Path) -> None:
     )
 
     write_csv(
+        share / "panel_day_engine_panel_multiaxis_verdict_v1.csv",
+        [
+            {
+                "site": "siteA",
+                "panel_id": "panel.0",
+                "대표판정_ko": "급작 고장",
+                "사건이력_ko": "전조형 고장+급작 고장",
+                "전조형이력_flag": 1,
+                "급작고장이력_flag": 1,
+                "공통원인이력_flag": 0,
+                "반복이상이력_flag": 0,
+                "패널고장여부_ko": "고장",
+                "커널로그_증상명_ko": "전압 변화형",
+                "커널로그_원인군_ko": "다이오드형",
+                "GPVS_참고유형_ko": "전기적 고장 계열",
+                "GPVS_근거_ko": "_share/gpvs_fault_family_eval_cases.csv | site+panel_id | fixture",
+                "운영위치_ko": "현재 workflow 미포함",
+                "판정주의_ko": "fixture",
+            }
+        ],
+        [
+            "site",
+            "panel_id",
+            "대표판정_ko",
+            "사건이력_ko",
+            "전조형이력_flag",
+            "급작고장이력_flag",
+            "공통원인이력_flag",
+            "반복이상이력_flag",
+            "패널고장여부_ko",
+            "커널로그_증상명_ko",
+            "커널로그_원인군_ko",
+            "GPVS_참고유형_ko",
+            "GPVS_근거_ko",
+            "운영위치_ko",
+            "판정주의_ko",
+        ],
+    )
+
+    write_csv(
+        share / "panel_day_engine_panel_multiaxis_event_supplement_v1.csv",
+        [
+            {
+                "site": "siteA",
+                "panel_id": "panel.0",
+                "사건유형_ko": "전조형 고장",
+                "사건우선순위": 2,
+                "대표판정여부_flag": 0,
+                "운영위치_ko": "현재 workflow 미포함",
+                "비고_ko": "fixture",
+            },
+            {
+                "site": "siteA",
+                "panel_id": "panel.0",
+                "사건유형_ko": "급작 고장",
+                "사건우선순위": 1,
+                "대표판정여부_flag": 1,
+                "운영위치_ko": "현재 workflow 미포함",
+                "비고_ko": "fixture",
+            },
+        ],
+        ["site", "panel_id", "사건유형_ko", "사건우선순위", "대표판정여부_flag", "운영위치_ko", "비고_ko"],
+    )
+
+    write_csv(
+        share / "panel_day_engine_panel_multiaxis_cluster_supplement_v1.csv",
+        [
+            {
+                "site": "siteCC",
+                "cluster_id": "cluster.1",
+                "대표판정_ko": "공통원인 이벤트",
+                "커널로그_증상명_ko": "패턴 이상형",
+                "GPVS_참고유형_ko": "미부착",
+                "GPVS_근거_ko": "현재 저장 산출물에는 패널별 GPVS 직접 판정이 없음",
+                "운영위치_ko": "추가 발견 후보",
+                "판정주의_ko": "fixture",
+            }
+        ],
+        ["site", "cluster_id", "대표판정_ko", "커널로그_증상명_ko", "GPVS_참고유형_ko", "GPVS_근거_ko", "운영위치_ko", "판정주의_ko"],
+    )
+
+    write_csv(
+        share / "panel_day_engine_panel_multiaxis_verdict_summary_v1.csv",
+        [
+            {
+                "전체_패널수": 25,
+                "급작이력_패널수": 6,
+                "전조형이력_패널수": 2,
+                "공통원인이력_패널수": 4,
+                "반복이상이력_패널수": 11,
+                "대표판정_급작수": 6,
+                "대표판정_전조형수": 0,
+                "대표판정_공통원인수": 4,
+                "대표판정_반복이상수": 10,
+                "대표판정_불충분수": 5,
+                "고장_패널수": 6,
+                "비고장_패널수": 4,
+                "미확정_패널수": 15,
+                "커널로그_증상명_부착수": 20,
+                "커널로그_원인군_부착수": 6,
+                "GPVS_참고유형_부착수": 12,
+                "GPVS_미부착수": 13,
+                "사건보조행수": 23,
+                "클러스터_보조행수": 5,
+                "note_ko": "fixture multiaxis summary",
+            }
+        ],
+        [
+            "전체_패널수",
+            "급작이력_패널수",
+            "전조형이력_패널수",
+            "공통원인이력_패널수",
+            "반복이상이력_패널수",
+            "대표판정_급작수",
+            "대표판정_전조형수",
+            "대표판정_공통원인수",
+            "대표판정_반복이상수",
+            "대표판정_불충분수",
+            "고장_패널수",
+            "비고장_패널수",
+            "미확정_패널수",
+            "커널로그_증상명_부착수",
+            "커널로그_원인군_부착수",
+            "GPVS_참고유형_부착수",
+            "GPVS_미부착수",
+            "사건보조행수",
+            "클러스터_보조행수",
+            "note_ko",
+        ],
+    )
+
+    write_csv(
         share / "panel_day_engine_operator_attention_policy_recommendation_v1.csv",
         [
             {
@@ -608,9 +740,29 @@ def main() -> None:
         assert_true("release gate 는 통과(1)" in markdown, "markdown missing release gate status")
         assert_true("pipeline 도 통과(1)" in markdown, "markdown missing pipeline status")
         assert_true("추가 fault case 수집이 불가능" in markdown, "markdown missing current data limit")
+        assert_true("패널별 대표판정표가 이제 완성돼서" in markdown, "markdown missing panel multiaxis completion note")
+        assert_true("우리판정 / 커널로그 판정 / GPVS 참고판정 / 운영위치" in markdown, "markdown missing panel multiaxis one-line explanation")
+        assert_true("25개 패널 중 12개만 부분 부착" in markdown, "markdown missing GPVS partial attach note")
+        assert_true("전조형 2건은 대표판정에서는 급작 고장으로 접힐 수" in markdown, "markdown missing event supplement note")
+        top_read_lines = [
+            "- `panel_day_engine_panel_multiaxis_verdict_v1.csv`: panel reader-facing 대표판정을 가장 먼저 본다.",
+            "- `panel_day_engine_project_final_decision_pack_v1.csv`: scope별 최종 usage decision 을 바로 이어서 확인한다.",
+            "- `panel_day_engine_operator_workflow_default_v1.csv`: 현재 운영 queue/watch 기본 row 를 확인한다.",
+            "- `panel_day_engine_project_final_do_and_dont_v1.csv`: 말해도 되는 것과 말하면 안 되는 것을 마지막으로 체크한다.",
+        ]
+        last_pos = -1
+        for line in top_read_lines:
+            pos = markdown.find(line)
+            assert_true(pos >= 0, f"missing top read line: {line}")
+            assert_true(pos > last_pos, "top read order mismatch")
+            last_pos = pos
 
         artifact_index_df = pd.read_csv(artifact_index_csv, low_memory=False, encoding="utf-8-sig")
         required_artifacts = {
+            "panel_day_engine_panel_multiaxis_verdict_v1.csv",
+            "panel_day_engine_panel_multiaxis_event_supplement_v1.csv",
+            "panel_day_engine_panel_multiaxis_cluster_supplement_v1.csv",
+            "panel_day_engine_panel_multiaxis_verdict_summary_v1.csv",
             "panel_day_engine_project_final_decision_pack_v1.csv",
             "panel_day_engine_project_final_do_and_dont_v1.csv",
             "panel_day_engine_project_handoff_pack_v1.md",
@@ -634,10 +786,30 @@ def main() -> None:
             "pipeline_통과여부",
             "현재_데이터_한계",
             "최종_권장_사용_범위",
+            "패널_3축통합판정_행수",
+            "패널_3축통합판정_GPVS부착수",
+            "패널_3축통합판정_GPVS미부착수",
+            "패널_3축통합판정_커널로그원인군부착수",
         }
         assert_true(required_status_items.issubset(set(status_snapshot_df["항목"])), "status snapshot missing rows")
         branch_value = status_snapshot_df.loc[status_snapshot_df["항목"].eq("현재_브랜치"), "값"].iloc[0]
         assert_true(branch_value == "feature/test-closeout", "unexpected branch value in status snapshot")
+        assert_true(
+            status_snapshot_df.loc[status_snapshot_df["항목"].eq("패널_3축통합판정_행수"), "값"].iloc[0] == "25",
+            "panel multiaxis total count mismatch",
+        )
+        assert_true(
+            status_snapshot_df.loc[status_snapshot_df["항목"].eq("패널_3축통합판정_GPVS부착수"), "값"].iloc[0] == "12",
+            "panel multiaxis GPVS attached count mismatch",
+        )
+        assert_true(
+            status_snapshot_df.loc[status_snapshot_df["항목"].eq("패널_3축통합판정_GPVS미부착수"), "값"].iloc[0] == "13",
+            "panel multiaxis GPVS unattached count mismatch",
+        )
+        assert_true(
+            status_snapshot_df.loc[status_snapshot_df["항목"].eq("패널_3축통합판정_커널로그원인군부착수"), "값"].iloc[0] == "6",
+            "panel multiaxis kernel cause attach count mismatch",
+        )
 
     after = {path: file_digest(path) for path in official_outputs}
     assert_true(before == after, "official outputs changed during smoke test")
