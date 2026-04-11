@@ -241,6 +241,52 @@ def build_fixture(root: Path) -> None:
     )
 
     write_csv(
+        share / "panel_day_engine_gpvs_panel_attach_feasibility_v1.csv",
+        [
+            {
+                "GPVS_패널별_직접판정_가능여부": "가능",
+                "근거_ko": "fixture gpvs eval cases can be joined by site+panel_id",
+                "최선_후보_파일": "_share/gpvs_fault_family_eval_cases.csv",
+                "overlap_panel_count": 2,
+                "overlap_rate": 2 / 13,
+                "다음권장조치_ko": "fixture attach",
+            }
+        ],
+        ["GPVS_패널별_직접판정_가능여부", "근거_ko", "최선_후보_파일", "overlap_panel_count", "overlap_rate", "다음권장조치_ko"],
+    )
+
+    write_csv(
+        share / "panel_day_engine_gpvs_panel_attach_candidates_v1.csv",
+        [
+            {
+                "site": "siteA",
+                "panel_id": "abrupt_6",
+                "GPVS_참고유형_ko": "전기적 고장 계열",
+                "source_path": "_share/gpvs_fault_family_eval_cases.csv",
+                "source_key_ko": "site+panel_id",
+                "비고_ko": "prediction_source=critical_phenotype_v3",
+            },
+            {
+                "site": "siteCC",
+                "panel_id": "common_1",
+                "GPVS_참고유형_ko": "공통원인/인버터측 계열",
+                "source_path": "_share/gpvs_fault_family_eval_cases.csv",
+                "source_key_ko": "site+panel_id",
+                "비고_ko": "prediction_source=strict_day_core_fallback",
+            },
+            {
+                "site": "siteZ",
+                "panel_id": "panel_extra",
+                "GPVS_참고유형_ko": "무가시형 계열",
+                "source_path": "_share/gpvs_fault_family_eval_cases.csv",
+                "source_key_ko": "site+panel_id",
+                "비고_ko": "not in panel table",
+            },
+        ],
+        ["site", "panel_id", "GPVS_참고유형_ko", "source_path", "source_key_ko", "비고_ko"],
+    )
+
+    write_csv(
         gpvs_out / "gpvs_window_scores.csv",
         [
             {
@@ -340,10 +386,17 @@ def main() -> None:
         assert_true(cluster_row["대표판정_ko"] == "공통원인 이벤트", "cluster representative mapping failed")
         assert_true(cluster_row["운영위치_ko"] == "추가 발견 후보", "cluster operating location mapping failed")
 
-        assert_true((verdict_df["GPVS_참고유형_ko"] == "미부착").all(), "GPVS absence path should stay unattached")
+        assert_true(overlap_row["GPVS_참고유형_ko"] == "전기적 고장 계열", "matched abrupt row should attach GPVS type")
+        assert_true("site+panel_id" in str(overlap_row["GPVS_근거_ko"]), "matched abrupt row should carry compact GPVS evidence")
+        assert_true(common_row["GPVS_참고유형_ko"] == "공통원인/인버터측 계열", "matched common row should attach GPVS type")
+        assert_true(precursor_only_row["GPVS_참고유형_ko"] == "미부착", "unmatched precursor row should stay unattached")
         assert_true(
-            verdict_df["GPVS_근거_ko"].str.contains("패널별 GPVS 직접 판정이 없음", regex=False).all(),
-            "GPVS absence reason missing",
+            "패널별 GPVS 직접 판정이 없음" in str(precursor_only_row["GPVS_근거_ko"]),
+            "unmatched row should keep GPVS absence reason",
+        )
+        assert_true(
+            int((verdict_df["GPVS_참고유형_ko"] != "미부착").sum()) == 2,
+            "GPVS attach count must equal feasibility overlap count",
         )
 
         summary_row = summary_df.iloc[0]
@@ -362,9 +415,15 @@ def main() -> None:
         assert_true(int(summary_row["고장_패널수"]) == int(fault_counts.get("고장", 0)), "fault-status summary mismatch")
         assert_true(int(summary_row["비고장_패널수"]) == int(fault_counts.get("비고장", 0)), "non-fault summary mismatch")
         assert_true(int(summary_row["미확정_패널수"]) == int(fault_counts.get("미확정", 0)), "unknown-status summary mismatch")
+        assert_true(int(summary_row["GPVS_참고유형_부착수"]) == 2, "GPVS attached summary mismatch")
+        assert_true(int(summary_row["GPVS_미부착수"]) == 11, "GPVS unattached summary mismatch")
         assert_true(int(summary_row["사건보조행수"]) == len(event_df), "event supplement summary mismatch")
         assert_true(int(summary_row["클러스터_보조행수"]) == len(cluster_df), "cluster supplement summary mismatch")
         assert_true("event supplement" in str(summary_row["note_ko"]), "summary note should mention event supplement")
+        assert_true("partially attached" in str(summary_row["note_ko"]), "summary note should mention partial GPVS attach")
+
+        assert_true(cluster_row["GPVS_참고유형_ko"] == "미부착", "cluster row must stay GPVS unattached")
+        assert_true(cluster_row["GPVS_근거_ko"] == "현재 저장 산출물에는 패널별 GPVS 직접 판정이 없음", "cluster row must keep GPVS absence reason")
 
     after = {path: file_digest(path) for path in official_outputs}
     assert_true(before == after, "official outputs changed during smoke test")
