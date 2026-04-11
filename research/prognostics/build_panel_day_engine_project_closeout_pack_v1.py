@@ -20,6 +20,10 @@ PROGRESS_SNAPSHOT_NAME = "panel_day_engine_project_progress_snapshot_v1.csv"
 POLICY_RECOMMENDATION_NAME = "panel_day_engine_operator_attention_policy_recommendation_v1.csv"
 RELEASE_GATE_MANIFEST_NAME = "panel_day_engine_operator_release_gate_manifest_v1.csv"
 PIPELINE_MANIFEST_NAME = "panel_day_engine_operator_pipeline_manifest_v1.csv"
+PANEL_MULTIAXIS_VERDICT_NAME = "panel_day_engine_panel_multiaxis_verdict_v1.csv"
+PANEL_MULTIAXIS_EVENT_SUPPLEMENT_NAME = "panel_day_engine_panel_multiaxis_event_supplement_v1.csv"
+PANEL_MULTIAXIS_CLUSTER_SUPPLEMENT_NAME = "panel_day_engine_panel_multiaxis_cluster_supplement_v1.csv"
+PANEL_MULTIAXIS_SUMMARY_NAME = "panel_day_engine_panel_multiaxis_verdict_summary_v1.csv"
 
 HANDOFF_PACK_NAME = "panel_day_engine_project_handoff_pack_v1.md"
 INTERNAL_SHARE_CLEAN_PACK_NAME = "panel_day_engine_internal_share_clean_pack_v1.md"
@@ -140,8 +144,12 @@ def load_inputs(root: Path) -> dict[str, object]:
         "policy": read_csv(share_dir / POLICY_RECOMMENDATION_NAME),
         "release_gate": read_csv(share_dir / RELEASE_GATE_MANIFEST_NAME),
         "pipeline": read_csv(share_dir / PIPELINE_MANIFEST_NAME),
+        "panel_multiaxis_summary": read_csv(share_dir / PANEL_MULTIAXIS_SUMMARY_NAME),
         "handoff_pack_path": share_dir / HANDOFF_PACK_NAME,
         "internal_share_clean_pack_path": share_dir / INTERNAL_SHARE_CLEAN_PACK_NAME,
+        "panel_multiaxis_verdict_path": share_dir / PANEL_MULTIAXIS_VERDICT_NAME,
+        "panel_multiaxis_event_supplement_path": share_dir / PANEL_MULTIAXIS_EVENT_SUPPLEMENT_NAME,
+        "panel_multiaxis_cluster_supplement_path": share_dir / PANEL_MULTIAXIS_CLUSTER_SUPPLEMENT_NAME,
     }
 
     ensure_columns(
@@ -245,6 +253,17 @@ def load_inputs(root: Path) -> dict[str, object]:
         ["final_pipeline_pass_flag", "note_ko"],
         PIPELINE_MANIFEST_NAME,
     )
+    ensure_columns(
+        frames["panel_multiaxis_summary"],
+        [
+            "전체_패널수",
+            "커널로그_원인군_부착수",
+            "GPVS_참고유형_부착수",
+            "GPVS_미부착수",
+            "note_ko",
+        ],
+        PANEL_MULTIAXIS_SUMMARY_NAME,
+    )
     return frames
 
 
@@ -280,8 +299,12 @@ def validate_inputs(root: Path, frames: dict[str, object]) -> None:
     policy = frames["policy"]
     release_gate = frames["release_gate"]
     pipeline = frames["pipeline"]
+    panel_multiaxis_summary = frames["panel_multiaxis_summary"]
     handoff_pack_path = frames["handoff_pack_path"]
     internal_share_clean_pack_path = frames["internal_share_clean_pack_path"]
+    panel_multiaxis_verdict_path = frames["panel_multiaxis_verdict_path"]
+    panel_multiaxis_event_supplement_path = frames["panel_multiaxis_event_supplement_path"]
+    panel_multiaxis_cluster_supplement_path = frames["panel_multiaxis_cluster_supplement_path"]
 
     final_scopes = set(final_pack["eval_scope"])
     handoff_scopes = set(handoff_summary["eval_scope"])
@@ -354,10 +377,19 @@ def validate_inputs(root: Path, frames: dict[str, object]) -> None:
     if progress_items != expected_progress:
         raise SystemExit(f"{PROGRESS_SNAPSHOT_NAME} rows mismatch: {sorted(progress_items)}")
 
+    if len(panel_multiaxis_summary) != 1:
+        raise SystemExit(f"{PANEL_MULTIAXIS_SUMMARY_NAME} must contain exactly one row, found {len(panel_multiaxis_summary)}")
+
     if not Path(handoff_pack_path).exists():
         raise SystemExit(f"missing required artifact: {handoff_pack_path}")
     if not Path(internal_share_clean_pack_path).exists():
         raise SystemExit(f"missing required artifact: {internal_share_clean_pack_path}")
+    if not Path(panel_multiaxis_verdict_path).exists():
+        raise SystemExit(f"missing required artifact: {panel_multiaxis_verdict_path}")
+    if not Path(panel_multiaxis_event_supplement_path).exists():
+        raise SystemExit(f"missing required artifact: {panel_multiaxis_event_supplement_path}")
+    if not Path(panel_multiaxis_cluster_supplement_path).exists():
+        raise SystemExit(f"missing required artifact: {panel_multiaxis_cluster_supplement_path}")
 
     branch = git_text(root, ["branch", "--show-current"])
     head = git_text(root, ["rev-parse", "HEAD"])
@@ -373,6 +405,7 @@ def build_status_snapshot(root: Path, frames: dict[str, object]) -> pd.DataFrame
     policy = frames["policy"]
     release_gate = frames["release_gate"]
     pipeline = frames["pipeline"]
+    panel_multiaxis_summary = frames["panel_multiaxis_summary"]
 
     branch = git_text(root, ["branch", "--show-current"])
     head = git_text(root, ["rev-parse", "HEAD"])
@@ -382,6 +415,7 @@ def build_status_snapshot(root: Path, frames: dict[str, object]) -> pd.DataFrame
 
     current_limit_row = do_dont.loc[do_dont["scope_or_topic"].eq("project_current_data_limit")].iloc[0]
     handoff_lookup = row_lookup(handoff_summary, "eval_scope")
+    multiaxis_row = panel_multiaxis_summary.iloc[0]
 
     caution_scopes = [
         SCOPE_LABELS[scope]
@@ -443,12 +477,60 @@ def build_status_snapshot(root: Path, frames: dict[str, object]) -> pd.DataFrame
                 "operator workflow 는 운영 workflow 범위로 읽는다."
             ),
         },
+        {
+            "항목": "패널_3축통합판정_행수",
+            "값": str(numeric_int(multiaxis_row["전체_패널수"])),
+            "설명_ko": "panel-level 대표판정표에 현재 몇 개 panel row가 있는지 보여준다.",
+        },
+        {
+            "항목": "패널_3축통합판정_GPVS부착수",
+            "값": str(numeric_int(multiaxis_row["GPVS_참고유형_부착수"])),
+            "설명_ko": "panel-level 3축 대표판정표에서 GPVS reference type이 실제 붙은 panel 수다.",
+        },
+        {
+            "항목": "패널_3축통합판정_GPVS미부착수",
+            "값": str(numeric_int(multiaxis_row["GPVS_미부착수"])),
+            "설명_ko": "panel-level 3축 대표판정표에서 GPVS가 아직 미부착으로 남은 panel 수다.",
+        },
+        {
+            "항목": "패널_3축통합판정_커널로그원인군부착수",
+            "값": str(numeric_int(multiaxis_row["커널로그_원인군_부착수"])),
+            "설명_ko": "panel-level 3축 대표판정표에서 커널로그 원인군까지 붙은 panel 수다.",
+        },
     ]
     return pd.DataFrame(rows).reindex(columns=STATUS_SNAPSHOT_COLS)
 
 
 def artifact_specs() -> list[dict[str, str]]:
     return [
+        {
+            "산출물명": PANEL_MULTIAXIS_VERDICT_NAME,
+            "경로": f"_share/{PANEL_MULTIAXIS_VERDICT_NAME}",
+            "용도_ko": "패널별 대표판정 한 줄표",
+            "지금_읽는_목적_ko": "한 패널의 우리판정, 커널로그 판정, GPVS 참고판정, 운영위치를 한 줄로 먼저 확인",
+            "비고_ko": "현재 reader-facing main summary artifact",
+        },
+        {
+            "산출물명": PANEL_MULTIAXIS_EVENT_SUPPLEMENT_NAME,
+            "경로": f"_share/{PANEL_MULTIAXIS_EVENT_SUPPLEMENT_NAME}",
+            "용도_ko": "한 패널의 복수 사건이력 보조표",
+            "지금_읽는_목적_ko": "전조형과 급작이 한 panel에 같이 걸린 경우 사건이력을 풀어서 확인",
+            "비고_ko": "대표판정에 접히는 multi-membership 보존용",
+        },
+        {
+            "산출물명": PANEL_MULTIAXIS_CLUSTER_SUPPLEMENT_NAME,
+            "경로": f"_share/{PANEL_MULTIAXIS_CLUSTER_SUPPLEMENT_NAME}",
+            "용도_ko": "공통원인 이벤트 클러스터 보조표",
+            "지금_읽는_목적_ko": "panel row와 분리된 discovery/common-cause cluster를 따로 확인",
+            "비고_ko": "cluster row는 panel verdict 표와 분리 유지",
+        },
+        {
+            "산출물명": PANEL_MULTIAXIS_SUMMARY_NAME,
+            "경로": f"_share/{PANEL_MULTIAXIS_SUMMARY_NAME}",
+            "용도_ko": "3축 판정 전체 개요",
+            "지금_읽는_목적_ko": "패널 수, GPVS 부착 수, 커널로그 부착 수를 한 번에 확인",
+            "비고_ko": "panel multiaxis verdict coverage summary",
+        },
         {
             "산출물명": FINAL_DECISION_PACK_NAME,
             "경로": f"_share/{FINAL_DECISION_PACK_NAME}",
@@ -565,6 +647,7 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
     policy = frames["policy"]
     release_gate = frames["release_gate"]
     pipeline = frames["pipeline"]
+    panel_multiaxis_summary = frames["panel_multiaxis_summary"]
 
     pack_lookup = row_lookup(final_pack, "eval_scope")
     chosen_workflow = normalize_text(policy.iloc[0]["recommended_policy_name"])
@@ -574,6 +657,10 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
     release_gate_flag = numeric_int(release_gate.iloc[0]["final_release_gate_pass_flag"])
     pipeline_flag = numeric_int(pipeline.iloc[0]["final_pipeline_pass_flag"])
     current_limit_row = do_dont.loc[do_dont["scope_or_topic"].eq("project_current_data_limit")].iloc[0]
+    multiaxis_row = panel_multiaxis_summary.iloc[0]
+    multiaxis_total = numeric_int(multiaxis_row["전체_패널수"])
+    multiaxis_gpvs_attached = numeric_int(multiaxis_row["GPVS_참고유형_부착수"])
+    multiaxis_gpvs_unattached = numeric_int(multiaxis_row["GPVS_미부착수"])
 
     return "\n".join(
         [
@@ -581,32 +668,37 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
             f"- {normalize_text(current_limit_row['do_text_ko'])}",
             "- step1_taxonomy 와 step2_onset_truth 는 structural coverage/reference 범위로만 고정한다.",
             "- 급작 고장은 bounded current-data 수준으로는 사용 가능하다.",
+            f"- 패널별 대표판정표가 이제 완성돼서 `{PANEL_MULTIAXIS_VERDICT_NAME}` 한 장으로 panel {multiaxis_total}개의 대표상태를 볼 수 있다.",
             "",
             "## 2. 운영 기본값",
             f"- 현재 선택된 운영 기본 workflow 는 `{chosen_workflow}` 다.",
             f"- release gate 는 통과({release_gate_flag}) 했고 pipeline 도 통과({pipeline_flag}) 했다.",
             f"- 현재 운영 설명은 `{expected_use}` 이고, 선택 이유는 {workflow_reason}",
+            f"- 한 패널에 대해 우리판정 / 커널로그 판정 / GPVS 참고판정 / 운영위치를 한 줄로 같이 본다.",
             "",
             "## 3. 조심해서만 말해야 하는 것",
             "- step1_taxonomy 는 classifier 성능이 아니라 structural coverage 로만 말한다.",
             "- step2_onset_truth 는 classifier 성능이 아니라 structural reference 로만 말한다.",
             "- 급작 고장은 `final_fault_hit_by_anchor` 기준 bounded current-data conclusion 으로만 말한다.",
+            f"- GPVS 는 {multiaxis_total}개 패널 중 {multiaxis_gpvs_attached}개만 부분 부착이고, 나머지 {multiaxis_gpvs_unattached}개는 미부착이다.",
             "",
             "## 4. 아직 탐색적으로만 남겨야 하는 것",
             "- 전조형 성능은 표본이 작아 탐색적이다.",
             "- common-cause/같이 흔들리는 이상은 아직 탐색적이다.",
+            "- 전조형 2건은 대표판정에서는 급작 고장으로 접힐 수 있으므로 사건이력 보조표를 함께 봐야 한다.",
             "- operator workflow 사용 가능 상태를 detector 일반 성능으로 과장하면 안 된다.",
             "",
             "## 5. 가장 먼저 볼 산출물",
-            f"- `{FINAL_DECISION_PACK_NAME}`: scope별 최종 usage decision 을 먼저 확인한다.",
-            f"- `{FINAL_DO_DONT_NAME}`: 말해도 되는 것과 말하면 안 되는 것을 바로 확인한다.",
-            f"- `{HANDOFF_PACK_NAME}`: 사람이 바로 읽는 handoff 문장을 먼저 본다.",
-            f"- `{INTERNAL_SHARE_CLEAN_PACK_NAME}`: 최신 성능, abrupt6, mapping, GPV, 진행률을 짧게 확인한다.",
+            f"- `{PANEL_MULTIAXIS_VERDICT_NAME}`: panel reader-facing 대표판정을 가장 먼저 본다.",
+            f"- `{FINAL_DECISION_PACK_NAME}`: scope별 최종 usage decision 을 바로 이어서 확인한다.",
+            f"- `panel_day_engine_operator_workflow_default_v1.csv`: 현재 운영 queue/watch 기본 row 를 확인한다.",
+            f"- `{FINAL_DO_DONT_NAME}`: 말해도 되는 것과 말하면 안 되는 것을 마지막으로 체크한다.",
             "",
             "## 6. 프로젝트를 다시 열면 어디서 시작할지",
             f"- 먼저 `{STATUS_SNAPSHOT_OUTPUT_NAME}` 로 branch, HEAD, workflow, release/pipeline 상태를 확인한다.",
-            f"- 다음으로 `{FINAL_DECISION_PACK_NAME}` 과 `{HANDOFF_SUMMARY_NAME}` 로 scope별 사용 범위를 다시 잡는다.",
-            f"- 그 다음 `{ABRUPT6_SYMPTOM_MAP_NAME}`, `{KERNELLOG_PROJECT_MAPPING_NAME}`, `{GPV7_PERF_SUMMARY_NAME}`, `{PROGRESS_SNAPSHOT_NAME}` 를 필요 순서대로 본다.",
+            f"- 다음으로 `{PANEL_MULTIAXIS_VERDICT_NAME}` 와 `{PANEL_MULTIAXIS_EVENT_SUPPLEMENT_NAME}` 로 panel 대표판정과 복수 사건이력을 같이 본다.",
+            f"- 그 다음 `{FINAL_DECISION_PACK_NAME}` 과 `{HANDOFF_SUMMARY_NAME}` 로 scope별 사용 범위를 다시 잡는다.",
+            f"- 이후 `{ABRUPT6_SYMPTOM_MAP_NAME}`, `{KERNELLOG_PROJECT_MAPPING_NAME}`, `{GPV7_PERF_SUMMARY_NAME}`, `{PROGRESS_SNAPSHOT_NAME}` 를 필요 순서대로 본다.",
             f"- 운영 재개가 필요하면 `{PIPELINE_MANIFEST_NAME}` 와 `{RELEASE_GATE_MANIFEST_NAME}` 를 확인하고 `{chosen_workflow}` 를 기준으로 이어간다.",
             f"- 주의: {workflow_caution}",
         ]
