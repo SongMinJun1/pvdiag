@@ -30,9 +30,15 @@ VERDICT_COLS = [
     "site",
     "panel_id",
     "사건유형_ko",
+    "사건유형_해석_ko",
     "최종고장양상_ko",
     "대표판정_ko",
     "사건이력_ko",
+    "전조흔적_flag",
+    "순수급작_flag",
+    "전조평가셋편입_flag",
+    "급작평가셋편입_flag",
+    "해석대평가차이_ko",
     "전조형이력_flag",
     "급작고장이력_flag",
     "공통원인이력_flag",
@@ -79,6 +85,11 @@ SUMMARY_COLS = [
     "전조후급격종료_패널수",
     "고장유형보류_패널수",
     "순수전조_패널수",
+    "전조흔적_패널수",
+    "순수급작_패널수",
+    "전조평가셋편입_패널수",
+    "급작평가셋편입_패널수",
+    "해석과평가셋불일치_패널수",
     "공통원인이력_패널수",
     "반복이상이력_패널수",
     "대표판정_급작수",
@@ -609,6 +620,59 @@ def event_history_text(
     return "+".join(members)
 
 
+def interpretation_layer_fields(
+    flags: dict[str, int],
+    event_type: str,
+    *,
+    is_same_event_overlap: bool,
+    is_forensic_holdout: bool,
+) -> dict[str, object]:
+    if is_same_event_overlap:
+        return {
+            "사건유형_해석_ko": "전조형 고장",
+            "전조흔적_flag": 1,
+            "순수급작_flag": 0,
+            "전조평가셋편입_flag": 1,
+            "급작평가셋편입_flag": 0,
+            "해석대평가차이_ko": "",
+        }
+    if is_forensic_holdout:
+        return {
+            "사건유형_해석_ko": "전조흔적 있음",
+            "전조흔적_flag": 1,
+            "순수급작_flag": 0,
+            "전조평가셋편입_flag": 0,
+            "급작평가셋편입_flag": 0,
+            "해석대평가차이_ko": "전조흔적은 있으나 현재 전조평가셋/순수급작평가셋 모두 미편입",
+        }
+    if flags["has_급작고장"]:
+        return {
+            "사건유형_해석_ko": "급작 고장",
+            "전조흔적_flag": 0,
+            "순수급작_flag": 1,
+            "전조평가셋편입_flag": 0,
+            "급작평가셋편입_flag": 1,
+            "해석대평가차이_ko": "",
+        }
+    if flags["has_전조형고장"]:
+        return {
+            "사건유형_해석_ko": "전조형 고장",
+            "전조흔적_flag": 1,
+            "순수급작_flag": 0,
+            "전조평가셋편입_flag": 1,
+            "급작평가셋편입_flag": 0,
+            "해석대평가차이_ko": "",
+        }
+    return {
+        "사건유형_해석_ko": event_type,
+        "전조흔적_flag": 0,
+        "순수급작_flag": 0,
+        "전조평가셋편입_flag": 0,
+        "급작평가셋편입_flag": 0,
+        "해석대평가차이_ko": "",
+    }
+
+
 def map_kernel_axis(
     event_type: str,
     abrupt_row: dict[str, object] | None,
@@ -784,6 +848,12 @@ def build_outputs(
             is_same_event_overlap=is_same_event_overlap,
             is_forensic_holdout=is_forensic_holdout,
         )
+        interpretation = interpretation_layer_fields(
+            flags,
+            event_type,
+            is_same_event_overlap=is_same_event_overlap,
+            is_forensic_holdout=is_forensic_holdout,
+        )
         panel_fault_status = panel_fault_status_from_event_type(event_type)
         gpvs_applicability = gpvs_applicability_from_fault_status(panel_fault_status)
         kernel_symptom, kernel_cause_group, kernel_note = map_kernel_axis(event_type, abrupt_row)
@@ -842,15 +912,23 @@ def build_outputs(
             caution_parts.append(
                 f"현재 재감사 family hint={forensic_holdout_case['현재_재감사라벨_ko']}"
             )
+        if normalize_text(interpretation["해석대평가차이_ko"]):
+            caution_parts.append(normalize_text(interpretation["해석대평가차이_ko"]))
 
         panel_rows.append(
             {
                 "site": site,
                 "panel_id": panel_id,
                 "사건유형_ko": event_type,
+                "사건유형_해석_ko": interpretation["사건유형_해석_ko"],
                 "최종고장양상_ko": terminal_pattern,
                 "대표판정_ko": representative_verdict,
                 "사건이력_ko": history,
+                "전조흔적_flag": interpretation["전조흔적_flag"],
+                "순수급작_flag": interpretation["순수급작_flag"],
+                "전조평가셋편입_flag": interpretation["전조평가셋편입_flag"],
+                "급작평가셋편입_flag": interpretation["급작평가셋편입_flag"],
+                "해석대평가차이_ko": interpretation["해석대평가차이_ko"],
                 "전조형이력_flag": flags["has_전조형고장"],
                 "급작고장이력_flag": flags["has_급작고장"],
                 "공통원인이력_flag": flags["has_공통원인이벤트"],
@@ -951,8 +1029,13 @@ def compute_final_row_counts(verdict_df: pd.DataFrame) -> dict[str, int]:
     precursor_flags = to_numeric_flag(verdict_df["전조형이력_flag"]).astype(int)
     common_flags = to_numeric_flag(verdict_df["공통원인이력_flag"]).astype(int)
     repeat_flags = to_numeric_flag(verdict_df["반복이상이력_flag"]).astype(int)
+    precursor_trace_flags = to_numeric_flag(verdict_df["전조흔적_flag"]).astype(int)
+    pure_abrupt_flags = to_numeric_flag(verdict_df["순수급작_flag"]).astype(int)
+    precursor_eval_flags = to_numeric_flag(verdict_df["전조평가셋편입_flag"]).astype(int)
+    abrupt_eval_flags = to_numeric_flag(verdict_df["급작평가셋편입_flag"]).astype(int)
     event_type_counts = verdict_df["사건유형_ko"].value_counts().to_dict()
     panel_fault_counts = verdict_df["패널고장여부_ko"].value_counts().to_dict()
+    interpretation_eval_mismatch_count = int(verdict_df["해석대평가차이_ko"].map(normalize_text).ne("").sum())
 
     abrupt_ending_mask = verdict_df["최종고장양상_ko"].eq("급격 종료") & verdict_df["사건유형_ko"].eq("전조형 고장")
     pure_precursor_mask = verdict_df["사건유형_ko"].eq("전조형 고장") & verdict_df["최종고장양상_ko"].eq("진행성 악화")
@@ -967,6 +1050,11 @@ def compute_final_row_counts(verdict_df: pd.DataFrame) -> dict[str, int]:
         "전조후급격종료_패널수": int(abrupt_ending_mask.sum()),
         "고장유형보류_패널수": int(holdout_fault_mask.sum()),
         "순수전조_패널수": int(pure_precursor_mask.sum()),
+        "전조흔적_패널수": int(precursor_trace_flags.sum()),
+        "순수급작_패널수": int(pure_abrupt_flags.sum()),
+        "전조평가셋편입_패널수": int(precursor_eval_flags.sum()),
+        "급작평가셋편입_패널수": int(abrupt_eval_flags.sum()),
+        "해석과평가셋불일치_패널수": interpretation_eval_mismatch_count,
         "공통원인이력_패널수": int(common_flags.sum()),
         "반복이상이력_패널수": int(repeat_flags.sum()),
         "대표판정_급작수": int(event_type_counts.get("급작 고장", 0)),
@@ -1044,14 +1132,44 @@ def validate_real_coverage(
     holdout_row = holdout_df.iloc[0]
     if normalize_text(holdout_row["사건유형_ko"]) != "고장유형 보류":
         raise SystemExit("forensic holdout panel must be marked 사건유형_ko=고장유형 보류")
+    if normalize_text(holdout_row["사건유형_해석_ko"]) != "전조흔적 있음":
+        raise SystemExit("forensic holdout panel must be marked 사건유형_해석_ko=전조흔적 있음")
     if normalize_text(holdout_row["패널고장여부_ko"]) != "고장":
         raise SystemExit("forensic holdout panel must stay 패널고장여부_ko=고장")
     if normalize_text(holdout_row["최종고장양상_ko"]) != "급작 발생":
         raise SystemExit("forensic holdout panel must keep 최종고장양상_ko=급작 발생")
     if normalize_text(holdout_row["GPVS_적용대상_ko"]) != "적용대상":
         raise SystemExit("forensic holdout panel must remain GPVS applicable")
+    if int(pd.to_numeric(holdout_row["전조흔적_flag"], errors="coerce")) != 1:
+        raise SystemExit("forensic holdout panel must keep 전조흔적_flag=1")
+    if int(pd.to_numeric(holdout_row["순수급작_flag"], errors="coerce")) != 0:
+        raise SystemExit("forensic holdout panel must keep 순수급작_flag=0")
+    if int(pd.to_numeric(holdout_row["전조평가셋편입_flag"], errors="coerce")) != 0:
+        raise SystemExit("forensic holdout panel must keep 전조평가셋편입_flag=0")
+    if int(pd.to_numeric(holdout_row["급작평가셋편입_flag"], errors="coerce")) != 0:
+        raise SystemExit("forensic holdout panel must keep 급작평가셋편입_flag=0")
+    if normalize_text(holdout_row["해석대평가차이_ko"]) != "전조흔적은 있으나 현재 전조평가셋/순수급작평가셋 모두 미편입":
+        raise SystemExit("forensic holdout panel must expose interpretation/evaluation mismatch text")
     if FORENSIC_HOLDOUT_WARNING_DATE not in normalize_text(holdout_row["판정주의_ko"]) or FORENSIC_HOLDOUT_TRIGGER_DATE not in normalize_text(holdout_row["판정주의_ko"]):
         raise SystemExit("forensic holdout panel note must mention warning/trigger dates")
+
+    overlap_rows = verdict_df.loc[
+        verdict_df["사건유형_ko"].eq("전조형 고장") & verdict_df["최종고장양상_ko"].eq("급격 종료")
+    ].copy()
+    if len(overlap_rows) != metrics["same_event_overlap_expected"]:
+        raise SystemExit(
+            f"same-event overlap rows must stay {metrics['same_event_overlap_expected']}, found {len(overlap_rows)}"
+        )
+    if overlap_rows["사건유형_해석_ko"].map(normalize_text).ne("전조형 고장").any():
+        raise SystemExit("same-event overlap rows must keep 사건유형_해석_ko=전조형 고장")
+    if to_numeric_flag(overlap_rows["전조흔적_flag"]).ne(1).any():
+        raise SystemExit("same-event overlap rows must keep 전조흔적_flag=1")
+    if to_numeric_flag(overlap_rows["순수급작_flag"]).ne(0).any():
+        raise SystemExit("same-event overlap rows must keep 순수급작_flag=0")
+    if to_numeric_flag(overlap_rows["전조평가셋편입_flag"]).ne(1).any():
+        raise SystemExit("same-event overlap rows must keep 전조평가셋편입_flag=1")
+    if to_numeric_flag(overlap_rows["급작평가셋편입_flag"]).ne(0).any():
+        raise SystemExit("same-event overlap rows must keep 급작평가셋편입_flag=0")
 
     if metrics["workflow_cluster_count"] > 0 and len(cluster_supplement_df) <= 0:
         raise SystemExit("cluster supplement check failed: workflow has discovery clusters but supplement is empty")
@@ -1115,6 +1233,7 @@ def build_summary(
             f"main panel table은 unique panel 대표 verdict 표이고 workflow panel {metrics['workflow_panel_count']}건을 기준으로 fault6 rows {metrics['abrupt_fault6_total']}건, pure abrupt {metrics['pure_abrupt_expected']}건, precursor {metrics['precursor_expected']}건, common-cause {metrics['common_expected']}건 membership을 함께 접었다. "
             f"same-event overlap {metrics['same_event_overlap_expected']}건은 전조형 고장(급격 종료)으로 재해석했고 pure abrupt event로는 세지지 않는다. "
             f"single-panel forensic holdout {metrics['forensic_holdout_expected']}건은 고장 패널이지만 pure abrupt typing을 보류해 사건유형=`고장유형 보류` 로 남겼다. "
+            "이제 사건유형_해석_ko 와 전조/급작 평가셋 편입 flag를 분리해, 해석층과 evaluation-set inclusion을 같은 뜻으로 읽지 않게 한다. "
             "event type과 terminal failure pattern은 분리해서 읽는다. "
             f"사건이력 보조표는 panel이 여러 사건군에 속하거나 전조형 고장이 급격 종료로 끝난 경우를 함께 남긴다. {gpvs_note} unmatched panel은 row-by-row 미부착 사유를 함께 남긴다."
         ),

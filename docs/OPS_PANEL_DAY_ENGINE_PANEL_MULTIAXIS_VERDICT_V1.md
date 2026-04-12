@@ -13,6 +13,10 @@
 - `_share/panel_day_engine_abrupt6_symptom_map_v1.csv`
 - `_share/panel_day_engine_precursor_onset_truth_v1.csv`
 - `_share/panel_day_engine_common_cause_descriptive_retrofit_cases_v1.csv`
+- `_share/panel_day_engine_precursor_abrupt_consistency_cases_v1.csv`
+- `_share/panel_day_engine_precursor_abrupt_consistency_summary_v1.csv`
+- `_share/panel_day_engine_precursor_abrupt_consistency_recommendation_v1.csv`
+- `_share/panel_day_engine_c42997_1_1_forensic_summary_v1.csv`
 - `_share/panel_day_engine_kernellog_project_mapping_v1.csv`
 - `_share/panel_day_engine_gpv7_perf_summary_v1.csv`
 - `_share/panel_day_engine_project_final_decision_pack_v1.csv`
@@ -70,6 +74,28 @@
 - `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 fault panel 이지만, precursor universe 로 자동 승격하지 않고 holdout fault-typing case 로 남긴다.
 - multi-membership 자체는 별도 사건보조표에 남기되, overlap same-event panel 은 두 개의 독립 fault event 로 세지지 않는다.
 
+## 해석층 vs 평가셋
+- `사건유형_ko` 는 downstream output 에 바로 쓰는 현재 주판정 label 이다.
+- `사건유형_해석_ko` 는 사람이 읽기 쉽게 붙이는 해석층이다.
+- 둘은 같은 뜻일 수도 있지만, 항상 같아야 하는 것은 아니다.
+- 특히 `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은:
+  - `사건유형_ko = 고장유형 보류`
+  - `사건유형_해석_ko = 전조흔적 있음`
+  - 으로 분리한다.
+- 이렇게 두 층을 분리하는 이유는, 해석상 precursor-like evidence 가 있어도 현재 strict precursor evaluation set 에 자동 편입되지는 않을 수 있기 때문이다.
+
+## 추가 flag 의미
+- `전조흔적_flag`
+  - strong trigger 이전 precursor-like evidence 가 있으면 `1`
+- `순수급작_flag`
+  - corrected pure abrupt set 에 속할 때만 `1`
+- `전조평가셋편입_flag`
+  - 현재 strict precursor positive evaluation set 에 속할 때만 `1`
+- `급작평가셋편입_flag`
+  - 현재 pure abrupt evaluation set 에 속할 때만 `1`
+- `해석대평가차이_ko`
+  - 사람이 읽는 해석과 current evaluation-set inclusion 이 어긋나는 경우 그 이유를 짧게 적는다
+
 ## 사건이력 / 대표판정
 - `사건이력_ko` 는 아래 고정 순서로 붙인다.
   - `전조형 고장`
@@ -87,6 +113,8 @@
 - 대신 `전조형 고장(급격 종료)` 로 적어, 전조형 사건이 마지막에 급격 종료로 끝난 것임을 명시한다.
 - single-panel holdout 은 `고장유형 보류(급작 발생)` 로 적어, fault panel 이지만 pure abrupt typing 은 보류 상태임을 드러낸다.
 - `대표판정_ko` 는 reader-facing 대표 label이고, 현재 reconciliation 이후에는 `사건유형_ko` 와 같은 사건 축을 가리킨다.
+- `사건유형_ko` 와 `사건유형_해석_ko` 가 다를 수 있는 대표 예는 `c42997...1.1` 이다.
+- 이 row 는 fault panel 이지만 `전조흔적 있음` 으로 읽히고, 현재는 전조평가셋/순수급작평가셋 모두 미편입 상태를 같이 보여준다.
 
 ## 패널고장여부 축
 - `has_급작고장 == 1` 또는 `has_전조형고장 == 1` 이면 `고장`
@@ -144,9 +172,15 @@
     - `site`
     - `panel_id`
     - `사건유형_ko`
+    - `사건유형_해석_ko`
     - `최종고장양상_ko`
     - `대표판정_ko`
     - `사건이력_ko`
+    - `전조흔적_flag`
+    - `순수급작_flag`
+    - `전조평가셋편입_flag`
+    - `급작평가셋편입_flag`
+    - `해석대평가차이_ko`
     - `전조형이력_flag`
     - `급작고장이력_flag`
     - `공통원인이력_flag`
@@ -178,6 +212,11 @@
     - `전조후급격종료_패널수`
     - `고장유형보류_패널수`
     - `순수전조_패널수`
+    - `전조흔적_패널수`
+    - `순수급작_패널수`
+    - `전조평가셋편입_패널수`
+    - `급작평가셋편입_패널수`
+    - `해석과평가셋불일치_패널수`
     - `대표판정_전조형수`
     - `대표판정_급작수`
     - `대표판정_고장유형보류수`
@@ -191,6 +230,11 @@
   - `전조후급격종료_패널수 = 사건유형_ko == 전조형 고장` 이고 `최종고장양상_ko == 급격 종료`
   - `고장유형보류_패널수 = 사건유형_ko == 고장유형 보류`
   - `순수전조_패널수 = 전조형이력_flag == 1` 이고 `급작고장이력_flag == 0`
+  - `전조흔적_패널수 = 전조흔적_flag == 1`
+  - `순수급작_패널수 = 순수급작_flag == 1`
+  - `전조평가셋편입_패널수 = 전조평가셋편입_flag == 1`
+  - `급작평가셋편입_패널수 = 급작평가셋편입_flag == 1`
+  - `해석과평가셋불일치_패널수 = 해석대평가차이_ko 비공란`
 - current real-data guardrail:
   - `고유_고장패널수 = 6`
   - `전조사건수 = 2`
@@ -199,6 +243,16 @@
   - `고장유형보류_패널수 = 1`
   - `순수전조_패널수 = 0`
   - `공통원인이력_flag == 1` 인 panel 수 = `4`
+- `c42997...1.1` 은 정확히 1행이어야 하고:
+  - `전조흔적_flag = 1`
+  - `순수급작_flag = 0`
+  - `전조평가셋편입_flag = 0`
+  - `급작평가셋편입_flag = 0`
+- overlap same-event panel 은 계속:
+  - `사건유형_해석_ko = 전조형 고장`
+  - `최종고장양상_ko = 급격 종료`
+  - `전조평가셋편입_flag = 1`
+  - `급작평가셋편입_flag = 0`
 - main panel verdict table 안에는 cluster row 가 있으면 안 된다.
 - workflow 에 discovery cluster 가 있으면 cluster supplement row 가 반드시 있어야 한다.
 - `GPVS_적용대상_ko = 적용대상` row 는 모두 `패널고장여부_ko = 고장` 이어야 한다.
@@ -213,8 +267,10 @@
 - main table 이 unique by panel 이어야 한다.
 - event supplement 가 multi-membership 을 보존해야 한다.
 - overlap same-event panel 은 `사건유형_ko = 전조형 고장`, `최종고장양상_ko = 급격 종료`, `사건이력_ko = 전조형 고장(급격 종료)` 로 읽혀야 한다.
-- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 `사건유형_ko = 고장유형 보류`, `패널고장여부_ko = 고장`, `최종고장양상_ko = 급작 발생` 으로 읽혀야 한다.
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 `사건유형_ko = 고장유형 보류`, `사건유형_해석_ko = 전조흔적 있음`, `패널고장여부_ko = 고장`, `최종고장양상_ko = 급작 발생` 으로 읽혀야 한다.
+- c429 row 는 `전조흔적_flag = 1`, `순수급작_flag = 0`, `전조평가셋편입_flag = 0`, `급작평가셋편입_flag = 0` 이어야 한다.
 - 사건 수와 패널 수 summary 가 final row 기준으로 분리 계산되어야 한다.
+- 해석층과 evaluation-set inclusion summary 도 final row 기준으로 계산되어야 한다.
 - abrupt / precursor / common membership count 가 현재 규칙대로 나와야 한다.
 - fault panel 에 대해서만 GPVS attachable panel 은 candidates file 기준으로 실제 부착돼야 한다.
 - non-fault/common-cause/repeating/unresolved row 는 `GPVS_부착상태_ko = 비대상` 이어야 한다.
