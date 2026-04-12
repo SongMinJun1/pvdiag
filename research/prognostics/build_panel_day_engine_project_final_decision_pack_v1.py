@@ -272,6 +272,20 @@ def final_reason_for_scope(
             f"classifier target 이나 detector performance default 로 승격하면 안 된다. {freeze_reason}"
         ).strip()
 
+    if scope == "step4_abrupt_no_precursor":
+        if usage_decision == "exploratory_only":
+            return (
+                f"현재는 추가 fault case 수집이 불가능하고 precursor-abrupt same-event overlap 2건은 전조형 고장(급격 종료)으로 재분류되며 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 precursor-like evidence before trigger 때문에 pure abrupt typing holdout 으로 남으므로, "
+                f"step4 pure abrupt/no-precursor scope는 positive support={best_support} 기준 exploratory only 로 유지한다. "
+                f"현재 best row는 {best_target} (f1={best_f1}, positive_support={best_support}) 이지만 pure abrupt support가 작아 stable default 결론으로 쓰면 안 된다. "
+                f"{freeze_reason}"
+            ).strip()
+        return (
+            f"현재는 추가 fault case 수집이 불가능하므로 step4 pure abrupt/no-precursor scope는 precursor-led abrupt ending 2건과 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 holdout을 제외한 pure abrupt support={best_support} 기준으로만 읽는다. "
+            f"현재 best row는 {best_target} (f1={best_f1}, positive_support={best_support}) 이고 final usage 는 {usage_decision} 다. "
+            f"{freeze_reason}"
+        ).strip()
+
     if usage_decision == "exploratory_only":
         return (
             f"현재는 추가 fault case 수집이 불가능하고 positive support 확대도 막혀 있으므로 {scope} 는 exploratory only 로 유지한다. "

@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pandas as pd
 
+FORENSIC_HOLDOUT_PANEL_ID = "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"
+
 
 def assert_true(condition: bool, message: str) -> None:
     if not condition:
@@ -140,6 +142,54 @@ def build_fixture(root: Path) -> None:
                 "confirmed_fault_hit_within_7d_after_flag": 0,
             },
             {
+                "eval_bucket_v2": "abrupt_or_no_precursor_now",
+                "site": "alpha",
+                "panel_id": "A3",
+                "anchor_date": "2026-03-22",
+                "truth_case_id": "A3",
+                "final_fault_hit_by_anchor_flag": 1,
+                "final_fault_hit_within_3d_after_flag": 0,
+                "final_fault_hit_within_7d_after_flag": 0,
+                "critical_fault_hit_within_7d_after_flag": 1,
+                "confirmed_fault_hit_within_7d_after_flag": 0,
+            },
+            {
+                "eval_bucket_v2": "abrupt_or_no_precursor_now",
+                "site": "alpha",
+                "panel_id": "A4",
+                "anchor_date": "2026-03-24",
+                "truth_case_id": "A4",
+                "final_fault_hit_by_anchor_flag": 0,
+                "final_fault_hit_within_3d_after_flag": 1,
+                "final_fault_hit_within_7d_after_flag": 1,
+                "critical_fault_hit_within_7d_after_flag": 0,
+                "confirmed_fault_hit_within_7d_after_flag": 0,
+            },
+            {
+                "eval_bucket_v2": "abrupt_or_no_precursor_now",
+                "site": "alpha",
+                "panel_id": "P1",
+                "anchor_date": "2026-01-31",
+                "truth_case_id": "PX1",
+                "final_fault_hit_by_anchor_flag": 1,
+                "final_fault_hit_within_3d_after_flag": 1,
+                "final_fault_hit_within_7d_after_flag": 1,
+                "critical_fault_hit_within_7d_after_flag": 1,
+                "confirmed_fault_hit_within_7d_after_flag": 0,
+            },
+            {
+                "eval_bucket_v2": "abrupt_or_no_precursor_now",
+                "site": "alpha",
+                "panel_id": "P2",
+                "anchor_date": "2026-02-10",
+                "truth_case_id": "PX2",
+                "final_fault_hit_by_anchor_flag": 1,
+                "final_fault_hit_within_3d_after_flag": 1,
+                "final_fault_hit_within_7d_after_flag": 1,
+                "critical_fault_hit_within_7d_after_flag": 1,
+                "confirmed_fault_hit_within_7d_after_flag": 0,
+            },
+            {
                 "eval_bucket_v2": "non_panel_or_common_cause",
                 "site": "alpha",
                 "panel_id": "N1",
@@ -175,6 +225,92 @@ def build_fixture(root: Path) -> None:
             "final_fault_hit_within_7d_after_flag",
             "critical_fault_hit_within_7d_after_flag",
             "confirmed_fault_hit_within_7d_after_flag",
+        ],
+    )
+    write_csv(
+        share / "panel_day_engine_abrupt6_symptom_map_v1.csv",
+        [
+            {"site": "alpha", "panel_id": "A1", "고장시점": "2026-03-10", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "순수급작_flag": 1},
+            {"site": "alpha", "panel_id": "A2", "고장시점": "2026-03-25", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "순수급작_flag": 1},
+            {"site": "alpha", "panel_id": "A3", "고장시점": "2026-03-22", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "순수급작_flag": 1},
+            {"site": "conalog", "panel_id": FORENSIC_HOLDOUT_PANEL_ID, "고장시점": "2025-03-21", "사건유형_ko": "고장유형 보류", "최종고장양상_ko": "급작 발생", "순수급작_flag": 0},
+            {"site": "alpha", "panel_id": "P1", "고장시점": "2026-01-31", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "급격 종료", "순수급작_flag": 0},
+            {"site": "alpha", "panel_id": "P2", "고장시점": "2026-02-10", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "급격 종료", "순수급작_flag": 0},
+        ],
+        ["site", "panel_id", "고장시점", "사건유형_ko", "최종고장양상_ko", "순수급작_flag"],
+    )
+    write_csv(
+        share / "panel_day_engine_precursor_abrupt_consistency_cases_v1.csv",
+        [
+            {"site": "alpha", "panel_id": "P1", "same_event_flag": 1, "distinct_event_flag": 0, "consistency_judgment_ko": "같은 사건"},
+            {"site": "alpha", "panel_id": "P2", "same_event_flag": 1, "distinct_event_flag": 0, "consistency_judgment_ko": "같은 사건"},
+        ],
+        ["site", "panel_id", "same_event_flag", "distinct_event_flag", "consistency_judgment_ko"],
+    )
+    write_csv(
+        share / "panel_day_engine_precursor_abrupt_consistency_summary_v1.csv",
+        [
+            {
+                "overlap_panel_count": 2,
+                "same_event_count": 2,
+                "corrected_pure_abrupt_fault_count": 4,
+            }
+        ],
+        ["overlap_panel_count", "same_event_count", "corrected_pure_abrupt_fault_count"],
+    )
+    write_csv(
+        share / "panel_day_engine_precursor_abrupt_consistency_recommendation_v1.csv",
+        [
+            {
+                "recommended_next_handling": "relabel_overlap_as_precursor_led_faults",
+                "rationale_ko": "fixture same-event overlap",
+            }
+        ],
+        ["recommended_next_handling", "rationale_ko"],
+    )
+    write_csv(
+        share / "panel_day_engine_c42997_1_1_forensic_summary_v1.csv",
+        [
+            {
+                "site": "conalog",
+                "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
+                "원래_커널로그라벨_ko": "compound / electrical",
+                "원래라벨_근거파일_ko": "fixture",
+                "현재_재감사라벨_ko": "개방/장치이상형 (open_or_device_issue_like)",
+                "현재_재감사_근거파일_ko": "fixture",
+                "현재_패널표_사건유형_ko": "급작 고장",
+                "현재_패널표_커널로그증상명_ko": "전압 변화형",
+                "현재_패널표_커널로그원인군_ko": "개방/장치이상형",
+                "현재_패널표_GPVS참고유형_ko": "개방/장치이상 계열",
+                "전조흔적_시작일": "2025-01-20",
+                "강한트리거일": "2025-03-21",
+                "선행기간_일": 60,
+                "사건시간양상_판정_ko": "전조흔적있음_순수급작보류",
+                "확정도_판정_ko": "보류",
+                "현재표_보정필요여부_flag": 1,
+                "핵심판정_한줄요약_ko": "fixture",
+                "다음보정권고_ko": "fixture",
+            }
+        ],
+        [
+            "site",
+            "panel_id",
+            "원래_커널로그라벨_ko",
+            "원래라벨_근거파일_ko",
+            "현재_재감사라벨_ko",
+            "현재_재감사_근거파일_ko",
+            "현재_패널표_사건유형_ko",
+            "현재_패널표_커널로그증상명_ko",
+            "현재_패널표_커널로그원인군_ko",
+            "현재_패널표_GPVS참고유형_ko",
+            "전조흔적_시작일",
+            "강한트리거일",
+            "선행기간_일",
+            "사건시간양상_판정_ko",
+            "확정도_판정_ko",
+            "현재표_보정필요여부_flag",
+            "핵심판정_한줄요약_ko",
+            "다음보정권고_ko",
         ],
     )
     write_csv(
@@ -349,16 +485,25 @@ def main() -> None:
         assert_true(int(step3_row["tp"]) == 1, "step3 tp mismatch")
         assert_true(int(step3_row["fp"]) == 1, "step3 fp mismatch")
         assert_true(int(step3_row["fn"]) == 1, "step3 fn mismatch")
-        assert_true(int(step3_row["tn"]) == 3, "step3 tn mismatch")
+        assert_true(int(step3_row["tn"]) == 7, "step3 tn mismatch")
 
         step4a_row = matrix.loc[
             matrix["eval_scope"].astype(str).eq("step4_abrupt_no_precursor")
             & matrix["target_name"].astype(str).eq("final_fault_hit_by_anchor")
         ].iloc[0]
-        assert_true(int(step4a_row["tp"]) == 1, "step4A tp mismatch")
+        assert_true(int(step4a_row["support_positive"]) == 3, "step4A corrected pure abrupt support mismatch")
+        assert_true(int(step4a_row["tp"]) == 2, "step4A tp mismatch")
         assert_true(int(step4a_row["fp"]) == 0, "step4A fp mismatch")
         assert_true(int(step4a_row["fn"]) == 1, "step4A fn mismatch")
         assert_true(int(step4a_row["tn"]) == 4, "step4A tn mismatch")
+        assert_true(
+            step4a_row["positive_set_name"] == "pure_abrupt_or_no_precursor_now",
+            "step4A positive set name should reflect pure abrupt-only correction",
+        )
+        assert_true(
+            "same-event overlap" in str(step4a_row["note_ko"]) and "holdout" in str(step4a_row["note_ko"]),
+            "step4A note should mention overlap exclusion and c429 holdout",
+        )
 
         step4b_row = matrix.loc[
             matrix["eval_scope"].astype(str).eq("step4_common_cause_routing")

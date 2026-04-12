@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pandas as pd
 
+FORENSIC_HOLDOUT_PANEL_ID = "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"
+
 
 def assert_true(condition: bool, message: str) -> None:
     if not condition:
@@ -424,12 +426,16 @@ def build_fixture(root: Path) -> None:
 
     abrupt_rows = []
     for idx in range(6):
+        is_overlap = idx in {4, 5}
         abrupt_rows.append(
             {
-                "site": "siteA",
-                "panel_id": f"panel.{idx}",
-                "고장시점": f"2025-01-0{idx+1}",
-                "증상명_ko": "다이오드형" if idx < 4 else ("개방/장치이상형" if idx == 4 else "모듈손상형"),
+                "site": "conalog" if idx == 3 else "siteA",
+                "panel_id": FORENSIC_HOLDOUT_PANEL_ID if idx == 3 else f"panel.{idx}",
+                "고장시점": "2025-03-21" if idx == 3 else f"2025-01-0{idx+1}",
+                "사건유형_ko": "고장유형 보류" if idx == 3 else ("전조형 고장" if is_overlap else "급작 고장"),
+                "최종고장양상_ko": "급작 발생" if idx == 3 else ("급격 종료" if is_overlap else "급작 발생"),
+                "순수급작_flag": 0 if idx in {3, 4, 5} else 1,
+                "증상명_ko": "개방/장치이상형" if idx in {3, 4} else ("다이오드형" if idx < 3 else "모듈손상형"),
                 "세부근거_ko": "stored truth mapping",
                 "source_field_ko": "vendor_fault_family",
                 "비고_ko": "fixture",
@@ -438,7 +444,7 @@ def build_fixture(root: Path) -> None:
     write_csv(
         share / "panel_day_engine_abrupt6_symptom_map_v1.csv",
         abrupt_rows,
-        ["site", "panel_id", "고장시점", "증상명_ko", "세부근거_ko", "source_field_ko", "비고_ko"],
+        ["site", "panel_id", "고장시점", "사건유형_ko", "최종고장양상_ko", "순수급작_flag", "증상명_ko", "세부근거_ko", "source_field_ko", "비고_ko"],
     )
 
     write_csv(
@@ -597,22 +603,29 @@ def build_fixture(root: Path) -> None:
         [
             {
                 "전체_패널수": 25,
-                "급작이력_패널수": 6,
-                "전조형이력_패널수": 2,
+                "고유_고장패널수": 6,
+                "전조사건수": 2,
+                "순수급작사건수": 3,
+                "전조후급격종료_패널수": 2,
+                "고장유형보류_패널수": 1,
+                "순수전조_패널수": 0,
                 "공통원인이력_패널수": 4,
                 "반복이상이력_패널수": 11,
-                "대표판정_급작수": 6,
-                "대표판정_전조형수": 0,
+                "대표판정_급작수": 3,
+                "대표판정_전조형수": 2,
                 "대표판정_공통원인수": 4,
                 "대표판정_반복이상수": 10,
+                "대표판정_고장유형보류수": 1,
                 "대표판정_불충분수": 5,
                 "고장_패널수": 6,
                 "비고장_패널수": 4,
                 "미확정_패널수": 15,
                 "커널로그_증상명_부착수": 20,
                 "커널로그_원인군_부착수": 6,
-                "GPVS_참고유형_부착수": 12,
-                "GPVS_미부착수": 13,
+                "GPVS_적용대상_패널수": 6,
+                "GPVS_부착수": 6,
+                "GPVS_미부착수": 0,
+                "GPVS_비대상수": 19,
                 "사건보조행수": 23,
                 "클러스터_보조행수": 5,
                 "note_ko": "fixture multiaxis summary",
@@ -620,22 +633,29 @@ def build_fixture(root: Path) -> None:
         ],
         [
             "전체_패널수",
-            "급작이력_패널수",
-            "전조형이력_패널수",
+            "고유_고장패널수",
+            "전조사건수",
+            "순수급작사건수",
+            "전조후급격종료_패널수",
+            "고장유형보류_패널수",
+            "순수전조_패널수",
             "공통원인이력_패널수",
             "반복이상이력_패널수",
             "대표판정_급작수",
             "대표판정_전조형수",
             "대표판정_공통원인수",
             "대표판정_반복이상수",
+            "대표판정_고장유형보류수",
             "대표판정_불충분수",
             "고장_패널수",
             "비고장_패널수",
             "미확정_패널수",
             "커널로그_증상명_부착수",
             "커널로그_원인군_부착수",
-            "GPVS_참고유형_부착수",
+            "GPVS_적용대상_패널수",
+            "GPVS_부착수",
             "GPVS_미부착수",
+            "GPVS_비대상수",
             "사건보조행수",
             "클러스터_보조행수",
             "note_ko",
@@ -742,8 +762,11 @@ def main() -> None:
         assert_true("추가 fault case 수집이 불가능" in markdown, "markdown missing current data limit")
         assert_true("패널별 대표판정표가 이제 완성돼서" in markdown, "markdown missing panel multiaxis completion note")
         assert_true("우리판정 / 커널로그 판정 / GPVS 참고판정 / 운영위치" in markdown, "markdown missing panel multiaxis one-line explanation")
-        assert_true("25개 패널 중 12개만 부분 부착" in markdown, "markdown missing GPVS partial attach note")
-        assert_true("전조형 2건은 대표판정에서는 급작 고장으로 접힐 수" in markdown, "markdown missing event supplement note")
+        assert_true("fault-family reference axis라 고장 panel 6개에만 적용" in markdown, "markdown missing GPVS scope note")
+        assert_true("비고장/미확정 panel 19개는 GPVS 비대상" in markdown, "markdown missing GPVS non-target note")
+        assert_true("전조형 고장이 급격 종료로 끝난 경우" in markdown, "markdown missing precursor-led abrupt-ending note")
+        assert_true("c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 고장 패널이지만 pure abrupt typing 은 holdout" in markdown, "markdown missing c429 holdout note")
+        assert_true("순수 급작 사건은 현재 stored data 기준 3건" in markdown, "markdown missing pure abrupt count note")
         top_read_lines = [
             "- `panel_day_engine_panel_multiaxis_verdict_v1.csv`: panel reader-facing 대표판정을 가장 먼저 본다.",
             "- `panel_day_engine_project_final_decision_pack_v1.csv`: scope별 최종 usage decision 을 바로 이어서 확인한다.",
@@ -799,11 +822,11 @@ def main() -> None:
             "panel multiaxis total count mismatch",
         )
         assert_true(
-            status_snapshot_df.loc[status_snapshot_df["항목"].eq("패널_3축통합판정_GPVS부착수"), "값"].iloc[0] == "12",
+            status_snapshot_df.loc[status_snapshot_df["항목"].eq("패널_3축통합판정_GPVS부착수"), "값"].iloc[0] == "6",
             "panel multiaxis GPVS attached count mismatch",
         )
         assert_true(
-            status_snapshot_df.loc[status_snapshot_df["항목"].eq("패널_3축통합판정_GPVS미부착수"), "값"].iloc[0] == "13",
+            status_snapshot_df.loc[status_snapshot_df["항목"].eq("패널_3축통합판정_GPVS미부착수"), "값"].iloc[0] == "0",
             "panel multiaxis GPVS unattached count mismatch",
         )
         assert_true(

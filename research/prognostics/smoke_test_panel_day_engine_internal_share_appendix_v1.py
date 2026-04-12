@@ -38,6 +38,8 @@ BANNED_PANEL_IDS = [
     "bf1a912f-6cf0-4f12-8e97-9d9d86576511.0.9",
 ]
 
+FORENSIC_HOLDOUT_PANEL_ID = "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"
+
 
 def build_fixture(root: Path, omit_reaudit_panel_ids: set[str] | None = None) -> None:
     omit_reaudit_panel_ids = omit_reaudit_panel_ids or set()
@@ -232,9 +234,9 @@ def build_fixture(root: Path, omit_reaudit_panel_ids: set[str] | None = None) ->
             "vendor_note": "다이오드형 accepted truth",
         },
         {
-            "site": "siteb",
-            "panel_id": "p5",
-            "strict_trigger_date": "2025-01-05",
+            "site": "conalog",
+            "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
+            "strict_trigger_date": "2025-03-21",
             "reason_summary": "장치 또는 개방 문제로 해석",
             "vendor_reply_class": "needs_more_info",
             "vendor_fault_family": "open_or_device_issue_like",
@@ -331,6 +333,14 @@ def build_fixture(root: Path, omit_reaudit_panel_ids: set[str] | None = None) ->
                 "vendor_fault_family": "module_damage_like",
                 "precursor_eligible_flag": 1,
             },
+            {
+                "site": "conalog",
+                "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
+                "strict_trigger_date": "2025-03-21",
+                "fault_start_date": "2025-03-21",
+                "vendor_fault_family": "open_or_device_issue_like",
+                "precursor_eligible_flag": 0,
+            },
         ],
         [
             "site",
@@ -355,6 +365,96 @@ def build_fixture(root: Path, omit_reaudit_panel_ids: set[str] | None = None) ->
             }
         ],
         ["eval_scope", "target_name", "support_positive", "recall", "precision", "f1"],
+    )
+
+    write_csv(
+        share / "panel_day_engine_precursor_abrupt_consistency_cases_v1.csv",
+        [
+            {
+                "site": "sitea",
+                "panel_id": "p1",
+                "same_event_flag": 1,
+                "distinct_event_flag": 0,
+                "consistency_judgment_ko": "같은 사건",
+            },
+            {
+                "site": "siteb",
+                "panel_id": "p6",
+                "same_event_flag": 1,
+                "distinct_event_flag": 0,
+                "consistency_judgment_ko": "같은 사건",
+            },
+        ],
+        ["site", "panel_id", "same_event_flag", "distinct_event_flag", "consistency_judgment_ko"],
+    )
+
+    write_csv(
+        share / "panel_day_engine_precursor_abrupt_consistency_summary_v1.csv",
+        [
+            {
+                "overlap_panel_count": 2,
+                "same_event_count": 2,
+                "corrected_pure_abrupt_fault_count": 4,
+            }
+        ],
+        ["overlap_panel_count", "same_event_count", "corrected_pure_abrupt_fault_count"],
+    )
+
+    write_csv(
+        share / "panel_day_engine_precursor_abrupt_consistency_recommendation_v1.csv",
+        [
+            {
+                "recommended_next_handling": "relabel_overlap_as_precursor_led_faults",
+                "rationale_ko": "fixture same-event overlap",
+            }
+        ],
+        ["recommended_next_handling", "rationale_ko"],
+    )
+
+    write_csv(
+        share / "panel_day_engine_c42997_1_1_forensic_summary_v1.csv",
+        [
+            {
+                "site": "conalog",
+                "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
+                "원래_커널로그라벨_ko": "compound / electrical",
+                "원래라벨_근거파일_ko": "fixture",
+                "현재_재감사라벨_ko": "개방/장치이상형 (open_or_device_issue_like)",
+                "현재_재감사_근거파일_ko": "fixture",
+                "현재_패널표_사건유형_ko": "급작 고장",
+                "현재_패널표_커널로그증상명_ko": "전압 변화형",
+                "현재_패널표_커널로그원인군_ko": "개방/장치이상형",
+                "현재_패널표_GPVS참고유형_ko": "개방/장치이상 계열",
+                "전조흔적_시작일": "2025-01-20",
+                "강한트리거일": "2025-03-21",
+                "선행기간_일": 60,
+                "사건시간양상_판정_ko": "전조흔적있음_순수급작보류",
+                "확정도_판정_ko": "보류",
+                "현재표_보정필요여부_flag": 1,
+                "핵심판정_한줄요약_ko": "fixture",
+                "다음보정권고_ko": "fixture",
+            }
+        ],
+        [
+            "site",
+            "panel_id",
+            "원래_커널로그라벨_ko",
+            "원래라벨_근거파일_ko",
+            "현재_재감사라벨_ko",
+            "현재_재감사_근거파일_ko",
+            "현재_패널표_사건유형_ko",
+            "현재_패널표_커널로그증상명_ko",
+            "현재_패널표_커널로그원인군_ko",
+            "현재_패널표_GPVS참고유형_ko",
+            "전조흔적_시작일",
+            "강한트리거일",
+            "선행기간_일",
+            "사건시간양상_판정_ko",
+            "확정도_판정_ko",
+            "현재표_보정필요여부_flag",
+            "핵심판정_한줄요약_ko",
+            "다음보정권고_ko",
+        ],
     )
 
     (root / "data" / "gpvs" / "out").mkdir(parents=True, exist_ok=True)
@@ -496,8 +596,26 @@ def main() -> None:
         assert_true(symptom_lookup["p2"] == "다이오드형", "p2 should map to 다이오드형")
         assert_true(symptom_lookup["p3"] == "다이오드형", "p3 should map to 다이오드형")
         assert_true(symptom_lookup["p4"] == "다이오드형", "p4 should map to 다이오드형")
-        assert_true(symptom_lookup["p5"] == "개방/장치이상형", "p5 should map to 개방/장치이상형")
+        assert_true(symptom_lookup[FORENSIC_HOLDOUT_PANEL_ID] == "개방/장치이상형", "holdout panel should map to 개방/장치이상형")
         assert_true(symptom_lookup["p6"] == "모듈손상형", "p6 should map to 모듈손상형")
+        event_lookup = dict(zip(abrupt_df["panel_id"], abrupt_df["사건유형_ko"]))
+        terminal_lookup = dict(zip(abrupt_df["panel_id"], abrupt_df["최종고장양상_ko"]))
+        pure_abrupt_lookup = dict(zip(abrupt_df["panel_id"], abrupt_df["순수급작_flag"]))
+        caution_lookup = dict(zip(abrupt_df["panel_id"], abrupt_df["사건유형_판정주의_ko"]))
+        assert_true(event_lookup["p1"] == "전조형 고장", "p1 should be reconciled as precursor-led fault")
+        assert_true(event_lookup["p6"] == "전조형 고장", "p6 should be reconciled as precursor-led fault")
+        assert_true(event_lookup[FORENSIC_HOLDOUT_PANEL_ID] == "고장유형 보류", "holdout panel should be marked 고장유형 보류")
+        assert_true(terminal_lookup["p1"] == "급격 종료", "p1 terminal pattern should be abrupt ending")
+        assert_true(terminal_lookup["p6"] == "급격 종료", "p6 terminal pattern should be abrupt ending")
+        assert_true(terminal_lookup[FORENSIC_HOLDOUT_PANEL_ID] == "급작 발생", "holdout terminal pattern should stay abrupt 발생")
+        assert_true(int(pure_abrupt_lookup["p1"]) == 0, "p1 should not stay pure abrupt")
+        assert_true(int(pure_abrupt_lookup["p6"]) == 0, "p6 should not stay pure abrupt")
+        assert_true(int(pure_abrupt_lookup[FORENSIC_HOLDOUT_PANEL_ID]) == 0, "holdout panel should not stay pure abrupt")
+        assert_true(
+            caution_lookup[FORENSIC_HOLDOUT_PANEL_ID] == "전조흔적(2025-01-20) 이 있어 순수 급작으로 고정하지 않음",
+            "holdout caution text mismatch",
+        )
+        assert_true(int(pd.to_numeric(abrupt_df["순수급작_flag"]).sum()) == 3, "pure abrupt count should be 3")
         assert_true(
             abrupt_df["증상명_ko"].value_counts().to_dict() == {
                 "다이오드형": 4,

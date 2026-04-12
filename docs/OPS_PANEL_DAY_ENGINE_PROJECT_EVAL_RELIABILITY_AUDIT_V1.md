@@ -15,6 +15,8 @@ project evaluation matrix는 step 1, 2, 3, 4, operator policy proxy를 한 표�
 - support가 작다면 perfect F1도 우연일 수 있지 않은가?
 - proxy metric을 실제 detector 성능처럼 읽고 있지는 않은가?
 
+현재 step4 abrupt/no-precursor 에서는 이 질문이 하나 더 추가됩니다. precursor-abrupt consistency audit 에서 same-event 로 판정된 overlap 2건은 pure abrupt positive set 에서 제외해야 하고, single-panel forensic audit 결과 `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 도 precursor-like evidence 때문에 pure abrupt typing 에서 holdout 해야 하므로, reliability 는 corrected support 3을 기준으로 다시 읽어야 합니다.
+
 ## 작은 support에서 perfect F1가 왜 위험한가
 
 positive case가 2건, 3건 같은 매우 작은 분모에서는 한 건 차이만으로 recall/precision/F1가 크게 흔들립니다. 이런 row에서 F1=1.0 이 나와도 그것이 곧 freeze-ready default라는 뜻은 아닙니다. 이 audit은 그래서 Wilson confidence interval을 함께 계산하고, support 크기에 따라 `underpowered`, `low_support`, `provisional` 로 나눕니다.
@@ -28,6 +30,8 @@ positive case가 2건, 3건 같은 매우 작은 분모에서는 한 건 차이�
   operator workflow/policy row처럼 미래 linked/truth ref를 proxy label로 쓰는 retrospective metric입니다. retrospective value proxy는 보여주지만, prospective operator default 성능을 직접 보장하지는 않습니다.
 
 즉, 이 두 종류는 ordinary classifier metric과 같은 기준으로 freeze 여부를 단정하면 안 됩니다.
+
+step4 abrupt/no-precursor 도 event semantics correction 을 반영해야 합니다. precursor 가 있는 사건은 abrupt event 로 세지지 않고, `전조형 고장(급격 종료)` 로 읽습니다. 또 `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 fault panel 이지만 pure abrupt typing 은 holdout 으로 남깁니다. 따라서 reliability audit 은 old support 6 이 아니라 corrected pure abrupt support 3을 기준으로 Wilson interval과 freeze recommendation 을 다시 계산합니다.
 
 ## freeze_recommendation 해석
 

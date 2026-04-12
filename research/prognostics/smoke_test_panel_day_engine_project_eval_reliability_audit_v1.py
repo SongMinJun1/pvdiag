@@ -17,6 +17,13 @@ def assert_true(condition: bool, message: str) -> None:
         raise SystemExit(message)
 
 
+def normalize_text(value: object) -> str:
+    if pd.isna(value):
+        return ""
+    text = str(value).strip()
+    return "" if text.lower() == "nan" else text
+
+
 def run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True)
 
@@ -111,17 +118,17 @@ def build_fixture(root: Path) -> None:
                 "unit_type": "case",
                 "positive_set_name": "pos",
                 "negative_set_name": "neg",
-                "target_name": "provisional_target",
-                "support_positive": 12,
+                "target_name": "pure_abrupt_target",
+                "support_positive": 3,
                 "support_negative": 8,
-                "tp": 9,
+                "tp": 3,
                 "fp": 1,
-                "fn": 3,
+                "fn": 0,
                 "tn": 7,
-                "recall": 0.75,
-                "precision": 0.9,
-                "f1": 0.8181818182,
-                "note_ko": "provisional",
+                "recall": 1.0,
+                "precision": 0.75,
+                "f1": 0.8571428571,
+                "note_ko": "pure abrupt after overlap exclusion and c429 holdout",
             },
             {
                 "eval_scope": "operator_policy_proxy",
@@ -168,7 +175,7 @@ def build_fixture(root: Path) -> None:
         [
             {"eval_scope": "step1_taxonomy", "best_target_name": "", "best_f1": "", "best_recall": "", "best_precision": "", "note_ko": "n/a"},
             {"eval_scope": "step3_precursor_performance", "best_target_name": "usable_low_support", "best_f1": 0.7272727273, "best_recall": 0.6666666667, "best_precision": 0.8, "note_ko": "summary"},
-            {"eval_scope": "step4_abrupt_no_precursor", "best_target_name": "provisional_target", "best_f1": 0.8181818182, "best_recall": 0.75, "best_precision": 0.9, "note_ko": "summary"},
+            {"eval_scope": "step4_abrupt_no_precursor", "best_target_name": "pure_abrupt_target", "best_f1": 0.8181818182, "best_recall": 0.75, "best_precision": 0.9, "note_ko": "summary"},
             {"eval_scope": "operator_policy_proxy", "best_target_name": "workflow_default", "best_f1": 0.7, "best_recall": 0.7, "best_precision": 0.7, "note_ko": "summary"},
         ],
         ["eval_scope", "best_target_name", "best_f1", "best_recall", "best_precision", "note_ko"],
@@ -239,9 +246,14 @@ def main() -> None:
         assert_true(low_support_row["reliability_class"] == "low_support", "low_support classification mismatch")
         assert_true(low_support_row["freeze_recommendation"] == "freeze_with_caution", "low_support freeze mismatch")
 
-        provisional_row = reliability.loc[reliability["target_name"].astype(str).eq("provisional_target")].iloc[0]
-        assert_true(provisional_row["reliability_class"] == "provisional", "provisional classification mismatch")
-        assert_true(provisional_row["freeze_recommendation"] == "freeze_as_current_default", "provisional freeze mismatch")
+        abrupt_row = reliability.loc[reliability["target_name"].astype(str).eq("pure_abrupt_target")].iloc[0]
+        assert_true(abrupt_row["reliability_class"] == "underpowered", "corrected pure abrupt classification mismatch")
+        assert_true(abrupt_row["freeze_recommendation"] == "do_not_freeze", "corrected pure abrupt freeze mismatch")
+        assert_true(
+            ("same-event overlap 2건" in abrupt_row["reliability_reason_ko"] or "precursor-led fault with abrupt ending" in abrupt_row["reliability_reason_ko"])
+            and "c42997" in abrupt_row["reliability_reason_ko"],
+            "corrected pure abrupt reason should mention overlap exclusion and c429 holdout",
+        )
 
         proxy_row = reliability.loc[reliability["eval_scope"].astype(str).eq("operator_policy_proxy")].iloc[0]
         assert_true(proxy_row["reliability_class"] == "proxy_only", "proxy reliability_class mismatch")
@@ -254,8 +266,8 @@ def main() -> None:
         )
         freeze_step4 = freeze.loc[freeze["eval_scope"].astype(str).eq("step4_abrupt_no_precursor")].iloc[0]
         assert_true(
-            str(freeze_step4["recommended_target_name"]) == "provisional_target",
-            "step4 freeze candidate mismatch",
+            normalize_text(freeze_step4["recommended_target_name"]) == "",
+            "step4 corrected underpowered scope should not recommend a freeze target",
         )
 
         summary_step3 = summary.loc[summary["eval_scope"].astype(str).eq("step3_precursor_performance")].iloc[0]
