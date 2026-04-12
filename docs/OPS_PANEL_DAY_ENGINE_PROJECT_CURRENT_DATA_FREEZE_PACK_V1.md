@@ -40,7 +40,10 @@
 - step3 precursor performance:
   - informative 하지만 underpowered 이고 acquisition 도 현재 막혀 있으므로 exploratory claim 으로만 남긴다.
 - step4 abrupt/no-precursor:
-  - current data 에서 가장 강한 true-case scope 이지만 여전히 bounded interpretation 이 필요하다.
+  - precursor-abrupt consistency audit 이후에는 overlap 2건을 `전조형 고장(급격 종료)` 로 재해석한다.
+  - single-panel forensic audit 결과 `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 fault panel 이지만 precursor-like evidence 가 앞서 pure abrupt typing 을 보류한다.
+  - 따라서 pure abrupt positive support 는 현재 3건이고, step4 abrupt scope 는 stale support 6 기준으로 읽으면 안 된다.
+  - 현재 current-data boundary 에서는 pure abrupt scope 도 exploratory 로만 남겨야 한다.
 - step4 common-cause routing:
   - descriptive / exploratory 수준으로 남겨야 한다.
 - operator_policy_proxy:
@@ -52,7 +55,7 @@
 - 논문/보고서/발표에서 새 truth collection 없이 지금 당장 쓸 수 있는 claim boundary 를 이 pack 기준으로 정한다.
 - 특히:
   - step3 는 stable detector performance 로 쓰지 않는다.
-  - step4 abrupt 는 caution 을 붙여 제한적으로 쓴다.
+  - step4 abrupt 는 overlap 2건과 `c42997...1.1` holdout 을 제외한 pure abrupt support 3 기준으로만 읽고, 현재는 exploratory 로 남긴다.
   - common-cause 는 descriptive routing 으로만 쓴다.
   - operator workflow default 는 operator/workflow proxy claim 으로만 쓴다.
   - structural scope는 “현재 best target” 이 있다고 쓰지 말고, coverage/reference scope라고만 써야 한다.

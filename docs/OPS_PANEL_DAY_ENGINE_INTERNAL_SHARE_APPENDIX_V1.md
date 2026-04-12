@@ -30,6 +30,9 @@ The appendix is intentionally separate from the seed-panel narrative.
 
 - `_share/panel_day_engine_non_precursor_performance_cases_v1.csv`
 - `_share/panel_date_reaudit_working.csv`
+- `_share/panel_day_engine_precursor_abrupt_consistency_cases_v1.csv`
+- `_share/panel_day_engine_precursor_abrupt_consistency_summary_v1.csv`
+- `_share/panel_day_engine_precursor_abrupt_consistency_recommendation_v1.csv`
 - `_share/panel_day_engine_project_eval_matrix_v1.csv`
 - `_share/panel_day_engine_project_current_data_freeze_pack_v1.csv`
 - `_share/panel_day_engine_operator_attention_policy_recommendation_v1.csv`
@@ -78,11 +81,23 @@ Selection policy is strict first, then only minimally broadened when stored trut
 
 This keeps the abrupt6 map aligned with the requested "true abrupt positive only" interpretation while still recovering the already-agreed 6-case universe from stored accepted truth.
 
+다만 이번 reconciliation 이후에는 event type 과 terminal failure pattern 을 분리해서 읽어야 한다.
+
+- precursor 가 확인된 overlap 2건은 event type 상 `급작 고장` 이 아니다.
+- 이 2건은 `전조형 고장` 이고 terminal pattern 만 `급격 종료` 다.
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 fault panel 이지만, `2025-01-20` 부터 precursor-like evidence 가 있어 pure abrupt typing 은 보류한다.
+- 이 패널의 current re-audit family hint `open_or_device_issue_like` 는 원인군 힌트로는 계속 쓸 수 있다.
+- 따라서 abrupt6 표는 여전히 6행이지만, 의미는 `순수 급작 3건 + 전조형 고장(급격 종료) 2건 + 고장유형 보류 1건` 이다.
+
 Each row reports:
 
 - site
 - panel_id
 - fault anchor date
+- `사건유형_ko`
+- `최종고장양상_ko`
+- `순수급작_flag`
+- `사건유형_판정주의_ko`
 - symptom-level Korean name
 - short evidence text
 - which source field drove that mapping
@@ -184,6 +199,10 @@ The smoke test checks:
 
 - scripts compile
 - abrupt6 output row count is exactly `6`
+- abrupt6 output now distinguishes `사건유형_ko` 와 `최종고장양상_ko`
+- precursor-abrupt same-event overlap 2건은 `전조형 고장 / 급격 종료 / 순수급작_flag=0` 으로 재표기된다.
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 `고장유형 보류 / 급작 발생 / 순수급작_flag=0` 으로 재표기된다.
+- pure abrupt count is exactly `3`
 - strict abrupt evidence plus accepted-truth backfill produces the expected 6-row family mix
 - `false_positive` / `vendor_rejected` rows are excluded
 - banned seed-panel ids are excluded

@@ -20,6 +20,11 @@ WORKFLOW_DEFAULT_NAME = "panel_day_engine_operator_workflow_default_v1.csv"
 CLUSTER_ROLLUP_NAME = "panel_day_engine_operator_secondary_discovery_cluster_rollup_v1.csv"
 REAUDIT_NAME = "panel_date_reaudit_working.csv"
 ELIGIBILITY_CASES_NAME = "panel_day_engine_local_precursor_eligibility_cases_v1.csv"
+ABRUPT6_SYMPTOM_MAP_NAME = "panel_day_engine_abrupt6_symptom_map_v1.csv"
+PRECURSOR_ABRUPT_CONSISTENCY_CASES_NAME = "panel_day_engine_precursor_abrupt_consistency_cases_v1.csv"
+PRECURSOR_ABRUPT_CONSISTENCY_SUMMARY_NAME = "panel_day_engine_precursor_abrupt_consistency_summary_v1.csv"
+PRECURSOR_ABRUPT_CONSISTENCY_RECOMMENDATION_NAME = "panel_day_engine_precursor_abrupt_consistency_recommendation_v1.csv"
+FORENSIC_SUMMARY_NAME = "panel_day_engine_c42997_1_1_forensic_summary_v1.csv"
 GATE_DAILY_NAME = "ae_simple_local_precursor_gate_daily.csv"
 CORE_NAME = "panel_day_core.csv"
 
@@ -30,6 +35,11 @@ NOTES_OUTPUT_NAME = "panel_day_engine_project_eval_notes_v1.csv"
 WINDOW_DAYS = 30
 ABRUPT_LOOKBACK_DAYS = 3
 ABRUPT_LOOKAHEAD_DAYS = 7
+
+FORENSIC_HOLDOUT_SITE = "conalog"
+FORENSIC_HOLDOUT_PANEL_ID = "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"
+FORENSIC_HOLDOUT_WARNING_DATE = "2025-01-20"
+FORENSIC_HOLDOUT_TRIGGER_DATE = "2025-03-21"
 
 STEP2_TARGETS = [
     "preferred_precursor_onset",
@@ -349,6 +359,11 @@ def load_required_inputs(root: Path) -> dict[str, pd.DataFrame]:
         "cluster_rollup": drop_repeated_header_rows(read_csv(share_dir / CLUSTER_ROLLUP_NAME)),
         "reaudit": drop_repeated_header_rows(read_csv(share_dir / REAUDIT_NAME)),
         "eligibility": drop_repeated_header_rows(read_csv(share_dir / ELIGIBILITY_CASES_NAME)),
+        "abrupt6": drop_repeated_header_rows(read_csv(share_dir / ABRUPT6_SYMPTOM_MAP_NAME)),
+        "consistency_cases": drop_repeated_header_rows(read_csv(share_dir / PRECURSOR_ABRUPT_CONSISTENCY_CASES_NAME)),
+        "consistency_summary": drop_repeated_header_rows(read_csv(share_dir / PRECURSOR_ABRUPT_CONSISTENCY_SUMMARY_NAME)),
+        "consistency_recommendation": drop_repeated_header_rows(read_csv(share_dir / PRECURSOR_ABRUPT_CONSISTENCY_RECOMMENDATION_NAME)),
+        "forensic_summary": drop_repeated_header_rows(read_csv(share_dir / FORENSIC_SUMMARY_NAME)),
     }
 
     ensure_columns(frames["taxonomy"], ["fault_family_id", "eval_bucket_v2"], FAULT_TAXONOMY_NAME)
@@ -365,7 +380,98 @@ def load_required_inputs(root: Path) -> dict[str, pd.DataFrame]:
     ensure_columns(frames["cluster_rollup"], ["site", "cluster_id", "panel_ids_csv"], CLUSTER_ROLLUP_NAME)
     ensure_columns(frames["reaudit"], ["site", "panel_id", "strict_trigger_date"], REAUDIT_NAME)
     ensure_columns(frames["eligibility"], ["site", "panel_id", "fault_start_date"], ELIGIBILITY_CASES_NAME)
+    ensure_columns(
+        frames["abrupt6"],
+        ["site", "panel_id", "고장시점", "사건유형_ko", "최종고장양상_ko", "순수급작_flag"],
+        ABRUPT6_SYMPTOM_MAP_NAME,
+    )
+    ensure_columns(
+        frames["consistency_cases"],
+        ["site", "panel_id", "same_event_flag", "distinct_event_flag", "consistency_judgment_ko"],
+        PRECURSOR_ABRUPT_CONSISTENCY_CASES_NAME,
+    )
+    ensure_columns(
+        frames["consistency_summary"],
+        ["overlap_panel_count", "same_event_count", "corrected_pure_abrupt_fault_count"],
+        PRECURSOR_ABRUPT_CONSISTENCY_SUMMARY_NAME,
+    )
+    ensure_columns(
+        frames["consistency_recommendation"],
+        ["recommended_next_handling", "rationale_ko"],
+        PRECURSOR_ABRUPT_CONSISTENCY_RECOMMENDATION_NAME,
+    )
+    ensure_columns(
+        frames["forensic_summary"],
+        ["site", "panel_id", "전조흔적_시작일", "강한트리거일", "사건시간양상_판정_ko", "현재표_보정필요여부_flag"],
+        FORENSIC_SUMMARY_NAME,
+    )
     return frames
+
+
+def load_same_event_overlap_keys(frames: dict[str, pd.DataFrame]) -> set[tuple[str, str]]:
+    recommendation_df = frames["consistency_recommendation"]
+    if len(recommendation_df) != 1:
+        raise SystemExit(
+            f"{PRECURSOR_ABRUPT_CONSISTENCY_RECOMMENDATION_NAME} must contain exactly one row, found {len(recommendation_df)}"
+        )
+    recommendation = normalize_text(recommendation_df.iloc[0]["recommended_next_handling"])
+    if recommendation != "relabel_overlap_as_precursor_led_faults":
+        raise SystemExit(
+            "precursor/abrupt consistency recommendation must be relabel_overlap_as_precursor_led_faults to build the corrected eval matrix; "
+            f"got {recommendation or '<blank>'}"
+        )
+
+    cases_df = frames["consistency_cases"]
+    same_event_df = cases_df.loc[pd.to_numeric(cases_df["same_event_flag"], errors="coerce").fillna(0).eq(1)].copy()
+    overlap_keys = {
+        (normalize_text(row["site"]), normalize_text(row["panel_id"]))
+        for row in same_event_df.to_dict(orient="records")
+        if normalize_text(row["site"]) and normalize_text(row["panel_id"])
+    }
+    summary_row = frames["consistency_summary"].iloc[0].to_dict()
+    expected_overlap = int(pd.to_numeric(summary_row["overlap_panel_count"], errors="raise"))
+    expected_same = int(pd.to_numeric(summary_row["same_event_count"], errors="raise"))
+    corrected_pure_abrupt = int(pd.to_numeric(summary_row["corrected_pure_abrupt_fault_count"], errors="raise"))
+    if expected_overlap != expected_same:
+        raise SystemExit(
+            f"{PRECURSOR_ABRUPT_CONSISTENCY_SUMMARY_NAME} must keep overlap_panel_count == same_event_count for this reconciliation"
+        )
+    if len(overlap_keys) != expected_same:
+        raise SystemExit(
+            f"same-event overlap count mismatch between cases and summary: cases={len(overlap_keys)}, summary={expected_same}"
+        )
+    if corrected_pure_abrupt != 4:
+        raise SystemExit(f"expected corrected pure abrupt fault count to be 4, found {corrected_pure_abrupt}")
+    return overlap_keys
+
+
+def load_forensic_holdout_key(frames: dict[str, pd.DataFrame]) -> tuple[str, str]:
+    forensic_df = frames["forensic_summary"].copy()
+    for column in forensic_df.columns:
+        if forensic_df[column].dtype == object:
+            forensic_df[column] = forensic_df[column].map(normalize_text)
+    target_df = forensic_df.loc[
+        forensic_df["site"].eq(FORENSIC_HOLDOUT_SITE)
+        & forensic_df["panel_id"].eq(FORENSIC_HOLDOUT_PANEL_ID)
+    ].copy()
+    if len(target_df) != 1:
+        raise SystemExit(
+            f"{FORENSIC_SUMMARY_NAME} must contain exactly one target row for {FORENSIC_HOLDOUT_SITE}/{FORENSIC_HOLDOUT_PANEL_ID}, found {len(target_df)}"
+        )
+    row = target_df.iloc[0].to_dict()
+    if normalize_text(row["사건시간양상_판정_ko"]) != "전조흔적있음_순수급작보류":
+        raise SystemExit(
+            f"{FORENSIC_SUMMARY_NAME} guard failed: 사건시간양상_판정_ko must be 전조흔적있음_순수급작보류, got {normalize_text(row['사건시간양상_판정_ko']) or '<blank>'}"
+        )
+    if to_int_flag(row["현재표_보정필요여부_flag"]) != 1:
+        raise SystemExit(
+            f"{FORENSIC_SUMMARY_NAME} guard failed: 현재표_보정필요여부_flag must be 1, got {normalize_text(row['현재표_보정필요여부_flag']) or '<blank>'}"
+        )
+    if normalize_text(row["전조흔적_시작일"]) != FORENSIC_HOLDOUT_WARNING_DATE or normalize_text(row["강한트리거일"]) != FORENSIC_HOLDOUT_TRIGGER_DATE:
+        raise SystemExit(
+            f"{FORENSIC_SUMMARY_NAME} guard failed: expected warning/trigger {FORENSIC_HOLDOUT_WARNING_DATE}/{FORENSIC_HOLDOUT_TRIGGER_DATE}, got {normalize_text(row['전조흔적_시작일'])}/{normalize_text(row['강한트리거일'])}"
+        )
+    return (FORENSIC_HOLDOUT_SITE, FORENSIC_HOLDOUT_PANEL_ID)
 
 
 def build_step1_rows(taxonomy_df: pd.DataFrame) -> list[dict[str, object]]:
@@ -634,14 +740,110 @@ def build_precursor_abrupt_negative_hits(root: Path, precursor_perf_df: pd.DataF
     return pd.DataFrame(rows)
 
 
-def build_step4a_rows(root: Path, precursor_perf_df: pd.DataFrame, nonprec_df: pd.DataFrame) -> list[dict[str, object]]:
+def build_pure_abrupt_positive_hits(
+    root: Path,
+    abrupt6_df: pd.DataFrame,
+    same_event_overlap_keys: set[tuple[str, str]],
+    forensic_holdout_key: tuple[str, str],
+) -> pd.DataFrame:
+    cases = abrupt6_df.copy()
+    cases["site"] = cases["site"].map(normalize_text)
+    cases["panel_id"] = cases["panel_id"].map(normalize_text)
+    cases["고장시점"] = cases["고장시점"].map(normalize_date_text)
+    holdout_df = cases.loc[
+        cases["site"].eq(forensic_holdout_key[0]) & cases["panel_id"].eq(forensic_holdout_key[1])
+    ].copy()
+    if len(holdout_df) != 1:
+        raise SystemExit("forensic holdout panel must appear exactly once in abrupt6 symptom map")
+    holdout_row = holdout_df.iloc[0]
+    if normalize_text(holdout_row["사건유형_ko"]) != "고장유형 보류":
+        raise SystemExit("forensic holdout panel must be marked 사건유형_ko=고장유형 보류 in abrupt6 symptom map")
+    if to_int_flag(holdout_row["순수급작_flag"]) != 0:
+        raise SystemExit("forensic holdout panel must not remain 순수급작_flag=1")
+    pure_mask = pd.to_numeric(cases["순수급작_flag"], errors="coerce").fillna(0).astype(int).eq(1)
+    cases = cases.loc[pure_mask, ["site", "panel_id", "고장시점"]].drop_duplicates(subset=["site", "panel_id", "고장시점"], keep="first")
+    cases = cases.loc[
+        [
+            (normalize_text(row["site"]), normalize_text(row["panel_id"])) not in same_event_overlap_keys
+            for row in cases.to_dict(orient="records")
+        ]
+    ].copy()
+    cases = cases.loc[
+        [
+            (normalize_text(row["site"]), normalize_text(row["panel_id"])) != forensic_holdout_key
+            for row in cases.to_dict(orient="records")
+        ]
+    ].copy()
+    if cases.empty:
+        return pd.DataFrame(
+            columns=[
+                "site",
+                "panel_id",
+                "fault_start_date",
+                "final_fault_hit_by_anchor_flag",
+                "final_fault_hit_within_3d_after_flag",
+                "final_fault_hit_within_7d_after_flag",
+                "critical_fault_hit_within_7d_after_flag",
+                "confirmed_fault_hit_within_7d_after_flag",
+            ]
+        )
+
+    daily_df = load_daily_windows(
+        root,
+        cases.rename(columns={"고장시점": "anchor_date"}),
+        anchor_col="anchor_date",
+        lookback_days=ABRUPT_LOOKBACK_DAYS,
+        lookahead_days=ABRUPT_LOOKAHEAD_DAYS,
+    )
+    rows: list[dict[str, object]] = []
+    for case in cases.to_dict(orient="records"):
+        site = normalize_text(case["site"])
+        panel_id = normalize_text(case["panel_id"])
+        anchor_ts = parse_timestamp(case["고장시점"])
+        window_df = daily_df.loc[
+            daily_df["site"].eq(site)
+            & daily_df["panel_id"].eq(panel_id)
+            & daily_df["date"].ge(anchor_ts - pd.Timedelta(days=ABRUPT_LOOKBACK_DAYS))
+            & daily_df["date"].le(anchor_ts + pd.Timedelta(days=ABRUPT_LOOKAHEAD_DAYS))
+        ].copy()
+        first_confirmed = first_flag_date(window_df, "confirmed_fault")
+        first_critical = first_flag_date(window_df, "critical_fault")
+        first_final = first_flag_date(window_df, "final_fault")
+        _, _, confirmed_7 = evaluate_marker_window(first_confirmed, anchor_ts)
+        _, _, critical_7 = evaluate_marker_window(first_critical, anchor_ts)
+        final_by_anchor, final_3, final_7 = evaluate_marker_window(first_final, anchor_ts)
+        rows.append(
+            {
+                "site": site,
+                "panel_id": panel_id,
+                "fault_start_date": normalize_text(case["고장시점"]),
+                "final_fault_hit_by_anchor_flag": final_by_anchor,
+                "final_fault_hit_within_3d_after_flag": final_3,
+                "final_fault_hit_within_7d_after_flag": final_7,
+                "critical_fault_hit_within_7d_after_flag": critical_7,
+                "confirmed_fault_hit_within_7d_after_flag": confirmed_7,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_step4a_rows(
+    root: Path,
+    precursor_perf_df: pd.DataFrame,
+    abrupt6_df: pd.DataFrame,
+    nonprec_df: pd.DataFrame,
+    same_event_overlap_keys: set[tuple[str, str]],
+    forensic_holdout_key: tuple[str, str],
+) -> list[dict[str, object]]:
     nonprec_df = nonprec_df.copy()
     nonprec_df["eval_bucket_v2"] = nonprec_df["eval_bucket_v2"].map(normalize_text)
-    abrupt_df = nonprec_df.loc[nonprec_df["eval_bucket_v2"].eq("abrupt_or_no_precursor_now")].drop_duplicates(subset=["truth_case_id"], keep="first").copy()
     nonpanel_df = nonprec_df.loc[nonprec_df["eval_bucket_v2"].eq("non_panel_or_common_cause")].drop_duplicates(subset=["truth_case_id"], keep="first").copy()
+    abrupt_df = build_pure_abrupt_positive_hits(root, abrupt6_df, same_event_overlap_keys, forensic_holdout_key)
     precursor_negative_df = build_precursor_abrupt_negative_hits(root, precursor_perf_df)
 
     support_positive = int(len(abrupt_df))
+    if support_positive != 3:
+        raise SystemExit(f"corrected pure abrupt positive support must be 3 after overlap+holdout exclusion, found {support_positive}")
     support_negative = int(len(nonpanel_df) + len(precursor_negative_df))
     rows: list[dict[str, object]] = []
     col_map = {
@@ -666,7 +868,7 @@ def build_step4a_rows(root: Path, precursor_perf_df: pd.DataFrame, nonprec_df: p
                 "eval_part_name": "abrupt_no_precursor_performance",
                 "metric_kind": "true_case_metric",
                 "unit_type": "case",
-                "positive_set_name": "abrupt_or_no_precursor_now",
+                "positive_set_name": "pure_abrupt_or_no_precursor_now",
                 "negative_set_name": "precursor_bearing_detectable_now + non_panel_or_common_cause",
                 "target_name": target_name,
                 "support_positive": support_positive,
@@ -678,7 +880,7 @@ def build_step4a_rows(root: Path, precursor_perf_df: pd.DataFrame, nonprec_df: p
                 "recall": recall,
                 "precision": precision,
                 "f1": f1,
-                "note_ko": "abrupt/no-precursor true case에 대해 anchor 전후 hard fault marker hit를 계산한 true case metric이다.",
+                "note_ko": "pure abrupt/no-precursor true case에 대해 corrected abrupt symptom map 기준 anchor 전후 hard fault marker hit를 계산한 true case metric이다. precursor-abrupt same-event overlap 2건은 precursor-led fault with abrupt ending으로 재분류되어 positive set에서 제외했고, c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 precursor-like evidence before trigger 때문에 pure abrupt typing holdout 으로 제외했다.",
             }
         )
     return rows
@@ -916,7 +1118,7 @@ def build_summary_rows(matrix_df: pd.DataFrame) -> list[dict[str, object]]:
         "step1_taxonomy": "taxonomy support/coverage row라 best precision/recall/F1가 적용되지 않는다.",
         "step2_onset_truth": "onset coverage/availability row라 best precision/recall/F1가 적용되지 않는다.",
         "step3_precursor_performance": "precursor-bearing marker들 중 F1가 가장 높은 true case metric을 요약한다.",
-        "step4_abrupt_no_precursor": "abrupt/no-precursor target들 중 F1가 가장 높은 true case metric을 요약한다.",
+        "step4_abrupt_no_precursor": "same-event overlap 2건을 precursor-led fault로 제외하고 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 holdout을 뺀 pure abrupt/no-precursor target들 중 F1가 가장 높은 true case metric을 요약한다.",
         "step4_common_cause_routing": "common-cause routing marker들 중 F1가 가장 높은 true case metric을 요약한다.",
         "operator_policy_proxy": "operator policy는 retrospective proxy metric이라 workload/운영성 해석은 별도 audit와 함께 봐야 한다.",
     }
@@ -982,8 +1184,8 @@ def build_notes_rows() -> list[dict[str, object]]:
         },
         {
             "eval_scope": "step4_abrupt_no_precursor",
-            "why_prf_is_valid_or_not": "유효함. abrupt/no-precursor true case에서 hard fault marker hit를 계산하고 다른 case bucket을 negative로 둔 true case metric이다.",
-            "caveat_ko": "이 row는 abrupt marker의 anchor 근처 성능을 뜻하며, precursor lead detection과 같은 문제를 측정하는 것은 아니다.",
+            "why_prf_is_valid_or_not": "유효함. pure abrupt/no-precursor true case에서 hard fault marker hit를 계산하고 다른 case bucket을 negative로 둔 true case metric이다.",
+            "caveat_ko": "event type과 terminal failure pattern은 다르다. precursor가 있으면 그 panel은 abrupt event가 아니라 precursor-led fault with abrupt ending으로 읽고 pure abrupt support에서는 제외한다. c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 precursor-like evidence before trigger 때문에 pure abrupt typing holdout 으로 남긴다.",
         },
         {
             "eval_scope": "step4_common_cause_routing",
@@ -1000,11 +1202,22 @@ def build_notes_rows() -> list[dict[str, object]]:
 
 def build_matrix(root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     frames = load_required_inputs(root)
+    same_event_overlap_keys = load_same_event_overlap_keys(frames)
+    forensic_holdout_key = load_forensic_holdout_key(frames)
     matrix_rows: list[dict[str, object]] = []
     matrix_rows.extend(build_step1_rows(frames["taxonomy"]))
     matrix_rows.extend(build_step2_rows(frames["onset_truth"], frames["onset_summary"]))
     matrix_rows.extend(build_step3_rows(root, frames["precursor_perf"], frames["nonprec"]))
-    matrix_rows.extend(build_step4a_rows(root, frames["precursor_perf"], frames["nonprec"]))
+    matrix_rows.extend(
+        build_step4a_rows(
+            root,
+            frames["precursor_perf"],
+            frames["abrupt6"],
+            frames["nonprec"],
+            same_event_overlap_keys,
+            forensic_holdout_key,
+        )
+    )
     matrix_rows.extend(build_step4b_rows(frames["common_cause"]))
     matrix_rows.extend(
         build_operator_rows(

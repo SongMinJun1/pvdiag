@@ -17,7 +17,7 @@
 - 따라서 final decision 은 “최고 수치” 보다 “현재 data 로 허용되는 claim boundary” 를 우선한다.
 - 특히:
   - step3 precursor performance 는 informative 해도 exploratory only 로 남는다.
-  - step4 abrupt/no-precursor 는 bounded reporting use 로만 유지한다.
+  - step4 abrupt/no-precursor 는 precursor-abrupt consistency audit overlap 2건과 single-panel forensic holdout `c42997...1.1` 을 제외한 pure abrupt support 3 기준으로 다시 읽고, 현재는 exploratory only 로 남긴다.
   - step4 common-cause routing 은 descriptive / exploratory 로만 유지한다.
   - operator workflow 는 detector 성능 freeze 가 아니라 packaging/QA/pipeline/release gate 를 통과한 workflow handoff 로 읽는다.
 
@@ -50,3 +50,5 @@
 ## 주의
 - 이 문서는 detector/scorer 변경안이 아니다.
 - current-data-limited final reporting / operational-default / handoff pack 이다.
+- 여기서 abrupt 는 pure abrupt event type 만 가리키고, precursor 가 있는 사건의 급격 종료는 terminal failure pattern 으로만 남긴다.
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 fault panel 이지만 current stored data 기준 pure abrupt typing 은 holdout 이고, current re-audit family hint `open_or_device_issue_like` 만 보조 힌트로 남긴다.

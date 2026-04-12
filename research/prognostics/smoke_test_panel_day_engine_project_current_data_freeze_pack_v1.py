@@ -139,19 +139,19 @@ def build_fixture(root: Path) -> None:
             "eval_scope": "step4_abrupt_no_precursor",
             "target_name": "final_fault_hit_by_anchor",
             "metric_kind": "true_case_metric",
-            "positive_support": 6,
+            "positive_support": 3,
             "negative_support": 6,
-            "predicted_positive_support": 6,
+            "predicted_positive_support": 4,
             "recall": 0.83,
             "precision": 0.83,
             "f1": 0.83,
-            "recall_ci_low": 0.43,
-            "recall_ci_high": 0.97,
-            "precision_ci_low": 0.43,
-            "precision_ci_high": 0.97,
-            "reliability_class": "low_support",
-            "freeze_recommendation": "freeze_with_caution",
-            "reliability_reason_ko": "abrupt caution",
+            "recall_ci_low": 0.30,
+            "recall_ci_high": 0.95,
+            "precision_ci_low": 0.30,
+            "precision_ci_high": 0.95,
+            "reliability_class": "underpowered",
+            "freeze_recommendation": "do_not_freeze",
+            "reliability_reason_ko": "pure abrupt support 3 after overlap exclusion and c429 holdout",
         },
         {
             "eval_scope": "step4_common_cause_routing",
@@ -284,13 +284,13 @@ def build_fixture(root: Path) -> None:
             },
             {
                 "eval_scope": "step4_abrupt_no_precursor",
-                "recommended_target_name": "final_fault_hit_by_anchor",
-                "recommended_metric_kind": "true_case_metric",
-                "recommended_f1": 0.83,
-                "recommended_positive_support": 6,
-                "recommended_reliability_class": "low_support",
-                "recommended_freeze_recommendation": "freeze_as_current_default",
-                "rationale_ko": "synthetic abrupt default",
+                "recommended_target_name": "",
+                "recommended_metric_kind": "",
+                "recommended_f1": "",
+                "recommended_positive_support": "",
+                "recommended_reliability_class": "",
+                "recommended_freeze_recommendation": "do_not_freeze",
+                "rationale_ko": "pure abrupt underpowered after overlap exclusion and c429 holdout",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -371,14 +371,14 @@ def build_fixture(root: Path) -> None:
                 "eval_scope": "step4_abrupt_no_precursor",
                 "collection_unit": "panel_case",
                 "expansion_action_class": "collect_new_abrupt_truth_cases",
-                "current_positive_support_unique": 6,
-                "additional_units_needed_for_5": 0,
-                "additional_units_needed_for_10": 4,
+                "current_positive_support_unique": 3,
+                "additional_units_needed_for_5": 2,
+                "additional_units_needed_for_10": 7,
                 "requires_new_truth_or_data_flag": 1,
                 "suggested_collection_source_ko": "새 abrupt panel_case truth 수집",
                 "priority_rank": 3,
-                "freeze_status_ko": "freeze_as_current_default",
-                "backlog_reason_ko": "abrupt gap remains but current default allowed",
+                "freeze_status_ko": "do_not_freeze",
+                "backlog_reason_ko": "pure abrupt gap remains after overlap exclusion and c429 holdout",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -446,11 +446,11 @@ def build_fixture(root: Path) -> None:
             {
                 "expansion_action_class": "collect_new_abrupt_truth_cases",
                 "target_count": 5,
-                "total_additional_positive_needed_for_5": 0,
-                "total_additional_positive_needed_for_10": 20,
+                "total_additional_positive_needed_for_5": 2,
+                "total_additional_positive_needed_for_10": 31,
                 "requires_new_truth_or_data_count": 5,
                 "highest_priority_rank": 3,
-                "note_ko": "abrupt scope needs more panel_case truth",
+                "note_ko": "pure abrupt scope needs more panel_case truth after overlap exclusion and c429 holdout",
             },
             {
                 "expansion_action_class": "workflow_validation_not_truth",
@@ -563,10 +563,15 @@ def main() -> None:
 
         abrupt_row = pack.loc[pack["eval_scope"].eq("step4_abrupt_no_precursor")].iloc[0]
         assert_true(abrupt_row["current_best_target_name"] == "final_fault_hit_by_anchor", "abrupt best target failed")
-        assert_true(abrupt_row["current_data_decision"] == "freeze_as_current_default", "abrupt decision mapping failed")
-        assert_true(abrupt_row["allowed_claim_strength"] == "operational_default_claim", "abrupt claim strength failed")
-        assert_true(abrupt_row["next_allowed_action"] == "keep_as_default", "abrupt next action failed")
+        assert_true(abrupt_row["current_data_decision"] == "exploratory_only", "abrupt decision mapping failed")
+        assert_true(abrupt_row["allowed_claim_strength"] == "exploratory_claim_only", "abrupt claim strength failed")
+        assert_true(abrupt_row["next_allowed_action"] == "do_not_upgrade_without_new_truth", "abrupt next action failed")
         assert_true(int(abrupt_row["acquisition_blocked_flag"]) == 1, "abrupt acquisition blocked flag failed")
+        assert_true(
+            ("전조형 고장(급격 종료)" in abrupt_row["freeze_reason_ko"] or "precursor-abrupt consistency audit" in abrupt_row["freeze_reason_ko"])
+            and "c42997" in abrupt_row["freeze_reason_ko"],
+            "abrupt freeze reason should mention overlap reclassification and c429 holdout",
+        )
 
         common_row = pack.loc[pack["eval_scope"].eq("step4_common_cause_routing")].iloc[0]
         assert_true(common_row["current_best_target_name"] == "breadth_marker_only", "common-cause best target fallback failed")
@@ -597,14 +602,20 @@ def main() -> None:
         assert_true(pd.isna(step2_row["current_best_f1"]) or step2_row["current_best_f1"] == "", "step2 structural f1 should be blank")
 
         summary_lookup = {row["current_data_decision"]: row for _, row in summary.iterrows()}
-        assert_true(int(summary_lookup["freeze_as_current_default"]["scope_count"]) == 1, "summary default scope_count failed")
+        assert_true(int(summary_lookup["freeze_as_current_default"]["scope_count"]) == 0, "summary default scope_count failed")
         assert_true(int(summary_lookup["freeze_with_caution"]["scope_count"]) == 2, "summary caution scope_count failed")
-        assert_true(int(summary_lookup["exploratory_only"]["scope_count"]) == 2, "summary exploratory scope_count failed")
+        assert_true(int(summary_lookup["exploratory_only"]["scope_count"]) == 3, "summary exploratory scope_count failed")
         assert_true(int(summary_lookup["workflow_proxy_only"]["scope_count"]) == 1, "summary workflow scope_count failed")
 
         assert_true(len(claims) == 6, "expected one claim row per scope")
         step3_claim = claims.loc[claims["claim_scope"].eq("step3_precursor_performance")].iloc[0]
         assert_true("underpowered" in step3_claim["claim_text_ko"], "step3 claim text missing underpowered")
+        step4_claim = claims.loc[claims["claim_scope"].eq("step4_abrupt_no_precursor")].iloc[0]
+        assert_true("positive support=3" in step4_claim["claim_text_ko"], "step4 claim should mention corrected pure abrupt support")
+        assert_true(
+            ("전조형" in step4_claim["claim_text_ko"] or "precursor-led" in step4_claim["claim_text_ko"]) and "c42997" in step4_claim["claim_text_ko"],
+            "step4 claim should mention overlap relabeling and c429 holdout",
+        )
         step1_claim = claims.loc[claims["claim_scope"].eq("step1_taxonomy")].iloc[0]
         assert_true("best target" not in step1_claim["claim_text_ko"], "step1 claim should avoid classifier-style best target wording")
         operator_claim = claims.loc[claims["claim_scope"].eq("operator_policy_proxy")].iloc[0]

@@ -54,10 +54,11 @@
 - 패널별 대표판정표가 이제 완성됐다는 점
 - 한 패널에 대해 우리판정 / 커널로그 판정 / GPVS 참고판정 / 운영위치를 한 줄로 볼 수 있다는 점
 - GPVS 는 현재 25개 패널 중 12개만 부분 부착이고 나머지는 미부착이라는 점
-- 전조형 2건은 대표판정에서는 급작 고장으로 접힐 수 있어 사건이력 보조표를 함께 봐야 한다는 점
+- overlap 2건은 전조형 고장이 급격 종료로 끝난 같은 사건으로 읽어야 하고, 사건이력 보조표를 함께 봐야 한다는 점
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 fault panel 이지만 pure abrupt typing 은 holdout 이고, current re-audit family hint `open_or_device_issue_like` 는 보조 원인군 힌트로 남긴다는 점
 - 전조형 성능은 표본이 작아 탐색적이라는 점
-- 급작 고장은 bounded current-data 수준으로는 사용 가능하다는 점
-- common-cause / 같이 흔들리는 이상은 탐색적이라는 점
+- 순수 급작 고장은 current stored data 기준 3건이라는 점
+- common-cause / 공통원인 이벤트는 탐색적이라는 점
 - chosen operational workflow 가 `baseline_plus_discovery_cluster` 라는 점
 - release gate / pipeline pass 상태
 - 현재는 추가 fault case 수집이 불가능하다는 점

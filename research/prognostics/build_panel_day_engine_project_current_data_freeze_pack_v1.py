@@ -288,6 +288,29 @@ def freeze_reason(
             f"{rationale or backlog_reason}"
         )
 
+    if scope == "step4_abrupt_no_precursor":
+        pure_support_text = best_support
+        pure_support_int = numeric_int(best_support)
+        need5 = max(0, 5 - pure_support_int)
+        need10 = max(0, 10 - pure_support_int)
+        support_gap_note = (
+            f"pure abrupt unique backlog는 현재 {pure_support_int} panel_case 기준으로 +{need5}면 support 5, +{need10}이면 support 10이다."
+        )
+        if decision == "exploratory_only":
+            return (
+                f"step4 pure abrupt/no-precursor scope의 현재 최상위 target은 {best_target} (f1={best_f1}, positive_support={pure_support_text}) 이다. "
+                "precursor-abrupt consistency audit 기준 overlap 2건은 전조형 고장(급격 종료)으로 재분류되어 pure abrupt event positive set에서 제외된다. "
+                "또한 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 strong trigger 이전 precursor-like evidence 때문에 pure abrupt typing holdout 으로 제외된다. "
+                f"따라서 현재 pure abrupt support는 {pure_support_text}건이고 current data에서는 exploratory 수준으로만 유지해야 한다. "
+                f"{support_gap_note} 현재 scope freeze 상태는 do_not_freeze 다. {expansion_note}"
+            ).strip()
+        return (
+            f"step4 pure abrupt/no-precursor scope의 현재 최상위 target은 {best_target} (f1={best_f1}, positive_support={pure_support_text}) 이다. "
+            "precursor-abrupt consistency audit 기준 overlap 2건은 전조형 고장(급격 종료)으로 재분류되어 pure abrupt event positive set에서 제외된다. "
+            "또한 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 strong trigger 이전 precursor-like evidence 때문에 pure abrupt typing holdout 으로 제외된다. "
+            f"따라서 현재 pure abrupt support는 {pure_support_text}건으로 읽어야 한다. {support_gap_note} {rationale or expansion_note}"
+        ).strip()
+
     if decision == "exploratory_only":
         return (
             f"{scope} 의 현재 최상위 target은 {best_target} (f1={best_f1}, positive_support={best_support}) 이지만, "
@@ -425,6 +448,21 @@ def build_claims(pack_df: pd.DataFrame, frames: dict[str, pd.DataFrame]) -> pd.D
     recommended_policy = normalize_text(policy_row["recommended_policy_name"])
 
     pack_lookup = {normalize_text(row["eval_scope"]): row for row in pack_df.to_dict(orient="records")}
+    step4_pack_row = pack_lookup["step4_abrupt_no_precursor"]
+    step4_support = numeric_int(step4_pack_row["current_best_positive_support"])
+    step4_decision = normalize_text(step4_pack_row["current_data_decision"])
+    if step4_decision == "exploratory_only":
+        step4_claim_text = (
+            f"step4 pure abrupt/no-precursor 결과는 precursor-led fault with abrupt ending 2건과 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 holdout을 제외하면 현재 stored data 기준 positive support={step4_support} 로 underpowered 이다. "
+            "따라서 현재는 stable detector performance 로 freeze하지 말고 exploratory result 로만 써야 한다."
+        )
+        step4_overclaim = "pure abrupt support 3 결과를 large-support stable benchmark 나 전체 fault-6 event count로 과장하지 말 것."
+    else:
+        step4_claim_text = (
+            f"step4 pure abrupt/no-precursor 결과는 precursor-led fault with abrupt ending 2건과 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 holdout을 제외한 pure abrupt support={step4_support} 기준으로만 읽어야 하며, "
+            "현재 data 범위에 한정된 bounded current-data conclusion 으로만 유지해야 한다."
+        )
+        step4_overclaim = "pure abrupt 결과를 overlap precursor-led fault까지 포함한 완결된 detector 성능으로 과장하지 말 것."
     rows = [
         {
             "claim_id": "claim_step1_taxonomy",
@@ -450,9 +488,9 @@ def build_claims(pack_df: pd.DataFrame, frames: dict[str, pd.DataFrame]) -> pd.D
         {
             "claim_id": "claim_step4_abrupt",
             "claim_scope": "step4_abrupt_no_precursor",
-            "claim_text_ko": "step4 abrupt/no-precursor 결과는 현재 data 기준으로 caution과 함께 사용할 수 있으며, bounded current-data conclusion 으로만 유지해야 한다.",
-            "claim_strength": pack_lookup["step4_abrupt_no_precursor"]["allowed_claim_strength"],
-            "prohibited_overclaim_ko": "abrupt scope 결과를 large-support stable benchmark 나 완결된 detector 성능으로 과장하지 말 것.",
+            "claim_text_ko": step4_claim_text,
+            "claim_strength": step4_pack_row["allowed_claim_strength"],
+            "prohibited_overclaim_ko": step4_overclaim,
         },
         {
             "claim_id": "claim_step4_common_cause",

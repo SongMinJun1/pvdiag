@@ -133,6 +133,7 @@ def classify_row(metric_kind: str, positive_support: int) -> tuple[str, str]:
 
 def reliability_reason(
     *,
+    eval_scope: str,
     metric_kind: str,
     reliability_class: str,
     positive_support: int,
@@ -149,15 +150,21 @@ def reliability_reason(
         return "retrospective proxy metric이라 workflow 비교에는 유용하지만 prospective default 성능으로 과장할 수 없어 freeze는 caution 수준으로 제한한다."
 
     if reliability_class == "underpowered":
-        return (
+        reason = (
             f"positive support가 {positive_support}건으로 너무 작아 수치가 좋아도 불안정하다. "
             "작은 support에서는 perfect F1도 쉽게 과장될 수 있어 현재 conclusion freeze는 권하지 않는다."
         )
+        if eval_scope == "step4_abrupt_no_precursor":
+            reason += " precursor-abrupt same-event overlap 2건은 precursor-led fault with abrupt ending으로 재분류되어 pure abrupt support에서 제외됐고, c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 precursor-like evidence before trigger 때문에 pure abrupt typing holdout 으로 제외된 상태다."
+        return reason
     if reliability_class == "low_support":
-        return (
+        reason = (
             f"positive support가 {positive_support}건으로 아직 작아 interval 해석이 필요하다. "
             "현 시점 기본값으로는 참고 가능하지만 freeze는 caution 수준이 적절하다."
         )
+        if eval_scope == "step4_abrupt_no_precursor":
+            reason += " 이 support는 overlap precursor-led abrupt ending panel과 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 holdout을 제외한 pure abrupt 기준으로 읽어야 한다."
+        return reason
     recall_text = "" if recall is None else f"recall={recall:.3f}"
     precision_text = "" if precision is None else f"precision={precision:.3f}"
     recall_ci_text = "" if recall_ci_low is None else f"recall CI=({recall_ci_low:.3f},{recall_ci_high:.3f})"
@@ -212,6 +219,7 @@ def build_reliability_rows(matrix_df: pd.DataFrame, notes_df: pd.DataFrame) -> p
 
         reliability_class, freeze_recommendation = classify_row(metric_kind, int(positive_support) if positive_support != "" else 0)
         reason = reliability_reason(
+            eval_scope=eval_scope,
             metric_kind=metric_kind,
             reliability_class=reliability_class,
             positive_support=int(positive_support) if positive_support != "" else 0,
@@ -268,7 +276,10 @@ def build_summary_rows(reliability_df: pd.DataFrame) -> pd.DataFrame:
         elif proxy_only_count == target_count:
             note_ko = "이 scope는 retrospective proxy row만 있어 workflow value proxy 해석은 가능하지만 classifier default처럼 freeze하면 안 된다."
         elif do_not_freeze_count == target_count:
-            note_ko = "현재 scope row들이 모두 underpowered라 freeze를 보류하는 편이 안전하다."
+            if eval_scope == "step4_abrupt_no_precursor":
+                note_ko = "same-event overlap 2건을 precursor-led fault로 재분류하고 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 holdout을 제외한 뒤 pure abrupt support가 3건으로 줄어 현재 scope row들이 underpowered 상태다."
+            else:
+                note_ko = "현재 scope row들이 모두 underpowered라 freeze를 보류하는 편이 안전하다."
         else:
             note_ko = "support 크기와 Wilson interval을 함께 보고 provisional/low_support row만 current default 후보로 읽어야 한다."
 

@@ -94,18 +94,18 @@ def build_fixture(root: Path) -> None:
             },
             {
                 "eval_scope": "step4_abrupt_no_precursor",
-                "current_data_decision": "freeze_with_caution",
-                "allowed_claim_strength": "bounded_current_data_claim",
+                "current_data_decision": "exploratory_only",
+                "allowed_claim_strength": "exploratory_claim_only",
                 "current_best_target_name": "final_fault_hit_by_anchor",
                 "current_best_metric_kind": "true_case_metric",
                 "current_best_f1": 0.83,
-                "current_best_positive_support": 6,
+                "current_best_positive_support": 3,
                 "current_operational_workflow_name": "",
                 "current_operational_workflow_reason_ko": "",
-                "freeze_recommendation": "freeze_with_caution",
+                "freeze_recommendation": "do_not_freeze",
                 "acquisition_blocked_flag": 1,
-                "next_allowed_action": "keep_with_caution_note",
-                "freeze_reason_ko": "step4 abrupt bounded use",
+                "next_allowed_action": "do_not_upgrade_without_new_truth",
+                "freeze_reason_ko": "step4 pure abrupt support 3 after overlap exclusion and c429 holdout",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -169,19 +169,19 @@ def build_fixture(root: Path) -> None:
             },
             {
                 "current_data_decision": "freeze_with_caution",
-                "scope_count": 3,
+                "scope_count": 2,
                 "operational_default_claim_count": 0,
-                "bounded_current_data_claim_count": 3,
+                "bounded_current_data_claim_count": 2,
                 "exploratory_claim_only_count": 0,
                 "workflow_claim_only_count": 0,
                 "note_ko": "caution",
             },
             {
                 "current_data_decision": "exploratory_only",
-                "scope_count": 2,
+                "scope_count": 3,
                 "operational_default_claim_count": 0,
                 "bounded_current_data_claim_count": 0,
-                "exploratory_claim_only_count": 2,
+                "exploratory_claim_only_count": 3,
                 "workflow_claim_only_count": 0,
                 "note_ko": "exploratory",
             },
@@ -233,9 +233,9 @@ def build_fixture(root: Path) -> None:
             {
                 "claim_id": "claim_step4_abrupt",
                 "claim_scope": "step4_abrupt_no_precursor",
-                "claim_text_ko": "step4 abrupt/no-precursor 결과는 caution 과 함께 bounded current-data conclusion 으로만 유지한다.",
-                "claim_strength": "bounded_current_data_claim",
-                "prohibited_overclaim_ko": "step4 abrupt stable benchmark claim 금지",
+                "claim_text_ko": "step4 pure abrupt/no-precursor 결과는 overlap 2건과 c42997 holdout을 제외하면 positive support=3 이라 exploratory result 로만 유지한다.",
+                "claim_strength": "exploratory_claim_only",
+                "prohibited_overclaim_ko": "pure abrupt support 3을 large-support stable benchmark 로 과장하지 말 것.",
             },
             {
                 "claim_id": "claim_step4_common_cause",
@@ -354,7 +354,7 @@ def main() -> None:
 
         assert_true(step1_row["final_usage_decision"] == "bounded_reporting_use", "step1 should map to bounded_reporting_use")
         assert_true(step3_row["final_usage_decision"] == "exploratory_only", "step3 should map to exploratory_only")
-        assert_true(step4_row["final_usage_decision"] == "bounded_reporting_use", "step4 abrupt should map to bounded_reporting_use")
+        assert_true(step4_row["final_usage_decision"] == "exploratory_only", "step4 abrupt should map to exploratory_only")
         assert_true(operator_row["final_usage_decision"] == "workflow_only", "operator scope should map to workflow_only")
         assert_true(
             operator_row["chosen_operational_workflow_name"] == "baseline_plus_discovery_cluster",
@@ -391,6 +391,8 @@ def main() -> None:
             "baseline_plus_discovery_cluster" in operator_do["do_text_ko"],
             "operator do row should mention chosen workflow",
         )
+        step4_do = do_dont_df.loc[do_dont_df["scope_or_topic"].eq("step4_abrupt_no_precursor")].iloc[0]
+        assert_true("positive support=3" in step4_do["do_text_ko"], "step4 do row should mention corrected pure abrupt support")
 
     after_digests = {path: file_digest(path) for path in official_outputs}
     assert_true(before_digests == after_digests, "smoke test modified official outputs")

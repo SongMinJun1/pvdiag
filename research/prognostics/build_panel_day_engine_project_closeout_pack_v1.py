@@ -73,7 +73,7 @@ SCOPE_LABELS = {
     "step2_onset_truth": "step2 onset truth",
     "step3_precursor_performance": "전조형 고장",
     "step4_abrupt_no_precursor": "급작 고장",
-    "step4_common_cause_routing": "같이 흔들리는 이상",
+    "step4_common_cause_routing": "공통원인 이벤트",
     "operator_policy_proxy": "operator workflow",
 }
 
@@ -220,7 +220,18 @@ def load_inputs(root: Path) -> dict[str, object]:
     )
     ensure_columns(
         frames["abrupt6"],
-        ["site", "panel_id", "고장시점", "증상명_ko", "세부근거_ko", "source_field_ko", "비고_ko"],
+        [
+            "site",
+            "panel_id",
+            "고장시점",
+            "사건유형_ko",
+            "최종고장양상_ko",
+            "순수급작_flag",
+            "증상명_ko",
+            "세부근거_ko",
+            "source_field_ko",
+            "비고_ko",
+        ],
         ABRUPT6_SYMPTOM_MAP_NAME,
     )
     ensure_columns(
@@ -257,9 +268,15 @@ def load_inputs(root: Path) -> dict[str, object]:
         frames["panel_multiaxis_summary"],
         [
             "전체_패널수",
+            "고유_고장패널수",
+            "전조사건수",
+            "순수급작사건수",
+            "전조후급격종료_패널수",
             "커널로그_원인군_부착수",
-            "GPVS_참고유형_부착수",
+            "GPVS_적용대상_패널수",
+            "GPVS_부착수",
             "GPVS_미부착수",
+            "GPVS_비대상수",
             "note_ko",
         ],
         PANEL_MULTIAXIS_SUMMARY_NAME,
@@ -328,7 +345,6 @@ def validate_inputs(root: Path, frames: dict[str, object]) -> None:
         raise SystemExit(f"{FINAL_DO_DONT_NAME} missing project_current_data_limit row")
 
     final_pack_lookup = row_lookup(final_pack, "eval_scope")
-    handoff_lookup = row_lookup(handoff_summary, "eval_scope")
     freeze_lookup = row_lookup(freeze_pack, "eval_scope")
     release_gate_flag = numeric_int(release_gate.iloc[0]["final_release_gate_pass_flag"])
     pipeline_flag = numeric_int(pipeline.iloc[0]["final_pipeline_pass_flag"])
@@ -339,11 +355,6 @@ def validate_inputs(root: Path, frames: dict[str, object]) -> None:
         actual_final_usage = normalize_text(final_pack_lookup[scope]["final_usage_decision"])
         if actual_final_usage != expected_final_usage:
             raise SystemExit(f"final usage mismatch for {scope}: {actual_final_usage} != {expected_final_usage}")
-        expected_handoff = FINAL_USAGE_TO_HANDOFF.get(actual_final_usage, "")
-        actual_handoff = normalize_text(handoff_lookup[scope]["handoff_status_ko"])
-        if actual_handoff != expected_handoff:
-            raise SystemExit(f"handoff status mismatch for {scope}: {actual_handoff} != {expected_handoff}")
-
     operator_row = final_pack_lookup["operator_policy_proxy"]
     if normalize_text(operator_row["chosen_operational_workflow_name"]) != policy_name:
         raise SystemExit("operator workflow mismatch between final decision pack and policy recommendation")
@@ -401,7 +412,7 @@ def validate_inputs(root: Path, frames: dict[str, object]) -> None:
 
 def build_status_snapshot(root: Path, frames: dict[str, object]) -> pd.DataFrame:
     do_dont = frames["do_dont"]
-    handoff_summary = frames["handoff_summary"]
+    final_pack = frames["final_pack"]
     policy = frames["policy"]
     release_gate = frames["release_gate"]
     pipeline = frames["pipeline"]
@@ -414,18 +425,18 @@ def build_status_snapshot(root: Path, frames: dict[str, object]) -> pd.DataFrame
     pipeline_flag = numeric_int(pipeline.iloc[0]["final_pipeline_pass_flag"])
 
     current_limit_row = do_dont.loc[do_dont["scope_or_topic"].eq("project_current_data_limit")].iloc[0]
-    handoff_lookup = row_lookup(handoff_summary, "eval_scope")
+    final_pack_lookup = row_lookup(final_pack, "eval_scope")
     multiaxis_row = panel_multiaxis_summary.iloc[0]
 
     caution_scopes = [
         SCOPE_LABELS[scope]
         for scope in EXPECTED_SCOPES
-        if normalize_text(handoff_lookup[scope]["handoff_status_ko"]) == "주의해서 사용"
+        if normalize_text(final_pack_lookup[scope]["final_usage_decision"]) == "bounded_reporting_use"
     ]
     exploratory_scopes = [
         SCOPE_LABELS[scope]
         for scope in EXPECTED_SCOPES
-        if normalize_text(handoff_lookup[scope]["handoff_status_ko"]) == "탐색용으로만 유지"
+        if normalize_text(final_pack_lookup[scope]["final_usage_decision"]) == "exploratory_only"
     ]
 
     final_range_value = (
@@ -473,7 +484,7 @@ def build_status_snapshot(root: Path, frames: dict[str, object]) -> pd.DataFrame
             "항목": "최종_권장_사용_범위",
             "값": final_range_value,
             "설명_ko": (
-                "step1/step2 와 급작 고장은 bounded current-data 범위로, 전조형과 common-cause 는 exploratory 범위로, "
+                "step1/step2 는 bounded current-data 범위로, 전조형/순수 급작/공통원인은 current handoff summary 기준 exploratory 범위로, "
                 "operator workflow 는 운영 workflow 범위로 읽는다."
             ),
         },
@@ -484,7 +495,7 @@ def build_status_snapshot(root: Path, frames: dict[str, object]) -> pd.DataFrame
         },
         {
             "항목": "패널_3축통합판정_GPVS부착수",
-            "값": str(numeric_int(multiaxis_row["GPVS_참고유형_부착수"])),
+            "값": str(numeric_int(multiaxis_row["GPVS_부착수"])),
             "설명_ko": "panel-level 3축 대표판정표에서 GPVS reference type이 실제 붙은 panel 수다.",
         },
         {
@@ -514,8 +525,8 @@ def artifact_specs() -> list[dict[str, str]]:
             "산출물명": PANEL_MULTIAXIS_EVENT_SUPPLEMENT_NAME,
             "경로": f"_share/{PANEL_MULTIAXIS_EVENT_SUPPLEMENT_NAME}",
             "용도_ko": "한 패널의 복수 사건이력 보조표",
-            "지금_읽는_목적_ko": "전조형과 급작이 한 panel에 같이 걸린 경우 사건이력을 풀어서 확인",
-            "비고_ko": "대표판정에 접히는 multi-membership 보존용",
+            "지금_읽는_목적_ko": "전조형 고장(급격 종료)이나 고장유형 보류처럼 event type과 terminal pattern을 같이 확인",
+            "비고_ko": "대표판정 한 줄에 다 안 담기는 사건이력 보존용",
         },
         {
             "산출물명": PANEL_MULTIAXIS_CLUSTER_SUPPLEMENT_NAME,
@@ -583,9 +594,9 @@ def artifact_specs() -> list[dict[str, str]]:
         {
             "산출물명": ABRUPT6_SYMPTOM_MAP_NAME,
             "경로": f"_share/{ABRUPT6_SYMPTOM_MAP_NAME}",
-            "용도_ko": "급작 고장 6건의 증상명 매칭표",
-            "지금_읽는_목적_ko": "급작 positive universe의 증상명과 근거를 바로 확인",
-            "비고_ko": "현재 stored abrupt positive 6건 기준",
+            "용도_ko": "fault 6건의 증상명 + 사건유형/최종고장양상 매칭표",
+            "지금_읽는_목적_ko": "순수 급작 3건, 전조형 고장(급격 종료) 2건, 고장유형 보류 1건을 구분해서 확인",
+            "비고_ko": "6행을 유지하지만 pure abrupt count는 3으로 읽는다",
         },
         {
             "산출물명": KERNELLOG_PROJECT_MAPPING_NAME,
@@ -659,15 +670,22 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
     current_limit_row = do_dont.loc[do_dont["scope_or_topic"].eq("project_current_data_limit")].iloc[0]
     multiaxis_row = panel_multiaxis_summary.iloc[0]
     multiaxis_total = numeric_int(multiaxis_row["전체_패널수"])
-    multiaxis_gpvs_attached = numeric_int(multiaxis_row["GPVS_참고유형_부착수"])
+    multiaxis_gpvs_applicable = numeric_int(multiaxis_row["GPVS_적용대상_패널수"])
+    multiaxis_gpvs_attached = numeric_int(multiaxis_row["GPVS_부착수"])
     multiaxis_gpvs_unattached = numeric_int(multiaxis_row["GPVS_미부착수"])
+    multiaxis_gpvs_nontarget = numeric_int(multiaxis_row["GPVS_비대상수"])
+    precursor_event_count = numeric_int(multiaxis_row["전조사건수"])
+    pure_abrupt_count = numeric_int(multiaxis_row["순수급작사건수"])
+    abrupt_end_overlap_count = numeric_int(multiaxis_row["전조후급격종료_패널수"])
 
     return "\n".join(
         [
             "## 1. 지금 확정된 결론",
             f"- {normalize_text(current_limit_row['do_text_ko'])}",
             "- step1_taxonomy 와 step2_onset_truth 는 structural coverage/reference 범위로만 고정한다.",
-            "- 급작 고장은 bounded current-data 수준으로는 사용 가능하다.",
+            f"- 전조형 사건은 {precursor_event_count}건이고, 이 중 {abrupt_end_overlap_count}건은 전조형 고장이 급격 종료로 끝난 경우로 본다.",
+            "- c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 고장 패널이지만 pure abrupt typing 은 holdout 으로 둔다.",
+            f"- 순수 급작 사건은 현재 stored data 기준 {pure_abrupt_count}건이다.",
             f"- 패널별 대표판정표가 이제 완성돼서 `{PANEL_MULTIAXIS_VERDICT_NAME}` 한 장으로 panel {multiaxis_total}개의 대표상태를 볼 수 있다.",
             "",
             "## 2. 운영 기본값",
@@ -679,13 +697,17 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
             "## 3. 조심해서만 말해야 하는 것",
             "- step1_taxonomy 는 classifier 성능이 아니라 structural coverage 로만 말한다.",
             "- step2_onset_truth 는 classifier 성능이 아니라 structural reference 로만 말한다.",
-            "- 급작 고장은 `final_fault_hit_by_anchor` 기준 bounded current-data conclusion 으로만 말한다.",
-            f"- GPVS 는 {multiaxis_total}개 패널 중 {multiaxis_gpvs_attached}개만 부분 부착이고, 나머지 {multiaxis_gpvs_unattached}개는 미부착이다.",
+            "- event type 과 terminal failure pattern 을 같은 뜻으로 말하면 안 된다.",
+            "- precursor 가 있으면 그 사건은 급작 고장이 아니라 전조형 고장이고, abrupt 는 최종고장양상으로만 읽는다.",
+            "- c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 현재 재감사 family hint `open_or_device_issue_like` 를 유지하되 pure abrupt count에는 넣지 않는다.",
+            "- 순수 급작 고장은 `final_fault_hit_by_anchor` 기준 pure abrupt support 3건으로만 읽는다.",
+            f"- GPVS 는 fault-family reference axis라 고장 panel {multiaxis_gpvs_applicable}개에만 적용하고, 그중 {multiaxis_gpvs_attached}개에만 현재 직접 부착돼 있다.",
+            f"- 현재 direct GPVS 미부착 고장 panel 은 {multiaxis_gpvs_unattached}개이고, 비고장/미확정 panel {multiaxis_gpvs_nontarget}개는 GPVS 비대상이다.",
             "",
             "## 4. 아직 탐색적으로만 남겨야 하는 것",
             "- 전조형 성능은 표본이 작아 탐색적이다.",
-            "- common-cause/같이 흔들리는 이상은 아직 탐색적이다.",
-            "- 전조형 2건은 대표판정에서는 급작 고장으로 접힐 수 있으므로 사건이력 보조표를 함께 봐야 한다.",
+            "- 공통원인 이벤트는 아직 탐색적이다.",
+            "- 전조형 고장(급격 종료) 2건과 고장유형 보류 1건은 사건유형과 최종고장양상을 같이 봐야 하므로 사건이력 보조표를 함께 본다.",
             "- operator workflow 사용 가능 상태를 detector 일반 성능으로 과장하면 안 된다.",
             "",
             "## 5. 가장 먼저 볼 산출물",
@@ -696,7 +718,7 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
             "",
             "## 6. 프로젝트를 다시 열면 어디서 시작할지",
             f"- 먼저 `{STATUS_SNAPSHOT_OUTPUT_NAME}` 로 branch, HEAD, workflow, release/pipeline 상태를 확인한다.",
-            f"- 다음으로 `{PANEL_MULTIAXIS_VERDICT_NAME}` 와 `{PANEL_MULTIAXIS_EVENT_SUPPLEMENT_NAME}` 로 panel 대표판정과 복수 사건이력을 같이 본다.",
+            f"- 다음으로 `{PANEL_MULTIAXIS_VERDICT_NAME}` 와 `{PANEL_MULTIAXIS_EVENT_SUPPLEMENT_NAME}` 로 panel 대표판정과 사건유형/최종고장양상 보조정보를 같이 본다.",
             f"- 그 다음 `{FINAL_DECISION_PACK_NAME}` 과 `{HANDOFF_SUMMARY_NAME}` 로 scope별 사용 범위를 다시 잡는다.",
             f"- 이후 `{ABRUPT6_SYMPTOM_MAP_NAME}`, `{KERNELLOG_PROJECT_MAPPING_NAME}`, `{GPV7_PERF_SUMMARY_NAME}`, `{PROGRESS_SNAPSHOT_NAME}` 를 필요 순서대로 본다.",
             f"- 운영 재개가 필요하면 `{PIPELINE_MANIFEST_NAME}` 와 `{RELEASE_GATE_MANIFEST_NAME}` 를 확인하고 `{chosen_workflow}` 를 기준으로 이어간다.",
