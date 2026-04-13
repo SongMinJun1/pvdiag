@@ -40,6 +40,7 @@
   - 어떤 산출물이 어디 있고 왜 읽는지 정리한 index
 - `_share/panel_day_engine_project_status_snapshot_v1.csv`
   - branch, HEAD, chosen workflow, release/pipeline 상태, 현재 데이터 한계, 최종 권장 사용 범위를 한 줄씩 정리한 snapshot
+  - 이 snapshot 의 `현재_브랜치`, `현재_HEAD_커밋` 은 build 시점 live git subprocess 결과로 매번 다시 쓴다.
 
 ## Markdown 구성
 - closeout markdown 은 정확히 다음 섹션만 둔다.
@@ -106,7 +107,12 @@
   - `패널_3축통합판정_GPVS미부착수`
   - `패널_3축통합판정_커널로그원인군부착수`
 - git 정보는 subprocess git command 로 읽는다.
+- closeout markdown 도 방금 다시 만든 status snapshot 값을 읽어 현재 branch / HEAD context 를 그대로 적는다.
 - 위 4개 panel multiaxis 숫자는 `panel_day_engine_panel_multiaxis_verdict_summary_v1.csv` 에서 직접 읽는다.
+
+## handoff summary 연동 원칙
+- closeout builder 는 `_share/panel_day_engine_project_handoff_summary_v1.csv` 를 old wide eval-scope table 로 가정하지 않는다.
+- 현재 handoff summary 는 `항목 / 값 / 비고_ko` 형태의 compact row-style summary 이고, closeout 도 그 형식을 그대로 읽는다.
 
 ## 사용법
 - 내부 인수인계:
