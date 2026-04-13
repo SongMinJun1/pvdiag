@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 from pathlib import Path
 
 import pandas as pd
@@ -64,12 +65,6 @@ def read_csv(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, low_memory=False, encoding="utf-8-sig")
 
 
-def read_optional_csv(path: Path) -> pd.DataFrame | None:
-    if not path.exists():
-        return None
-    return pd.read_csv(path, low_memory=False, encoding="utf-8-sig")
-
-
 def ensure_columns(df: pd.DataFrame, required: list[str], name: str) -> None:
     missing = [col for col in required if col not in df.columns]
     if missing:
@@ -81,6 +76,19 @@ def numeric_int(value: object) -> int:
     return 0 if pd.isna(numeric) else int(numeric)
 
 
+def git_text(root: Path, args: list[str]) -> str:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return ""
+    return normalize_text(result.stdout)
+
+
 def load_inputs(root: Path) -> dict[str, pd.DataFrame | None]:
     share_dir = root / "_share"
     frames: dict[str, pd.DataFrame | None] = {
@@ -90,7 +98,7 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame | None]:
         "eval_reliability": read_csv(share_dir / EVAL_RELIABILITY_NAME),
         "precursor_truth": read_csv(share_dir / PRECURSOR_ONSET_TRUTH_NAME),
         "panel_multiaxis": read_csv(share_dir / PANEL_MULTIAXIS_VERDICT_NAME),
-        "status_snapshot": read_optional_csv(share_dir / STATUS_SNAPSHOT_NAME),
+        "status_snapshot": read_csv(share_dir / STATUS_SNAPSHOT_NAME),
         "policy": read_csv(share_dir / POLICY_RECOMMENDATION_NAME),
         "release_gate": read_csv(share_dir / RELEASE_GATE_MANIFEST_NAME),
         "pipeline": read_csv(share_dir / PIPELINE_MANIFEST_NAME),
@@ -175,12 +183,11 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame | None]:
         ],
         PANEL_MULTIAXIS_VERDICT_NAME,
     )
-    if frames["status_snapshot"] is not None:
-        ensure_columns(
-            frames["status_snapshot"],
-            ["항목", "값", "설명_ko"],
-            STATUS_SNAPSHOT_NAME,
-        )
+    ensure_columns(
+        frames["status_snapshot"],
+        ["항목", "값", "설명_ko"],
+        STATUS_SNAPSHOT_NAME,
+    )
     ensure_columns(
         frames["policy"],
         [
@@ -248,7 +255,7 @@ def unique_scope_reliability(df: pd.DataFrame, eval_scope: str) -> tuple[str, st
     return reliability_values[0], freeze_values[0]
 
 
-def collect_facts(frames: dict[str, pd.DataFrame | None]) -> dict[str, object]:
+def collect_facts(root: Path, frames: dict[str, pd.DataFrame | None]) -> dict[str, object]:
     final_pack = frames["final_pack"]
     freeze_pack = frames["freeze_pack"]
     eval_matrix = frames["eval_matrix"]
@@ -361,6 +368,21 @@ def collect_facts(frames: dict[str, pd.DataFrame | None]) -> dict[str, object]:
     c429_benchmark_onset = normalize_text(c429_panel_row["benchmark전조시작일"])
     c429_precursor_eval_flag = numeric_int(c429_panel_row["전조평가셋편입_flag"])
     c429_abrupt_eval_flag = numeric_int(c429_panel_row["급작평가셋편입_flag"])
+    live_branch = git_text(root, ["branch", "--show-current"])
+    live_head = git_text(root, ["rev-parse", "HEAD"])
+    if not live_branch or not live_head:
+        raise SystemExit("live git branch/head are unavailable for handoff metadata synchronization")
+
+    branch_match = status_snapshot.loc[status_snapshot["항목"].map(normalize_text).eq("현재_브랜치")].copy()
+    head_match = status_snapshot.loc[status_snapshot["항목"].map(normalize_text).eq("현재_HEAD_커밋")].copy()
+    if len(branch_match) != 1 or len(head_match) != 1:
+        raise SystemExit(f"{STATUS_SNAPSHOT_NAME} must contain exactly one 현재_브랜치 row and one 현재_HEAD_커밋 row")
+    current_branch = normalize_text(branch_match.iloc[0]["값"])
+    current_head = normalize_text(head_match.iloc[0]["값"])
+    if current_branch != live_branch:
+        raise SystemExit(f"{STATUS_SNAPSHOT_NAME} branch is stale: {current_branch or '<blank>'} != {live_branch}")
+    if current_head != live_head:
+        raise SystemExit(f"{STATUS_SNAPSHOT_NAME} head is stale: {current_head or '<blank>'} != {live_head}")
 
     for actual, expected, field_name in [
         (c429_operational_detection, C429_OPERATIONAL_DETECTION, "운영최초전조발견일"),
@@ -378,12 +400,6 @@ def collect_facts(frames: dict[str, pd.DataFrame | None]) -> dict[str, object]:
         raise SystemExit("c429 panel_multiaxis row must keep 전조평가셋편입_flag=1 after benchmark sync")
     if c429_abrupt_eval_flag != 0:
         raise SystemExit("c429 panel_multiaxis row must keep 급작평가셋편입_flag=0 after benchmark sync")
-
-    current_branch = ""
-    if status_snapshot is not None:
-        branch_match = status_snapshot.loc[status_snapshot["항목"].map(normalize_text).eq("현재_브랜치")].copy()
-        if len(branch_match) == 1:
-            current_branch = normalize_text(branch_match.iloc[0]["값"])
 
     return {
         "chosen_workflow": chosen_workflow,
@@ -414,6 +430,7 @@ def collect_facts(frames: dict[str, pd.DataFrame | None]) -> dict[str, object]:
         "c429_precursor_eval_flag": c429_precursor_eval_flag,
         "c429_abrupt_eval_flag": c429_abrupt_eval_flag,
         "current_branch": current_branch,
+        "current_head": current_head,
     }
 
 
@@ -472,9 +489,10 @@ def build_markdown(facts: dict[str, object]) -> str:
         "- `panel_day_engine_project_final_decision_pack_v1.csv`",
         "- `panel_day_engine_operator_attention_policy_recommendation_v1.csv`",
     ]
-    if facts["current_branch"]:
-        lines.append("")
-        lines.append(f"현재 status snapshot 기준 branch 는 `{facts['current_branch']}` 다.")
+    lines.append("")
+    lines.append(
+        f"현재 status snapshot 기준 git context 는 branch=`{facts['current_branch']}`, HEAD=`{facts['current_head']}` 다."
+    )
     lines.append("")
     return "\n".join(lines)
 
@@ -486,7 +504,7 @@ def main() -> None:
     share_dir.mkdir(parents=True, exist_ok=True)
 
     frames = load_inputs(root)
-    facts = collect_facts(frames)
+    facts = collect_facts(root, frames)
     summary_df = build_handoff_summary(facts)
     markdown_text = build_markdown(facts)
 

@@ -35,6 +35,18 @@ STATUS_SNAPSHOT_OUTPUT_NAME = "panel_day_engine_project_status_snapshot_v1.csv"
 
 STATUS_SNAPSHOT_COLS = ["항목", "값", "설명_ko"]
 ARTIFACT_INDEX_COLS = ["산출물명", "경로", "용도_ko", "지금_읽는_목적_ko", "비고_ko"]
+HANDOFF_SUMMARY_REQUIRED_ITEMS = {
+    "사건해석_전조형_패널수",
+    "precursor_benchmark_support",
+    "순수급작_benchmark_support",
+    "common_cause_support",
+    "GPVS_적용대상_패널수",
+    "GPVS_부착수",
+    "GPVS_비대상_패널수",
+    "chosen_workflow",
+    "release_gate",
+    "pipeline_pass",
+}
 
 EXPECTED_SCOPES = [
     "step1_taxonomy",
@@ -192,14 +204,9 @@ def load_inputs(root: Path) -> dict[str, object]:
     ensure_columns(
         frames["handoff_summary"],
         [
-            "eval_scope",
-            "current_data_decision",
-            "final_usage_decision",
-            "allowed_claim_strength",
-            "chosen_operational_workflow_name",
-            "release_gate_pass_flag",
-            "pipeline_pass_flag",
-            "handoff_status_ko",
+            "항목",
+            "값",
+            "비고_ko",
         ],
         HANDOFF_SUMMARY_NAME,
     )
@@ -350,16 +357,19 @@ def validate_inputs(root: Path, frames: dict[str, object]) -> None:
     panel_multiaxis_cluster_supplement_path = frames["panel_multiaxis_cluster_supplement_path"]
 
     final_scopes = set(final_pack["eval_scope"])
-    handoff_scopes = set(handoff_summary["eval_scope"])
     freeze_scopes = set(freeze_pack["eval_scope"])
     for name, scope_set in [
         (FINAL_DECISION_PACK_NAME, final_scopes),
-        (HANDOFF_SUMMARY_NAME, handoff_scopes),
         (CURRENT_FREEZE_PACK_NAME, freeze_scopes),
     ]:
         missing = [scope for scope in EXPECTED_SCOPES if scope not in scope_set]
         if missing:
             raise SystemExit(f"{name} missing eval_scope rows: {missing}")
+
+    handoff_items = set(handoff_summary["항목"])
+    missing_handoff_items = sorted(HANDOFF_SUMMARY_REQUIRED_ITEMS - handoff_items)
+    if missing_handoff_items:
+        raise SystemExit(f"{HANDOFF_SUMMARY_NAME} missing metric rows: {missing_handoff_items}")
 
     policy_name = normalize_text(policy.iloc[0]["recommended_policy_name"])
     if policy_name != EXPECTED_WORKFLOW_NAME:
@@ -372,8 +382,16 @@ def validate_inputs(root: Path, frames: dict[str, object]) -> None:
 
     final_pack_lookup = row_lookup(final_pack, "eval_scope")
     freeze_lookup = row_lookup(freeze_pack, "eval_scope")
+    handoff_lookup = row_lookup(handoff_summary, "항목")
     release_gate_flag = numeric_int(release_gate.iloc[0]["final_release_gate_pass_flag"])
     pipeline_flag = numeric_int(pipeline.iloc[0]["final_pipeline_pass_flag"])
+
+    if normalize_text(handoff_lookup["chosen_workflow"]["값"]) != policy_name:
+        raise SystemExit("handoff chosen_workflow must match policy recommendation")
+    if numeric_int(handoff_lookup["release_gate"]["값"]) != release_gate_flag:
+        raise SystemExit("handoff release_gate must match release gate manifest")
+    if numeric_int(handoff_lookup["pipeline_pass"]["값"]) != pipeline_flag:
+        raise SystemExit("handoff pipeline_pass must match pipeline manifest")
 
     for scope in EXPECTED_SCOPES:
         freeze_decision = normalize_text(freeze_lookup[scope]["current_data_decision"])
@@ -601,9 +619,9 @@ def artifact_specs() -> list[dict[str, str]]:
         {
             "산출물명": HANDOFF_SUMMARY_NAME,
             "경로": f"_share/{HANDOFF_SUMMARY_NAME}",
-            "용도_ko": "eval_scope별 handoff 상태값을 요약한 표",
-            "지금_읽는_목적_ko": "주의해서 사용 / 탐색용 / 운영 workflow 용 상태를 scope별로 확인",
-            "비고_ko": "final usage decision을 한국어 상태로 변환",
+            "용도_ko": "handoff 핵심 지표를 세로형 row로 정리한 compact 요약표",
+            "지금_읽는_목적_ko": "전조/급작/support/GPVS/workflow/release/pipeline 값을 한 번에 확인",
+            "비고_ko": "old wide eval-scope table이 아니라 compact row summary",
         },
         {
             "산출물명": CURRENT_FREEZE_PACK_NAME,
@@ -680,7 +698,7 @@ def build_artifact_index(root: Path) -> pd.DataFrame:
     return pd.DataFrame(rows).reindex(columns=ARTIFACT_INDEX_COLS)
 
 
-def build_closeout_markdown(frames: dict[str, object]) -> str:
+def build_closeout_markdown(frames: dict[str, object], status_snapshot_df: pd.DataFrame) -> str:
     final_pack = frames["final_pack"]
     do_dont = frames["do_dont"]
     policy = frames["policy"]
@@ -689,6 +707,7 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
     panel_multiaxis_verdict = frames["panel_multiaxis_verdict"]
     panel_multiaxis_summary = frames["panel_multiaxis_summary"]
     fault_event_audit_summary = frames["fault_event_audit_summary"]
+    status_snapshot_lookup = row_lookup(status_snapshot_df, "항목")
 
     pack_lookup = row_lookup(final_pack, "eval_scope")
     chosen_workflow = normalize_text(policy.iloc[0]["recommended_policy_name"])
@@ -722,8 +741,12 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
     c429_interpretive_onset = normalize_text(c429_row["사건해석상전조시작일"])
     c429_benchmark_onset = normalize_text(c429_row["benchmark전조시작일"])
     c429_operational_marker = normalize_text(c429_row["운영최초전조마커"])
+    current_branch = normalize_text(status_snapshot_lookup["현재_브랜치"]["값"])
+    current_head = normalize_text(status_snapshot_lookup["현재_HEAD_커밋"]["값"])
     if not (c429_operational_detection and c429_interpretive_onset and c429_benchmark_onset):
         raise SystemExit("closeout c42997 row must expose operational/interpretive/benchmark onset dates")
+    if not current_branch or not current_head:
+        raise SystemExit("closeout status snapshot must expose non-empty current branch/head values")
     if interpreted_precursor_count != numeric_int(fault_audit_row["사건유형_재판정_전조형수"]):
         raise SystemExit("closeout precursor interpretation count mismatch between multiaxis summary and fault audit summary")
     if precursor_benchmark_support != interpreted_precursor_count:
@@ -781,6 +804,7 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
             "",
             "## 6. 프로젝트를 다시 열면 어디서 시작할지",
             f"- 먼저 `{STATUS_SNAPSHOT_OUTPUT_NAME}` 로 branch, HEAD, workflow, release/pipeline 상태를 확인한다.",
+            f"- 현재 closeout snapshot 기준 git context 는 branch=`{current_branch}`, HEAD=`{current_head}` 다.",
             f"- 다음으로 `{PANEL_MULTIAXIS_VERDICT_NAME}` 와 `{PANEL_MULTIAXIS_EVENT_SUPPLEMENT_NAME}` 로 panel 대표판정과 사건유형/최종고장양상 보조정보를 같이 본다.",
             f"- 그 다음 `{FINAL_DECISION_PACK_NAME}` 과 `{HANDOFF_SUMMARY_NAME}` 로 scope별 사용 범위를 다시 잡는다.",
             f"- 이후 `{ABRUPT6_SYMPTOM_MAP_NAME}`, `{KERNELLOG_PROJECT_MAPPING_NAME}`, `{GPV7_PERF_SUMMARY_NAME}`, `{PROGRESS_SNAPSHOT_NAME}` 를 필요 순서대로 본다.",
@@ -805,7 +829,7 @@ def main() -> None:
     validate_inputs(root, frames)
     status_snapshot_df = build_status_snapshot(root, frames)
     artifact_index_df = build_artifact_index(root)
-    markdown = build_closeout_markdown(frames)
+    markdown = build_closeout_markdown(frames, status_snapshot_df)
     write_outputs(root, status_snapshot_df, artifact_index_df, markdown)
 
 

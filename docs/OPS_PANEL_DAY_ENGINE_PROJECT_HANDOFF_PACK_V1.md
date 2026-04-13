@@ -28,7 +28,7 @@
 - `panel_day_engine_project_eval_reliability_v1.csv`
 - `panel_day_engine_precursor_onset_truth_v1.csv`
 - `panel_day_engine_panel_multiaxis_verdict_v1.csv`
-- `panel_day_engine_project_status_snapshot_v1.csv` if present
+- `panel_day_engine_project_status_snapshot_v1.csv`
 - `panel_day_engine_operator_attention_policy_recommendation_v1.csv`
 - `panel_day_engine_operator_release_gate_manifest_v1.csv`
 - `panel_day_engine_operator_pipeline_manifest_v1.csv`
@@ -42,6 +42,7 @@
 - 이 네 개를 한 문장으로 뭉개면 c429 같은 panel 이 다시 모순적으로 읽히므로, handoff markdown 이 직접 분리해서 적는다.
 - benchmark reporting 은 reset 이후 benchmark truth 를 기준으로 읽는다.
 - panel row 의 evaluation-set inclusion flag 는 benchmark support 숫자와 자동 동치가 아니다.
+- handoff metadata 의 branch / HEAD 는 stale text 를 재사용하지 않고, closeout 단계에서 live git 으로 다시 만든 status snapshot 과 현재 git 상태가 일치할 때만 반영한다.
 
 ## 출력
 - `_share/panel_day_engine_project_handoff_pack_v1.md`
@@ -53,6 +54,7 @@
     - `5. 가장 먼저 볼 파일`
 - `_share/panel_day_engine_project_handoff_summary_v1.csv`
   - 세로형 metric row 로 적는다.
+  - old wide eval-scope schema 로 되돌리지 않는다.
   - 최소 포함 항목:
     - 사건해석_전조형_패널수
     - precursor_benchmark_support
@@ -81,6 +83,7 @@
   - 운영 최초 전조 발견 = 2025-02-20
   - 사건 해석 onset = 2025-01-20
   - benchmark onset = 2025-03-18
+- markdown 마지막 git context 문장은 refreshed status snapshot 의 branch / HEAD 를 그대로 반영해야 한다.
 
 ## 검증 포인트
 - markdown 에 3-way onset split 문구가 직접 들어가야 한다.

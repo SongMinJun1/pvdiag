@@ -515,18 +515,6 @@ def build_fixture(root: Path) -> None:
     )
 
     write_csv(
-        share / "panel_day_engine_project_status_snapshot_v1.csv",
-        [
-            {
-                "항목": "현재_브랜치",
-                "값": "feature/benchmark-reset-v2",
-                "설명_ko": "현재 branch",
-            }
-        ],
-        ["항목", "값", "설명_ko"],
-    )
-
-    write_csv(
         share / "panel_day_engine_operator_attention_policy_recommendation_v1.csv",
         [
             {
@@ -567,6 +555,31 @@ def build_fixture(root: Path) -> None:
     )
 
 
+def initialize_git_repo(root: Path) -> None:
+    assert_true(run(["git", "init", "-b", "feature/test-handoff"], root).returncode == 0, "git init failed")
+    assert_true(run(["git", "config", "user.email", "codex@example.com"], root).returncode == 0, "git email failed")
+    assert_true(run(["git", "config", "user.name", "Codex"], root).returncode == 0, "git name failed")
+    (root / "README.md").write_text("fixture\n", encoding="utf-8")
+    assert_true(run(["git", "add", "README.md"], root).returncode == 0, "git add failed")
+    assert_true(run(["git", "commit", "-m", "fixture"], root).returncode == 0, "git commit failed")
+
+
+def write_live_status_snapshot(root: Path) -> tuple[str, str]:
+    branch = run(["git", "branch", "--show-current"], root).stdout.strip()
+    head = run(["git", "rev-parse", "HEAD"], root).stdout.strip()
+    assert_true(bool(branch), "live branch must be non-empty")
+    assert_true(bool(head), "live head must be non-empty")
+    write_csv(
+        root / "_share/panel_day_engine_project_status_snapshot_v1.csv",
+        [
+            {"항목": "현재_브랜치", "값": branch, "설명_ko": "live git branch"},
+            {"항목": "현재_HEAD_커밋", "값": head, "설명_ko": "live git HEAD"},
+        ],
+        ["항목", "값", "설명_ko"],
+    )
+    return branch, head
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     builder_path = repo_root / "research/prognostics/build_panel_day_engine_project_handoff_pack_v1.py"
@@ -585,9 +598,13 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="project_handoff_pack_") as tmp_dir:
         tmp_root = Path(tmp_dir)
         build_fixture(tmp_root)
+        initialize_git_repo(tmp_root)
+        live_branch, live_head = write_live_status_snapshot(tmp_root)
 
         result = run([sys.executable, str(builder_path), "--root", str(tmp_root)], cwd=repo_root)
         assert_true(result.returncode == 0, f"builder failed: {result.stderr or result.stdout}")
+        assert_true("missing columns" not in (result.stderr or ""), "builder stderr still mentions missing columns")
+        assert_true("missing columns" not in (result.stdout or ""), "builder stdout still mentions missing columns")
 
         summary_df = pd.read_csv(
             tmp_root / "_share/panel_day_engine_project_handoff_summary_v1.csv",
@@ -595,6 +612,19 @@ def main() -> None:
             encoding="utf-8-sig",
         )
         markdown_text = (tmp_root / "_share/panel_day_engine_project_handoff_pack_v1.md").read_text(encoding="utf-8")
+
+        assert_true(list(summary_df.columns) == ["항목", "값", "비고_ko"], "handoff summary must keep compact row-style columns")
+        for forbidden_column in [
+            "eval_scope",
+            "current_data_decision",
+            "final_usage_decision",
+            "allowed_claim_strength",
+            "chosen_operational_workflow_name",
+            "release_gate_pass_flag",
+            "pipeline_pass_flag",
+            "handoff_status_ko",
+        ]:
+            assert_true(forbidden_column not in summary_df.columns, f"obsolete wide-column leaked into summary: {forbidden_column}")
 
         summary_lookup = {
             str(row["항목"]): str(row["값"])
@@ -638,6 +668,7 @@ def main() -> None:
             "c429 panel row의 평가셋 편입 flag 는 전조=`1`, 급작=`0` 로 분리돼 있다.",
             "handoff benchmark 보고에서는 c429를 precursor benchmark 포함, pure abrupt benchmark 제외로 읽는다.",
             "step3 precursor 와 step4 pure abrupt 는 둘 다 `underpowered` / `exploratory_only` 수준으로 유지한다.",
+            f"현재 status snapshot 기준 git context 는 branch=`{live_branch}`, HEAD=`{live_head}` 다.",
         ]
         for snippet in required_snippets:
             assert_true(snippet in markdown_text, f"missing markdown snippet: {snippet}")

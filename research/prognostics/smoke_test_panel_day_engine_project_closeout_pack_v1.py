@@ -229,76 +229,41 @@ def build_fixture(root: Path) -> None:
         share / "panel_day_engine_project_handoff_summary_v1.csv",
         [
             {
-                "eval_scope": "step1_taxonomy",
-                "current_data_decision": "freeze_with_caution",
-                "final_usage_decision": "bounded_reporting_use",
-                "allowed_claim_strength": "bounded_current_data_claim",
-                "chosen_operational_workflow_name": "",
-                "release_gate_pass_flag": 1,
-                "pipeline_pass_flag": 1,
-                "handoff_status_ko": "주의해서 사용",
+                "항목": "사건해석_전조형_패널수",
+                "값": 3,
+                "비고_ko": "panel_multiaxis 사건 해석 기준",
             },
             {
-                "eval_scope": "step2_onset_truth",
-                "current_data_decision": "freeze_with_caution",
-                "final_usage_decision": "bounded_reporting_use",
-                "allowed_claim_strength": "bounded_current_data_claim",
-                "chosen_operational_workflow_name": "",
-                "release_gate_pass_flag": 1,
-                "pipeline_pass_flag": 1,
-                "handoff_status_ko": "주의해서 사용",
+                "항목": "precursor_benchmark_support",
+                "값": 3,
+                "비고_ko": "reset benchmark onset truth 기준",
             },
             {
-                "eval_scope": "step3_precursor_performance",
-                "current_data_decision": "exploratory_only",
-                "final_usage_decision": "exploratory_only",
-                "allowed_claim_strength": "exploratory_claim_only",
-                "chosen_operational_workflow_name": "",
-                "release_gate_pass_flag": 1,
-                "pipeline_pass_flag": 1,
-                "handoff_status_ko": "탐색용으로만 유지",
+                "항목": "순수급작_benchmark_support",
+                "값": 3,
+                "비고_ko": "step4 pure abrupt eval matrix 기준",
             },
             {
-                "eval_scope": "step4_abrupt_no_precursor",
-                "current_data_decision": "exploratory_only",
-                "final_usage_decision": "exploratory_only",
-                "allowed_claim_strength": "exploratory_claim_only",
-                "chosen_operational_workflow_name": "",
-                "release_gate_pass_flag": 1,
-                "pipeline_pass_flag": 1,
-                "handoff_status_ko": "탐색용으로만 유지",
+                "항목": "common_cause_support",
+                "값": 4,
+                "비고_ko": "step4 common-cause eval matrix 기준",
             },
             {
-                "eval_scope": "step4_common_cause_routing",
-                "current_data_decision": "exploratory_only",
-                "final_usage_decision": "exploratory_only",
-                "allowed_claim_strength": "exploratory_claim_only",
-                "chosen_operational_workflow_name": "",
-                "release_gate_pass_flag": 1,
-                "pipeline_pass_flag": 1,
-                "handoff_status_ko": "탐색용으로만 유지",
+                "항목": "GPVS_적용대상_패널수",
+                "값": 6,
+                "비고_ko": "panel_multiaxis fault panel 기준",
             },
             {
-                "eval_scope": "operator_policy_proxy",
-                "current_data_decision": "workflow_proxy_only",
-                "final_usage_decision": "workflow_only",
-                "allowed_claim_strength": "workflow_claim_only",
-                "chosen_operational_workflow_name": "baseline_plus_discovery_cluster",
-                "release_gate_pass_flag": 1,
-                "pipeline_pass_flag": 1,
-                "handoff_status_ko": "운영 workflow 용",
+                "항목": "GPVS_부착수",
+                "값": 6,
+                "비고_ko": "panel_multiaxis direct attach 기준",
             },
+            {"항목": "GPVS_비대상_패널수", "값": 19, "비고_ko": "비고장/미확정 panel 기준"},
+            {"항목": "chosen_workflow", "값": "baseline_plus_discovery_cluster", "비고_ko": "operator attention policy recommendation 기준"},
+            {"항목": "release_gate", "값": 1, "비고_ko": "release gate manifest 기준"},
+            {"항목": "pipeline_pass", "값": 1, "비고_ko": "pipeline manifest 기준"},
         ],
-        [
-            "eval_scope",
-            "current_data_decision",
-            "final_usage_decision",
-            "allowed_claim_strength",
-            "chosen_operational_workflow_name",
-            "release_gate_pass_flag",
-            "pipeline_pass_flag",
-            "handoff_status_ko",
-        ],
+        ["항목", "값", "비고_ko"],
     )
 
     write_csv(
@@ -755,6 +720,12 @@ def main() -> None:
 
         result = run([sys.executable, str(build_script), "--root", str(root)], repo_root)
         assert_true(result.returncode == 0, f"builder failed: {result.stderr or result.stdout}")
+        assert_true("missing columns" not in (result.stderr or ""), "builder stderr still mentions missing columns")
+        assert_true("missing columns" not in (result.stdout or ""), "builder stdout still mentions missing columns")
+        live_branch = run(["git", "branch", "--show-current"], root).stdout.strip()
+        live_head = run(["git", "rev-parse", "HEAD"], root).stdout.strip()
+        assert_true(bool(live_branch), "live git branch must be non-empty in smoke repo")
+        assert_true(bool(live_head), "live git head must be non-empty in smoke repo")
 
         closeout_md = root / "_share/panel_day_engine_project_closeout_pack_v1.md"
         artifact_index_csv = root / "_share/panel_day_engine_project_artifact_index_v1.csv"
@@ -795,6 +766,10 @@ def main() -> None:
         assert_true("순수 급작 사건은 현재 stored data 기준 3건" in markdown, "markdown missing pure abrupt count note")
         assert_true("benchmark reset 이후 전조형 benchmark support 는 3건이고, 순수 급작 benchmark support 는 3건이다." in markdown, "markdown missing benchmark reset support note")
         assert_true("사건 해석상 전조형 고장 패널은 3건" in markdown, "markdown missing interpreted precursor count note")
+        assert_true(
+            f"현재 closeout snapshot 기준 git context 는 branch=`{live_branch}`, HEAD=`{live_head}` 다." in markdown,
+            "markdown missing live git context line",
+        )
         top_read_lines = [
             "- `panel_day_engine_panel_multiaxis_verdict_v1.csv`: panel reader-facing 대표판정을 가장 먼저 본다.",
             "- `panel_day_engine_project_final_decision_pack_v1.csv`: scope별 최종 usage decision 을 바로 이어서 확인한다.",
@@ -844,7 +819,11 @@ def main() -> None:
         }
         assert_true(required_status_items.issubset(set(status_snapshot_df["항목"])), "status snapshot missing rows")
         branch_value = status_snapshot_df.loc[status_snapshot_df["항목"].eq("현재_브랜치"), "값"].iloc[0]
-        assert_true(branch_value == "feature/test-closeout", "unexpected branch value in status snapshot")
+        head_value = status_snapshot_df.loc[status_snapshot_df["항목"].eq("현재_HEAD_커밋"), "값"].iloc[0]
+        assert_true(bool(str(branch_value).strip()), "status snapshot branch must be non-empty")
+        assert_true(bool(str(head_value).strip()), "status snapshot head must be non-empty")
+        assert_true(branch_value == live_branch, "unexpected branch value in status snapshot")
+        assert_true(head_value == live_head, "unexpected head value in status snapshot")
         assert_true(
             status_snapshot_df.loc[status_snapshot_df["항목"].eq("패널_3축통합판정_행수"), "값"].iloc[0] == "25",
             "panel multiaxis total count mismatch",
