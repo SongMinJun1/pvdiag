@@ -103,9 +103,9 @@ def build_fixture(root: Path) -> None:
             "eval_scope": "step3_precursor_performance",
             "target_name": "first_signalcount2",
             "metric_kind": "true_case_metric",
-            "positive_support": 2,
+            "positive_support": 3,
             "negative_support": 10,
-            "predicted_positive_support": 2,
+            "predicted_positive_support": 3,
             "recall": 1.0,
             "precision": 1.0,
             "f1": 1.0,
@@ -121,12 +121,12 @@ def build_fixture(root: Path) -> None:
             "eval_scope": "step3_precursor_performance",
             "target_name": "first_pre_alarm",
             "metric_kind": "true_case_metric",
-            "positive_support": 2,
+            "positive_support": 3,
             "negative_support": 10,
             "predicted_positive_support": 3,
-            "recall": 0.5,
+            "recall": 0.3333333333,
             "precision": 0.33,
-            "f1": 0.4,
+            "f1": 0.3333333333,
             "recall_ci_low": 0.09,
             "recall_ci_high": 0.9,
             "precision_ci_low": 0.06,
@@ -135,10 +135,10 @@ def build_fixture(root: Path) -> None:
             "freeze_recommendation": "do_not_freeze",
             "reliability_reason_ko": "underpowered precursor",
         },
-        {
-            "eval_scope": "step4_abrupt_no_precursor",
-            "target_name": "final_fault_hit_by_anchor",
-            "metric_kind": "true_case_metric",
+            {
+                "eval_scope": "step4_abrupt_no_precursor",
+                "target_name": "final_fault_hit_by_anchor",
+                "metric_kind": "true_case_metric",
             "positive_support": 3,
             "negative_support": 6,
             "predicted_positive_support": 4,
@@ -147,12 +147,12 @@ def build_fixture(root: Path) -> None:
             "f1": 0.83,
             "recall_ci_low": 0.30,
             "recall_ci_high": 0.95,
-            "precision_ci_low": 0.30,
-            "precision_ci_high": 0.95,
-            "reliability_class": "underpowered",
-            "freeze_recommendation": "do_not_freeze",
-            "reliability_reason_ko": "interpretation precursor 3 / strict precursor eval 2 / pure abrupt eval 3",
-        },
+                "precision_ci_low": 0.30,
+                "precision_ci_high": 0.95,
+                "reliability_class": "underpowered",
+                "freeze_recommendation": "do_not_freeze",
+                "reliability_reason_ko": "benchmark reset pure abrupt support 3",
+            },
         {
             "eval_scope": "step4_common_cause_routing",
             "target_name": "breadth_marker_only",
@@ -290,7 +290,7 @@ def build_fixture(root: Path) -> None:
                 "recommended_positive_support": "",
                 "recommended_reliability_class": "",
                 "recommended_freeze_recommendation": "do_not_freeze",
-                "rationale_ko": "interpretation precursor 3 / strict precursor eval 2 / pure abrupt eval 3",
+                "rationale_ko": "pure abrupt benchmark support remains 3",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -358,9 +358,9 @@ def build_fixture(root: Path) -> None:
                 "eval_scope": "step3_precursor_performance",
                 "collection_unit": "fault_case",
                 "expansion_action_class": "collect_new_precursor_truth_cases",
-                "current_positive_support_unique": 2,
-                "additional_units_needed_for_5": 3,
-                "additional_units_needed_for_10": 8,
+                "current_positive_support_unique": 3,
+                "additional_units_needed_for_5": 2,
+                "additional_units_needed_for_10": 7,
                 "requires_new_truth_or_data_flag": 1,
                 "suggested_collection_source_ko": "새 precursor fault_case truth 수집",
                 "priority_rank": 1,
@@ -378,7 +378,7 @@ def build_fixture(root: Path) -> None:
                 "suggested_collection_source_ko": "새 abrupt panel_case truth 수집",
                 "priority_rank": 3,
                 "freeze_status_ko": "do_not_freeze",
-                "backlog_reason_ko": "pure abrupt gap remains while interpretation precursor 3 / strict precursor eval 2 / pure abrupt eval 3 stay intentionally different",
+                "backlog_reason_ko": "pure abrupt gap remains after benchmark reset support 3",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -428,8 +428,8 @@ def build_fixture(root: Path) -> None:
             {
                 "expansion_action_class": "collect_new_precursor_truth_cases",
                 "target_count": 6,
-                "total_additional_positive_needed_for_5": 18,
-                "total_additional_positive_needed_for_10": 48,
+                "total_additional_positive_needed_for_5": 12,
+                "total_additional_positive_needed_for_10": 42,
                 "requires_new_truth_or_data_count": 6,
                 "highest_priority_rank": 1,
                 "note_ko": "precursor-bearing scope needs new fault_case truth",
@@ -450,7 +450,7 @@ def build_fixture(root: Path) -> None:
                 "total_additional_positive_needed_for_10": 31,
                 "requires_new_truth_or_data_count": 5,
                 "highest_priority_rank": 3,
-                "note_ko": "pure abrupt scope needs more panel_case truth while interpretation precursor 3 / strict precursor eval 2 / pure abrupt eval 3 stay intentionally different",
+                "note_ko": "pure abrupt scope needs more panel_case truth after benchmark reset support 3",
             },
             {
                 "expansion_action_class": "workflow_validation_not_truth",
@@ -520,9 +520,9 @@ def build_fixture(root: Path) -> None:
             {
                 "사건유형_재판정_전조형수": 3,
                 "사건유형_재판정_급작수": 3,
-                "전조평가셋편입_패널수": 2,
+                "전조평가셋편입_패널수": 3,
                 "급작평가셋편입_패널수": 3,
-                "해석과평가셋불일치_패널수": 1,
+                "해석과평가셋불일치_패널수": 0,
             }
         ],
         [
@@ -577,6 +577,7 @@ def main() -> None:
         step3_row = pack.loc[pack["eval_scope"].eq("step3_precursor_performance")].iloc[0]
         assert_true(step3_row["current_best_target_name"] == "first_signalcount2", "step3 best target fallback failed")
         assert_true(step3_row["current_data_decision"] == "exploratory_only", "step3 decision mapping failed")
+        assert_true(float(step3_row["current_best_positive_support"]) == 3.0, "step3 benchmark reset support should be 3")
         assert_true(step3_row["allowed_claim_strength"] == "exploratory_claim_only", "step3 claim strength failed")
         assert_true(step3_row["next_allowed_action"] == "do_not_upgrade_without_new_truth", "step3 next action failed")
         assert_true(int(step3_row["acquisition_blocked_flag"]) == 1, "step3 acquisition blocked flag failed")
@@ -588,11 +589,9 @@ def main() -> None:
         assert_true(abrupt_row["next_allowed_action"] == "do_not_upgrade_without_new_truth", "abrupt next action failed")
         assert_true(int(abrupt_row["acquisition_blocked_flag"]) == 1, "abrupt acquisition blocked flag failed")
         assert_true(
-            "사건 해석상 전조형 고장 패널은 3개" in abrupt_row["freeze_reason_ko"]
-            and "엄격 전조 평가셋 편입은 2개" in abrupt_row["freeze_reason_ko"]
-            and "순수 급작 평가셋 편입은 3개" in abrupt_row["freeze_reason_ko"]
+            "순수 급작 benchmark support는 3건" in abrupt_row["freeze_reason_ko"]
             and "c42997" in abrupt_row["freeze_reason_ko"],
-            "abrupt freeze reason should mention the 3/2/3 interpretation-vs-eval split",
+            "abrupt freeze reason should mention benchmark-reset support and c429 handling",
         )
 
         common_row = pack.loc[pack["eval_scope"].eq("step4_common_cause_routing")].iloc[0]
@@ -632,14 +631,14 @@ def main() -> None:
         assert_true(len(claims) == 6, "expected one claim row per scope")
         step3_claim = claims.loc[claims["claim_scope"].eq("step3_precursor_performance")].iloc[0]
         assert_true("underpowered" in step3_claim["claim_text_ko"], "step3 claim text missing underpowered")
+        assert_true("positive support는 3건" in step3_claim["claim_text_ko"], "step3 claim should mention precursor benchmark support 3")
         step4_claim = claims.loc[claims["claim_scope"].eq("step4_abrupt_no_precursor")].iloc[0]
         assert_true("positive support=3" in step4_claim["claim_text_ko"], "step4 claim should mention corrected pure abrupt support")
         assert_true(
-            "사건 해석상 전조형 고장 패널은 3개" in step4_claim["claim_text_ko"]
-            and "엄격 전조 평가셋 편입은 2개" in step4_claim["claim_text_ko"]
-            and "순수 급작 평가셋 편입은 3개" in step4_claim["claim_text_ko"]
+            "precursor benchmark 3건" in step4_claim["claim_text_ko"]
+            and "순수 급작 benchmark 3건" in step4_claim["claim_text_ko"]
             and "c42997" in step4_claim["claim_text_ko"],
-            "step4 claim should mention the 3/2/3 interpretation-vs-eval split",
+            "step4 claim should mention benchmark-reset split and c429 handling",
         )
         step1_claim = claims.loc[claims["claim_scope"].eq("step1_taxonomy")].iloc[0]
         assert_true("best target" not in step1_claim["claim_text_ko"], "step1 claim should avoid classifier-style best target wording")

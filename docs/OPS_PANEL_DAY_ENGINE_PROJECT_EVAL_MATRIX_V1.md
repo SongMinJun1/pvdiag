@@ -14,7 +14,7 @@ step 2 onset truth도 마찬가지로 marker coverage와 lead availability를 �
 
 step 3은 precursor-bearing detectable-now case를 positive로, abrupt/common-cause case의 pre-anchor window를 negative로 두고 marker hit 여부를 비교합니다. 이 row들은 실제 positive/negative case 구분을 포함하므로 true case-level precision/recall/F1가 의미 있습니다.
 
-step 4A는 pure abrupt/no-precursor case에서 hard fault marker hit가 얼마나 잘 잡히는지 보고, precursor/common-cause case를 negative로 둡니다. 여기서 중요한 점은 사건 해석, 최종고장양상, 평가셋 편입이 같은 뜻이 아니라는 것입니다. current authoritative fault-panel event audit 기준 사건 해석상 전조형 고장 패널은 3개지만, 엄격 전조 평가셋 편입은 2개입니다. 반대로 순수 급작 평가셋 편입은 3개입니다. `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 사건 해석상 `전조형 고장 / 급격 종료` 이지만 엄격 전조 평가셋과 순수 급작 평가셋 둘 다에 넣지 않습니다. 그래서 step 4A positive support 는 pure abrupt evaluation set 3건으로만 계산합니다. step 4B는 non-panel/common-cause routing marker가 다른 bucket과 얼마나 구분되는지 보는 row입니다. 둘 다 true case-level yes/no 비교이므로 classifier-style metric을 붙일 수 있습니다.
+step 4A는 pure abrupt/no-precursor case에서 hard fault marker hit가 얼마나 잘 잡히는지 보고, precursor/common-cause case를 negative로 둡니다. benchmark reset 이후 이 matrix의 공식 benchmark 분모는 audited event semantics에서 다시 고정한 precursor 3 / pure abrupt 3 / common-cause 4 입니다. `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 사건 해석상 `전조형 고장 / 급격 종료` 이며 precursor benchmark 에 포함되고 pure abrupt benchmark 에서는 제외됩니다. 그래서 step 4A positive support 는 pure abrupt benchmark 3건으로만 계산합니다. old precursor 2 benchmark wording은 더 이상 이 matrix의 공식 분모가 아닙니다. step 4B는 non-panel/common-cause routing marker가 다른 bucket과 얼마나 구분되는지 보는 row입니다. 둘 다 true case-level yes/no 비교이므로 classifier-style metric을 붙일 수 있습니다.
 
 ## 왜 operator policy는 retrospective proxy metric인가
 
@@ -35,6 +35,6 @@ operator policy row는 baseline / discovery panel / narrow / cluster / workflow 
 2. step 3 / step 4: true case-level precision/recall/F1로 실제 marker discrimination을 확인
 3. operator policy: retrospective proxy metric으로 operator-facing view의 보조 가치를 확인
 
-특히 step 4 abrupt/no-precursor 는 "fault가 급격히 끝났는가" 와 "그 event type 자체가 abrupt 인가" 를 구분해서 읽어야 합니다. precursor 가 있으면 event class 는 abrupt 가 아니고, abrupt 는 terminal failure pattern 으로만 남습니다. 또 `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 처럼 사건 해석상 precursor-led 로 읽히는 panel 이 있어도, 엄격 전조 평가셋과 순수 급작 평가셋에는 모두 넣지 않을 수 있습니다.
+특히 step 4 abrupt/no-precursor 는 "fault가 급격히 끝났는가" 와 "그 event type 자체가 abrupt 인가" 를 구분해서 읽어야 합니다. precursor 가 있으면 event class 는 abrupt 가 아니고, abrupt 는 terminal failure pattern 으로만 남습니다. benchmark reset 이후에는 이 해석을 precursor benchmark 3 / pure abrupt benchmark 3 으로 직접 반영합니다.
 
 즉, 한 row의 수치만 보고 project 전체를 과장 해석하면 안 됩니다. 구조적 coverage, true case metric, retrospective proxy metric은 서로 다른 질문에 답하고 있기 때문입니다.

@@ -10,6 +10,7 @@ EVAL_BUCKETS_NAME = "panel_day_engine_fault_taxonomy_eval_buckets_v2.csv"
 ONSET_TRUTH_NAME = "panel_day_engine_precursor_onset_truth_v1.csv"
 ONSET_LADDER_NAME = "panel_day_engine_precursor_onset_ladder_v1.csv"
 ELIGIBILITY_CASES_NAME = "panel_day_engine_local_precursor_eligibility_cases_v1.csv"
+FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME = "panel_day_engine_fault_panel_event_audit_summary_v1.csv"
 
 CASES_OUTPUT_NAME = "panel_day_engine_precursor_performance_cases_v1.csv"
 SUMMARY_OUTPUT_NAME = "panel_day_engine_precursor_performance_summary_v1.csv"
@@ -42,6 +43,13 @@ REQUIRED_ONSET_TRUTH_COLS = [
     "fault_start_date",
     "vendor_fault_family",
     "temporality_class",
+    "operational_first_precursor_detected_date",
+    "operational_first_precursor_marker_name",
+    "operational_lead_days_to_fault_start",
+    "interpretive_precursor_onset_date",
+    "interpretive_lead_days_to_fault_start",
+    "benchmark_precursor_onset_date",
+    "benchmark_lead_days_to_fault_start",
     "preferred_precursor_onset_date",
     "preferred_onset_stage",
     "preferred_onset_confidence",
@@ -63,6 +71,10 @@ REQUIRED_ELIGIBILITY_COLS = [
     "temporality_class",
     "precursor_eligible_flag",
 ]
+REQUIRED_FAULT_PANEL_EVENT_AUDIT_SUMMARY_COLS = ["사건유형_재판정_전조형수"]
+
+EXPECTED_PRECURSOR_BENCHMARK_SUPPORT = 3
+FORENSIC_PRECURSOR_PANEL_ID = "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"
 
 SUMMARY_OUTPUT_COLS = [
     "marker_name",
@@ -214,8 +226,24 @@ def load_onset_truth(root: Path) -> pd.DataFrame:
     ensure_columns(df, REQUIRED_ONSET_TRUTH_COLS, path.name)
     for col in ["site", "panel_id", "vendor_fault_family", "temporality_class", "preferred_onset_stage", "preferred_onset_confidence"]:
         df[col] = df[col].map(normalize_text)
-    for col in ["fault_start_date", "preferred_precursor_onset_date"]:
+    for col in [
+        "fault_start_date",
+        "operational_first_precursor_detected_date",
+        "interpretive_precursor_onset_date",
+        "benchmark_precursor_onset_date",
+        "preferred_precursor_onset_date",
+    ]:
         df[col] = df[col].map(normalize_date_text)
+    for col in [
+        "operational_first_precursor_marker_name",
+    ]:
+        df[col] = df[col].map(normalize_text)
+    for col in [
+        "operational_lead_days_to_fault_start",
+        "interpretive_lead_days_to_fault_start",
+        "benchmark_lead_days_to_fault_start",
+    ]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
     return df
 
 
@@ -243,34 +271,31 @@ def load_onset_ladder(root: Path) -> pd.DataFrame:
     return df.loc[df["onset_marker"].isin(MARKERS)].copy()
 
 
-def build_eval_universe(onset_truth_df: pd.DataFrame, eligibility_df: pd.DataFrame, eval_bucket_map: dict[str, str]) -> pd.DataFrame:
-    merged = onset_truth_df.merge(
-        eligibility_df,
-        on=["site", "panel_id", "fault_start_date"],
-        how="left",
-        suffixes=("", "_eligibility"),
-    )
-    merged["vendor_fault_family"] = merged["vendor_fault_family"].where(
-        merged["vendor_fault_family"].ne(""),
-        merged["vendor_fault_family_eligibility"].map(normalize_text),
-    )
-    merged["temporality_class"] = merged["temporality_class"].where(
-        merged["temporality_class"].ne(""),
-        merged["temporality_class_eligibility"].map(normalize_text),
-    )
-    merged["fault_family_id"] = merged.apply(
-        lambda row: derive_fault_family_id(
-            normalize_text(row["vendor_fault_family"]),
-            normalize_text(row["temporality_class"]),
-        ),
-        axis=1,
-    )
-    merged["eval_bucket_v2"] = merged["fault_family_id"].map(lambda value: normalize_text(eval_bucket_map.get(value, "")))
-    universe = merged.loc[
-        merged["preferred_precursor_onset_date"].map(normalize_text).ne("")
-        & merged["eval_bucket_v2"].eq("precursor_bearing_detectable_now")
-    ].copy()
-    return universe.reset_index(drop=True)
+def load_fault_event_summary(root: Path) -> dict[str, int]:
+    path = root / "_share" / FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME
+    df = drop_repeated_header_rows(read_csv(path))
+    ensure_columns(df, REQUIRED_FAULT_PANEL_EVENT_AUDIT_SUMMARY_COLS, path.name)
+    if len(df) != 1:
+        raise SystemExit(f"{FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME} must contain exactly one row, found {len(df)}")
+    precursor_count = numeric_int(df.iloc[0]["사건유형_재판정_전조형수"])
+    if precursor_count != EXPECTED_PRECURSOR_BENCHMARK_SUPPORT:
+        raise SystemExit(
+            f"audited precursor benchmark support must be {EXPECTED_PRECURSOR_BENCHMARK_SUPPORT}, found {precursor_count}"
+        )
+    return {"precursor_benchmark_count": precursor_count}
+
+
+def build_eval_universe(onset_truth_df: pd.DataFrame, expected_support: int) -> pd.DataFrame:
+    universe = onset_truth_df.loc[onset_truth_df["preferred_precursor_onset_date"].map(normalize_text).ne("")].copy()
+    universe = universe.reset_index(drop=True)
+    if len(universe) != expected_support:
+        raise SystemExit(
+            f"precursor benchmark support after onset reset must be {expected_support}, found {len(universe)}"
+        )
+    benchmark_keys = {(normalize_text(row["site"]), normalize_text(row["panel_id"])) for row in universe.to_dict(orient="records")}
+    if ("conalog", FORENSIC_PRECURSOR_PANEL_ID) not in benchmark_keys:
+        raise SystemExit("c42997 must appear in rebuilt precursor performance benchmark universe")
+    return universe
 
 
 def build_cases_output(universe_df: pd.DataFrame, ladder_df: pd.DataFrame) -> pd.DataFrame:
@@ -292,6 +317,13 @@ def build_cases_output(universe_df: pd.DataFrame, ladder_df: pd.DataFrame) -> pd
             "panel_id": normalize_text(case["panel_id"]),
             "fault_start_date": normalize_text(case["fault_start_date"]),
             "vendor_fault_family": normalize_text(case["vendor_fault_family"]),
+            "operational_first_precursor_detected_date": normalize_text(case["operational_first_precursor_detected_date"]),
+            "operational_first_precursor_marker_name": normalize_text(case["operational_first_precursor_marker_name"]),
+            "operational_lead_days_to_fault_start": pd.to_numeric(pd.Series([case["operational_lead_days_to_fault_start"]]), errors="coerce").iloc[0],
+            "interpretive_precursor_onset_date": normalize_text(case["interpretive_precursor_onset_date"]),
+            "interpretive_lead_days_to_fault_start": pd.to_numeric(pd.Series([case["interpretive_lead_days_to_fault_start"]]), errors="coerce").iloc[0],
+            "benchmark_precursor_onset_date": normalize_text(case["benchmark_precursor_onset_date"]) or normalize_text(case["preferred_precursor_onset_date"]),
+            "benchmark_lead_days_to_fault_start": pd.to_numeric(pd.Series([case["benchmark_lead_days_to_fault_start"]]), errors="coerce").iloc[0],
             "preferred_precursor_onset_date": normalize_text(case["preferred_precursor_onset_date"]),
             "preferred_onset_stage": normalize_text(case["preferred_onset_stage"]),
             "preferred_onset_confidence": normalize_text(case["preferred_onset_confidence"]),
@@ -311,6 +343,13 @@ def build_cases_output(universe_df: pd.DataFrame, ladder_df: pd.DataFrame) -> pd
             row[f"{marker}_onset_capture_class"] = onset_capture_class
         rows.append(row)
     return pd.DataFrame(rows)
+
+
+def numeric_int(value: object) -> int:
+    numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(numeric):
+        return 0
+    return int(numeric)
 
 
 def summarize_numeric(series: pd.Series) -> tuple[float | None, float | None, float | None]:
@@ -410,12 +449,11 @@ def main() -> None:
     args = parse_args()
     root = args.root.resolve()
 
-    eval_bucket_map = load_eval_bucket_map(root)
     onset_truth_df = load_onset_truth(root)
-    eligibility_df = load_eligibility(root)
     ladder_df = load_onset_ladder(root)
+    fault_event_summary = load_fault_event_summary(root)
 
-    universe_df = build_eval_universe(onset_truth_df, eligibility_df, eval_bucket_map)
+    universe_df = build_eval_universe(onset_truth_df, fault_event_summary["precursor_benchmark_count"])
     cases_df = build_cases_output(universe_df, ladder_df)
     summary_df = build_summary(cases_df)
     comparison_df = build_marker_comparison(summary_df)

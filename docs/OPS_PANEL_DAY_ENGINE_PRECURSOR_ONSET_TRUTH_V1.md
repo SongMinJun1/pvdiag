@@ -3,16 +3,38 @@
 ## 목적
 - detector gate를 더 만지기 전에, precursor-bearing fault에 대해서만 case-level onset truth를 먼저 고정한다.
 - 이 산출물은 다음 단계의 `precursor performance`, `lead-time evaluation`, `non-precursor bucket 비교`의 기준선이 된다.
+- benchmark reset 이후에는 이 파일이 audited event semantics에서 재구성한 precursor benchmark truth 의 직접 기준선이 된다.
 
 ## 왜 taxonomy가 먼저였는가
 - onset truth는 모든 fault를 한 번에 정의하면 해석이 흔들린다.
 - 먼저 `fault_taxonomy_v1`에서 `precursor_bearing`, `abrupt_or_no_precursor`, `unknown_needs_review`를 나눠 두어야 precursor onset truth의 적용 대상을 좁힐 수 있다.
 - 따라서 이번 단계는 taxonomy에서 precursor-bearing으로 다룰 수 있는 local case만 onset truth 대상으로 삼는다.
 
-## 왜 precursor-bearing fault만 대상으로 제한하는가
-- abrupt/no-precursor bucket은 onset이 늦거나 없을 수 있으므로 같은 분모에 두면 precursor recall과 lead-time 해석이 왜곡된다.
-- unknown bucket은 onset 정의보다 review가 먼저다.
-- 그래서 이번 출력은 `_share/panel_day_engine_local_precursor_eligibility_cases_v1.csv` 중 `precursor_eligible_flag == 1` 인 local case만 사용한다.
+## benchmark reset 이후 무엇이 바뀌었는가
+- precursor benchmark truth는 audited event semantics를 기준으로 3 panel로 다시 고정한다.
+- 현재 precursor benchmark positive는 아래 3 panel이다.
+- `7f7dd654-2760-4eb2-a197-3ebb72b85cda.2.0`
+- `70ad2d87-cdb6-4842-81b7-71c7599bbf05.1.4`
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1`
+- 즉, 이전 support 2 benchmark는 더 이상 쓰지 않는다.
+- 특히 `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 사건유형 `전조형 고장`, 최종고장양상 `급격 종료`로 해석되며 precursor benchmark에 포함된다.
+
+## onset 날짜는 셋으로 나눠 읽는다
+- 이 파일에서 onset 날짜는 이제 한 가지 뜻으로만 읽지 않는다.
+- `operational_first_precursor_detected_date`
+  - 운영상 실제로 첫 precursor marker가 잡힌 날짜다.
+  - 가장 이른 marker 날짜를 그대로 둔다.
+- `interpretive_precursor_onset_date`
+  - re-audit에서 retrospective하게 본 사건 해석 onset 이다.
+  - `panel_date_reaudit_working.csv` 의 `retrospective_onset_date` 를 쓴다.
+- `benchmark_precursor_onset_date`
+  - step3 benchmark에서 anchor로 쓰는 precursor onset 이다.
+  - 현재 `preferred_precursor_onset_date` 와 같은 뜻으로 유지한다.
+- 즉 운영 detection onset, 사건 해석 onset, benchmark onset은 서로 다를 수 있다.
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 예시는 아래처럼 읽는다.
+  - interpretive onset = `2025-01-20`
+  - operational detection = `2025-02-20`
+  - benchmark onset = `2025-03-18`
 
 ## onset ladder 정의
 - bounded window는 `fault_start_date - 30d` 부터 `fault_start_date` 전날까지다.
@@ -50,3 +72,4 @@
 ## 해석 원칙
 - 이 파일은 detector logic 변경이 아니라 truth/evaluation layer 정의다.
 - onset truth가 비어 있는 case는 `no_detectable_precursor_episode` 로 남기고, 억지로 positive onset을 부여하지 않는다.
+- benchmark reporting 에서는 이제 이 파일의 support 3을 그대로 precursor benchmark support로 읽는다.

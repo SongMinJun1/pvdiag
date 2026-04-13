@@ -490,9 +490,6 @@ def load_fault_event_audit_summary(frames: dict[str, pd.DataFrame]) -> dict[str,
         "holdout_count": numeric_int(row["사건유형_재판정_보류수"]),
         "precursor_trace_count": numeric_int(row["전조흔적_패널수"]),
         "pure_abrupt_eval_count": numeric_int(row["순수급작_패널수"]),
-        "strict_precursor_eval_count": numeric_int(row["전조평가셋편입_패널수"]),
-        "strict_abrupt_eval_count": numeric_int(row["급작평가셋편입_패널수"]),
-        "interpretation_eval_mismatch_count": numeric_int(row["해석과평가셋불일치_패널수"]),
     }
     if summary["fault_panel_count"] != 6:
         raise SystemExit(f"{FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME} fault panel count must be 6")
@@ -500,8 +497,8 @@ def load_fault_event_audit_summary(frames: dict[str, pd.DataFrame]) -> dict[str,
         raise SystemExit(f"{FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME} must keep interpretation precursor/abrupt split 3/3")
     if summary["holdout_count"] != 0:
         raise SystemExit(f"{FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME} holdout count must be 0")
-    if summary["strict_precursor_eval_count"] != 2 or summary["strict_abrupt_eval_count"] != 3:
-        raise SystemExit(f"{FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME} must keep strict eval split 2/3")
+    if summary["pure_abrupt_eval_count"] != 3:
+        raise SystemExit(f"{FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME} pure abrupt benchmark support must be 3")
     return summary
 
 
@@ -698,7 +695,7 @@ def build_step3_rows(root: Path, precursor_perf_df: pd.DataFrame, nonprec_df: pd
                 "recall": recall,
                 "precision": precision,
                 "f1": f1,
-                "note_ko": "positive는 current strict precursor evaluation set 2건이고, negative는 pre-anchor 30일 window에서 같은 marker hit를 재구성해 계산한 true case metric이다. 사건 해석상 전조형 고장 패널 수 3과 엄격 전조 평가셋 편입 2는 intentionally 다른 값이다.",
+                "note_ko": "positive는 audited event-semantics benchmark reset 이후 precursor benchmark 3건이고, negative는 pre-anchor 30일 window에서 같은 marker hit를 재구성해 계산한 true case metric이다. c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 precursor benchmark에 포함되고 pure abrupt benchmark에서는 제외된다. old precursor support 2 wording은 obsolete 다.",
             }
         )
     return rows
@@ -894,10 +891,9 @@ def build_step4a_rows(
                 "precision": precision,
                 "f1": f1,
                 "note_ko": (
-                    "pure abrupt/no-precursor true case에 대해 corrected abrupt symptom map 기준 anchor 전후 hard fault marker hit를 계산한 true case metric이다. "
-                    f"사건 해석상 전조형 고장 패널은 {fault_event_summary['interpreted_precursor_count']}개지만 엄격 전조 평가셋 편입은 {fault_event_summary['strict_precursor_eval_count']}개이고, "
-                    f"순수 급작 평가셋 편입은 {fault_event_summary['pure_abrupt_eval_count']}개다. "
-                    "c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하지만 엄격 전조 평가셋과 순수 급작 평가셋 모두에 넣지 않는다."
+                    "pure abrupt/no-precursor true case에 대해 benchmark reset 이후 순수 급작 benchmark 3건만을 positive로 두고 anchor 전후 hard fault marker hit를 계산한 true case metric이다. "
+                    f"사건 해석상 전조형 고장 패널은 {fault_event_summary['interpreted_precursor_count']}개이고, 순수 급작 benchmark support는 {fault_event_summary['pure_abrupt_eval_count']}개다. "
+                    "c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하며 precursor benchmark에는 포함되고 pure abrupt benchmark에서는 제외된다. old benchmark split wording은 obsolete 다."
                 ),
             }
         )
@@ -1135,8 +1131,8 @@ def build_summary_rows(matrix_df: pd.DataFrame) -> list[dict[str, object]]:
     scope_notes = {
         "step1_taxonomy": "taxonomy support/coverage row라 best precision/recall/F1가 적용되지 않는다.",
         "step2_onset_truth": "onset coverage/availability row라 best precision/recall/F1가 적용되지 않는다.",
-        "step3_precursor_performance": "precursor-bearing marker들 중 F1가 가장 높은 true case metric을 요약한다. 사건 해석상 전조형 3과 엄격 전조 평가셋 2는 intentionally 다르다.",
-        "step4_abrupt_no_precursor": "순수 급작 평가셋 3건만을 positive로 둔 target들 중 F1가 가장 높은 true case metric을 요약한다. 사건 해석상 전조형 3과 순수 급작 평가셋 3은 intentionally 다른 집합이다.",
+        "step3_precursor_performance": "benchmark reset 이후 precursor benchmark 3건을 positive로 둔 marker들 중 F1가 가장 높은 true case metric을 요약한다.",
+        "step4_abrupt_no_precursor": "benchmark reset 이후 순수 급작 benchmark 3건만을 positive로 둔 target들 중 F1가 가장 높은 true case metric을 요약한다.",
         "step4_common_cause_routing": "common-cause routing marker들 중 F1가 가장 높은 true case metric을 요약한다.",
         "operator_policy_proxy": "operator policy는 retrospective proxy metric이라 workload/운영성 해석은 별도 audit와 함께 봐야 한다.",
     }
@@ -1198,12 +1194,12 @@ def build_notes_rows() -> list[dict[str, object]]:
         {
             "eval_scope": "step3_precursor_performance",
             "why_prf_is_valid_or_not": "유효함. precursor-bearing true case를 positive로 두고 abrupt/common-cause case의 pre-anchor window를 negative로 재구성한 true case classifier metric이다.",
-            "caveat_ko": "negative reconstruction window는 retrospective helper/core 재생성이므로 marker contamination 여부를 함께 해석해야 한다. 사건 해석상 전조형 고장 패널 수 3과 엄격 전조 평가셋 편입 2는 intentionally 다른 값이다.",
+            "caveat_ko": "negative reconstruction window는 retrospective helper/core 재생성이므로 marker contamination 여부를 함께 해석해야 한다. benchmark reset 이후 precursor benchmark positive support는 3이며 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 이 여기에 포함된다. old support 2 wording은 obsolete 다.",
         },
         {
             "eval_scope": "step4_abrupt_no_precursor",
             "why_prf_is_valid_or_not": "유효함. pure abrupt/no-precursor true case에서 hard fault marker hit를 계산하고 다른 case bucket을 negative로 둔 true case metric이다.",
-            "caveat_ko": "event type과 terminal failure pattern은 다르다. 사건 해석상 전조형 고장 패널은 3개지만 순수 급작 평가셋 편입은 3개다. c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하지만 엄격 전조 평가셋과 순수 급작 평가셋 모두에서 제외한다.",
+            "caveat_ko": "event type과 terminal failure pattern은 다르다. benchmark reset 이후 precursor benchmark positive support는 3이고 pure abrupt benchmark positive support도 3이다. c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하며 pure abrupt benchmark에서는 제외한다. old benchmark counts 는 obsolete 다.",
         },
         {
             "eval_scope": "step4_common_cause_routing",

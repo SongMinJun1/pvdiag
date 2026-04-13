@@ -90,6 +90,25 @@
   - `판정주의_ko` 에도 onset/trigger rule date 를 함께 적어, 왜 이렇게 읽었는지 바로 보이게 한다.
 - 이렇게 두 층을 분리하는 이유는, 해석상 precursor-like evidence 가 있어도 현재 strict precursor evaluation set 에 자동 편입되지는 않을 수 있기 때문이다.
 
+## onset 날짜 3종
+- 본표는 fault panel에 대해 onset 날짜도 세 층으로 나눠 보여 준다.
+  - `운영최초전조발견일`
+    - 운영상 첫 precursor marker가 잡힌 날짜
+  - `운영최초전조마커`
+    - 그 날짜를 만든 marker 이름
+  - `사건해석상전조시작일`
+    - re-audit / forensic에서 사건 해석상 본 onset
+  - `benchmark전조시작일`
+    - precursor benchmark anchor로 쓰는 onset
+- 이 셋은 같은 뜻이 아니다.
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은:
+  - `운영최초전조발견일 = 2025-02-20`
+  - `운영최초전조마커 = first_cond_evt`
+  - `사건해석상전조시작일 = 2025-01-20`
+  - `benchmark전조시작일 = 2025-03-18`
+  로 분리해서 읽는다.
+- 즉 이 row는 전조형 고장으로 해석되지만, 운영상 최초 detection 과 benchmark onset은 더 늦을 수 있다.
+
 ## 추가 flag 의미
 - `전조흔적_flag`
   - strong trigger 이전 precursor-like evidence 가 있으면 `1`
@@ -190,6 +209,10 @@
     - `전조평가셋편입_flag`
     - `급작평가셋편입_flag`
     - `해석대평가차이_ko`
+    - `운영최초전조발견일`
+    - `운영최초전조마커`
+    - `사건해석상전조시작일`
+    - `benchmark전조시작일`
     - `전조형이력_flag`
     - `급작고장이력_flag`
     - `공통원인이력_flag`

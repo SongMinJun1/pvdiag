@@ -3,6 +3,7 @@
 ## 목적
 - precursor-bearing detectable-now 성능을 분리한 뒤, 남은 bucket을 한 분모로 섞지 않고 따로 평가한다.
 - 이번 단계는 detector logic을 바꾸지 않고, step 4 evaluation scaffold를 완성하는 audit layer다.
+- benchmark reset 이후에는 pure abrupt benchmark 3과 common-cause benchmark 4만을 공식 step4 benchmark 분모로 쓴다.
 
 ## 왜 step 4는 bucket별로 나눠야 하나
 
@@ -34,6 +35,14 @@ abrupt bucket의 핵심 질문은:
 
 즉 여기서는 “전조를 얼마나 빨리 잡았는가”보다  
 “fault 시점 전후에 hard fault로 얼마나 빨리 수렴하는가”가 핵심이다.
+
+## benchmark reset 이후 abrupt 분모
+- pure abrupt benchmark positive는 현재 3 panel만 남긴다.
+- `bf1a912f-6cf0-4f12-8e97-9d9d86576511.0.7`
+- `bf1a912f-6cf0-4f12-8e97-9d9d86576511.2.16`
+- `10305b40-b67e-40d1-9cd1-271b6642a3d9.2.12`
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 전조형 고장 / 급격 종료로 재해석되어 pure abrupt benchmark 에서 제외한다.
+- 즉 old abrupt support 6이나 old precursor 2 / abrupt 3 split wording은 benchmark reporting 기준으로는 obsolete 다.
 
 ## 왜 non-panel/common-cause는 routing/classification 문제인가
 

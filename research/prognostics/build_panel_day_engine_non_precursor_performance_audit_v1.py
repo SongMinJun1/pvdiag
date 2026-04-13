@@ -9,6 +9,8 @@ import pandas as pd
 EVAL_BUCKETS_NAME = "panel_day_engine_fault_taxonomy_eval_buckets_v2.csv"
 ELIGIBILITY_CASES_NAME = "panel_day_engine_local_precursor_eligibility_cases_v1.csv"
 REAUDIT_NAME = "panel_date_reaudit_working.csv"
+FAULT_PANEL_EVENT_AUDIT_NAME = "panel_day_engine_fault_panel_event_audit_v1.csv"
+FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME = "panel_day_engine_fault_panel_event_audit_summary_v1.csv"
 PANEL_DAY_CORE_NAME = "panel_day_core.csv"
 GATE_DAILY_NAME = "ae_simple_local_precursor_gate_daily.csv"
 
@@ -42,6 +44,8 @@ REQUIRED_REAUDIT_COLS = [
     "vendor_fault_family",
     "vendor_reply_class",
 ]
+REQUIRED_FAULT_AUDIT_COLS = ["site", "panel_id", "strict_trigger_date", "사건유형_재판정_ko"]
+REQUIRED_FAULT_AUDIT_SUMMARY_COLS = ["사건유형_재판정_급작수", "순수급작_패널수"]
 CORE_REQUESTED_COLS = [
     "panel_id",
     "date",
@@ -51,6 +55,9 @@ CORE_REQUESTED_COLS = [
     "group_off_like",
     "shadow_like",
 ]
+
+EXPECTED_PURE_ABRUPT_SUPPORT = 3
+EXPECTED_COMMON_CAUSE_SUPPORT = 4
 GATE_REQUESTED_COLS = [
     "panel_id",
     "date",
@@ -167,6 +174,11 @@ def to_int_flag(value: object) -> int:
         return 1
     numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
     return int(bool(numeric)) if not pd.isna(numeric) else 0
+
+
+def numeric_int(value: object) -> int:
+    numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    return 0 if pd.isna(numeric) else int(numeric)
 
 
 def read_csv(path: Path) -> pd.DataFrame:
@@ -331,34 +343,132 @@ def load_reaudit_cases(root: Path, eval_bucket_map: dict[str, str]) -> tuple[pd.
     return abrupt_df, non_panel_df, unknown_df
 
 
-def build_case_frames(root: Path, eval_bucket_map: dict[str, str]) -> pd.DataFrame:
-    eligibility_abrupt_df, eligibility_unknown_df = load_eligibility_cases(root, eval_bucket_map)
-    reaudit_abrupt_df, reaudit_non_panel_df, reaudit_unknown_df = load_reaudit_cases(root, eval_bucket_map)
+def load_panel_metadata(root: Path) -> pd.DataFrame:
+    eligibility_path = root / "_share" / ELIGIBILITY_CASES_NAME
+    eligibility_df = drop_repeated_header_rows(read_csv(eligibility_path))
+    ensure_columns(eligibility_df, REQUIRED_ELIGIBILITY_COLS, eligibility_path.name)
+    for col in ["site", "panel_id", "strict_trigger_date", "fault_start_date", "vendor_fault_family", "temporality_class"]:
+        eligibility_df[col] = eligibility_df[col].map(normalize_text)
+    eligibility_df = eligibility_df.sort_values(["site", "panel_id", "fault_start_date", "strict_trigger_date"]).drop_duplicates(
+        subset=["site", "panel_id"], keep="last"
+    )
 
-    eligibility_abrupt_df["candidate_validity"] = "eligibility_local_case"
-    eligibility_abrupt_df["vendor_reply_class"] = ""
-    eligibility_abrupt_df["eval_bucket_v2"] = ABRUPT_BUCKET
+    reaudit_path = root / "_share" / REAUDIT_NAME
+    reaudit_df = drop_repeated_header_rows(read_csv(reaudit_path))
+    ensure_columns(reaudit_df, REQUIRED_REAUDIT_COLS, reaudit_path.name)
+    for col in REQUIRED_REAUDIT_COLS:
+        reaudit_df[col] = reaudit_df[col].map(normalize_text)
+    reaudit_df = reaudit_df.sort_values(["site", "panel_id", "strict_trigger_date"]).drop_duplicates(
+        subset=["site", "panel_id"], keep="last"
+    )
+
+    metadata_df = reaudit_df.merge(
+        eligibility_df.loc[:, ["site", "panel_id", "fault_start_date", "strict_trigger_date", "vendor_fault_family"]],
+        on=["site", "panel_id"],
+        how="outer",
+        suffixes=("_reaudit", "_eligibility"),
+    )
+    metadata_df["vendor_fault_family"] = metadata_df["vendor_fault_family_reaudit"].map(normalize_text)
+    metadata_df["vendor_fault_family"] = metadata_df["vendor_fault_family"].where(
+        metadata_df["vendor_fault_family"].ne(""),
+        metadata_df["vendor_fault_family_eligibility"].map(normalize_text),
+    )
+    metadata_df["anchor_date"] = metadata_df["fault_start_date"].map(normalize_text)
+    metadata_df["anchor_date"] = metadata_df["anchor_date"].where(
+        metadata_df["anchor_date"].ne(""),
+        metadata_df["strict_trigger_date_reaudit"].map(normalize_text),
+    )
+    metadata_df["anchor_date"] = metadata_df["anchor_date"].where(
+        metadata_df["anchor_date"].ne(""),
+        metadata_df["strict_trigger_date_eligibility"].map(normalize_text),
+    )
+    metadata_df["candidate_validity"] = metadata_df.get("candidate_validity", "").map(normalize_text)
+    metadata_df["vendor_reply_class"] = metadata_df.get("vendor_reply_class", "").map(normalize_text)
+    return metadata_df.loc[:, ["site", "panel_id", "anchor_date", "vendor_fault_family", "candidate_validity", "vendor_reply_class"]]
+
+
+def load_fault_audit_cases(root: Path) -> tuple[pd.DataFrame, set[tuple[str, str]]]:
+    share_dir = root / "_share"
+    fault_audit_df = drop_repeated_header_rows(read_csv(share_dir / FAULT_PANEL_EVENT_AUDIT_NAME))
+    ensure_columns(fault_audit_df, REQUIRED_FAULT_AUDIT_COLS, FAULT_PANEL_EVENT_AUDIT_NAME)
+    for col in ["site", "panel_id", "strict_trigger_date", "사건유형_재판정_ko"]:
+        fault_audit_df[col] = fault_audit_df[col].map(normalize_text)
+
+    summary_df = drop_repeated_header_rows(read_csv(share_dir / FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME))
+    ensure_columns(summary_df, REQUIRED_FAULT_AUDIT_SUMMARY_COLS, FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME)
+    if len(summary_df) != 1:
+        raise SystemExit(
+            f"{FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME} must contain exactly one row, found {len(summary_df)}"
+        )
+    summary_row = summary_df.iloc[0]
+    audited_abrupt_count = numeric_int(summary_row["사건유형_재판정_급작수"])
+    pure_abrupt_count = numeric_int(summary_row["순수급작_패널수"])
+    if audited_abrupt_count != EXPECTED_PURE_ABRUPT_SUPPORT or pure_abrupt_count != EXPECTED_PURE_ABRUPT_SUPPORT:
+        raise SystemExit(
+            f"audited pure abrupt benchmark support must stay {EXPECTED_PURE_ABRUPT_SUPPORT}, found abrupt={audited_abrupt_count}, pure={pure_abrupt_count}"
+        )
+
+    abrupt_df = fault_audit_df.loc[fault_audit_df["사건유형_재판정_ko"].eq("급작 고장"), ["site", "panel_id", "strict_trigger_date"]].copy()
+    abrupt_df = abrupt_df.drop_duplicates(subset=["site", "panel_id"], keep="first")
+    if len(abrupt_df) != EXPECTED_PURE_ABRUPT_SUPPORT:
+        raise SystemExit(
+            f"fault-panel event audit abrupt benchmark row count must be {EXPECTED_PURE_ABRUPT_SUPPORT}, found {len(abrupt_df)}"
+        )
+
+    benchmark_fault_keys = {
+        (normalize_text(row["site"]), normalize_text(row["panel_id"]))
+        for row in fault_audit_df.loc[:, ["site", "panel_id"]].drop_duplicates().to_dict(orient="records")
+    }
+    return abrupt_df, benchmark_fault_keys
+
+
+def build_case_frames(root: Path, eval_bucket_map: dict[str, str]) -> pd.DataFrame:
+    metadata_df = load_panel_metadata(root)
+    _, eligibility_unknown_df = load_eligibility_cases(root, eval_bucket_map)
+    reaudit_abrupt_df, reaudit_non_panel_df, reaudit_unknown_df = load_reaudit_cases(root, eval_bucket_map)
+    fault_abrupt_df, benchmark_fault_keys = load_fault_audit_cases(root)
 
     eligibility_unknown_df["candidate_validity"] = "eligibility_local_case"
     eligibility_unknown_df["vendor_reply_class"] = ""
     eligibility_unknown_df["eval_bucket_v2"] = UNKNOWN_BUCKET
 
-    reaudit_abrupt_df["eval_bucket_v2"] = ABRUPT_BUCKET
     reaudit_non_panel_df["eval_bucket_v2"] = NON_PANEL_BUCKET
     reaudit_unknown_df["eval_bucket_v2"] = UNKNOWN_BUCKET
 
-    abrupt_df = pd.concat(
-        [
-            eligibility_abrupt_df.loc[:, ["eval_bucket_v2", "site", "panel_id", "anchor_date", "anchor_source", "vendor_fault_family", "truth_case_id", "candidate_validity", "vendor_reply_class"]],
-            reaudit_abrupt_df.loc[:, ["eval_bucket_v2", "site", "panel_id", "anchor_date", "anchor_source", "vendor_fault_family", "truth_case_id", "candidate_validity", "vendor_reply_class"]],
-        ],
-        ignore_index=True,
-    ).drop_duplicates(subset=["truth_case_id"], keep="first")
+    abrupt_df = fault_abrupt_df.merge(metadata_df, on=["site", "panel_id"], how="left")
+    abrupt_df["eval_bucket_v2"] = ABRUPT_BUCKET
+    abrupt_df["anchor_date"] = abrupt_df["strict_trigger_date"].where(
+        abrupt_df["strict_trigger_date"].map(normalize_text).ne(""),
+        abrupt_df["anchor_date"].map(normalize_text),
+    )
+    abrupt_df["anchor_source"] = "fault_panel_event_audit.strict_trigger_date"
+    abrupt_df["truth_case_id"] = (
+        "fault_event_audit|"
+        + abrupt_df["site"].astype(str)
+        + "|"
+        + abrupt_df["panel_id"].astype(str)
+        + "|"
+        + abrupt_df["anchor_date"].astype(str)
+    )
+    abrupt_df["candidate_validity"] = abrupt_df["candidate_validity"].map(normalize_text).where(
+        abrupt_df["candidate_validity"].map(normalize_text).ne(""),
+        "true_positive",
+    )
+    abrupt_df["vendor_reply_class"] = abrupt_df["vendor_reply_class"].map(normalize_text)
+    abrupt_df["vendor_fault_family"] = abrupt_df["vendor_fault_family"].map(normalize_text)
+    abrupt_df = abrupt_df.loc[
+        :,
+        ["eval_bucket_v2", "site", "panel_id", "anchor_date", "anchor_source", "vendor_fault_family", "truth_case_id", "candidate_validity", "vendor_reply_class"],
+    ].drop_duplicates(subset=["truth_case_id"], keep="first")
 
     non_panel_df = reaudit_non_panel_df.loc[
         :,
         ["eval_bucket_v2", "site", "panel_id", "anchor_date", "anchor_source", "vendor_fault_family", "truth_case_id", "candidate_validity", "vendor_reply_class"],
     ].drop_duplicates(subset=["truth_case_id"], keep="first")
+    if len(non_panel_df) != EXPECTED_COMMON_CAUSE_SUPPORT:
+        raise SystemExit(
+            f"common-cause benchmark support must stay {EXPECTED_COMMON_CAUSE_SUPPORT}, found {len(non_panel_df)}"
+        )
 
     unknown_df = pd.concat(
         [
@@ -367,6 +477,14 @@ def build_case_frames(root: Path, eval_bucket_map: dict[str, str]) -> pd.DataFra
         ],
         ignore_index=True,
     ).drop_duplicates(subset=["truth_case_id"], keep="first")
+    unknown_df["site"] = unknown_df["site"].map(normalize_text)
+    unknown_df["panel_id"] = unknown_df["panel_id"].map(normalize_text)
+    unknown_df = unknown_df.loc[
+        ~unknown_df.apply(
+            lambda row: (normalize_text(row["site"]), normalize_text(row["panel_id"])) in benchmark_fault_keys,
+            axis=1,
+        )
+    ].copy()
 
     for df in [abrupt_df, non_panel_df, unknown_df]:
         for col in ["site", "panel_id", "anchor_date", "anchor_source", "vendor_fault_family", "truth_case_id", "candidate_validity", "vendor_reply_class", "eval_bucket_v2"]:

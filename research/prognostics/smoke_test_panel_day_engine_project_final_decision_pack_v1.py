@@ -84,13 +84,13 @@ def build_fixture(root: Path) -> None:
                 "current_best_target_name": "first_signalcount2",
                 "current_best_metric_kind": "true_case_metric",
                 "current_best_f1": 1.0,
-                "current_best_positive_support": 2,
+                "current_best_positive_support": 3,
                 "current_operational_workflow_name": "",
                 "current_operational_workflow_reason_ko": "",
                 "freeze_recommendation": "do_not_freeze",
                 "acquisition_blocked_flag": 1,
                 "next_allowed_action": "do_not_upgrade_without_new_truth",
-                "freeze_reason_ko": "step3 underpowered and blocked",
+                "freeze_reason_ko": "benchmark reset precursor support 3 and c429 included",
             },
             {
                 "eval_scope": "step4_abrupt_no_precursor",
@@ -105,7 +105,7 @@ def build_fixture(root: Path) -> None:
                 "freeze_recommendation": "do_not_freeze",
                 "acquisition_blocked_flag": 1,
                 "next_allowed_action": "do_not_upgrade_without_new_truth",
-                "freeze_reason_ko": "interpretation precursor 3 / strict precursor eval 2 / pure abrupt eval 3",
+                "freeze_reason_ko": "benchmark reset pure abrupt support 3 with c429 excluded",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -233,7 +233,7 @@ def build_fixture(root: Path) -> None:
             {
                 "claim_id": "claim_step4_abrupt",
                 "claim_scope": "step4_abrupt_no_precursor",
-                "claim_text_ko": "step4 pure abrupt/no-precursor 결과는 사건 해석상 전조형 고장 패널 3, 엄격 전조 평가셋 2, 순수 급작 평가셋 3을 구분해서 읽어야 하고 positive support=3 이라 exploratory result 로만 유지한다.",
+                "claim_text_ko": "step4 pure abrupt/no-precursor 결과는 benchmark reset 이후 precursor benchmark 3과 분리된 순수 급작 benchmark 3만을 positive 로 두고, positive support=3 이라 exploratory result 로만 유지한다. c42997 row는 precursor benchmark에 포함되고 pure abrupt benchmark에서는 제외된다.",
                 "claim_strength": "exploratory_claim_only",
                 "prohibited_overclaim_ko": "pure abrupt support 3을 large-support stable benchmark 로 과장하지 말 것.",
             },
@@ -312,7 +312,7 @@ def build_fixture(root: Path) -> None:
         [
             {
                 "사건유형_재판정_전조형수": 3,
-                "전조평가셋편입_패널수": 2,
+                "전조평가셋편입_패널수": 3,
                 "급작평가셋편입_패널수": 3,
             }
         ],
@@ -367,9 +367,9 @@ def main() -> None:
         assert_true(step1_row["final_usage_decision"] == "bounded_reporting_use", "step1 should map to bounded_reporting_use")
         assert_true(step3_row["final_usage_decision"] == "exploratory_only", "step3 should map to exploratory_only")
         assert_true(step4_row["final_usage_decision"] == "exploratory_only", "step4 abrupt should map to exploratory_only")
-        assert_true("전조형 고장 패널은 3개" in step3_row["final_reason_ko"], "step3 final reason should mention interpreted precursor count")
-        assert_true("엄격 전조 평가셋 편입은 2개" in step3_row["final_reason_ko"], "step3 final reason should mention strict precursor eval count")
-        assert_true("순수 급작 평가셋 편입은 3개" in step4_row["final_reason_ko"], "step4 final reason should mention pure abrupt eval count")
+        assert_true(float(step3_row["current_best_positive_support"]) == 3.0, "step3 benchmark support should be reset to 3")
+        assert_true("precursor benchmark support는 3개" in step3_row["final_reason_ko"], "step3 final reason should mention precursor benchmark support 3")
+        assert_true("순수 급작 benchmark support는 3개" in step4_row["final_reason_ko"], "step4 final reason should mention pure abrupt benchmark support 3")
         assert_true("c42997" in step4_row["final_reason_ko"], "step4 final reason should mention c429 eval-set exclusion")
         assert_true(operator_row["final_usage_decision"] == "workflow_only", "operator scope should map to workflow_only")
         assert_true(
@@ -409,9 +409,8 @@ def main() -> None:
         )
         step4_do = do_dont_df.loc[do_dont_df["scope_or_topic"].eq("step4_abrupt_no_precursor")].iloc[0]
         assert_true("positive support=3" in step4_do["do_text_ko"], "step4 do row should mention corrected pure abrupt support")
-        assert_true("전조형 고장 패널 3" in step4_do["do_text_ko"], "step4 do row should mention interpreted precursor count")
-        assert_true("엄격 전조 평가셋 2" in step4_do["do_text_ko"], "step4 do row should mention strict precursor eval count")
-        assert_true("순수 급작 평가셋 3" in step4_do["do_text_ko"], "step4 do row should mention pure abrupt eval count")
+        assert_true("precursor benchmark 3" in step4_do["do_text_ko"], "step4 do row should mention precursor benchmark support 3")
+        assert_true("순수 급작 benchmark 3" in step4_do["do_text_ko"], "step4 do row should mention pure abrupt benchmark support 3")
 
     after_digests = {path: file_digest(path) for path in official_outputs}
     assert_true(before_digests == after_digests, "smoke test modified official outputs")

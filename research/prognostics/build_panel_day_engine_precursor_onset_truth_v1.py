@@ -8,6 +8,10 @@ import pandas as pd
 
 FAULT_TAXONOMY_NAME = "panel_day_engine_fault_taxonomy_v1.csv"
 ELIGIBILITY_CASES_NAME = "panel_day_engine_local_precursor_eligibility_cases_v1.csv"
+REAUDIT_NAME = "panel_date_reaudit_working.csv"
+FAULT_PANEL_EVENT_AUDIT_NAME = "panel_day_engine_fault_panel_event_audit_v1.csv"
+FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME = "panel_day_engine_fault_panel_event_audit_summary_v1.csv"
+FORENSIC_SUMMARY_NAME = "panel_day_engine_c42997_1_1_forensic_summary_v1.csv"
 GATE_DAILY_NAME = "ae_simple_local_precursor_gate_daily.csv"
 PANEL_DAY_CORE_NAME = "panel_day_core.csv"
 
@@ -39,6 +43,13 @@ CASE_OUTPUT_COLS = [
     "preferred_onset_confidence",
     "lead_days_from_preferred_onset_to_fault_start",
     "onset_reason_ko",
+    "operational_first_precursor_detected_date",
+    "operational_first_precursor_marker_name",
+    "operational_lead_days_to_fault_start",
+    "interpretive_precursor_onset_date",
+    "interpretive_lead_days_to_fault_start",
+    "benchmark_precursor_onset_date",
+    "benchmark_lead_days_to_fault_start",
 ]
 
 LADDER_OUTPUT_COLS = [
@@ -73,6 +84,8 @@ MARKER_SPECS = [
     ("preferred_precursor_onset", "preferred_precursor_onset_date"),
 ]
 
+OPERATIONAL_MARKER_SPECS = MARKER_SPECS[:-1]
+
 GATE_REQUIRED_COLS = [
     "panel_id",
     "date",
@@ -98,6 +111,14 @@ ELIGIBILITY_REQUIRED_COLS = [
 ]
 
 TAXONOMY_REQUIRED_COLS = ["recommended_eval_bucket"]
+REAUDIT_REQUIRED_COLS = ["site", "panel_id", "vendor_fault_family", "retrospective_onset_date"]
+FAULT_PANEL_EVENT_AUDIT_REQUIRED_COLS = ["site", "panel_id", "strict_trigger_date", "사건유형_재판정_ko"]
+FAULT_PANEL_EVENT_AUDIT_SUMMARY_REQUIRED_COLS = ["사건유형_재판정_전조형수"]
+FORENSIC_REQUIRED_COLS = ["site", "panel_id", "사건유형_결정_ko", "최종고장양상_결정_ko"]
+
+FORENSIC_HOLDOUT_SITE = "conalog"
+FORENSIC_HOLDOUT_PANEL_ID = "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"
+EXPECTED_PRECURSOR_BENCHMARK_SUPPORT = 3
 
 
 def parse_args() -> argparse.Namespace:
@@ -222,6 +243,20 @@ def lead_days_between(start_date: pd.Timestamp | pd.NaT, end_date: pd.Timestamp 
     return int((pd.Timestamp(end_date) - pd.Timestamp(start_date)).days)
 
 
+def derive_operational_first_detection(marker_dates: dict[str, pd.Timestamp | pd.NaT]) -> tuple[pd.Timestamp | pd.NaT, str]:
+    candidates: list[tuple[pd.Timestamp, int, str]] = []
+    for order_idx, (marker_name, _) in enumerate(OPERATIONAL_MARKER_SPECS):
+        marker_date = marker_dates.get(marker_name, pd.NaT)
+        if pd.isna(marker_date):
+            continue
+        candidates.append((pd.Timestamp(marker_date), order_idx, marker_name))
+    if not candidates:
+        return (pd.NaT, "")
+    candidates.sort(key=lambda item: (item[0], item[1]))
+    chosen_date, _, chosen_marker = candidates[0]
+    return (chosen_date, chosen_marker)
+
+
 def validate_taxonomy(root: Path) -> None:
     path = root / "_share" / FAULT_TAXONOMY_NAME
     df = drop_repeated_header_rows(read_csv(path))
@@ -232,19 +267,120 @@ def validate_taxonomy(root: Path) -> None:
 
 
 def load_precursor_cases(root: Path) -> pd.DataFrame:
-    path = root / "_share" / ELIGIBILITY_CASES_NAME
-    df = drop_repeated_header_rows(read_csv(path))
-    ensure_columns(df, ELIGIBILITY_REQUIRED_COLS, path.name)
-    df["site"] = df["site"].map(normalize_text)
-    df["panel_id"] = df["panel_id"].map(normalize_text)
-    df["vendor_fault_family"] = df["vendor_fault_family"].map(normalize_text)
-    df["temporality_class"] = df["temporality_class"].map(normalize_text)
-    df["fault_start_date"] = df["fault_start_date"].map(parse_timestamp)
-    df["precursor_eligible_flag"] = df["precursor_eligible_flag"].map(to_int_flag).astype(int)
-    cases = df.loc[df["precursor_eligible_flag"].eq(1)].copy()
-    cases = cases.loc[cases["fault_start_date"].notna()].copy()
+    share_dir = root / "_share"
+
+    fault_audit_df = drop_repeated_header_rows(read_csv(share_dir / FAULT_PANEL_EVENT_AUDIT_NAME))
+    ensure_columns(fault_audit_df, FAULT_PANEL_EVENT_AUDIT_REQUIRED_COLS, FAULT_PANEL_EVENT_AUDIT_NAME)
+    fault_audit_df["site"] = fault_audit_df["site"].map(normalize_text)
+    fault_audit_df["panel_id"] = fault_audit_df["panel_id"].map(normalize_text)
+    fault_audit_df["strict_trigger_date"] = fault_audit_df["strict_trigger_date"].map(parse_timestamp)
+    fault_audit_df["사건유형_재판정_ko"] = fault_audit_df["사건유형_재판정_ko"].map(normalize_text)
+    precursor_df = fault_audit_df.loc[fault_audit_df["사건유형_재판정_ko"].eq("전조형 고장")].copy()
+    precursor_df = precursor_df.loc[precursor_df["strict_trigger_date"].notna()].copy()
+
+    summary_df = drop_repeated_header_rows(read_csv(share_dir / FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME))
+    ensure_columns(summary_df, FAULT_PANEL_EVENT_AUDIT_SUMMARY_REQUIRED_COLS, FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME)
+    if len(summary_df) != 1:
+        raise SystemExit(
+            f"{FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME} must contain exactly one row, found {len(summary_df)}"
+        )
+    expected_support = numeric_int(summary_df.iloc[0]["사건유형_재판정_전조형수"])
+    if expected_support != EXPECTED_PRECURSOR_BENCHMARK_SUPPORT:
+        raise SystemExit(
+            f"audited precursor benchmark support must be {EXPECTED_PRECURSOR_BENCHMARK_SUPPORT}, found {expected_support}"
+        )
+    if len(precursor_df) != expected_support:
+        raise SystemExit(
+            f"precursor benchmark row count mismatch between fault audit summary and rows: summary={expected_support}, rows={len(precursor_df)}"
+        )
+
+    forensic_df = drop_repeated_header_rows(read_csv(share_dir / FORENSIC_SUMMARY_NAME))
+    ensure_columns(forensic_df, FORENSIC_REQUIRED_COLS, FORENSIC_SUMMARY_NAME)
+    forensic_df["site"] = forensic_df["site"].map(normalize_text)
+    forensic_df["panel_id"] = forensic_df["panel_id"].map(normalize_text)
+    forensic_match_df = forensic_df.loc[
+        forensic_df["site"].eq(FORENSIC_HOLDOUT_SITE) & forensic_df["panel_id"].eq(FORENSIC_HOLDOUT_PANEL_ID)
+    ].copy()
+    if len(forensic_match_df) != 1:
+        raise SystemExit(f"{FORENSIC_SUMMARY_NAME} must contain exactly one c42997 precursor forensic row")
+    forensic_row = forensic_match_df.iloc[0]
+    if normalize_text(forensic_row["사건유형_결정_ko"]) != "전조형 고장":
+        raise SystemExit("c42997 forensic decision must be 전조형 고장 for benchmark reset precursor truth")
+    if normalize_text(forensic_row["최종고장양상_결정_ko"]) != "급격 종료":
+        raise SystemExit("c42997 forensic terminal pattern must be 급격 종료 for benchmark reset precursor truth")
+
+    precursor_keys = set(zip(precursor_df["site"], precursor_df["panel_id"]))
+    if (FORENSIC_HOLDOUT_SITE, FORENSIC_HOLDOUT_PANEL_ID) not in precursor_keys:
+        raise SystemExit("c42997 forensic-confirmed precursor panel is missing from audited precursor benchmark truth")
+
+    eligibility_df = drop_repeated_header_rows(read_csv(share_dir / ELIGIBILITY_CASES_NAME))
+    ensure_columns(eligibility_df, ELIGIBILITY_REQUIRED_COLS, ELIGIBILITY_CASES_NAME)
+    for col in ["site", "panel_id", "vendor_fault_family", "temporality_class"]:
+        eligibility_df[col] = eligibility_df[col].map(normalize_text)
+    eligibility_df["fault_start_date"] = eligibility_df["fault_start_date"].map(parse_timestamp)
+    eligibility_df["precursor_eligible_flag"] = eligibility_df["precursor_eligible_flag"].map(to_int_flag).astype(int)
+    eligibility_df = eligibility_df.sort_values(["site", "panel_id", "fault_start_date"]).drop_duplicates(
+        subset=["site", "panel_id"], keep="last"
+    )
+
+    reaudit_df = drop_repeated_header_rows(read_csv(share_dir / REAUDIT_NAME))
+    ensure_columns(reaudit_df, REAUDIT_REQUIRED_COLS, REAUDIT_NAME)
+    for col in ["site", "panel_id", "vendor_fault_family"]:
+        reaudit_df[col] = reaudit_df[col].map(normalize_text)
+    reaudit_df["retrospective_onset_date"] = reaudit_df["retrospective_onset_date"].map(parse_timestamp)
+    reaudit_df = reaudit_df.drop_duplicates(subset=["site", "panel_id"], keep="last")
+
+    cases = precursor_df.merge(
+        eligibility_df.loc[:, ["site", "panel_id", "vendor_fault_family", "temporality_class"]],
+        on=["site", "panel_id"],
+        how="left",
+    )
+    if "retrospective_onset_date" in cases.columns:
+        cases = cases.rename(columns={"retrospective_onset_date": "retrospective_onset_date_audit"})
+    else:
+        cases["retrospective_onset_date_audit"] = pd.NaT
+    cases = cases.merge(
+        reaudit_df.loc[:, ["site", "panel_id", "vendor_fault_family", "retrospective_onset_date"]].rename(
+            columns={
+                "vendor_fault_family": "vendor_fault_family_reaudit",
+                "retrospective_onset_date": "retrospective_onset_date_reaudit",
+            }
+        ),
+        on=["site", "panel_id"],
+        how="left",
+    )
+    cases["vendor_fault_family"] = cases["vendor_fault_family"].map(normalize_text)
+    cases["vendor_fault_family_reaudit"] = cases["vendor_fault_family_reaudit"].map(normalize_text)
+    cases["vendor_fault_family"] = cases["vendor_fault_family"].where(
+        cases["vendor_fault_family"].ne(""),
+        cases["vendor_fault_family_reaudit"],
+    )
+    if "temporality_class" not in cases.columns:
+        cases["temporality_class"] = ""
+    cases["temporality_class"] = cases["temporality_class"].map(normalize_text)
+    cases["temporality_class"] = cases["temporality_class"].where(
+        cases["temporality_class"].ne(""),
+        "progressive_local_precursor_expected",
+    )
+    cases["retrospective_onset_date"] = pd.to_datetime(
+        cases.get("retrospective_onset_date_audit", pd.Series(pd.NaT, index=cases.index)),
+        errors="coerce",
+    ).where(
+        pd.to_datetime(cases.get("retrospective_onset_date_audit", pd.Series(pd.NaT, index=cases.index)), errors="coerce").notna(),
+        pd.to_datetime(cases.get("retrospective_onset_date_reaudit", pd.Series(pd.NaT, index=cases.index)), errors="coerce"),
+    )
+    cases["fault_start_date"] = cases["strict_trigger_date"]
+    cases["precursor_eligible_flag"] = 1
+    cases = cases.loc[:, [*ELIGIBILITY_REQUIRED_COLS, "retrospective_onset_date"]].copy()
     cases = cases.sort_values(["site", "panel_id", "fault_start_date"]).reset_index(drop=True)
-    return cases.loc[:, ELIGIBILITY_REQUIRED_COLS].copy()
+    return cases
+
+
+def numeric_int(value: object) -> int:
+    numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(numeric):
+        return 0
+    return int(numeric)
 
 
 def load_site_daily(root: Path, site: str, panels: set[str], site_window_start: pd.Timestamp, site_window_end: pd.Timestamp) -> pd.DataFrame:
@@ -440,6 +576,15 @@ def build_case_level_truth(cases: pd.DataFrame, daily_df: pd.DataFrame) -> pd.Da
         first_pre_ews = first_date_for_mask(case_daily, case_daily["pre_ews"].eq(1))
         first_ews_warning = first_date_for_mask(case_daily, case_daily["ews_warning"].eq(1))
         first_pre_alarm = first_date_for_mask(case_daily, case_daily["pre_alarm"].eq(1))
+        marker_dates = {
+            "first_cond_evt": first_cond_evt,
+            "first_cond_evt_corroborated": first_cond_evt_corroborated,
+            "first_signalcount2": first_signalcount2,
+            "first_pre_ews": first_pre_ews,
+            "first_ews_warning": first_ews_warning,
+            "first_pre_alarm": first_pre_alarm,
+        }
+        operational_first_detected_ts, operational_first_marker = derive_operational_first_detection(marker_dates)
 
         cond_evt_dates = [pd.Timestamp(value) for value in case_daily.loc[case_daily["cond_evt"].eq(1), "date"].tolist()]
         episodes = build_cond_evt_episodes(cond_evt_dates)
@@ -462,6 +607,8 @@ def build_case_level_truth(cases: pd.DataFrame, daily_df: pd.DataFrame) -> pd.Da
             episode_df,
         )
         lead_days = lead_days_between(parse_timestamp(preferred_onset), fault_start)
+        interpretive_onset_ts = parse_timestamp(case.get("retrospective_onset_date"))
+        benchmark_onset_ts = parse_timestamp(preferred_onset)
 
         rows.append(
             {
@@ -485,6 +632,13 @@ def build_case_level_truth(cases: pd.DataFrame, daily_df: pd.DataFrame) -> pd.Da
                 "preferred_onset_confidence": preferred_confidence,
                 "lead_days_from_preferred_onset_to_fault_start": lead_days,
                 "onset_reason_ko": onset_reason_ko,
+                "operational_first_precursor_detected_date": format_date(operational_first_detected_ts),
+                "operational_first_precursor_marker_name": operational_first_marker,
+                "operational_lead_days_to_fault_start": lead_days_between(operational_first_detected_ts, fault_start),
+                "interpretive_precursor_onset_date": format_date(interpretive_onset_ts),
+                "interpretive_lead_days_to_fault_start": lead_days_between(interpretive_onset_ts, fault_start),
+                "benchmark_precursor_onset_date": format_date(benchmark_onset_ts),
+                "benchmark_lead_days_to_fault_start": lead_days,
             }
         )
     return pd.DataFrame(rows).reindex(columns=CASE_OUTPUT_COLS)

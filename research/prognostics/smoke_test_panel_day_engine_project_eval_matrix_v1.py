@@ -61,18 +61,19 @@ def build_fixture(root: Path) -> None:
         [
             {"site": "alpha", "panel_id": "P1", "fault_start_date": "2026-01-31", "preferred_precursor_onset_date": "2026-01-10"},
             {"site": "alpha", "panel_id": "P2", "fault_start_date": "2026-02-10", "preferred_precursor_onset_date": "2026-02-01"},
+            {"site": "conalog", "panel_id": FORENSIC_HOLDOUT_PANEL_ID, "fault_start_date": "2025-03-21", "preferred_precursor_onset_date": "2025-03-18"},
         ],
         ["site", "panel_id", "fault_start_date", "preferred_precursor_onset_date"],
     )
     write_csv(
         share / "panel_day_engine_precursor_onset_summary_v1.csv",
         [
-            {"summary_type": "onset_marker", "marker_name": "first_cond_evt", "case_count": 2, "available_case_count": 2},
-            {"summary_type": "onset_marker", "marker_name": "first_cond_evt_corroborated", "case_count": 2, "available_case_count": 1},
-            {"summary_type": "onset_marker", "marker_name": "first_signalcount2", "case_count": 2, "available_case_count": 1},
-            {"summary_type": "onset_marker", "marker_name": "first_pre_ews", "case_count": 2, "available_case_count": 1},
-            {"summary_type": "onset_marker", "marker_name": "first_ews_warning", "case_count": 2, "available_case_count": 1},
-            {"summary_type": "onset_marker", "marker_name": "first_pre_alarm", "case_count": 2, "available_case_count": 0},
+            {"summary_type": "onset_marker", "marker_name": "first_cond_evt", "case_count": 3, "available_case_count": 3},
+            {"summary_type": "onset_marker", "marker_name": "first_cond_evt_corroborated", "case_count": 3, "available_case_count": 2},
+            {"summary_type": "onset_marker", "marker_name": "first_signalcount2", "case_count": 3, "available_case_count": 2},
+            {"summary_type": "onset_marker", "marker_name": "first_pre_ews", "case_count": 3, "available_case_count": 1},
+            {"summary_type": "onset_marker", "marker_name": "first_ews_warning", "case_count": 3, "available_case_count": 1},
+            {"summary_type": "onset_marker", "marker_name": "first_pre_alarm", "case_count": 3, "available_case_count": 0},
         ],
         ["summary_type", "marker_name", "case_count", "available_case_count"],
     )
@@ -99,6 +100,17 @@ def build_fixture(root: Path) -> None:
                 "first_signalcount2_available_flag": 0,
                 "first_pre_ews_available_flag": 1,
                 "first_ews_warning_available_flag": 1,
+                "first_pre_alarm_available_flag": 0,
+            },
+            {
+                "site": "conalog",
+                "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
+                "fault_start_date": "2025-03-21",
+                "first_cond_evt_available_flag": 1,
+                "first_cond_evt_corroborated_available_flag": 1,
+                "first_signalcount2_available_flag": 0,
+                "first_pre_ews_available_flag": 0,
+                "first_ews_warning_available_flag": 0,
                 "first_pre_alarm_available_flag": 0,
             },
         ],
@@ -472,6 +484,56 @@ def build_fixture(root: Path) -> None:
         ["panel_id", "date", "confirmed_fault", "critical_fault", "final_fault", "group_off_like", "shadow_like"],
     )
 
+    conalog_out_dir = root / "data" / "conalog" / "out"
+    conalog_out_dir.mkdir(parents=True, exist_ok=True)
+    write_csv(
+        conalog_out_dir / "ae_simple_local_precursor_gate_daily.csv",
+        [
+            {
+                "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
+                "date": "2025-03-18",
+                "cond_var": 1,
+                "cond_evt": 1,
+                "cond_dtw": 1,
+                "cond_hs": 0,
+                "pre_ews": 0,
+                "signal_count": 2,
+                "ews_warning": 0,
+                "pre_alarm": 0,
+                "group_off_date": 0,
+            },
+            {
+                "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
+                "date": "2025-03-21",
+                "cond_var": 1,
+                "cond_evt": 1,
+                "cond_dtw": 1,
+                "cond_hs": 1,
+                "pre_ews": 0,
+                "signal_count": 3,
+                "ews_warning": 1,
+                "pre_alarm": 0,
+                "group_off_date": 0,
+            },
+        ],
+        ["panel_id", "date", "cond_var", "cond_evt", "cond_dtw", "cond_hs", "pre_ews", "signal_count", "ews_warning", "pre_alarm", "group_off_date"],
+    )
+    write_csv(
+        conalog_out_dir / "panel_day_core.csv",
+        [
+            {
+                "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
+                "date": "2025-03-21",
+                "confirmed_fault": 0,
+                "critical_fault": 1,
+                "final_fault": 1,
+                "group_off_like": 0,
+                "shadow_like": 0,
+            }
+        ],
+        ["panel_id", "date", "confirmed_fault", "critical_fault", "final_fault", "group_off_like", "shadow_like"],
+    )
+
 
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
@@ -523,14 +585,15 @@ def main() -> None:
         ].iloc[0]
         assert_true(step2_row["metric_kind"] == "structural_coverage_metric", "step2 metric kind mismatch")
         assert_true(pd.isna(step2_row["precision"]), "step2 precision should be blank")
-        assert_true(int(step2_row["tp"]) == 2, "step2 tp mismatch")
+        assert_true(int(step2_row["tp"]) == 3, "step2 tp mismatch")
         assert_true(int(step2_row["fn"]) == 0, "step2 fn mismatch")
 
         step3_row = matrix.loc[
             matrix["eval_scope"].astype(str).eq("step3_precursor_performance")
             & matrix["target_name"].astype(str).eq("first_cond_evt")
         ].iloc[0]
-        assert_true(int(step3_row["tp"]) == 1, "step3 tp mismatch")
+        assert_true(int(step3_row["support_positive"]) == 3, "step3 precursor benchmark support mismatch")
+        assert_true(int(step3_row["tp"]) == 2, "step3 tp mismatch")
         assert_true(int(step3_row["fp"]) == 1, "step3 fp mismatch")
         assert_true(int(step3_row["fn"]) == 1, "step3 fn mismatch")
         assert_true(int(step3_row["tn"]) == 7, "step3 tn mismatch")
@@ -541,7 +604,7 @@ def main() -> None:
         ].iloc[0]
         assert_true(int(step4a_row["support_positive"]) == 3, "step4A corrected pure abrupt support mismatch")
         assert_true(int(step4a_row["tp"]) == 2, "step4A tp mismatch")
-        assert_true(int(step4a_row["fp"]) == 0, "step4A fp mismatch")
+        assert_true(int(step4a_row["fp"]) == 1, "step4A fp mismatch")
         assert_true(int(step4a_row["fn"]) == 1, "step4A fn mismatch")
         assert_true(int(step4a_row["tn"]) == 4, "step4A tn mismatch")
         assert_true(
@@ -549,11 +612,9 @@ def main() -> None:
             "step4A positive set name should reflect pure abrupt-only correction",
         )
         assert_true(
-            "사건 해석상 전조형 고장 패널은 3개" in str(step4a_row["note_ko"])
-            and "엄격 전조 평가셋 편입은 2개" in str(step4a_row["note_ko"])
-            and "순수 급작 평가셋 편입은 3개" in str(step4a_row["note_ko"])
+            "순수 급작 benchmark 3건" in str(step4a_row["note_ko"])
             and "c42997" in str(step4a_row["note_ko"]),
-            "step4A note should mention the 3/2/3 interpretation-vs-eval split",
+            "step4A note should mention the benchmark-reset pure abrupt basis and c429 handling",
         )
 
         step4b_row = matrix.loc[
