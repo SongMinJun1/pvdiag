@@ -105,7 +105,7 @@ def build_fixture(root: Path) -> None:
                 "freeze_recommendation": "do_not_freeze",
                 "acquisition_blocked_flag": 1,
                 "next_allowed_action": "do_not_upgrade_without_new_truth",
-                "freeze_reason_ko": "step4 pure abrupt support 3 after overlap exclusion and c429 holdout",
+                "freeze_reason_ko": "interpretation precursor 3 / strict precursor eval 2 / pure abrupt eval 3",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -233,7 +233,7 @@ def build_fixture(root: Path) -> None:
             {
                 "claim_id": "claim_step4_abrupt",
                 "claim_scope": "step4_abrupt_no_precursor",
-                "claim_text_ko": "step4 pure abrupt/no-precursor 결과는 overlap 2건과 c42997 holdout을 제외하면 positive support=3 이라 exploratory result 로만 유지한다.",
+                "claim_text_ko": "step4 pure abrupt/no-precursor 결과는 사건 해석상 전조형 고장 패널 3, 엄격 전조 평가셋 2, 순수 급작 평가셋 3을 구분해서 읽어야 하고 positive support=3 이라 exploratory result 로만 유지한다.",
                 "claim_strength": "exploratory_claim_only",
                 "prohibited_overclaim_ko": "pure abrupt support 3을 large-support stable benchmark 로 과장하지 말 것.",
             },
@@ -307,6 +307,18 @@ def build_fixture(root: Path) -> None:
         ],
     )
 
+    write_csv(
+        share / "panel_day_engine_fault_panel_event_audit_summary_v1.csv",
+        [
+            {
+                "사건유형_재판정_전조형수": 3,
+                "전조평가셋편입_패널수": 2,
+                "급작평가셋편입_패널수": 3,
+            }
+        ],
+        ["사건유형_재판정_전조형수", "전조평가셋편입_패널수", "급작평가셋편입_패널수"],
+    )
+
 
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
@@ -355,6 +367,10 @@ def main() -> None:
         assert_true(step1_row["final_usage_decision"] == "bounded_reporting_use", "step1 should map to bounded_reporting_use")
         assert_true(step3_row["final_usage_decision"] == "exploratory_only", "step3 should map to exploratory_only")
         assert_true(step4_row["final_usage_decision"] == "exploratory_only", "step4 abrupt should map to exploratory_only")
+        assert_true("전조형 고장 패널은 3개" in step3_row["final_reason_ko"], "step3 final reason should mention interpreted precursor count")
+        assert_true("엄격 전조 평가셋 편입은 2개" in step3_row["final_reason_ko"], "step3 final reason should mention strict precursor eval count")
+        assert_true("순수 급작 평가셋 편입은 3개" in step4_row["final_reason_ko"], "step4 final reason should mention pure abrupt eval count")
+        assert_true("c42997" in step4_row["final_reason_ko"], "step4 final reason should mention c429 eval-set exclusion")
         assert_true(operator_row["final_usage_decision"] == "workflow_only", "operator scope should map to workflow_only")
         assert_true(
             operator_row["chosen_operational_workflow_name"] == "baseline_plus_discovery_cluster",
@@ -393,6 +409,9 @@ def main() -> None:
         )
         step4_do = do_dont_df.loc[do_dont_df["scope_or_topic"].eq("step4_abrupt_no_precursor")].iloc[0]
         assert_true("positive support=3" in step4_do["do_text_ko"], "step4 do row should mention corrected pure abrupt support")
+        assert_true("전조형 고장 패널 3" in step4_do["do_text_ko"], "step4 do row should mention interpreted precursor count")
+        assert_true("엄격 전조 평가셋 2" in step4_do["do_text_ko"], "step4 do row should mention strict precursor eval count")
+        assert_true("순수 급작 평가셋 3" in step4_do["do_text_ko"], "step4 do row should mention pure abrupt eval count")
 
     after_digests = {path: file_digest(path) for path in official_outputs}
     assert_true(before_digests == after_digests, "smoke test modified official outputs")

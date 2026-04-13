@@ -151,7 +151,7 @@ def build_fixture(root: Path) -> None:
             "precision_ci_high": 0.95,
             "reliability_class": "underpowered",
             "freeze_recommendation": "do_not_freeze",
-            "reliability_reason_ko": "pure abrupt support 3 after overlap exclusion and c429 holdout",
+            "reliability_reason_ko": "interpretation precursor 3 / strict precursor eval 2 / pure abrupt eval 3",
         },
         {
             "eval_scope": "step4_common_cause_routing",
@@ -290,7 +290,7 @@ def build_fixture(root: Path) -> None:
                 "recommended_positive_support": "",
                 "recommended_reliability_class": "",
                 "recommended_freeze_recommendation": "do_not_freeze",
-                "rationale_ko": "pure abrupt underpowered after overlap exclusion and c429 holdout",
+                "rationale_ko": "interpretation precursor 3 / strict precursor eval 2 / pure abrupt eval 3",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -378,7 +378,7 @@ def build_fixture(root: Path) -> None:
                 "suggested_collection_source_ko": "새 abrupt panel_case truth 수집",
                 "priority_rank": 3,
                 "freeze_status_ko": "do_not_freeze",
-                "backlog_reason_ko": "pure abrupt gap remains after overlap exclusion and c429 holdout",
+                "backlog_reason_ko": "pure abrupt gap remains while interpretation precursor 3 / strict precursor eval 2 / pure abrupt eval 3 stay intentionally different",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -450,7 +450,7 @@ def build_fixture(root: Path) -> None:
                 "total_additional_positive_needed_for_10": 31,
                 "requires_new_truth_or_data_count": 5,
                 "highest_priority_rank": 3,
-                "note_ko": "pure abrupt scope needs more panel_case truth after overlap exclusion and c429 holdout",
+                "note_ko": "pure abrupt scope needs more panel_case truth while interpretation precursor 3 / strict precursor eval 2 / pure abrupt eval 3 stay intentionally different",
             },
             {
                 "expansion_action_class": "workflow_validation_not_truth",
@@ -514,6 +514,26 @@ def build_fixture(root: Path) -> None:
         ],
     )
 
+    write_csv(
+        share / "panel_day_engine_fault_panel_event_audit_summary_v1.csv",
+        [
+            {
+                "사건유형_재판정_전조형수": 3,
+                "사건유형_재판정_급작수": 3,
+                "전조평가셋편입_패널수": 2,
+                "급작평가셋편입_패널수": 3,
+                "해석과평가셋불일치_패널수": 1,
+            }
+        ],
+        [
+            "사건유형_재판정_전조형수",
+            "사건유형_재판정_급작수",
+            "전조평가셋편입_패널수",
+            "급작평가셋편입_패널수",
+            "해석과평가셋불일치_패널수",
+        ],
+    )
+
 
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
@@ -568,9 +588,11 @@ def main() -> None:
         assert_true(abrupt_row["next_allowed_action"] == "do_not_upgrade_without_new_truth", "abrupt next action failed")
         assert_true(int(abrupt_row["acquisition_blocked_flag"]) == 1, "abrupt acquisition blocked flag failed")
         assert_true(
-            ("전조형 고장(급격 종료)" in abrupt_row["freeze_reason_ko"] or "precursor-abrupt consistency audit" in abrupt_row["freeze_reason_ko"])
+            "사건 해석상 전조형 고장 패널은 3개" in abrupt_row["freeze_reason_ko"]
+            and "엄격 전조 평가셋 편입은 2개" in abrupt_row["freeze_reason_ko"]
+            and "순수 급작 평가셋 편입은 3개" in abrupt_row["freeze_reason_ko"]
             and "c42997" in abrupt_row["freeze_reason_ko"],
-            "abrupt freeze reason should mention overlap reclassification and c429 holdout",
+            "abrupt freeze reason should mention the 3/2/3 interpretation-vs-eval split",
         )
 
         common_row = pack.loc[pack["eval_scope"].eq("step4_common_cause_routing")].iloc[0]
@@ -613,8 +635,11 @@ def main() -> None:
         step4_claim = claims.loc[claims["claim_scope"].eq("step4_abrupt_no_precursor")].iloc[0]
         assert_true("positive support=3" in step4_claim["claim_text_ko"], "step4 claim should mention corrected pure abrupt support")
         assert_true(
-            ("전조형" in step4_claim["claim_text_ko"] or "precursor-led" in step4_claim["claim_text_ko"]) and "c42997" in step4_claim["claim_text_ko"],
-            "step4 claim should mention overlap relabeling and c429 holdout",
+            "사건 해석상 전조형 고장 패널은 3개" in step4_claim["claim_text_ko"]
+            and "엄격 전조 평가셋 편입은 2개" in step4_claim["claim_text_ko"]
+            and "순수 급작 평가셋 편입은 3개" in step4_claim["claim_text_ko"]
+            and "c42997" in step4_claim["claim_text_ko"],
+            "step4 claim should mention the 3/2/3 interpretation-vs-eval split",
         )
         step1_claim = claims.loc[claims["claim_scope"].eq("step1_taxonomy")].iloc[0]
         assert_true("best target" not in step1_claim["claim_text_ko"], "step1 claim should avoid classifier-style best target wording")

@@ -457,6 +457,108 @@ def build_fixture(root: Path, omit_reaudit_panel_ids: set[str] | None = None) ->
         ],
     )
 
+    write_csv(
+        share / "panel_day_engine_fault_panel_event_audit_v1.csv",
+        [
+            {
+                "site": "sitea",
+                "panel_id": "p1",
+                "현재표_사건유형_ko": "전조형 고장",
+                "현재표_최종고장양상_ko": "진행성 악화",
+                "전조흔적_flag": 1,
+                "순수급작_flag": 0,
+                "전조평가셋편입_flag": 1,
+                "급작평가셋편입_flag": 0,
+                "사건유형_재판정_ko": "전조형 고장",
+                "최종고장양상_재판정_ko": "진행성 악화",
+                "재판정_근거_ko": "fault panel event audit explicit stored-field rule",
+            },
+            {
+                "site": "sitea",
+                "panel_id": "p2",
+                "현재표_사건유형_ko": "급작 고장",
+                "현재표_최종고장양상_ko": "급작 발생",
+                "전조흔적_flag": 0,
+                "순수급작_flag": 1,
+                "전조평가셋편입_flag": 0,
+                "급작평가셋편입_flag": 1,
+                "사건유형_재판정_ko": "급작 고장",
+                "최종고장양상_재판정_ko": "급작 발생",
+                "재판정_근거_ko": "fault panel event audit explicit stored-field rule",
+            },
+            {
+                "site": "sitea",
+                "panel_id": "p3",
+                "현재표_사건유형_ko": "급작 고장",
+                "현재표_최종고장양상_ko": "급작 발생",
+                "전조흔적_flag": 0,
+                "순수급작_flag": 1,
+                "전조평가셋편입_flag": 0,
+                "급작평가셋편입_flag": 1,
+                "사건유형_재판정_ko": "급작 고장",
+                "최종고장양상_재판정_ko": "급작 발생",
+                "재판정_근거_ko": "fault panel event audit explicit stored-field rule",
+                "현재표_보정필요여부_flag": 0,
+            },
+            {
+                "site": "siteb",
+                "panel_id": "p4",
+                "현재표_사건유형_ko": "급작 고장",
+                "현재표_최종고장양상_ko": "급작 발생",
+                "전조흔적_flag": 0,
+                "순수급작_flag": 1,
+                "전조평가셋편입_flag": 0,
+                "급작평가셋편입_flag": 1,
+                "사건유형_재판정_ko": "급작 고장",
+                "최종고장양상_재판정_ko": "급작 발생",
+                "재판정_근거_ko": "fault panel event audit explicit stored-field rule",
+                "현재표_보정필요여부_flag": 0,
+            },
+            {
+                "site": "conalog",
+                "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
+                "현재표_사건유형_ko": "전조형 고장",
+                "현재표_최종고장양상_ko": "급격 종료",
+                "전조흔적_flag": 1,
+                "순수급작_flag": 0,
+                "전조평가셋편입_flag": 0,
+                "급작평가셋편입_flag": 0,
+                "사건유형_재판정_ko": "전조형 고장",
+                "최종고장양상_재판정_ko": "급격 종료",
+                "재판정_근거_ko": "explicit stored-field rule; interpretation precursor-led but both eval sets excluded",
+                "현재표_보정필요여부_flag": 0,
+            },
+            {
+                "site": "siteb",
+                "panel_id": "p6",
+                "현재표_사건유형_ko": "전조형 고장",
+                "현재표_최종고장양상_ko": "진행성 악화",
+                "전조흔적_flag": 1,
+                "순수급작_flag": 0,
+                "전조평가셋편입_flag": 1,
+                "급작평가셋편입_flag": 0,
+                "사건유형_재판정_ko": "전조형 고장",
+                "최종고장양상_재판정_ko": "진행성 악화",
+                "재판정_근거_ko": "fault panel event audit explicit stored-field rule",
+                "현재표_보정필요여부_flag": 0,
+            },
+        ],
+        [
+            "site",
+            "panel_id",
+            "현재표_사건유형_ko",
+            "현재표_최종고장양상_ko",
+            "전조흔적_flag",
+            "순수급작_flag",
+            "전조평가셋편입_flag",
+            "급작평가셋편입_flag",
+            "사건유형_재판정_ko",
+            "최종고장양상_재판정_ko",
+            "재판정_근거_ko",
+            "현재표_보정필요여부_flag",
+        ],
+    )
+
     (root / "data" / "gpvs" / "out").mkdir(parents=True, exist_ok=True)
     write_csv(
         root / "data" / "gpvs" / "out" / "EXTERNAL_GPVS_BYTYPE_METRICS.csv",
@@ -604,16 +706,16 @@ def main() -> None:
         caution_lookup = dict(zip(abrupt_df["panel_id"], abrupt_df["사건유형_판정주의_ko"]))
         assert_true(event_lookup["p1"] == "전조형 고장", "p1 should be reconciled as precursor-led fault")
         assert_true(event_lookup["p6"] == "전조형 고장", "p6 should be reconciled as precursor-led fault")
-        assert_true(event_lookup[FORENSIC_HOLDOUT_PANEL_ID] == "고장유형 보류", "holdout panel should be marked 고장유형 보류")
-        assert_true(terminal_lookup["p1"] == "급격 종료", "p1 terminal pattern should be abrupt ending")
-        assert_true(terminal_lookup["p6"] == "급격 종료", "p6 terminal pattern should be abrupt ending")
-        assert_true(terminal_lookup[FORENSIC_HOLDOUT_PANEL_ID] == "급작 발생", "holdout terminal pattern should stay abrupt 발생")
+        assert_true(event_lookup[FORENSIC_HOLDOUT_PANEL_ID] == "전조형 고장", "c429 row should now be interpreted as precursor-led fault")
+        assert_true(terminal_lookup["p1"] == "진행성 악화", "p1 terminal pattern should be progressive worsening")
+        assert_true(terminal_lookup["p6"] == "진행성 악화", "p6 terminal pattern should be progressive worsening")
+        assert_true(terminal_lookup[FORENSIC_HOLDOUT_PANEL_ID] == "급격 종료", "c429 terminal pattern should be abrupt ending")
         assert_true(int(pure_abrupt_lookup["p1"]) == 0, "p1 should not stay pure abrupt")
         assert_true(int(pure_abrupt_lookup["p6"]) == 0, "p6 should not stay pure abrupt")
-        assert_true(int(pure_abrupt_lookup[FORENSIC_HOLDOUT_PANEL_ID]) == 0, "holdout panel should not stay pure abrupt")
+        assert_true(int(pure_abrupt_lookup[FORENSIC_HOLDOUT_PANEL_ID]) == 0, "c429 should not stay pure abrupt")
         assert_true(
-            caution_lookup[FORENSIC_HOLDOUT_PANEL_ID] == "전조흔적(2025-01-20) 이 있어 순수 급작으로 고정하지 않음",
-            "holdout caution text mismatch",
+            "전조형 고장" in caution_lookup[FORENSIC_HOLDOUT_PANEL_ID] or "explicit" in caution_lookup[FORENSIC_HOLDOUT_PANEL_ID],
+            "c429 caution text should come from fault-event audit reasoning",
         )
         assert_true(int(pd.to_numeric(abrupt_df["순수급작_flag"]).sum()) == 3, "pure abrupt count should be 3")
         assert_true(

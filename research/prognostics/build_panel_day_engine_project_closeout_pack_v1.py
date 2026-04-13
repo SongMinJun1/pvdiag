@@ -24,6 +24,7 @@ PANEL_MULTIAXIS_VERDICT_NAME = "panel_day_engine_panel_multiaxis_verdict_v1.csv"
 PANEL_MULTIAXIS_EVENT_SUPPLEMENT_NAME = "panel_day_engine_panel_multiaxis_event_supplement_v1.csv"
 PANEL_MULTIAXIS_CLUSTER_SUPPLEMENT_NAME = "panel_day_engine_panel_multiaxis_cluster_supplement_v1.csv"
 PANEL_MULTIAXIS_SUMMARY_NAME = "panel_day_engine_panel_multiaxis_verdict_summary_v1.csv"
+FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME = "panel_day_engine_fault_panel_event_audit_summary_v1.csv"
 
 HANDOFF_PACK_NAME = "panel_day_engine_project_handoff_pack_v1.md"
 INTERNAL_SHARE_CLEAN_PACK_NAME = "panel_day_engine_internal_share_clean_pack_v1.md"
@@ -145,6 +146,7 @@ def load_inputs(root: Path) -> dict[str, object]:
         "release_gate": read_csv(share_dir / RELEASE_GATE_MANIFEST_NAME),
         "pipeline": read_csv(share_dir / PIPELINE_MANIFEST_NAME),
         "panel_multiaxis_summary": read_csv(share_dir / PANEL_MULTIAXIS_SUMMARY_NAME),
+        "fault_event_audit_summary": read_csv(share_dir / FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME),
         "handoff_pack_path": share_dir / HANDOFF_PACK_NAME,
         "internal_share_clean_pack_path": share_dir / INTERNAL_SHARE_CLEAN_PACK_NAME,
         "panel_multiaxis_verdict_path": share_dir / PANEL_MULTIAXIS_VERDICT_NAME,
@@ -269,9 +271,14 @@ def load_inputs(root: Path) -> dict[str, object]:
         [
             "전체_패널수",
             "고유_고장패널수",
-            "전조사건수",
-            "순수급작사건수",
-            "전조후급격종료_패널수",
+            "사건해석_전조형_패널수",
+            "사건해석_급작_패널수",
+            "사건해석_전조형_급격종료_패널수",
+            "사건해석_전조형_진행성악화_패널수",
+            "전조흔적_패널수",
+            "엄격전조평가셋_패널수",
+            "순수급작평가셋_패널수",
+            "해석과평가셋불일치_패널수",
             "커널로그_원인군_부착수",
             "GPVS_적용대상_패널수",
             "GPVS_부착수",
@@ -280,6 +287,11 @@ def load_inputs(root: Path) -> dict[str, object]:
             "note_ko",
         ],
         PANEL_MULTIAXIS_SUMMARY_NAME,
+    )
+    ensure_columns(
+        frames["fault_event_audit_summary"],
+        ["사건유형_재판정_전조형수", "전조평가셋편입_패널수", "급작평가셋편입_패널수"],
+        FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME,
     )
     return frames
 
@@ -317,6 +329,7 @@ def validate_inputs(root: Path, frames: dict[str, object]) -> None:
     release_gate = frames["release_gate"]
     pipeline = frames["pipeline"]
     panel_multiaxis_summary = frames["panel_multiaxis_summary"]
+    fault_event_audit_summary = frames["fault_event_audit_summary"]
     handoff_pack_path = frames["handoff_pack_path"]
     internal_share_clean_pack_path = frames["internal_share_clean_pack_path"]
     panel_multiaxis_verdict_path = frames["panel_multiaxis_verdict_path"]
@@ -390,6 +403,8 @@ def validate_inputs(root: Path, frames: dict[str, object]) -> None:
 
     if len(panel_multiaxis_summary) != 1:
         raise SystemExit(f"{PANEL_MULTIAXIS_SUMMARY_NAME} must contain exactly one row, found {len(panel_multiaxis_summary)}")
+    if len(fault_event_audit_summary) != 1:
+        raise SystemExit(f"{FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME} must contain exactly one row, found {len(fault_event_audit_summary)}")
 
     if not Path(handoff_pack_path).exists():
         raise SystemExit(f"missing required artifact: {handoff_pack_path}")
@@ -525,7 +540,7 @@ def artifact_specs() -> list[dict[str, str]]:
             "산출물명": PANEL_MULTIAXIS_EVENT_SUPPLEMENT_NAME,
             "경로": f"_share/{PANEL_MULTIAXIS_EVENT_SUPPLEMENT_NAME}",
             "용도_ko": "한 패널의 복수 사건이력 보조표",
-            "지금_읽는_목적_ko": "전조형 고장(급격 종료)이나 고장유형 보류처럼 event type과 terminal pattern을 같이 확인",
+            "지금_읽는_목적_ko": "전조형 고장(급격 종료)처럼 event type과 terminal pattern을 같이 확인",
             "비고_ko": "대표판정 한 줄에 다 안 담기는 사건이력 보존용",
         },
         {
@@ -595,8 +610,8 @@ def artifact_specs() -> list[dict[str, str]]:
             "산출물명": ABRUPT6_SYMPTOM_MAP_NAME,
             "경로": f"_share/{ABRUPT6_SYMPTOM_MAP_NAME}",
             "용도_ko": "fault 6건의 증상명 + 사건유형/최종고장양상 매칭표",
-            "지금_읽는_목적_ko": "순수 급작 3건, 전조형 고장(급격 종료) 2건, 고장유형 보류 1건을 구분해서 확인",
-            "비고_ko": "6행을 유지하지만 pure abrupt count는 3으로 읽는다",
+            "지금_읽는_목적_ko": "순수 급작 3건, 전조형 고장(진행성 악화) 2건, 전조형 고장(급격 종료) 1건을 구분해서 확인",
+            "비고_ko": "6행을 유지하지만 pure abrupt count는 3으로 읽고 사건유형과 최종고장양상은 분리해서 본다",
         },
         {
             "산출물명": KERNELLOG_PROJECT_MAPPING_NAME,
@@ -659,6 +674,7 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
     release_gate = frames["release_gate"]
     pipeline = frames["pipeline"]
     panel_multiaxis_summary = frames["panel_multiaxis_summary"]
+    fault_event_audit_summary = frames["fault_event_audit_summary"]
 
     pack_lookup = row_lookup(final_pack, "eval_scope")
     chosen_workflow = normalize_text(policy.iloc[0]["recommended_policy_name"])
@@ -669,23 +685,37 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
     pipeline_flag = numeric_int(pipeline.iloc[0]["final_pipeline_pass_flag"])
     current_limit_row = do_dont.loc[do_dont["scope_or_topic"].eq("project_current_data_limit")].iloc[0]
     multiaxis_row = panel_multiaxis_summary.iloc[0]
+    fault_audit_row = fault_event_audit_summary.iloc[0]
     multiaxis_total = numeric_int(multiaxis_row["전체_패널수"])
     multiaxis_gpvs_applicable = numeric_int(multiaxis_row["GPVS_적용대상_패널수"])
     multiaxis_gpvs_attached = numeric_int(multiaxis_row["GPVS_부착수"])
     multiaxis_gpvs_unattached = numeric_int(multiaxis_row["GPVS_미부착수"])
     multiaxis_gpvs_nontarget = numeric_int(multiaxis_row["GPVS_비대상수"])
-    precursor_event_count = numeric_int(multiaxis_row["전조사건수"])
-    pure_abrupt_count = numeric_int(multiaxis_row["순수급작사건수"])
-    abrupt_end_overlap_count = numeric_int(multiaxis_row["전조후급격종료_패널수"])
+    interpreted_precursor_count = numeric_int(multiaxis_row["사건해석_전조형_패널수"])
+    interpreted_abrupt_count = numeric_int(multiaxis_row["사건해석_급작_패널수"])
+    precursor_abrupt_ending_count = numeric_int(multiaxis_row["사건해석_전조형_급격종료_패널수"])
+    precursor_progressive_count = numeric_int(multiaxis_row["사건해석_전조형_진행성악화_패널수"])
+    strict_precursor_eval_count = numeric_int(multiaxis_row["엄격전조평가셋_패널수"])
+    pure_abrupt_eval_count = numeric_int(multiaxis_row["순수급작평가셋_패널수"])
+    mismatch_count = numeric_int(multiaxis_row["해석과평가셋불일치_패널수"])
+    if interpreted_precursor_count != numeric_int(fault_audit_row["사건유형_재판정_전조형수"]):
+        raise SystemExit("closeout precursor interpretation count mismatch between multiaxis summary and fault audit summary")
+    if strict_precursor_eval_count != numeric_int(fault_audit_row["전조평가셋편입_패널수"]):
+        raise SystemExit("closeout strict precursor eval count mismatch between multiaxis summary and fault audit summary")
+    if pure_abrupt_eval_count != numeric_int(fault_audit_row["급작평가셋편입_패널수"]):
+        raise SystemExit("closeout pure abrupt eval count mismatch between multiaxis summary and fault audit summary")
 
     return "\n".join(
         [
             "## 1. 지금 확정된 결론",
             f"- {normalize_text(current_limit_row['do_text_ko'])}",
             "- step1_taxonomy 와 step2_onset_truth 는 structural coverage/reference 범위로만 고정한다.",
-            f"- 전조형 사건은 {precursor_event_count}건이고, 이 중 {abrupt_end_overlap_count}건은 전조형 고장이 급격 종료로 끝난 경우로 본다.",
-            "- c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 고장 패널이지만 pure abrupt typing 은 holdout 으로 둔다.",
-            f"- 순수 급작 사건은 현재 stored data 기준 {pure_abrupt_count}건이다.",
+            f"- 사건 해석상 전조형 고장 패널은 {interpreted_precursor_count}건이고, 이 중 {precursor_abrupt_ending_count}건은 급격 종료, {precursor_progressive_count}건은 진행성 악화로 본다.",
+            "- 즉 전조형 고장이 급격 종료로 끝난 경우가 있어 event type 과 terminal failure pattern 을 분리해서 읽어야 한다.",
+            f"- 엄격 전조 평가셋 편입은 {strict_precursor_eval_count}건이고, 순수 급작 평가셋 편입은 {pure_abrupt_eval_count}건이다.",
+            f"- 순수 급작 사건은 현재 stored data 기준 {pure_abrupt_eval_count}건이다.",
+            "- c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하지만 엄격 전조 평가셋과 순수 급작 평가셋에는 모두 넣지 않는다.",
+            f"- 사건 해석상 급작 고장 패널은 현재 stored data 기준 {interpreted_abrupt_count}건이다.",
             f"- 패널별 대표판정표가 이제 완성돼서 `{PANEL_MULTIAXIS_VERDICT_NAME}` 한 장으로 panel {multiaxis_total}개의 대표상태를 볼 수 있다.",
             "",
             "## 2. 운영 기본값",
@@ -698,16 +728,17 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
             "- step1_taxonomy 는 classifier 성능이 아니라 structural coverage 로만 말한다.",
             "- step2_onset_truth 는 classifier 성능이 아니라 structural reference 로만 말한다.",
             "- event type 과 terminal failure pattern 을 같은 뜻으로 말하면 안 된다.",
-            "- precursor 가 있으면 그 사건은 급작 고장이 아니라 전조형 고장이고, abrupt 는 최종고장양상으로만 읽는다.",
-            "- c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 현재 재감사 family hint `open_or_device_issue_like` 를 유지하되 pure abrupt count에는 넣지 않는다.",
-            "- 순수 급작 고장은 `final_fault_hit_by_anchor` 기준 pure abrupt support 3건으로만 읽는다.",
+            "- 사건 해석과 평가셋 편입은 intentionally 다를 수 있다.",
+            f"- 현재 사건 해석상 전조형 고장 패널 {interpreted_precursor_count}개와 엄격 전조 평가셋 {strict_precursor_eval_count}개는 같은 숫자가 아니다.",
+            "- c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 현재 재감사 family hint `open_or_device_issue_like` 를 유지하되 strict precursor eval과 pure abrupt eval 둘 다에서 제외한다.",
+            f"- 순수 급작 고장은 `final_fault_hit_by_anchor` 기준 pure abrupt support {pure_abrupt_eval_count}건으로만 읽는다.",
             f"- GPVS 는 fault-family reference axis라 고장 panel {multiaxis_gpvs_applicable}개에만 적용하고, 그중 {multiaxis_gpvs_attached}개에만 현재 직접 부착돼 있다.",
             f"- 현재 direct GPVS 미부착 고장 panel 은 {multiaxis_gpvs_unattached}개이고, 비고장/미확정 panel {multiaxis_gpvs_nontarget}개는 GPVS 비대상이다.",
             "",
             "## 4. 아직 탐색적으로만 남겨야 하는 것",
             "- 전조형 성능은 표본이 작아 탐색적이다.",
             "- 공통원인 이벤트는 아직 탐색적이다.",
-            "- 전조형 고장(급격 종료) 2건과 고장유형 보류 1건은 사건유형과 최종고장양상을 같이 봐야 하므로 사건이력 보조표를 함께 본다.",
+            f"- 사건 해석상 전조형 고장 {interpreted_precursor_count}건과 엄격 전조 평가셋 {strict_precursor_eval_count}건 사이의 차이 {mismatch_count}건은 사건이력 보조표를 함께 봐야 한다.",
             "- operator workflow 사용 가능 상태를 detector 일반 성능으로 과장하면 안 된다.",
             "",
             "## 5. 가장 먼저 볼 산출물",

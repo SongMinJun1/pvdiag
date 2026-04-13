@@ -12,6 +12,7 @@ CLAIMS_NAME = "panel_day_engine_project_current_data_claims_v1.csv"
 POLICY_RECOMMENDATION_NAME = "panel_day_engine_operator_attention_policy_recommendation_v1.csv"
 RELEASE_GATE_MANIFEST_NAME = "panel_day_engine_operator_release_gate_manifest_v1.csv"
 PIPELINE_MANIFEST_NAME = "panel_day_engine_operator_pipeline_manifest_v1.csv"
+FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME = "panel_day_engine_fault_panel_event_audit_summary_v1.csv"
 
 FINAL_DECISION_PACK_OUTPUT_NAME = "panel_day_engine_project_final_decision_pack_v1.csv"
 FINAL_DECISION_SUMMARY_OUTPUT_NAME = "panel_day_engine_project_final_decision_summary_v1.csv"
@@ -121,6 +122,7 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         "policy": read_csv(share_dir / POLICY_RECOMMENDATION_NAME),
         "release_gate": read_csv(share_dir / RELEASE_GATE_MANIFEST_NAME),
         "pipeline": read_csv(share_dir / PIPELINE_MANIFEST_NAME),
+        "fault_event_audit_summary": read_csv(share_dir / FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME),
     }
 
     ensure_columns(
@@ -169,6 +171,11 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         frames["pipeline"],
         ["final_pipeline_pass_flag", "note_ko"],
         PIPELINE_MANIFEST_NAME,
+    )
+    ensure_columns(
+        frames["fault_event_audit_summary"],
+        ["사건유형_재판정_전조형수", "전조평가셋편입_패널수", "급작평가셋편입_패널수"],
+        FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME,
     )
     return frames
 
@@ -246,6 +253,7 @@ def final_reason_for_scope(
     caution_ko: str,
     release_gate_pass_flag: int,
     pipeline_pass_flag: int,
+    fault_event_summary_row: dict[str, object],
 ) -> str:
     current_decision = normalize_text(pack_row["current_data_decision"])
     usage_decision = final_usage_decision(current_decision)
@@ -253,6 +261,9 @@ def final_reason_for_scope(
     best_f1 = numeric_float_or_blank(pack_row["current_best_f1"])
     best_support = numeric_float_or_blank(pack_row["current_best_positive_support"])
     freeze_reason = normalize_text(pack_row["freeze_reason_ko"])
+    interpreted_precursor_count = numeric_int(fault_event_summary_row["사건유형_재판정_전조형수"])
+    strict_precursor_eval_count = numeric_int(fault_event_summary_row["전조평가셋편입_패널수"])
+    pure_abrupt_eval_count = numeric_int(fault_event_summary_row["급작평가셋편입_패널수"])
 
     if scope == "operator_policy_proxy":
         return (
@@ -275,14 +286,23 @@ def final_reason_for_scope(
     if scope == "step4_abrupt_no_precursor":
         if usage_decision == "exploratory_only":
             return (
-                f"현재는 추가 fault case 수집이 불가능하고 precursor-abrupt same-event overlap 2건은 전조형 고장(급격 종료)으로 재분류되며 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 precursor-like evidence before trigger 때문에 pure abrupt typing holdout 으로 남으므로, "
+                f"현재는 추가 fault case 수집이 불가능하고 사건 해석상 전조형 고장 패널은 {interpreted_precursor_count}개지만 순수 급작 평가셋 편입은 {pure_abrupt_eval_count}개뿐이므로, "
+                "c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하지만 엄격 전조 평가셋과 순수 급작 평가셋 모두에 넣지 않는다. "
                 f"step4 pure abrupt/no-precursor scope는 positive support={best_support} 기준 exploratory only 로 유지한다. "
                 f"현재 best row는 {best_target} (f1={best_f1}, positive_support={best_support}) 이지만 pure abrupt support가 작아 stable default 결론으로 쓰면 안 된다. "
                 f"{freeze_reason}"
             ).strip()
         return (
-            f"현재는 추가 fault case 수집이 불가능하므로 step4 pure abrupt/no-precursor scope는 precursor-led abrupt ending 2건과 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 holdout을 제외한 pure abrupt support={best_support} 기준으로만 읽는다. "
+            f"현재는 추가 fault case 수집이 불가능하므로 step4 pure abrupt/no-precursor scope는 사건 해석상 전조형 패널 수와 분리된 pure abrupt evaluation support={best_support} 기준으로만 읽는다. "
             f"현재 best row는 {best_target} (f1={best_f1}, positive_support={best_support}) 이고 final usage 는 {usage_decision} 다. "
+            f"{freeze_reason}"
+        ).strip()
+
+    if scope == "step3_precursor_performance":
+        return (
+            f"현재는 추가 fault case 수집이 불가능하고 사건 해석상 전조형 고장 패널은 {interpreted_precursor_count}개지만 엄격 전조 평가셋 편입은 {strict_precursor_eval_count}개이므로, "
+            f"step3 precursor scope는 positive support={best_support} 기준 exploratory only 로 유지한다. "
+            f"현재 best row는 {best_target} (f1={best_f1}, positive_support={best_support}) 이지만 stable default 결론으로 쓰면 안 된다. "
             f"{freeze_reason}"
         ).strip()
 
@@ -315,6 +335,7 @@ def build_final_decision_pack(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
     policy_row = {key: normalize_text(value) for key, value in frames["policy"].iloc[0].to_dict().items()}
     release_gate_row = frames["release_gate"].iloc[0].to_dict()
     pipeline_row = frames["pipeline"].iloc[0].to_dict()
+    fault_event_summary_row = frames["fault_event_audit_summary"].iloc[0].to_dict()
     release_gate_pass_flag = numeric_int(release_gate_row["final_release_gate_pass_flag"])
     pipeline_pass_flag = numeric_int(pipeline_row["final_pipeline_pass_flag"])
 
@@ -333,6 +354,7 @@ def build_final_decision_pack(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
             caution_ko=policy_row["caution_ko"],
             release_gate_pass_flag=release_gate_pass_flag,
             pipeline_pass_flag=pipeline_pass_flag,
+            fault_event_summary_row=fault_event_summary_row,
         )
         rows.append(
             {

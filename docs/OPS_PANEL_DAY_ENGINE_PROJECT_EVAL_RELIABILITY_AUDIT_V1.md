@@ -15,7 +15,7 @@ project evaluation matrix는 step 1, 2, 3, 4, operator policy proxy를 한 표�
 - support가 작다면 perfect F1도 우연일 수 있지 않은가?
 - proxy metric을 실제 detector 성능처럼 읽고 있지는 않은가?
 
-현재 step4 abrupt/no-precursor 에서는 이 질문이 하나 더 추가됩니다. precursor-abrupt consistency audit 에서 same-event 로 판정된 overlap 2건은 pure abrupt positive set 에서 제외해야 하고, single-panel forensic audit 결과 `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 도 precursor-like evidence 때문에 pure abrupt typing 에서 holdout 해야 하므로, reliability 는 corrected support 3을 기준으로 다시 읽어야 합니다.
+현재 step4 abrupt/no-precursor 에서는 이 질문이 하나 더 추가됩니다. fault-panel event audit 기준 사건 해석상 전조형 고장 패널은 3개지만, 엄격 전조 평가셋 편입은 2개이고 순수 급작 평가셋 편입은 3개입니다. `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 사건 해석상 `전조형 고장 / 급격 종료` 이지만 두 평가셋 모두에 넣지 않으므로, reliability 는 pure abrupt support 3과 strict precursor support 2를 기준으로 다시 읽어야 합니다.
 
 ## 작은 support에서 perfect F1가 왜 위험한가
 
@@ -31,7 +31,7 @@ positive case가 2건, 3건 같은 매우 작은 분모에서는 한 건 차이�
 
 즉, 이 두 종류는 ordinary classifier metric과 같은 기준으로 freeze 여부를 단정하면 안 됩니다.
 
-step4 abrupt/no-precursor 도 event semantics correction 을 반영해야 합니다. precursor 가 있는 사건은 abrupt event 로 세지지 않고, `전조형 고장(급격 종료)` 로 읽습니다. 또 `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 fault panel 이지만 pure abrupt typing 은 holdout 으로 남깁니다. 따라서 reliability audit 은 old support 6 이 아니라 corrected pure abrupt support 3을 기준으로 Wilson interval과 freeze recommendation 을 다시 계산합니다.
+step4 abrupt/no-precursor 도 event semantics correction 을 반영해야 합니다. precursor 가 있는 사건은 abrupt event 로 세지지 않고, `전조형 고장` 으로 읽되 최종고장양상만 별도로 남깁니다. 또 `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 사건 해석상 전조형 고장/급격 종료지만 strict precursor eval과 pure abrupt eval 둘 다에서 제외합니다. 따라서 reliability audit 은 old support 6 이 아니라 strict precursor support 2, pure abrupt support 3을 기준으로 Wilson interval과 freeze recommendation 을 다시 계산합니다.
 
 ## freeze_recommendation 해석
 
