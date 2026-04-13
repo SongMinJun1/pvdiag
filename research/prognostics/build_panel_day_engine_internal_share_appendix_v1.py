@@ -17,6 +17,7 @@ PRECURSOR_ABRUPT_CONSISTENCY_CASES_NAME = "panel_day_engine_precursor_abrupt_con
 PRECURSOR_ABRUPT_CONSISTENCY_SUMMARY_NAME = "panel_day_engine_precursor_abrupt_consistency_summary_v1.csv"
 PRECURSOR_ABRUPT_CONSISTENCY_RECOMMENDATION_NAME = "panel_day_engine_precursor_abrupt_consistency_recommendation_v1.csv"
 FORENSIC_SUMMARY_NAME = "panel_day_engine_c42997_1_1_forensic_summary_v1.csv"
+FAULT_PANEL_EVENT_AUDIT_NAME = "panel_day_engine_fault_panel_event_audit_v1.csv"
 
 ABRUPT6_OUTPUT_NAME = "panel_day_engine_abrupt6_symptom_map_v1.csv"
 KERNEL_MAPPING_OUTPUT_NAME = "panel_day_engine_kernellog_project_mapping_v1.csv"
@@ -187,6 +188,21 @@ REQUIRED_FORENSIC_SUMMARY_COLS = [
     "현재표_보정필요여부_flag",
 ]
 
+REQUIRED_FAULT_EVENT_AUDIT_COLS = [
+    "site",
+    "panel_id",
+    "현재표_사건유형_ko",
+    "현재표_최종고장양상_ko",
+    "전조흔적_flag",
+    "순수급작_flag",
+    "전조평가셋편입_flag",
+    "급작평가셋편입_flag",
+    "사건유형_재판정_ko",
+    "최종고장양상_재판정_ko",
+    "재판정_근거_ko",
+    "현재표_보정필요여부_flag",
+]
+
 FORENSIC_HOLDOUT_SITE = "conalog"
 FORENSIC_HOLDOUT_PANEL_ID = "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"
 FORENSIC_HOLDOUT_WARNING_DATE = "2025-01-20"
@@ -270,6 +286,7 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         "consistency_summary": read_csv(share_dir / PRECURSOR_ABRUPT_CONSISTENCY_SUMMARY_NAME),
         "consistency_recommendation": read_csv(share_dir / PRECURSOR_ABRUPT_CONSISTENCY_RECOMMENDATION_NAME),
         "forensic_summary": read_csv(share_dir / FORENSIC_SUMMARY_NAME),
+        "fault_event_audit": read_csv(share_dir / FAULT_PANEL_EVENT_AUDIT_NAME),
     }
 
     ensure_columns(frames["non_precursor"], REQUIRED_NON_PRECURSOR_COLS, NON_PRECURSOR_CASES_NAME)
@@ -292,6 +309,7 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         PRECURSOR_ABRUPT_CONSISTENCY_RECOMMENDATION_NAME,
     )
     ensure_columns(frames["forensic_summary"], REQUIRED_FORENSIC_SUMMARY_COLS, FORENSIC_SUMMARY_NAME)
+    ensure_columns(frames["fault_event_audit"], REQUIRED_FAULT_EVENT_AUDIT_COLS, FAULT_PANEL_EVENT_AUDIT_NAME)
 
     for df in frames.values():
         for column in df.columns:
@@ -340,32 +358,21 @@ def load_same_event_overlap_keys(frames: dict[str, pd.DataFrame]) -> set[tuple[s
     return overlap_keys
 
 
-def load_forensic_holdout_case(frames: dict[str, pd.DataFrame]) -> dict[str, str]:
-    forensic_df = frames["forensic_summary"].copy()
-    forensic_df["site"] = forensic_df["site"].map(normalize_text)
-    forensic_df["panel_id"] = forensic_df["panel_id"].map(normalize_text)
-    target_df = forensic_df.loc[
-        forensic_df["site"].eq(FORENSIC_HOLDOUT_SITE)
-        & forensic_df["panel_id"].eq(FORENSIC_HOLDOUT_PANEL_ID)
-    ].copy()
-    if len(target_df) != 1:
+def fault_event_audit_lookup(frames: dict[str, pd.DataFrame]) -> dict[tuple[str, str], dict[str, str]]:
+    audit_df = frames["fault_event_audit"].copy()
+    lookup: dict[tuple[str, str], dict[str, str]] = {}
+    for row in audit_df.to_dict(orient="records"):
+        site = normalize_text(row["site"])
+        panel_id = normalize_text(row["panel_id"])
+        if site and panel_id:
+            lookup[(site, panel_id)] = {key: normalize_text(value) for key, value in row.items()}
+    if len(lookup) != EXPECTED_ABRUPT_CASE_COUNT:
         raise SystemExit(
-            f"{FORENSIC_SUMMARY_NAME} must contain exactly one target row for {FORENSIC_HOLDOUT_SITE}/{FORENSIC_HOLDOUT_PANEL_ID}, found {len(target_df)}"
+            f"{FAULT_PANEL_EVENT_AUDIT_NAME} must contain current fault panel {EXPECTED_ABRUPT_CASE_COUNT} rows, found {len(lookup)}"
         )
-    row = {key: normalize_text(value) for key, value in target_df.iloc[0].to_dict().items()}
-    if row["사건시간양상_판정_ko"] != "전조흔적있음_순수급작보류":
-        raise SystemExit(
-            f"{FORENSIC_SUMMARY_NAME} guard failed: 사건시간양상_판정_ko must be 전조흔적있음_순수급작보류, got {row['사건시간양상_판정_ko'] or '<blank>'}"
-        )
-    if numeric_int(row["현재표_보정필요여부_flag"]) != 1:
-        raise SystemExit(
-            f"{FORENSIC_SUMMARY_NAME} guard failed: 현재표_보정필요여부_flag must be 1, got {row['현재표_보정필요여부_flag'] or '<blank>'}"
-        )
-    if row["전조흔적_시작일"] != FORENSIC_HOLDOUT_WARNING_DATE or row["강한트리거일"] != FORENSIC_HOLDOUT_TRIGGER_DATE:
-        raise SystemExit(
-            f"{FORENSIC_SUMMARY_NAME} guard failed: expected warning/trigger {FORENSIC_HOLDOUT_WARNING_DATE}/{FORENSIC_HOLDOUT_TRIGGER_DATE}, got {row['전조흔적_시작일']}/{row['강한트리거일']}"
-        )
-    return row
+    if (FORENSIC_HOLDOUT_SITE, FORENSIC_HOLDOUT_PANEL_ID) not in lookup:
+        raise SystemExit(f"{FAULT_PANEL_EVENT_AUDIT_NAME} missing c42997 target row")
+    return lookup
 
 
 def find_matching_reaudit_row(case_row: dict[str, object], reaudit_df: pd.DataFrame) -> dict[str, object] | None:
@@ -539,8 +546,7 @@ def build_abrupt6_symptom_map(
     non_precursor_df: pd.DataFrame,
     reaudit_df: pd.DataFrame,
     local_eligibility_df: pd.DataFrame | None,
-    same_event_overlap_keys: set[tuple[str, str]],
-    forensic_holdout_case: dict[str, str],
+    fault_audit_by_key: dict[tuple[str, str], dict[str, str]],
 ) -> pd.DataFrame:
     abrupt_df, selection_rule = select_abrupt_positive_cases(non_precursor_df, reaudit_df, local_eligibility_df)
     if len(abrupt_df) != EXPECTED_ABRUPT_CASE_COUNT:
@@ -550,16 +556,12 @@ def build_abrupt6_symptom_map(
 
     reaudit_lookup = build_lookup(reaudit_df, ["site", "panel_id"])
     eligibility_lookup = build_lookup(local_eligibility_df, ["site", "panel_id"])
-    holdout_key = (FORENSIC_HOLDOUT_SITE, FORENSIC_HOLDOUT_PANEL_ID)
-    selected_keys = {
-        (normalize_text(row["site"]), normalize_text(row["panel_id"]))
-        for row in abrupt_df.to_dict(orient="records")
-    }
-    if holdout_key not in selected_keys:
-        raise SystemExit(f"forensic holdout panel must remain in abrupt6 universe: {holdout_key}")
     rows: list[dict[str, object]] = []
     for case_row in abrupt_df.to_dict(orient="records"):
         key = (normalize_text(case_row["site"]), normalize_text(case_row["panel_id"]))
+        fault_audit_row = fault_audit_by_key.get(key)
+        if fault_audit_row is None:
+            raise SystemExit(f"{FAULT_PANEL_EVENT_AUDIT_NAME} missing fault row for abrupt6 case: {key}")
         reaudit_row = reaudit_lookup.get(key) or find_matching_reaudit_row(case_row, reaudit_df)
         eligibility_row = eligibility_lookup.get(key)
         enriched_row = dict(case_row)
@@ -586,25 +588,24 @@ def build_abrupt6_symptom_map(
             fault_start_date = normalize_text(eligibility_row.get("fault_start_date"))
             if fault_start_date:
                 note_parts.append(f"eligibility_fault_start_date={fault_start_date}")
-        if key == holdout_key:
-            event_type = "고장유형 보류"
-            terminal_pattern = "급작 발생"
-            pure_abrupt_flag = 0
-            event_caution = FORENSIC_HOLDOUT_REASON
-            note_parts.append("event_semantics=fault_panel_holdout_not_pure_abrupt")
-            note_parts.append(f"forensic_reaudit_label={forensic_holdout_case['현재_재감사라벨_ko']}")
-        elif key in same_event_overlap_keys:
-            event_type = "전조형 고장"
-            terminal_pattern = "급격 종료"
-            pure_abrupt_flag = 0
-            event_caution = "같은 사건 audit 기준 전조형 고장으로 재분류하고 최종고장양상만 급격 종료로 남긴다"
+        event_type = normalize_text(fault_audit_row["사건유형_재판정_ko"]) or "불충분"
+        terminal_pattern = normalize_text(fault_audit_row["최종고장양상_재판정_ko"]) or "불충분"
+        pure_abrupt_flag = numeric_int(fault_audit_row["순수급작_flag"])
+        event_caution = normalize_text(fault_audit_row["재판정_근거_ko"])
+        precursor_eval_flag = numeric_int(fault_audit_row["전조평가셋편입_flag"])
+        abrupt_eval_flag = numeric_int(fault_audit_row["급작평가셋편입_flag"])
+        note_parts.append(f"fault_event_type={event_type}")
+        note_parts.append(f"fault_terminal_pattern={terminal_pattern}")
+        note_parts.append(f"strict_precursor_eval_included={precursor_eval_flag}")
+        note_parts.append(f"pure_abrupt_eval_included={abrupt_eval_flag}")
+        if event_type == "전조형 고장" and terminal_pattern == "급격 종료":
             note_parts.append("event_semantics=precursor_led_fault_with_abrupt_ending")
-        else:
-            event_type = "급작 고장"
-            terminal_pattern = "급작 발생"
-            pure_abrupt_flag = 1
-            event_caution = ""
+        elif event_type == "전조형 고장":
+            note_parts.append("event_semantics=precursor_led_fault_progressive")
+        elif event_type == "급작 고장":
             note_parts.append("event_semantics=pure_abrupt_fault")
+        else:
+            note_parts.append("event_semantics=fault_event_semantics_from_audit")
         rows.append(
             {
                 "site": normalize_text(enriched_row["site"]),
@@ -623,20 +624,22 @@ def build_abrupt6_symptom_map(
     abrupt6_df = pd.DataFrame(rows, columns=ABRUPT6_COLS)
     pure_abrupt_count = int(pd.to_numeric(abrupt6_df["순수급작_flag"], errors="coerce").fillna(0).sum())
     if pure_abrupt_count != 3:
-        raise SystemExit(f"abrupt symptom map must contain exactly 3 pure abrupt rows after holdout reconciliation, found {pure_abrupt_count}")
-    overlap_event_count = int(abrupt6_df["사건유형_ko"].eq("전조형 고장").sum())
-    if overlap_event_count != len(same_event_overlap_keys):
-        raise SystemExit(
-            f"abrupt symptom map precursor-led overlap row count mismatch: expected {len(same_event_overlap_keys)}, found {overlap_event_count}"
-        )
-    holdout_count = int(abrupt6_df["사건유형_ko"].eq("고장유형 보류").sum())
-    if holdout_count != 1:
-        raise SystemExit(f"abrupt symptom map holdout row count must be 1, found {holdout_count}")
-    holdout_row = abrupt6_df.loc[
+        raise SystemExit(f"abrupt symptom map must contain exactly 3 pure abrupt rows after fault-event reconciliation, found {pure_abrupt_count}")
+    precursor_fault_count = int(abrupt6_df["사건유형_ko"].eq("전조형 고장").sum())
+    abrupt_fault_count = int(abrupt6_df["사건유형_ko"].eq("급작 고장").sum())
+    if precursor_fault_count != 3:
+        raise SystemExit(f"abrupt symptom map precursor-led fault row count must be 3, found {precursor_fault_count}")
+    if abrupt_fault_count != 3:
+        raise SystemExit(f"abrupt symptom map pure abrupt row count must be 3, found {abrupt_fault_count}")
+    c429_row = abrupt6_df.loc[
         abrupt6_df["site"].eq(FORENSIC_HOLDOUT_SITE) & abrupt6_df["panel_id"].eq(FORENSIC_HOLDOUT_PANEL_ID)
     ].iloc[0]
-    if normalize_text(holdout_row["사건유형_판정주의_ko"]) != FORENSIC_HOLDOUT_REASON:
-        raise SystemExit("abrupt symptom map holdout caution text mismatch")
+    if normalize_text(c429_row["사건유형_ko"]) != "전조형 고장":
+        raise SystemExit("c42997 row must now be marked 사건유형_ko=전조형 고장 in abrupt6 symptom map")
+    if normalize_text(c429_row["최종고장양상_ko"]) != "급격 종료":
+        raise SystemExit("c42997 row must now be marked 최종고장양상_ko=급격 종료 in abrupt6 symptom map")
+    if numeric_int(c429_row["순수급작_flag"]) != 0:
+        raise SystemExit("c42997 row must keep 순수급작_flag=0 in abrupt6 symptom map")
 
     family_counts = abrupt6_df["증상명_ko"].value_counts().to_dict()
     expected_counts = {"다이오드형": 4, "개방/장치이상형": 1, "모듈손상형": 1}
@@ -868,15 +871,13 @@ def main() -> None:
     root = args.root.resolve()
     share_dir = root / "_share"
     frames = load_inputs(root)
-    same_event_overlap_keys = load_same_event_overlap_keys(frames)
-    forensic_holdout_case = load_forensic_holdout_case(frames)
+    fault_audit_by_key = fault_event_audit_lookup(frames)
 
     abrupt6_df = build_abrupt6_symptom_map(
         frames["non_precursor"],
         frames["reaudit"],
         frames["local_eligibility"],
-        same_event_overlap_keys,
-        forensic_holdout_case,
+        fault_audit_by_key,
     )
     kernel_mapping_df = build_kernel_mapping()
     gpv7_df = build_gpv7_perf_summary(root)

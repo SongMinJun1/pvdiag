@@ -17,6 +17,7 @@
 - `_share/panel_day_engine_precursor_abrupt_consistency_summary_v1.csv`
 - `_share/panel_day_engine_precursor_abrupt_consistency_recommendation_v1.csv`
 - `_share/panel_day_engine_c42997_1_1_forensic_summary_v1.csv`
+- `_share/panel_day_engine_fault_panel_event_audit_v1.csv`
 - `_share/panel_day_engine_kernellog_project_mapping_v1.csv`
 - `_share/panel_day_engine_gpv7_perf_summary_v1.csv`
 - `_share/panel_day_engine_project_final_decision_pack_v1.csv`
@@ -46,17 +47,21 @@
   - `has_공통원인이벤트`
   - `has_반복이상`
 - 그 다음 사건유형과 최종고장양상을 함께 정한다.
-  1. overlap same-event panel
-    - `has_전조형고장 == 1`
-    - precursor-abrupt consistency audit 에서 `same_event_flag == 1`
-    - `사건유형_ko = 전조형 고장`
-    - `최종고장양상_ko = 급격 종료`
-  2. single-panel holdout fault
+  1. fault panel event audit explicit rule
+    - `패널고장여부_ko = 고장` row 는 `_share/panel_day_engine_fault_panel_event_audit_v1.csv` 를 최우선으로 쓴다.
+    - 즉 fault panel 의 `사건유형_ko`, `사건유형_해석_ko`, `순수급작_flag`, `최종고장양상_ko` 는 이 audit 결과와 동기화한다.
+    - same-day fallback onset 도 여기서 다시 판단한다.
+      - `retrospective_onset_date == strict_trigger_date`
+      - `onset_method == strict_trigger_fallback`
+      - `onset_confidence != high`
+      - abrupt positive evidence 존재
+      - 이면 `급작 고장` 으로 유지한다.
+  2. single-panel forensic explicit rule
     - target panel 은 `c42997a6-5881-47e7-9035-7de8a2673b54.1.1`
-    - 전조흔적 시작일 `2025-01-20`
-    - 강한트리거일 `2025-03-21`
-    - `사건유형_ko = 고장유형 보류`
-    - `최종고장양상_ko = 급작 발생`
+    - single-panel forensic summary 는 fault panel event audit 이 c429 row 를 읽는 근거 파일이다.
+    - 이때 continuity wording 이 아니라 stored field 인 `earliest_onset_date=2025-01-20`, `strong_trigger_date=2025-03-21` 를 기준으로 본다.
+    - `사건유형_결정_ko = 전조형 고장`
+    - `최종고장양상_결정_ko = 급격 종료`
   3. pure abrupt panel
     - `사건유형_ko = 급작 고장`
     - `최종고장양상_ko = 급작 발생`
@@ -71,7 +76,8 @@
     - `최종고장양상_ko = 불충분`
 - 핵심은 event type 과 terminal failure pattern 을 분리해서 읽는 것이다.
 - precursor 가 확인된 사건은 panel 에 abrupt marker 가 있어도 event class 자체를 `급작 고장` 으로 두지 않는다.
-- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 fault panel 이지만, precursor universe 로 자동 승격하지 않고 holdout fault-typing case 로 남긴다.
+- 다만 same-day fallback onset 은 real precursor evidence 로 보지 않으므로 abrupt rule 에서 자동 탈락시키지 않는다.
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 strict precursor eval set 에는 아직 없지만, single-panel forensic explicit rule 기준으로는 `전조형 고장` 으로 읽는다.
 - multi-membership 자체는 별도 사건보조표에 남기되, overlap same-event panel 은 두 개의 독립 fault event 로 세지지 않는다.
 
 ## 해석층 vs 평가셋
@@ -79,9 +85,9 @@
 - `사건유형_해석_ko` 는 사람이 읽기 쉽게 붙이는 해석층이다.
 - 둘은 같은 뜻일 수도 있지만, 항상 같아야 하는 것은 아니다.
 - 특히 `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은:
-  - `사건유형_ko = 고장유형 보류`
-  - `사건유형_해석_ko = 전조흔적 있음`
-  - 으로 분리한다.
+  - `사건유형_ko = 전조형 고장`
+  - `사건유형_해석_ko = 전조형 고장`
+  - `판정주의_ko` 에도 onset/trigger rule date 를 함께 적어, 왜 이렇게 읽었는지 바로 보이게 한다.
 - 이렇게 두 층을 분리하는 이유는, 해석상 precursor-like evidence 가 있어도 현재 strict precursor evaluation set 에 자동 편입되지는 않을 수 있기 때문이다.
 
 ## 추가 flag 의미
@@ -105,16 +111,19 @@
 - separator 는 `+` 이다.
 - 예:
   - `전조형 고장(급격 종료)`
-  - `고장유형 보류(급작 발생)`
+  - `전조형 고장`
   - `전조형 고장`
   - `공통원인 이벤트`
   - `반복 이상`
 - overlap same-event panel 은 `전조형 고장+급작 고장` 처럼 두 개의 fault event 로 쓰지 않는다.
-- 대신 `전조형 고장(급격 종료)` 로 적어, 전조형 사건이 마지막에 급격 종료로 끝난 것임을 명시한다.
-- single-panel holdout 은 `고장유형 보류(급작 발생)` 로 적어, fault panel 이지만 pure abrupt typing 은 보류 상태임을 드러낸다.
+- 사건이력은 fault panel event audit 의 최종 사건유형/최종고장양상 조합을 따른다.
+  - `전조형 고장`
+  - `전조형 고장(급격 종료)`
+  - `급작 고장`
+- single-panel forensic explicit rule row 는 `전조형 고장(급격 종료)` 로 남고, same-event overlap 2건은 corrected audit 결과에 따라 `전조형 고장` 으로 남을 수 있다.
 - `대표판정_ko` 는 reader-facing 대표 label이고, 현재 reconciliation 이후에는 `사건유형_ko` 와 같은 사건 축을 가리킨다.
-- `사건유형_ko` 와 `사건유형_해석_ko` 가 다를 수 있는 대표 예는 `c42997...1.1` 이다.
-- 이 row 는 fault panel 이지만 `전조흔적 있음` 으로 읽히고, 현재는 전조평가셋/순수급작평가셋 모두 미편입 상태를 같이 보여준다.
+- `사건유형_ko` 와 `사건유형_해석_ko` 는 필요하면 달라질 수 있지만, `c42997...1.1` 은 이번 explicit rule 반영 이후 둘 다 `전조형 고장` 으로 맞춘다.
+- 이 row 는 fault panel 이고 explicit rule 기준으로 `전조형 고장` 이지만, 현재는 전조평가셋/순수급작평가셋 모두 미편입 상태를 같이 보여준다.
 
 ## 패널고장여부 축
 - `has_급작고장 == 1` 또는 `has_전조형고장 == 1` 이면 `고장`
@@ -207,15 +216,14 @@
   - 사건 수 / 고유 고장 패널 수 / 대표판정 수 / GPVS 적용대상/부착 count 요약
   - 핵심 row 예:
     - `고유_고장패널수`
-    - `전조사건수`
-    - `순수급작사건수`
-    - `전조후급격종료_패널수`
-    - `고장유형보류_패널수`
-    - `순수전조_패널수`
+    - `사건해석_전조형_패널수`
+    - `사건해석_급작_패널수`
+    - `사건해석_전조형_급격종료_패널수`
+    - `사건해석_전조형_진행성악화_패널수`
     - `전조흔적_패널수`
     - `순수급작_패널수`
-    - `전조평가셋편입_패널수`
-    - `급작평가셋편입_패널수`
+    - `엄격전조평가셋_패널수`
+    - `순수급작평가셋_패널수`
     - `해석과평가셋불일치_패널수`
     - `대표판정_전조형수`
     - `대표판정_급작수`
@@ -223,34 +231,38 @@
 
 ## Hard Check
 - main panel verdict table 은 `(site, panel_id)` 기준 unique 해야 한다.
-- panel count 와 event count 는 분리해서 본다.
+- panel count 와 evaluation-set count 는 분리해서 본다.
   - `고유_고장패널수 = 패널고장여부_ko == 고장`
-  - `전조사건수 = 전조형이력_flag == 1`
-  - `순수급작사건수 = 사건유형_ko == 급작 고장`
-  - `전조후급격종료_패널수 = 사건유형_ko == 전조형 고장` 이고 `최종고장양상_ko == 급격 종료`
-  - `고장유형보류_패널수 = 사건유형_ko == 고장유형 보류`
-  - `순수전조_패널수 = 전조형이력_flag == 1` 이고 `급작고장이력_flag == 0`
+  - `사건해석_전조형_패널수 = 사건유형_ko == 전조형 고장`
+  - `사건해석_급작_패널수 = 사건유형_ko == 급작 고장`
+  - `사건해석_전조형_급격종료_패널수 = 사건유형_ko == 전조형 고장` 이고 `최종고장양상_ko == 급격 종료`
+  - `사건해석_전조형_진행성악화_패널수 = 사건유형_ko == 전조형 고장` 이고 `최종고장양상_ko == 진행성 악화`
   - `전조흔적_패널수 = 전조흔적_flag == 1`
   - `순수급작_패널수 = 순수급작_flag == 1`
-  - `전조평가셋편입_패널수 = 전조평가셋편입_flag == 1`
-  - `급작평가셋편입_패널수 = 급작평가셋편입_flag == 1`
+  - `엄격전조평가셋_패널수 = 전조평가셋편입_flag == 1`
+  - `순수급작평가셋_패널수 = 급작평가셋편입_flag == 1`
   - `해석과평가셋불일치_패널수 = 해석대평가차이_ko 비공란`
 - current real-data guardrail:
   - `고유_고장패널수 = 6`
-  - `전조사건수 = 2`
-  - `순수급작사건수 = 3`
-  - `전조후급격종료_패널수 = 2`
-  - `고장유형보류_패널수 = 1`
-  - `순수전조_패널수 = 0`
+  - `사건해석_전조형_패널수 = 3`
+  - `사건해석_급작_패널수 = 3`
+  - `사건해석_전조형_급격종료_패널수 = 1`
+  - `사건해석_전조형_진행성악화_패널수 = 2`
+  - `전조흔적_패널수 = 3`
+  - `엄격전조평가셋_패널수 = 2`
+  - `순수급작평가셋_패널수 = 3`
+  - `해석과평가셋불일치_패널수 = 1`
   - `공통원인이력_flag == 1` 인 panel 수 = `4`
 - `c42997...1.1` 은 정확히 1행이어야 하고:
+  - `사건유형_ko = 전조형 고장`
+  - `사건유형_해석_ko = 전조형 고장`
   - `전조흔적_flag = 1`
   - `순수급작_flag = 0`
   - `전조평가셋편입_flag = 0`
   - `급작평가셋편입_flag = 0`
 - overlap same-event panel 은 계속:
   - `사건유형_해석_ko = 전조형 고장`
-  - `최종고장양상_ko = 급격 종료`
+  - `최종고장양상_ko = 진행성 악화`
   - `전조평가셋편입_flag = 1`
   - `급작평가셋편입_flag = 0`
 - main panel verdict table 안에는 cluster row 가 있으면 안 된다.
@@ -266,8 +278,8 @@
 - builder / smoke script 가 compile 되어야 한다.
 - main table 이 unique by panel 이어야 한다.
 - event supplement 가 multi-membership 을 보존해야 한다.
-- overlap same-event panel 은 `사건유형_ko = 전조형 고장`, `최종고장양상_ko = 급격 종료`, `사건이력_ko = 전조형 고장(급격 종료)` 로 읽혀야 한다.
-- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 `사건유형_ko = 고장유형 보류`, `사건유형_해석_ko = 전조흔적 있음`, `패널고장여부_ko = 고장`, `최종고장양상_ko = 급작 발생` 으로 읽혀야 한다.
+- overlap same-event panel 은 `사건유형_ko = 전조형 고장`, `최종고장양상_ko = 진행성 악화`, `사건이력_ko = 전조형 고장` 으로 읽혀야 한다.
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 `사건유형_ko = 전조형 고장`, `사건유형_해석_ko = 전조형 고장`, `패널고장여부_ko = 고장`, `최종고장양상_ko = 급격 종료` 로 읽혀야 한다.
 - c429 row 는 `전조흔적_flag = 1`, `순수급작_flag = 0`, `전조평가셋편입_flag = 0`, `급작평가셋편입_flag = 0` 이어야 한다.
 - 사건 수와 패널 수 summary 가 final row 기준으로 분리 계산되어야 한다.
 - 해석층과 evaluation-set inclusion summary 도 final row 기준으로 계산되어야 한다.

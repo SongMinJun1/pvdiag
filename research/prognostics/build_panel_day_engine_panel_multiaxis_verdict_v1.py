@@ -20,6 +20,7 @@ PRECURSOR_ABRUPT_CONSISTENCY_CASES_NAME = "panel_day_engine_precursor_abrupt_con
 PRECURSOR_ABRUPT_CONSISTENCY_SUMMARY_NAME = "panel_day_engine_precursor_abrupt_consistency_summary_v1.csv"
 PRECURSOR_ABRUPT_CONSISTENCY_RECOMMENDATION_NAME = "panel_day_engine_precursor_abrupt_consistency_recommendation_v1.csv"
 FORENSIC_SUMMARY_NAME = "panel_day_engine_c42997_1_1_forensic_summary_v1.csv"
+FAULT_PANEL_EVENT_AUDIT_NAME = "panel_day_engine_fault_panel_event_audit_v1.csv"
 
 VERDICT_OUTPUT_NAME = "panel_day_engine_panel_multiaxis_verdict_v1.csv"
 EVENT_SUPPLEMENT_OUTPUT_NAME = "panel_day_engine_panel_multiaxis_event_supplement_v1.csv"
@@ -80,15 +81,13 @@ CLUSTER_COLS = [
 SUMMARY_COLS = [
     "전체_패널수",
     "고유_고장패널수",
-    "전조사건수",
-    "순수급작사건수",
-    "전조후급격종료_패널수",
-    "고장유형보류_패널수",
-    "순수전조_패널수",
+    "사건해석_전조형_패널수",
+    "사건해석_급작_패널수",
+    "사건해석_전조형_급격종료_패널수",
+    "사건해석_전조형_진행성악화_패널수",
     "전조흔적_패널수",
-    "순수급작_패널수",
-    "전조평가셋편입_패널수",
-    "급작평가셋편입_패널수",
+    "엄격전조평가셋_패널수",
+    "순수급작평가셋_패널수",
     "해석과평가셋불일치_패널수",
     "공통원인이력_패널수",
     "반복이상이력_패널수",
@@ -156,17 +155,26 @@ REQUIRED_FORENSIC_SUMMARY_COLS = [
     "site",
     "panel_id",
     "현재_재감사라벨_ko",
+    "earliest_warning_date",
+    "earliest_onset_date",
+    "strong_trigger_date",
     "전조흔적_시작일",
     "강한트리거일",
+    "사건유형_결정규칙_ko",
+    "최종고장양상_결정규칙_ko",
+    "사건유형_결정_ko",
+    "최종고장양상_결정_ko",
     "사건시간양상_판정_ko",
     "현재표_보정필요여부_flag",
 ]
 
-FORENSIC_HOLDOUT_SITE = "conalog"
-FORENSIC_HOLDOUT_PANEL_ID = "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"
-FORENSIC_HOLDOUT_WARNING_DATE = "2025-01-20"
-FORENSIC_HOLDOUT_TRIGGER_DATE = "2025-03-21"
-FORENSIC_HOLDOUT_REASON = "전조흔적 시작일 2025-01-20, 강한트리거일 2025-03-21 이라 순수 급작 보류"
+FORENSIC_RULE_SITE = "conalog"
+FORENSIC_RULE_PANEL_ID = "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"
+FORENSIC_RULE_ONSET_DATE = "2025-01-20"
+FORENSIC_RULE_TRIGGER_DATE = "2025-03-21"
+FORENSIC_RULE_EVENT_TYPE = "전조형 고장"
+FORENSIC_RULE_TERMINAL_PATTERN = "급격 종료"
+FORENSIC_RULE_REASON = "stored-field rule 기준 retrospective_onset_date<strict_trigger_date, onset_confidence=high, onset_method=persistent_5of7 이라 전조형 고장으로 읽고 최종고장양상은 급격 종료로 둔다"
 
 EXPECTED_FINAL_SCOPES = {
     "step3_precursor_performance",
@@ -246,6 +254,7 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         "consistency_summary": read_csv(share_dir / PRECURSOR_ABRUPT_CONSISTENCY_SUMMARY_NAME),
         "consistency_recommendation": read_csv(share_dir / PRECURSOR_ABRUPT_CONSISTENCY_RECOMMENDATION_NAME),
         "forensic_summary": read_csv(share_dir / FORENSIC_SUMMARY_NAME),
+        "fault_event_audit": read_csv(share_dir / FAULT_PANEL_EVENT_AUDIT_NAME),
     }
 
     ensure_columns(
@@ -356,6 +365,24 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         PRECURSOR_ABRUPT_CONSISTENCY_RECOMMENDATION_NAME,
     )
     ensure_columns(frames["forensic_summary"], REQUIRED_FORENSIC_SUMMARY_COLS, FORENSIC_SUMMARY_NAME)
+    ensure_columns(
+        frames["fault_event_audit"],
+        [
+            "site",
+            "panel_id",
+            "현재표_사건유형_ko",
+            "현재표_최종고장양상_ko",
+            "전조흔적_flag",
+            "순수급작_flag",
+            "전조평가셋편입_flag",
+            "급작평가셋편입_flag",
+            "사건유형_재판정_ko",
+            "최종고장양상_재판정_ko",
+            "재판정_근거_ko",
+            "현재표_보정필요여부_flag",
+        ],
+        FAULT_PANEL_EVENT_AUDIT_NAME,
+    )
     return normalize_frames(frames)
 
 
@@ -441,30 +468,47 @@ def load_same_event_overlap_keys(frames: dict[str, pd.DataFrame]) -> set[tuple[s
     return overlap_keys
 
 
-def load_forensic_holdout_case(frames: dict[str, pd.DataFrame]) -> dict[str, str]:
+def load_forensic_rule_case(frames: dict[str, pd.DataFrame]) -> dict[str, str]:
     forensic_df = frames["forensic_summary"].copy()
     target_df = forensic_df.loc[
-        forensic_df["site"].eq(FORENSIC_HOLDOUT_SITE)
-        & forensic_df["panel_id"].eq(FORENSIC_HOLDOUT_PANEL_ID)
+        forensic_df["site"].eq(FORENSIC_RULE_SITE)
+        & forensic_df["panel_id"].eq(FORENSIC_RULE_PANEL_ID)
     ].copy()
     if len(target_df) != 1:
         raise SystemExit(
-            f"{FORENSIC_SUMMARY_NAME} must contain exactly one target row for {FORENSIC_HOLDOUT_SITE}/{FORENSIC_HOLDOUT_PANEL_ID}, found {len(target_df)}"
+            f"{FORENSIC_SUMMARY_NAME} must contain exactly one target row for {FORENSIC_RULE_SITE}/{FORENSIC_RULE_PANEL_ID}, found {len(target_df)}"
         )
     row = {key: normalize_text(value) for key, value in target_df.iloc[0].to_dict().items()}
-    if row["사건시간양상_판정_ko"] != "전조흔적있음_순수급작보류":
+    onset_date = normalize_text(row.get("earliest_onset_date")) or normalize_text(row.get("전조흔적_시작일"))
+    trigger_date = normalize_text(row.get("strong_trigger_date")) or normalize_text(row.get("강한트리거일"))
+    if onset_date != FORENSIC_RULE_ONSET_DATE or trigger_date != FORENSIC_RULE_TRIGGER_DATE:
         raise SystemExit(
-            f"{FORENSIC_SUMMARY_NAME} guard failed: 사건시간양상_판정_ko must be 전조흔적있음_순수급작보류, got {row['사건시간양상_판정_ko'] or '<blank>'}"
+            f"{FORENSIC_SUMMARY_NAME} guard failed: expected onset/trigger {FORENSIC_RULE_ONSET_DATE}/{FORENSIC_RULE_TRIGGER_DATE}, got {onset_date}/{trigger_date}"
         )
-    if to_numeric_flag(pd.Series([row["현재표_보정필요여부_flag"]])).iloc[0] != 1:
-        raise SystemExit(
-            f"{FORENSIC_SUMMARY_NAME} guard failed: 현재표_보정필요여부_flag must be 1, got {row['현재표_보정필요여부_flag'] or '<blank>'}"
-        )
-    if row["전조흔적_시작일"] != FORENSIC_HOLDOUT_WARNING_DATE or row["강한트리거일"] != FORENSIC_HOLDOUT_TRIGGER_DATE:
-        raise SystemExit(
-            f"{FORENSIC_SUMMARY_NAME} guard failed: expected warning/trigger {FORENSIC_HOLDOUT_WARNING_DATE}/{FORENSIC_HOLDOUT_TRIGGER_DATE}, got {row['전조흔적_시작일']}/{row['강한트리거일']}"
-        )
+    row["__forensic_onset_date"] = onset_date
+    row["__forensic_trigger_date"] = trigger_date
     return row
+
+
+def fault_event_audit_lookup(frames: dict[str, pd.DataFrame]) -> dict[tuple[str, str], dict[str, str]]:
+    audit_df = frames["fault_event_audit"].copy()
+    if audit_df.empty:
+        raise SystemExit(f"{FAULT_PANEL_EVENT_AUDIT_NAME} must not be empty")
+    if audit_df[["site", "panel_id"]].duplicated().any():
+        dup = audit_df.loc[audit_df[["site", "panel_id"]].duplicated(keep=False), ["site", "panel_id"]]
+        raise SystemExit(f"{FAULT_PANEL_EVENT_AUDIT_NAME} must be unique by (site, panel_id): {dup.to_dict(orient='records')[:5]}")
+
+    lookup: dict[tuple[str, str], dict[str, str]] = {}
+    for row in audit_df.to_dict(orient="records"):
+        site = normalize_text(row["site"])
+        panel_id = normalize_text(row["panel_id"])
+        if site and panel_id:
+            lookup[(site, panel_id)] = {key: normalize_text(value) for key, value in row.items()}
+    if len(lookup) != 6:
+        raise SystemExit(f"{FAULT_PANEL_EVENT_AUDIT_NAME} must contain current fault panel 6 rows, found {len(lookup)}")
+    if (FORENSIC_RULE_SITE, FORENSIC_RULE_PANEL_ID) not in lookup:
+        raise SystemExit(f"{FAULT_PANEL_EVENT_AUDIT_NAME} must contain forensic target panel row")
+    return lookup
 
 
 def abrupt_lookup(abrupt_df: pd.DataFrame) -> dict[tuple[str, str], dict[str, object]]:
@@ -545,10 +589,8 @@ def current_data_scope_note(
     terminal_pattern: str,
     final_pack_by_scope: dict[str, dict[str, object]],
 ) -> str:
-    if event_type == "고장유형 보류":
-        return "single-panel forensic audit 기준 고장 패널이지만 event type은 holdout으로 둔다. terminal failure pattern만 급작 발생으로 남기고 pure abrupt count에는 넣지 않는다."
     if event_type == "전조형 고장" and terminal_pattern == "급격 종료":
-        return "이 panel은 precursor-abrupt consistency audit 기준 전조형 고장 한 건이 급격 종료로 끝난 것으로 읽는다. event type과 terminal failure pattern은 분리해서 해석해야 한다."
+        return "이 panel은 전조형 사건 한 건이 마지막에 급격 종료로 끝난 것으로 읽는다. event type과 terminal failure pattern은 분리해서 해석해야 한다."
     scope = SCOPE_BY_EVENT_TYPE.get(event_type, "")
     if scope:
         final_row = final_pack_by_scope.get(scope, {})
@@ -568,10 +610,19 @@ def event_type_and_terminal_pattern(
     flags: dict[str, int],
     *,
     is_same_event_overlap: bool,
-    is_forensic_holdout: bool,
+    forensic_rule_case: dict[str, str] | None,
+    fault_audit_row: dict[str, str] | None,
 ) -> tuple[str, str]:
-    if is_forensic_holdout:
-        return ("고장유형 보류", "급작 발생")
+    if fault_audit_row is not None:
+        return (
+            normalize_text(fault_audit_row["사건유형_재판정_ko"]) or "불충분",
+            normalize_text(fault_audit_row["최종고장양상_재판정_ko"]) or "불충분",
+        )
+    if forensic_rule_case is not None:
+        return (
+            normalize_text(forensic_rule_case["사건유형_결정_ko"]) or "불충분",
+            normalize_text(forensic_rule_case["최종고장양상_결정_ko"]) or "불충분",
+        )
     if is_same_event_overlap:
         return ("전조형 고장", "급격 종료")
     if flags["has_급작고장"]:
@@ -601,10 +652,25 @@ def event_history_text(
     flags: dict[str, int],
     *,
     is_same_event_overlap: bool,
-    is_forensic_holdout: bool,
+    forensic_rule_case: dict[str, str] | None,
+    fault_audit_row: dict[str, str] | None,
 ) -> str:
-    if is_forensic_holdout:
-        return "고장유형 보류(급작 발생)"
+    if fault_audit_row is not None:
+        event_type = normalize_text(fault_audit_row["사건유형_재판정_ko"])
+        terminal_pattern = normalize_text(fault_audit_row["최종고장양상_재판정_ko"])
+        if event_type == "급작 고장" and terminal_pattern == "급작 발생":
+            return event_type
+        if event_type == "전조형 고장" and terminal_pattern == "진행성 악화":
+            return event_type
+        if event_type and terminal_pattern and terminal_pattern not in {"불충분", "해당없음"}:
+            return f"{event_type}({terminal_pattern})"
+        return event_type
+    if forensic_rule_case is not None:
+        event_type = normalize_text(forensic_rule_case["사건유형_결정_ko"])
+        terminal_pattern = normalize_text(forensic_rule_case["최종고장양상_결정_ko"])
+        if event_type and terminal_pattern and terminal_pattern != "불충분":
+            return f"{event_type}({terminal_pattern})"
+        return event_type
     members: list[str] = []
     if flags["has_전조형고장"]:
         if is_same_event_overlap:
@@ -625,8 +691,26 @@ def interpretation_layer_fields(
     event_type: str,
     *,
     is_same_event_overlap: bool,
-    is_forensic_holdout: bool,
+    forensic_rule_case: dict[str, str] | None,
+    fault_audit_row: dict[str, str] | None,
 ) -> dict[str, object]:
+    if fault_audit_row is not None:
+        event_type_ko = normalize_text(fault_audit_row["사건유형_재판정_ko"]) or event_type
+        precursor_eval_flag = int(pd.to_numeric(pd.Series([fault_audit_row["전조평가셋편입_flag"]]), errors="coerce").fillna(0).iloc[0])
+        abrupt_eval_flag = int(pd.to_numeric(pd.Series([fault_audit_row["급작평가셋편입_flag"]]), errors="coerce").fillna(0).iloc[0])
+        mismatch_text = ""
+        if event_type_ko == "전조형 고장" and precursor_eval_flag == 0:
+            mismatch_text = "explicit rule상 전조형 고장이지만 현재 strict precursor evaluation set에는 아직 미편입"
+        elif event_type_ko == "급작 고장" and abrupt_eval_flag == 0:
+            mismatch_text = "explicit rule상 급작 고장이지만 현재 pure abrupt evaluation set에는 아직 미편입"
+        return {
+            "사건유형_해석_ko": event_type_ko,
+            "전조흔적_flag": int(pd.to_numeric(pd.Series([fault_audit_row["전조흔적_flag"]]), errors="coerce").fillna(0).iloc[0]),
+            "순수급작_flag": int(pd.to_numeric(pd.Series([fault_audit_row["순수급작_flag"]]), errors="coerce").fillna(0).iloc[0]),
+            "전조평가셋편입_flag": precursor_eval_flag,
+            "급작평가셋편입_flag": abrupt_eval_flag,
+            "해석대평가차이_ko": mismatch_text,
+        }
     if is_same_event_overlap:
         return {
             "사건유형_해석_ko": "전조형 고장",
@@ -636,14 +720,14 @@ def interpretation_layer_fields(
             "급작평가셋편입_flag": 0,
             "해석대평가차이_ko": "",
         }
-    if is_forensic_holdout:
+    if forensic_rule_case is not None:
         return {
-            "사건유형_해석_ko": "전조흔적 있음",
+            "사건유형_해석_ko": normalize_text(forensic_rule_case["사건유형_결정_ko"]) or event_type,
             "전조흔적_flag": 1,
             "순수급작_flag": 0,
             "전조평가셋편입_flag": 0,
             "급작평가셋편입_flag": 0,
-            "해석대평가차이_ko": "전조흔적은 있으나 현재 전조평가셋/순수급작평가셋 모두 미편입",
+            "해석대평가차이_ko": "stored-field rule상 전조형 고장이지만 현재 strict precursor evaluation set에는 아직 미편입",
         }
     if flags["has_급작고장"]:
         return {
@@ -787,12 +871,13 @@ def build_outputs(
     abrupt_by_key = abrupt_lookup(frames["abrupt6"])
     final_pack_by_scope = final_pack_lookup(frames["final_pack"])
     same_event_overlap_keys = load_same_event_overlap_keys(frames)
-    forensic_holdout_case = load_forensic_holdout_case(frames)
-    forensic_holdout_key = (FORENSIC_HOLDOUT_SITE, FORENSIC_HOLDOUT_PANEL_ID)
+    forensic_rule_case = load_forensic_rule_case(frames)
+    fault_audit_by_key = fault_event_audit_lookup(frames)
+    forensic_rule_key = (FORENSIC_RULE_SITE, FORENSIC_RULE_PANEL_ID)
 
     workflow_keys = set(workflow_by_key.keys())
     abrupt_keys = set(abrupt_by_key.keys())
-    pure_abrupt_keys = abrupt_keys - same_event_overlap_keys - {forensic_holdout_key}
+    pure_abrupt_keys = abrupt_keys - same_event_overlap_keys - {forensic_rule_key}
     precursor_keys = build_precursor_positive_keys(frames["precursor_truth"])
     common_keys = build_common_cause_positive_keys(frames["common_cause"])
     workflow_watch_keys = {
@@ -804,10 +889,10 @@ def build_outputs(
         raise SystemExit("same-event overlap panels must be included in abrupt symptom map universe")
     if not same_event_overlap_keys.issubset(precursor_keys):
         raise SystemExit("same-event overlap panels must be included in precursor-positive universe")
-    if forensic_holdout_key not in abrupt_keys:
-        raise SystemExit("forensic holdout panel must remain in abrupt symptom map universe")
-    if forensic_holdout_key in precursor_keys:
-        raise SystemExit("forensic holdout panel must not be auto-promoted into precursor-positive universe")
+    if forensic_rule_key not in abrupt_keys:
+        raise SystemExit("forensic target panel must remain in abrupt symptom map universe")
+    if forensic_rule_key in precursor_keys:
+        raise SystemExit("forensic target panel must stay outside current strict precursor evaluation set")
 
     gpvs_by_key, gpvs_feasibility_meta, gpvs_expected_attach_count = recover_gpvs_panel_level_reference_from_audit(
         frames["gpvs_attach_feasibility"],
@@ -829,7 +914,8 @@ def build_outputs(
         workflow_row = workflow_by_key.get(key)
         abrupt_row = abrupt_by_key.get(key)
         is_same_event_overlap = key in same_event_overlap_keys
-        is_forensic_holdout = key == forensic_holdout_key
+        active_forensic_rule_case = forensic_rule_case if key == forensic_rule_key else None
+        active_fault_audit_row = fault_audit_by_key.get(key)
         flags = {
             "has_전조형고장": int(key in precursor_keys),
             "has_급작고장": int(key in pure_abrupt_keys),
@@ -840,19 +926,22 @@ def build_outputs(
         event_type, terminal_pattern = event_type_and_terminal_pattern(
             flags,
             is_same_event_overlap=is_same_event_overlap,
-            is_forensic_holdout=is_forensic_holdout,
+            forensic_rule_case=active_forensic_rule_case,
+            fault_audit_row=active_fault_audit_row,
         )
         representative_verdict = event_type
         history = event_history_text(
             flags,
             is_same_event_overlap=is_same_event_overlap,
-            is_forensic_holdout=is_forensic_holdout,
+            forensic_rule_case=active_forensic_rule_case,
+            fault_audit_row=active_fault_audit_row,
         )
         interpretation = interpretation_layer_fields(
             flags,
             event_type,
             is_same_event_overlap=is_same_event_overlap,
-            is_forensic_holdout=is_forensic_holdout,
+            forensic_rule_case=active_forensic_rule_case,
+            fault_audit_row=active_fault_audit_row,
         )
         panel_fault_status = panel_fault_status_from_event_type(event_type)
         gpvs_applicability = gpvs_applicability_from_fault_status(panel_fault_status)
@@ -889,8 +978,10 @@ def build_outputs(
             universe_parts.append("common-cause descriptive positive universe 포함")
         if flags["has_반복이상"]:
             universe_parts.append("workflow watch_now_panel 포함")
-        if is_forensic_holdout:
-            universe_parts.append("single-panel forensic holdout 적용")
+        if active_forensic_rule_case is not None:
+            universe_parts.append("single-panel forensic explicit rule 적용")
+        if active_fault_audit_row is not None:
+            universe_parts.append("fault panel event audit explicit rule 적용")
         if workflow_row is None:
             universe_parts.append("현재 workflow default row에는 아직 없음")
         if not universe_parts:
@@ -907,10 +998,19 @@ def build_outputs(
             caution_parts.append(gpvs_unattached_note or GPVS_ABSENCE_REASON)
         if gpvs_attach_status == "비대상":
             caution_parts.append(GPVS_NON_TARGET_REASON)
-        if is_forensic_holdout:
-            caution_parts.append(FORENSIC_HOLDOUT_REASON)
+        if active_fault_audit_row is not None:
             caution_parts.append(
-                f"현재 재감사 family hint={forensic_holdout_case['현재_재감사라벨_ko']}"
+                f"fault panel event audit 재판정={normalize_text(active_fault_audit_row['사건유형_재판정_ko'])}/{normalize_text(active_fault_audit_row['최종고장양상_재판정_ko'])}"
+            )
+            caution_parts.append(normalize_text(active_fault_audit_row["재판정_근거_ko"]))
+        if active_forensic_rule_case is not None:
+            caution_parts.append(
+                f"explicit stored-field rule onset={normalize_text(active_forensic_rule_case.get('__forensic_onset_date')) or FORENSIC_RULE_ONSET_DATE}, "
+                f"trigger={normalize_text(active_forensic_rule_case.get('__forensic_trigger_date')) or FORENSIC_RULE_TRIGGER_DATE}"
+            )
+            caution_parts.append(FORENSIC_RULE_REASON)
+            caution_parts.append(
+                f"현재 재감사 family hint={forensic_rule_case['현재_재감사라벨_ko']}"
             )
         if normalize_text(interpretation["해석대평가차이_ko"]):
             caution_parts.append(normalize_text(interpretation["해석대평가차이_ko"]))
@@ -948,8 +1048,20 @@ def build_outputs(
         )
 
         event_members: list[tuple[str, str]] = []
-        if is_forensic_holdout:
-            event_members.append(("고장유형 보류", "single-panel forensic audit 기준 pure abrupt typing holdout"))
+        if active_fault_audit_row is not None:
+            event_members.append(
+                (
+                    normalize_text(active_fault_audit_row["사건유형_재판정_ko"]) or event_type,
+                    "fault panel event audit explicit stored-field rule 기준 대표사건",
+                )
+            )
+        elif active_forensic_rule_case is not None:
+            event_members.append(
+                (
+                    normalize_text(active_forensic_rule_case["사건유형_결정_ko"]) or event_type,
+                    "single-panel forensic explicit stored-field rule 기준 대표사건",
+                )
+            )
         elif flags["has_전조형고장"]:
             if is_same_event_overlap:
                 event_members.append(("전조형 고장", "같은 사건 audit 기준 최종고장양상=급격 종료"))
@@ -962,7 +1074,15 @@ def build_outputs(
         if flags["has_반복이상"]:
             event_members.append(("반복 이상", "workflow watch_now_panel 포함"))
 
+        deduped_event_members: list[tuple[str, str]] = []
+        seen_event_names: set[str] = set()
         for event_name, event_note in event_members:
+            if event_name in seen_event_names:
+                continue
+            seen_event_names.add(event_name)
+            deduped_event_members.append((event_name, event_note))
+
+        for event_name, event_note in deduped_event_members:
             if not history:
                 break
             event_rows.append(
@@ -1016,7 +1136,8 @@ def build_outputs(
         "abrupt_fault6_total": len(abrupt_keys),
         "pure_abrupt_expected": len(pure_abrupt_keys),
         "same_event_overlap_expected": len(same_event_overlap_keys),
-        "forensic_holdout_expected": 1,
+        "forensic_rule_expected": 1,
+        "fault_audit_expected": len(fault_audit_by_key),
         "precursor_expected": len(precursor_keys),
         "common_expected": len(common_keys),
         "gpvs_expected_attach_count": gpvs_expected_attach_count_applicable,
@@ -1038,22 +1159,20 @@ def compute_final_row_counts(verdict_df: pd.DataFrame) -> dict[str, int]:
     interpretation_eval_mismatch_count = int(verdict_df["해석대평가차이_ko"].map(normalize_text).ne("").sum())
 
     abrupt_ending_mask = verdict_df["최종고장양상_ko"].eq("급격 종료") & verdict_df["사건유형_ko"].eq("전조형 고장")
-    pure_precursor_mask = verdict_df["사건유형_ko"].eq("전조형 고장") & verdict_df["최종고장양상_ko"].eq("진행성 악화")
-    pure_abrupt_mask = verdict_df["사건유형_ko"].eq("급작 고장")
-    holdout_fault_mask = verdict_df["사건유형_ko"].eq("고장유형 보류")
+    progressive_precursor_mask = verdict_df["사건유형_ko"].eq("전조형 고장") & verdict_df["최종고장양상_ko"].eq("진행성 악화")
+    interpreted_precursor_mask = verdict_df["사건유형_ko"].eq("전조형 고장")
+    interpreted_abrupt_mask = verdict_df["사건유형_ko"].eq("급작 고장")
 
     return {
         "전체_패널수": int(len(verdict_df)),
         "고유_고장패널수": int(verdict_df["패널고장여부_ko"].eq("고장").sum()),
-        "전조사건수": int(precursor_flags.sum()),
-        "순수급작사건수": int(pure_abrupt_mask.sum()),
-        "전조후급격종료_패널수": int(abrupt_ending_mask.sum()),
-        "고장유형보류_패널수": int(holdout_fault_mask.sum()),
-        "순수전조_패널수": int(pure_precursor_mask.sum()),
+        "사건해석_전조형_패널수": int(interpreted_precursor_mask.sum()),
+        "사건해석_급작_패널수": int(interpreted_abrupt_mask.sum()),
+        "사건해석_전조형_급격종료_패널수": int(abrupt_ending_mask.sum()),
+        "사건해석_전조형_진행성악화_패널수": int(progressive_precursor_mask.sum()),
         "전조흔적_패널수": int(precursor_trace_flags.sum()),
-        "순수급작_패널수": int(pure_abrupt_flags.sum()),
-        "전조평가셋편입_패널수": int(precursor_eval_flags.sum()),
-        "급작평가셋편입_패널수": int(abrupt_eval_flags.sum()),
+        "엄격전조평가셋_패널수": int(precursor_eval_flags.sum()),
+        "순수급작평가셋_패널수": int(abrupt_eval_flags.sum()),
         "해석과평가셋불일치_패널수": interpretation_eval_mismatch_count,
         "공통원인이력_패널수": int(common_flags.sum()),
         "반복이상이력_패널수": int(repeat_flags.sum()),
@@ -1082,23 +1201,29 @@ def validate_real_coverage(
         raise SystemExit(f"main panel verdict table must be unique by (site, panel_id): {dup.to_dict(orient='records')[:5]}")
 
     counts = compute_final_row_counts(verdict_df)
-    pure_abrupt_membership = counts["순수급작사건수"]
-    precursor_membership = counts["전조사건수"]
+    interpreted_abrupt_membership = counts["사건해석_급작_패널수"]
+    interpreted_precursor_membership = counts["사건해석_전조형_패널수"]
     common_membership = counts["공통원인이력_패널수"]
     gpvs_attached = int(verdict_df["GPVS_부착상태_ko"].eq("부착").sum())
 
     if counts["고유_고장패널수"] != 6:
         raise SystemExit(f"고유_고장패널수 must be 6, found {counts['고유_고장패널수']}")
-    if precursor_membership != 2:
-        raise SystemExit(f"전조사건수 must be 2, found {precursor_membership}")
-    if pure_abrupt_membership != 3:
-        raise SystemExit(f"순수급작사건수 must be 3, found {pure_abrupt_membership}")
-    if counts["전조후급격종료_패널수"] != 2:
-        raise SystemExit(f"전조후급격종료_패널수 must be 2, found {counts['전조후급격종료_패널수']}")
-    if counts["고장유형보류_패널수"] != 1:
-        raise SystemExit(f"고장유형보류_패널수 must be 1, found {counts['고장유형보류_패널수']}")
-    if counts["순수전조_패널수"] != 0:
-        raise SystemExit(f"순수전조_패널수 must be 0, found {counts['순수전조_패널수']}")
+    if interpreted_precursor_membership != 3:
+        raise SystemExit(f"사건해석_전조형_패널수 must be 3, found {interpreted_precursor_membership}")
+    if interpreted_abrupt_membership != 3:
+        raise SystemExit(f"사건해석_급작_패널수 must be 3, found {interpreted_abrupt_membership}")
+    if counts["사건해석_전조형_급격종료_패널수"] != 1:
+        raise SystemExit(f"사건해석_전조형_급격종료_패널수 must be 1, found {counts['사건해석_전조형_급격종료_패널수']}")
+    if counts["사건해석_전조형_진행성악화_패널수"] != 2:
+        raise SystemExit(f"사건해석_전조형_진행성악화_패널수 must be 2, found {counts['사건해석_전조형_진행성악화_패널수']}")
+    if counts["전조흔적_패널수"] != 3:
+        raise SystemExit(f"전조흔적_패널수 must be 3, found {counts['전조흔적_패널수']}")
+    if counts["엄격전조평가셋_패널수"] != 2:
+        raise SystemExit(f"엄격전조평가셋_패널수 must be 2, found {counts['엄격전조평가셋_패널수']}")
+    if counts["순수급작평가셋_패널수"] != 3:
+        raise SystemExit(f"순수급작평가셋_패널수 must be 3, found {counts['순수급작평가셋_패널수']}")
+    if counts["해석과평가셋불일치_패널수"] != 1:
+        raise SystemExit(f"해석과평가셋불일치_패널수 must be 1, found {counts['해석과평가셋불일치_패널수']}")
     if common_membership != 4:
         raise SystemExit(f"panels with 공통원인이력_flag must be 4, found {common_membership}")
     if gpvs_attached != int(metrics["gpvs_expected_attach_count"]):
@@ -1124,44 +1249,49 @@ def validate_real_coverage(
     if verdict_df.loc[verdict_df["GPVS_부착상태_ko"].eq("비대상"), "GPVS_미부착사유_ko"].ne(GPVS_NON_TARGET_REASON).any():
         raise SystemExit(f"GPVS non-target rows must keep GPVS_미부착사유_ko={GPVS_NON_TARGET_REASON}")
 
-    holdout_df = verdict_df.loc[
-        verdict_df["site"].eq(FORENSIC_HOLDOUT_SITE) & verdict_df["panel_id"].eq(FORENSIC_HOLDOUT_PANEL_ID)
+    forensic_df = verdict_df.loc[
+        verdict_df["site"].eq(FORENSIC_RULE_SITE) & verdict_df["panel_id"].eq(FORENSIC_RULE_PANEL_ID)
     ].copy()
-    if len(holdout_df) != 1:
-        raise SystemExit("forensic holdout panel must appear exactly once in main panel verdict table")
-    holdout_row = holdout_df.iloc[0]
-    if normalize_text(holdout_row["사건유형_ko"]) != "고장유형 보류":
-        raise SystemExit("forensic holdout panel must be marked 사건유형_ko=고장유형 보류")
-    if normalize_text(holdout_row["사건유형_해석_ko"]) != "전조흔적 있음":
-        raise SystemExit("forensic holdout panel must be marked 사건유형_해석_ko=전조흔적 있음")
-    if normalize_text(holdout_row["패널고장여부_ko"]) != "고장":
-        raise SystemExit("forensic holdout panel must stay 패널고장여부_ko=고장")
-    if normalize_text(holdout_row["최종고장양상_ko"]) != "급작 발생":
-        raise SystemExit("forensic holdout panel must keep 최종고장양상_ko=급작 발생")
-    if normalize_text(holdout_row["GPVS_적용대상_ko"]) != "적용대상":
-        raise SystemExit("forensic holdout panel must remain GPVS applicable")
-    if int(pd.to_numeric(holdout_row["전조흔적_flag"], errors="coerce")) != 1:
-        raise SystemExit("forensic holdout panel must keep 전조흔적_flag=1")
-    if int(pd.to_numeric(holdout_row["순수급작_flag"], errors="coerce")) != 0:
-        raise SystemExit("forensic holdout panel must keep 순수급작_flag=0")
-    if int(pd.to_numeric(holdout_row["전조평가셋편입_flag"], errors="coerce")) != 0:
-        raise SystemExit("forensic holdout panel must keep 전조평가셋편입_flag=0")
-    if int(pd.to_numeric(holdout_row["급작평가셋편입_flag"], errors="coerce")) != 0:
-        raise SystemExit("forensic holdout panel must keep 급작평가셋편입_flag=0")
-    if normalize_text(holdout_row["해석대평가차이_ko"]) != "전조흔적은 있으나 현재 전조평가셋/순수급작평가셋 모두 미편입":
-        raise SystemExit("forensic holdout panel must expose interpretation/evaluation mismatch text")
-    if FORENSIC_HOLDOUT_WARNING_DATE not in normalize_text(holdout_row["판정주의_ko"]) or FORENSIC_HOLDOUT_TRIGGER_DATE not in normalize_text(holdout_row["판정주의_ko"]):
-        raise SystemExit("forensic holdout panel note must mention warning/trigger dates")
+    if len(forensic_df) != 1:
+        raise SystemExit("forensic target panel must appear exactly once in main panel verdict table")
+    forensic_row = forensic_df.iloc[0]
+    if normalize_text(forensic_row["사건유형_ko"]) != FORENSIC_RULE_EVENT_TYPE:
+        raise SystemExit(f"forensic target panel must be marked 사건유형_ko={FORENSIC_RULE_EVENT_TYPE}")
+    if normalize_text(forensic_row["사건유형_해석_ko"]) != FORENSIC_RULE_EVENT_TYPE:
+        raise SystemExit(f"forensic target panel must be marked 사건유형_해석_ko={FORENSIC_RULE_EVENT_TYPE}")
+    if normalize_text(forensic_row["패널고장여부_ko"]) != "고장":
+        raise SystemExit("forensic target panel must stay 패널고장여부_ko=고장")
+    if normalize_text(forensic_row["최종고장양상_ko"]) != FORENSIC_RULE_TERMINAL_PATTERN:
+        raise SystemExit(f"forensic target panel must keep 최종고장양상_ko={FORENSIC_RULE_TERMINAL_PATTERN}")
+    if normalize_text(forensic_row["GPVS_적용대상_ko"]) != "적용대상":
+        raise SystemExit("forensic target panel must remain GPVS applicable")
+    if int(pd.to_numeric(forensic_row["전조흔적_flag"], errors="coerce")) != 1:
+        raise SystemExit("forensic target panel must keep 전조흔적_flag=1")
+    if int(pd.to_numeric(forensic_row["순수급작_flag"], errors="coerce")) != 0:
+        raise SystemExit("forensic target panel must keep 순수급작_flag=0")
+    if int(pd.to_numeric(forensic_row["전조평가셋편입_flag"], errors="coerce")) != 0:
+        raise SystemExit("forensic target panel must keep 전조평가셋편입_flag=0")
+    if int(pd.to_numeric(forensic_row["급작평가셋편입_flag"], errors="coerce")) != 0:
+        raise SystemExit("forensic target panel must keep 급작평가셋편입_flag=0")
+    if normalize_text(forensic_row["해석대평가차이_ko"]) != "explicit rule상 전조형 고장이지만 현재 strict precursor evaluation set에는 아직 미편입":
+        raise SystemExit("forensic target panel must expose interpretation/evaluation mismatch text")
+    if FORENSIC_RULE_ONSET_DATE not in normalize_text(forensic_row["판정주의_ko"]) or FORENSIC_RULE_TRIGGER_DATE not in normalize_text(forensic_row["판정주의_ko"]):
+        raise SystemExit("forensic target panel note must mention onset/trigger dates")
 
     overlap_rows = verdict_df.loc[
-        verdict_df["사건유형_ko"].eq("전조형 고장") & verdict_df["최종고장양상_ko"].eq("급격 종료")
+        verdict_df["전조평가셋편입_flag"].pipe(to_numeric_flag).eq(1)
+        & verdict_df["사건유형_ko"].eq("전조형 고장")
     ].copy()
     if len(overlap_rows) != metrics["same_event_overlap_expected"]:
         raise SystemExit(
             f"same-event overlap rows must stay {metrics['same_event_overlap_expected']}, found {len(overlap_rows)}"
         )
+    if overlap_rows["사건유형_ko"].map(normalize_text).ne("전조형 고장").any():
+        raise SystemExit("same-event overlap rows must keep 사건유형_ko=전조형 고장")
     if overlap_rows["사건유형_해석_ko"].map(normalize_text).ne("전조형 고장").any():
         raise SystemExit("same-event overlap rows must keep 사건유형_해석_ko=전조형 고장")
+    if overlap_rows["최종고장양상_ko"].map(normalize_text).ne("진행성 악화").any():
+        raise SystemExit("same-event overlap rows must keep 최종고장양상_ko=진행성 악화 after corrected rule sync")
     if to_numeric_flag(overlap_rows["전조흔적_flag"]).ne(1).any():
         raise SystemExit("same-event overlap rows must keep 전조흔적_flag=1")
     if to_numeric_flag(overlap_rows["순수급작_flag"]).ne(0).any():
@@ -1186,7 +1316,7 @@ def validate_real_coverage(
         if any(int(row[column]) == 1 for column in ["전조형이력_flag", "급작고장이력_flag", "공통원인이력_flag", "반복이상이력_flag"]):
             raise SystemExit(f"insufficient representative row violates membership guardrail: {row}")
 
-    if event_supplement_df.empty and (abrupt_membership + precursor_membership + common_membership) > 0:
+    if event_supplement_df.empty and (interpreted_abrupt_membership + interpreted_precursor_membership + common_membership) > 0:
         raise SystemExit("event supplement is empty despite event memberships in the main panel table")
 
 
@@ -1208,12 +1338,16 @@ def build_summary(
         verdict_df.loc[verdict_df["GPVS_부착상태_ko"].eq("미부착"), "GPVS_미부착사유_ko"].value_counts().to_dict()
     )
     best_source = normalize_text(gpvs_feasibility_meta.get("best_source", ""))
-    feasibility_reason = normalize_text(gpvs_feasibility_meta.get("feasibility_reason", ""))
-    gpvs_note = "GPVS는 reference axis로만 붙이고, matched panel에만 부분 부착했다."
+    if gpvs_unattached > 0:
+        gpvs_note = (
+            f"GPVS는 reference axis로만 붙이고, 현재 final row 기준 적용대상 fault panel {gpvs_applicable}개 중 {gpvs_attached}개에만 부분 부착했다."
+        )
+    else:
+        gpvs_note = (
+            f"GPVS는 reference axis로만 붙이고, 현재 final row 기준 적용대상 fault panel {gpvs_applicable}개에는 모두 부착했다."
+        )
     if best_source:
         gpvs_note += f" 최선 후보 파일은 {best_source} 다."
-    if feasibility_reason:
-        gpvs_note += f" {feasibility_reason}"
     gpvs_note += " 다만 GPVS는 현재 fault-family reference axis 이므로 고장 패널에만 적용하고, 비고장/반복/불충분 panel은 비대상으로 둔다."
 
     row = {
@@ -1230,10 +1364,11 @@ def build_summary(
         "사건보조행수": int(len(event_supplement_df)),
         "클러스터_보조행수": int(len(cluster_supplement_df)),
         "note_ko": (
-            f"main panel table은 unique panel 대표 verdict 표이고 workflow panel {metrics['workflow_panel_count']}건을 기준으로 fault6 rows {metrics['abrupt_fault6_total']}건, pure abrupt {metrics['pure_abrupt_expected']}건, precursor {metrics['precursor_expected']}건, common-cause {metrics['common_expected']}건 membership을 함께 접었다. "
-            f"same-event overlap {metrics['same_event_overlap_expected']}건은 전조형 고장(급격 종료)으로 재해석했고 pure abrupt event로는 세지지 않는다. "
-            f"single-panel forensic holdout {metrics['forensic_holdout_expected']}건은 고장 패널이지만 pure abrupt typing을 보류해 사건유형=`고장유형 보류` 로 남겼다. "
-            "이제 사건유형_해석_ko 와 전조/급작 평가셋 편입 flag를 분리해, 해석층과 evaluation-set inclusion을 같은 뜻으로 읽지 않게 한다. "
+            f"main panel table은 unique panel 대표 verdict 표이고 workflow panel {metrics['workflow_panel_count']}건을 기준으로 fault6 rows {metrics['abrupt_fault6_total']}건, 사건 해석상 전조형 3건, 사건 해석상 급작 3건, 엄격 전조 평가셋 2건, 순수 급작 평가셋 3건을 분리해서 적는다. "
+            f"fault panel event audit {metrics['fault_audit_expected']}건을 authoritative fault-event source로 읽어 사건유형/최종고장양상/순수급작 flag를 동기화했다. "
+            f"same-event overlap {metrics['same_event_overlap_expected']}건은 전조형 고장으로 읽고, c42997 row 는 전조형 고장/급격 종료로 읽되 엄격 전조 평가셋과 순수 급작 평가셋에는 모두 넣지 않는다. "
+            f"single-panel forensic explicit rule {metrics['forensic_rule_expected']}건은 c42997 row 설명 근거로 유지하고, same-day fallback onset abrupt row 는 급작 고장으로 다시 허용한다. "
+            "이제 사건유형_해석_ko 와 평가셋 편입 flag를 분리해, 사건 해석과 evaluation-set inclusion을 같은 뜻으로 읽지 않게 한다. "
             "event type과 terminal failure pattern은 분리해서 읽는다. "
             f"사건이력 보조표는 panel이 여러 사건군에 속하거나 전조형 고장이 급격 종료로 끝난 경우를 함께 남긴다. {gpvs_note} unmatched panel은 row-by-row 미부착 사유를 함께 남긴다."
         ),

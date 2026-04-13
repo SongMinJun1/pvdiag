@@ -171,9 +171,9 @@ def build_fixture(root: Path) -> None:
         {"site": "siteA", "panel_id": "abrupt_1", "고장시점": "2025-01-01", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "순수급작_flag": 1, "증상명_ko": "다이오드형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
         {"site": "siteA", "panel_id": "abrupt_2", "고장시점": "2025-01-02", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "순수급작_flag": 1, "증상명_ko": "다이오드형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
         {"site": "siteA", "panel_id": "abrupt_3", "고장시점": "2025-01-03", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "순수급작_flag": 1, "증상명_ko": "다이오드형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
-        {"site": "conalog", "panel_id": FORENSIC_HOLDOUT_PANEL_ID, "고장시점": "2025-03-21", "사건유형_ko": "고장유형 보류", "최종고장양상_ko": "급작 발생", "순수급작_flag": 0, "증상명_ko": "개방/장치이상형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
-        {"site": "siteA", "panel_id": "abrupt_5", "고장시점": "2025-01-05", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "급격 종료", "순수급작_flag": 0, "증상명_ko": "개방/장치이상형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
-        {"site": "siteA", "panel_id": "abrupt_6", "고장시점": "2025-01-06", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "급격 종료", "순수급작_flag": 0, "증상명_ko": "모듈손상형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
+        {"site": "conalog", "panel_id": FORENSIC_HOLDOUT_PANEL_ID, "고장시점": "2025-03-21", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "급격 종료", "순수급작_flag": 0, "증상명_ko": "개방/장치이상형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
+        {"site": "siteA", "panel_id": "abrupt_5", "고장시점": "2025-01-05", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "진행성 악화", "순수급작_flag": 0, "증상명_ko": "개방/장치이상형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
+        {"site": "siteA", "panel_id": "abrupt_6", "고장시점": "2025-01-06", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "진행성 악화", "순수급작_flag": 0, "증상명_ko": "모듈손상형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
     ]
     write_csv(
         share / "panel_day_engine_abrupt6_symptom_map_v1.csv",
@@ -235,16 +235,23 @@ def build_fixture(root: Path) -> None:
                 "원래라벨_근거파일_ko": "fixture",
                 "현재_재감사라벨_ko": "개방/장치이상형 (open_or_device_issue_like)",
                 "현재_재감사_근거파일_ko": "fixture",
-                "현재_패널표_사건유형_ko": "급작 고장",
+                "현재_패널표_사건유형_ko": "전조형 고장",
                 "현재_패널표_커널로그증상명_ko": "전압 변화형",
                 "현재_패널표_커널로그원인군_ko": "개방/장치이상형",
                 "현재_패널표_GPVS참고유형_ko": "개방/장치이상 계열",
-                "전조흔적_시작일": "2025-01-20",
+                "earliest_warning_date": "2025-01-16",
+                "earliest_onset_date": "2025-01-20",
+                "strong_trigger_date": "2025-03-21",
+                "전조흔적_시작일": "2025-01-16",
                 "강한트리거일": "2025-03-21",
+                "사건유형_결정규칙_ko": "retrospective_onset_date < strict_trigger_date and onset_confidence=high and onset_method=persistent_5of7",
+                "최종고장양상_결정규칙_ko": "first_final_fault_date == strict_trigger_date and dead_diag_date <= strict_trigger_date + 1 day",
+                "사건유형_결정_ko": "전조형 고장",
+                "최종고장양상_결정_ko": "급격 종료",
                 "선행기간_일": 60,
                 "사건시간양상_판정_ko": "전조흔적있음_순수급작보류",
                 "확정도_판정_ko": "보류",
-                "현재표_보정필요여부_flag": 1,
+                "현재표_보정필요여부_flag": 0,
                 "핵심판정_한줄요약_ko": "fixture",
                 "다음보정권고_ko": "fixture",
             }
@@ -260,14 +267,125 @@ def build_fixture(root: Path) -> None:
             "현재_패널표_커널로그증상명_ko",
             "현재_패널표_커널로그원인군_ko",
             "현재_패널표_GPVS참고유형_ko",
+            "earliest_warning_date",
+            "earliest_onset_date",
+            "strong_trigger_date",
             "전조흔적_시작일",
             "강한트리거일",
+            "사건유형_결정규칙_ko",
+            "최종고장양상_결정규칙_ko",
+            "사건유형_결정_ko",
+            "최종고장양상_결정_ko",
             "선행기간_일",
             "사건시간양상_판정_ko",
             "확정도_판정_ko",
             "현재표_보정필요여부_flag",
             "핵심판정_한줄요약_ko",
             "다음보정권고_ko",
+        ],
+    )
+
+    write_csv(
+        share / "panel_day_engine_fault_panel_event_audit_v1.csv",
+        [
+            {
+                "site": "siteA",
+                "panel_id": "abrupt_1",
+                "현재표_사건유형_ko": "급작 고장",
+                "현재표_최종고장양상_ko": "급작 발생",
+                "전조흔적_flag": 0,
+                "순수급작_flag": 1,
+                "전조평가셋편입_flag": 0,
+                "급작평가셋편입_flag": 1,
+                "사건유형_재판정_ko": "급작 고장",
+                "최종고장양상_재판정_ko": "급작 발생",
+                "재판정_근거_ko": "same-day fallback onset은 pure abrupt 허용",
+                "현재표_보정필요여부_flag": 0,
+            },
+            {
+                "site": "siteA",
+                "panel_id": "abrupt_2",
+                "현재표_사건유형_ko": "급작 고장",
+                "현재표_최종고장양상_ko": "급작 발생",
+                "전조흔적_flag": 0,
+                "순수급작_flag": 1,
+                "전조평가셋편입_flag": 0,
+                "급작평가셋편입_flag": 1,
+                "사건유형_재판정_ko": "급작 고장",
+                "최종고장양상_재판정_ko": "급작 발생",
+                "재판정_근거_ko": "same-day fallback onset은 pure abrupt 허용",
+                "현재표_보정필요여부_flag": 0,
+            },
+            {
+                "site": "siteA",
+                "panel_id": "abrupt_3",
+                "현재표_사건유형_ko": "급작 고장",
+                "현재표_최종고장양상_ko": "급작 발생",
+                "전조흔적_flag": 0,
+                "순수급작_flag": 1,
+                "전조평가셋편입_flag": 0,
+                "급작평가셋편입_flag": 1,
+                "사건유형_재판정_ko": "급작 고장",
+                "최종고장양상_재판정_ko": "급작 발생",
+                "재판정_근거_ko": "same-day fallback onset은 pure abrupt 허용",
+                "현재표_보정필요여부_flag": 0,
+            },
+            {
+                "site": "siteA",
+                "panel_id": "abrupt_5",
+                "현재표_사건유형_ko": "전조형 고장",
+                "현재표_최종고장양상_ko": "진행성 악화",
+                "전조흔적_flag": 1,
+                "순수급작_flag": 0,
+                "전조평가셋편입_flag": 1,
+                "급작평가셋편입_flag": 0,
+                "사건유형_재판정_ko": "전조형 고장",
+                "최종고장양상_재판정_ko": "진행성 악화",
+                "재판정_근거_ko": "precursor explicit rule hit",
+                "현재표_보정필요여부_flag": 1,
+            },
+            {
+                "site": "siteA",
+                "panel_id": "abrupt_6",
+                "현재표_사건유형_ko": "전조형 고장",
+                "현재표_최종고장양상_ko": "진행성 악화",
+                "전조흔적_flag": 1,
+                "순수급작_flag": 0,
+                "전조평가셋편입_flag": 1,
+                "급작평가셋편입_flag": 0,
+                "사건유형_재판정_ko": "전조형 고장",
+                "최종고장양상_재판정_ko": "진행성 악화",
+                "재판정_근거_ko": "precursor explicit rule hit",
+                "현재표_보정필요여부_flag": 1,
+            },
+            {
+                "site": "conalog",
+                "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
+                "현재표_사건유형_ko": "전조형 고장",
+                "현재표_최종고장양상_ko": "급격 종료",
+                "전조흔적_flag": 1,
+                "순수급작_flag": 0,
+                "전조평가셋편입_flag": 0,
+                "급작평가셋편입_flag": 0,
+                "사건유형_재판정_ko": "전조형 고장",
+                "최종고장양상_재판정_ko": "급격 종료",
+                "재판정_근거_ko": "explicit stored-field rule",
+                "현재표_보정필요여부_flag": 0,
+            },
+        ],
+        [
+            "site",
+            "panel_id",
+            "현재표_사건유형_ko",
+            "현재표_최종고장양상_ko",
+            "전조흔적_flag",
+            "순수급작_flag",
+            "전조평가셋편입_flag",
+            "급작평가셋편입_flag",
+            "사건유형_재판정_ko",
+            "최종고장양상_재판정_ko",
+            "재판정_근거_ko",
+            "현재표_보정필요여부_flag",
         ],
     )
 
@@ -492,16 +610,16 @@ def main() -> None:
         overlap_row = verdict_df.loc[(verdict_df["site"].eq("siteA")) & (verdict_df["panel_id"].eq("abrupt_6"))].iloc[0]
         overlap_row_2 = verdict_df.loc[(verdict_df["site"].eq("siteA")) & (verdict_df["panel_id"].eq("abrupt_5"))].iloc[0]
         abrupt_only_row = verdict_df.loc[(verdict_df["site"].eq("siteA")) & (verdict_df["panel_id"].eq("abrupt_1"))].iloc[0]
-        holdout_row = verdict_df.loc[(verdict_df["site"].eq("conalog")) & (verdict_df["panel_id"].eq(FORENSIC_HOLDOUT_PANEL_ID))].iloc[0]
+        forensic_row = verdict_df.loc[(verdict_df["site"].eq("conalog")) & (verdict_df["panel_id"].eq(FORENSIC_HOLDOUT_PANEL_ID))].iloc[0]
         common_row = verdict_df.loc[(verdict_df["site"].eq("siteCC")) & (verdict_df["panel_id"].eq("common_1"))].iloc[0]
         repeat_row = verdict_df.loc[(verdict_df["site"].eq("siteB")) & (verdict_df["panel_id"].eq("panel_repeat"))].iloc[0]
         unknown_row = verdict_df.loc[(verdict_df["site"].eq("siteQ")) & (verdict_df["panel_id"].eq("panel_queue_only"))].iloc[0]
 
         assert_true(overlap_row["사건유형_ko"] == "전조형 고장", "overlap row should be relabeled as precursor-led fault")
         assert_true(overlap_row["사건유형_해석_ko"] == "전조형 고장", "overlap interpretation layer mismatch")
-        assert_true(overlap_row["최종고장양상_ko"] == "급격 종료", "overlap row should carry abrupt ending as terminal pattern")
+        assert_true(overlap_row["최종고장양상_ko"] == "진행성 악화", "overlap row should follow corrected audit terminal pattern")
         assert_true(overlap_row["대표판정_ko"] == "전조형 고장", "representative verdict should match corrected event type")
-        assert_true(overlap_row["사건이력_ko"] == "전조형 고장(급격 종료)", "event history should preserve one precursor-led fault with abrupt ending")
+        assert_true(overlap_row["사건이력_ko"] == "전조형 고장", "event history should preserve one precursor event after corrected audit sync")
         assert_true(int(overlap_row["전조흔적_flag"]) == 1, "overlap precursor-trace flag missing")
         assert_true(int(overlap_row["순수급작_flag"]) == 0, "overlap should not stay pure abrupt")
         assert_true(int(overlap_row["전조평가셋편입_flag"]) == 1, "overlap should stay in precursor eval set")
@@ -514,8 +632,8 @@ def main() -> None:
         assert_true(overlap_row["커널로그_원인군_ko"] == "모듈손상형", "abrupt symptom map should stay highest priority")
 
         assert_true(overlap_row_2["사건유형_ko"] == "전조형 고장", "second overlap row should also be precursor-led")
-        assert_true(overlap_row_2["최종고장양상_ko"] == "급격 종료", "second overlap terminal pattern mapping failed")
-        assert_true(overlap_row_2["사건이력_ko"] == "전조형 고장(급격 종료)", "second overlap history mapping failed")
+        assert_true(overlap_row_2["최종고장양상_ko"] == "진행성 악화", "second overlap terminal pattern mapping failed")
+        assert_true(overlap_row_2["사건이력_ko"] == "전조형 고장", "second overlap history mapping failed")
         assert_true(abrupt_only_row["사건유형_ko"] == "급작 고장", "pure abrupt representative mapping failed")
         assert_true(abrupt_only_row["사건유형_해석_ko"] == "급작 고장", "pure abrupt interpretation layer mismatch")
         assert_true(abrupt_only_row["최종고장양상_ko"] == "급작 발생", "pure abrupt terminal pattern mapping failed")
@@ -525,24 +643,24 @@ def main() -> None:
         assert_true(int(abrupt_only_row["전조평가셋편입_flag"]) == 0, "pure abrupt row should not be in precursor eval set")
         assert_true(int(abrupt_only_row["급작평가셋편입_flag"]) == 1, "pure abrupt row should be in abrupt eval set")
         assert_true(abrupt_only_row["GPVS_적용대상_ko"] == "적용대상", "pure abrupt row should remain GPVS applicable")
-        assert_true(holdout_row["사건유형_ko"] == "고장유형 보류", "forensic holdout row should stay 고장유형 보류")
-        assert_true(holdout_row["사건유형_해석_ko"] == "전조흔적 있음", "forensic holdout interpretation layer mismatch")
-        assert_true(holdout_row["대표판정_ko"] == "고장유형 보류", "forensic holdout representative verdict mismatch")
-        assert_true(holdout_row["최종고장양상_ko"] == "급작 발생", "forensic holdout terminal pattern mismatch")
-        assert_true(holdout_row["사건이력_ko"] == "고장유형 보류(급작 발생)", "forensic holdout history mismatch")
-        assert_true(holdout_row["패널고장여부_ko"] == "고장", "forensic holdout should stay a fault panel")
-        assert_true(int(holdout_row["전조흔적_flag"]) == 1, "forensic holdout should keep precursor-trace flag")
-        assert_true(int(holdout_row["순수급작_flag"]) == 0, "forensic holdout should not stay pure abrupt")
-        assert_true(int(holdout_row["전조평가셋편입_flag"]) == 0, "forensic holdout should stay outside precursor eval set")
-        assert_true(int(holdout_row["급작평가셋편입_flag"]) == 0, "forensic holdout should stay outside abrupt eval set")
+        assert_true(forensic_row["사건유형_ko"] == "전조형 고장", "forensic target row should now be 전조형 고장")
+        assert_true(forensic_row["사건유형_해석_ko"] == "전조형 고장", "forensic target interpretation layer mismatch")
+        assert_true(forensic_row["대표판정_ko"] == "전조형 고장", "forensic target representative verdict mismatch")
+        assert_true(forensic_row["최종고장양상_ko"] == "급격 종료", "forensic target terminal pattern mismatch")
+        assert_true(forensic_row["사건이력_ko"] == "전조형 고장(급격 종료)", "forensic target history mismatch")
+        assert_true(forensic_row["패널고장여부_ko"] == "고장", "forensic target should stay a fault panel")
+        assert_true(int(forensic_row["전조흔적_flag"]) == 1, "forensic target should keep precursor-trace flag")
+        assert_true(int(forensic_row["순수급작_flag"]) == 0, "forensic target should not stay pure abrupt")
+        assert_true(int(forensic_row["전조평가셋편입_flag"]) == 0, "forensic target should stay outside precursor eval set")
+        assert_true(int(forensic_row["급작평가셋편입_flag"]) == 0, "forensic target should stay outside abrupt eval set")
         assert_true(
-            holdout_row["해석대평가차이_ko"] == "전조흔적은 있으나 현재 전조평가셋/순수급작평가셋 모두 미편입",
-            "forensic holdout mismatch explanation mismatch",
+            forensic_row["해석대평가차이_ko"] == "explicit rule상 전조형 고장이지만 현재 strict precursor evaluation set에는 아직 미편입",
+            "forensic target mismatch explanation mismatch",
         )
-        assert_true(holdout_row["GPVS_적용대상_ko"] == "적용대상", "forensic holdout should stay GPVS applicable")
-        assert_true("2025-01-20" in str(holdout_row["판정주의_ko"]), "forensic holdout note should mention precursor-like start date")
-        assert_true("2025-03-21" in str(holdout_row["판정주의_ko"]), "forensic holdout note should mention strong trigger date")
-        assert_true("순수 급작 보류" in str(holdout_row["판정주의_ko"]), "forensic holdout note should mention pure abrupt holdout")
+        assert_true(forensic_row["GPVS_적용대상_ko"] == "적용대상", "forensic target should stay GPVS applicable")
+        assert_true("2025-01-20" in str(forensic_row["판정주의_ko"]), "forensic target note should mention precursor-like start date")
+        assert_true("2025-03-21" in str(forensic_row["판정주의_ko"]), "forensic target note should mention strong trigger date")
+        assert_true("persistent_5of7" in str(forensic_row["판정주의_ko"]), "forensic target note should mention explicit stored-field rule")
 
         assert_true(common_row["사건유형_ko"] == "공통원인 이벤트", "common-cause representative mapping failed")
         assert_true(common_row["사건유형_해석_ko"] == "공통원인 이벤트", "common-cause interpretation should match visible label")
@@ -581,14 +699,14 @@ def main() -> None:
         precursor_rep_flag = overlap_event_rows.loc[overlap_event_rows["사건유형_ko"].eq("전조형 고장"), "대표판정여부_flag"].iloc[0]
         assert_true(int(precursor_rep_flag) == 1, "precursor-led overlap row should keep precursor as representative")
         assert_true(
-            overlap_event_rows["비고_ko"].astype(str).str.contains("급격 종료").all(),
-            "overlap event supplement should mention abrupt ending in notes",
+            overlap_event_rows["비고_ko"].astype(str).str.contains("fault panel event audit explicit stored-field rule").all(),
+            "overlap event supplement should mention fault audit explicit rule",
         )
         holdout_event_rows = event_df.loc[(event_df["site"].eq("conalog")) & (event_df["panel_id"].eq(FORENSIC_HOLDOUT_PANEL_ID))]
-        assert_true(len(holdout_event_rows) == 1, "forensic holdout should keep one event-history row")
+        assert_true(len(holdout_event_rows) == 1, "forensic target should keep one event-history row")
         assert_true(
-            holdout_event_rows.iloc[0]["사건유형_ko"] == "고장유형 보류",
-            "forensic holdout event supplement type mismatch",
+            holdout_event_rows.iloc[0]["사건유형_ko"] == "전조형 고장",
+            "forensic target event supplement type mismatch",
         )
 
         assert_true(len(cluster_df) == 1, f"expected 1 cluster supplement row, found {len(cluster_df)}")
@@ -596,12 +714,12 @@ def main() -> None:
         assert_true(cluster_row["대표판정_ko"] == "공통원인 이벤트", "cluster representative mapping failed")
         assert_true(cluster_row["운영위치_ko"] == "추가 발견 후보", "cluster operating location mapping failed")
 
-        assert_true(holdout_row["GPVS_참고유형_ko"] == "전기적 고장 계열", "matched holdout row should attach GPVS type")
-        assert_true(holdout_row["GPVS_부착상태_ko"] == "부착", "matched holdout row should mark GPVS attached")
-        assert_true("site+panel_id" in str(holdout_row["GPVS_근거_ko"]), "matched holdout row should carry compact GPVS evidence")
-        assert_true(normalize_text(holdout_row["GPVS_미부착사유_ko"]) == "", "matched holdout row should keep GPVS unattached reason blank")
+        assert_true(forensic_row["GPVS_참고유형_ko"] == "전기적 고장 계열", "matched forensic row should attach GPVS type")
+        assert_true(forensic_row["GPVS_부착상태_ko"] == "부착", "matched forensic row should mark GPVS attached")
+        assert_true("site+panel_id" in str(forensic_row["GPVS_근거_ko"]), "matched forensic row should carry compact GPVS evidence")
+        assert_true(normalize_text(forensic_row["GPVS_미부착사유_ko"]) == "", "matched forensic row should keep GPVS unattached reason blank")
         assert_true(
-            holdout_row["GPVS_후보파일_ko"] == "_share/gpvs_fault_family_eval_cases.csv",
+            forensic_row["GPVS_후보파일_ko"] == "_share/gpvs_fault_family_eval_cases.csv",
             "matched row should expose candidate source path",
         )
         assert_true(common_row["GPVS_부착상태_ko"] == "비대상", "common-cause row should not be a GPVS target")
@@ -645,8 +763,7 @@ def main() -> None:
                 & verdict_df["최종고장양상_ko"].eq("급격 종료")
             ).sum()
         )
-        holdout_panel_count = int(verdict_df["사건유형_ko"].eq("고장유형 보류").sum())
-        pure_precursor_panel_count = int(
+        progressive_precursor_panel_count = int(
             (
                 verdict_df["사건유형_ko"].eq("전조형 고장")
                 & verdict_df["최종고장양상_ko"].eq("진행성 악화")
@@ -662,25 +779,23 @@ def main() -> None:
         assert_true(int(verdict_df["패널고장여부_ko"].eq("고장").sum()) == 6, "fixture fault-panel count should be 6")
         assert_true(precursor_event_count == 2, "fixture precursor event count should be 2")
         assert_true(pure_abrupt_event_count == 3, "fixture pure abrupt event count should be 3")
-        assert_true(abrupt_ending_panel_count == 2, "fixture abrupt-ending overlap count should be 2")
-        assert_true(pure_precursor_panel_count == 0, "fixture pure precursor panel count should be 0")
+        assert_true(abrupt_ending_panel_count == 1, "fixture abrupt-ending precursor count should be 1")
+        assert_true(progressive_precursor_panel_count == 2, "fixture progressive precursor panel count should be 2")
         assert_true(pure_abrupt_panel_count == 3, "fixture pure abrupt panel count should be 3")
-        assert_true(holdout_panel_count == 1, "fixture holdout panel count should be 1")
         assert_true(precursor_trace_panel_count == 3, "fixture precursor-trace panel count should be 3")
         assert_true(pure_abrupt_flag_panel_count == 3, "fixture pure-abrupt flag count should be 3")
         assert_true(precursor_eval_included_count == 2, "fixture precursor-eval inclusion count should be 2")
         assert_true(abrupt_eval_included_count == 3, "fixture abrupt-eval inclusion count should be 3")
         assert_true(interpretation_eval_mismatch_count == 1, "fixture interpretation/eval mismatch count should be 1")
         assert_true(int(summary_row["고유_고장패널수"]) == int(verdict_df["패널고장여부_ko"].eq("고장").sum()), "unique fault-panel summary must come from final rows")
-        assert_true(int(summary_row["전조사건수"]) == precursor_event_count, "precursor event-count summary must come from final rows")
-        assert_true(int(summary_row["순수급작사건수"]) == pure_abrupt_event_count, "pure abrupt event-count summary must come from final rows")
-        assert_true(int(summary_row["전조후급격종료_패널수"]) == abrupt_ending_panel_count, "abrupt-ending overlap summary must come from final rows")
-        assert_true(int(summary_row["고장유형보류_패널수"]) == holdout_panel_count, "holdout summary must come from final rows")
-        assert_true(int(summary_row["순수전조_패널수"]) == pure_precursor_panel_count, "pure precursor panel summary must come from final rows")
+        assert_true(int(summary_row["사건해석_전조형_패널수"]) == int(rep_counts.get("전조형 고장", 0)), "interpreted precursor summary must come from final rows")
+        assert_true(int(summary_row["사건해석_급작_패널수"]) == pure_abrupt_panel_count, "interpreted abrupt summary must come from final rows")
+        assert_true(int(summary_row["사건해석_전조형_급격종료_패널수"]) == abrupt_ending_panel_count, "precursor abrupt-ending summary must come from final rows")
+        assert_true(int(summary_row["사건해석_전조형_진행성악화_패널수"]) == progressive_precursor_panel_count, "progressive precursor summary must come from final rows")
         assert_true(int(summary_row["전조흔적_패널수"]) == precursor_trace_panel_count, "precursor-trace summary must come from final rows")
-        assert_true(int(summary_row["순수급작_패널수"]) == pure_abrupt_flag_panel_count, "pure-abrupt flag summary must come from final rows")
-        assert_true(int(summary_row["전조평가셋편입_패널수"]) == precursor_eval_included_count, "precursor-eval inclusion summary must come from final rows")
-        assert_true(int(summary_row["급작평가셋편입_패널수"]) == abrupt_eval_included_count, "abrupt-eval inclusion summary must come from final rows")
+        assert_true(pure_abrupt_flag_panel_count == pure_abrupt_panel_count, "pure-abrupt flag count should align with interpreted abrupt count in this fixture")
+        assert_true(int(summary_row["엄격전조평가셋_패널수"]) == precursor_eval_included_count, "strict precursor-eval inclusion summary must come from final rows")
+        assert_true(int(summary_row["순수급작평가셋_패널수"]) == abrupt_eval_included_count, "pure abrupt-eval inclusion summary must come from final rows")
         assert_true(int(summary_row["해석과평가셋불일치_패널수"]) == interpretation_eval_mismatch_count, "interpretation/eval mismatch summary must come from final rows")
         assert_true(int(summary_row["공통원인이력_패널수"]) == common_event_count, "common membership summary must come from final rows")
         assert_true(int(summary_row["반복이상이력_패널수"]) == repeat_event_count, "repeat membership summary must come from final rows")
@@ -704,9 +819,9 @@ def main() -> None:
         assert_true(int(summary_row["클러스터_보조행수"]) == len(cluster_df), "cluster supplement summary mismatch")
         assert_true("event type과 terminal failure pattern" in str(summary_row["note_ko"]), "summary note should mention event-type vs terminal-pattern split")
         assert_true("해석" in str(summary_row["note_ko"]), "summary note should mention interpretation layer")
-        assert_true("급격 종료" in str(summary_row["note_ko"]), "summary note should mention abrupt ending overlap handling")
-        assert_true("고장유형 보류" in str(summary_row["note_ko"]), "summary note should mention forensic holdout handling")
-        assert_true("부분 부착" in str(summary_row["note_ko"]) or "부분" in str(summary_row["note_ko"]), "summary note should mention partial GPVS attach")
+        assert_true("fault panel event audit" in str(summary_row["note_ko"]), "summary note should mention fault-panel audit sync")
+        assert_true("same-day fallback onset" in str(summary_row["note_ko"]), "summary note should mention same-day fallback abrupt correction")
+        assert_true("모두 부착" in str(summary_row["note_ko"]) or "부분" in str(summary_row["note_ko"]), "summary note should mention GPVS attach scope")
 
         assert_true(cluster_row["GPVS_참고유형_ko"] == "미부착", "cluster row must stay GPVS unattached")
         assert_true(cluster_row["GPVS_근거_ko"] == "현재 저장 산출물에는 패널별 GPVS 직접 판정이 없음", "cluster row must keep GPVS absence reason")

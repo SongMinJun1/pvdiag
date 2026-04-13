@@ -12,6 +12,7 @@ TRUTH_BACKLOG_NAME = "panel_day_engine_project_truth_acquisition_backlog_v1.csv"
 TRUTH_EXPANSION_SUMMARY_NAME = "panel_day_engine_project_truth_expansion_plan_summary_v1.csv"
 POLICY_RECOMMENDATION_NAME = "panel_day_engine_operator_attention_policy_recommendation_v1.csv"
 PIPELINE_MANIFEST_NAME = "panel_day_engine_operator_pipeline_manifest_v1.csv"
+FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME = "panel_day_engine_fault_panel_event_audit_summary_v1.csv"
 
 FREEZE_PACK_OUTPUT_NAME = "panel_day_engine_project_current_data_freeze_pack_v1.csv"
 FREEZE_SUMMARY_OUTPUT_NAME = "panel_day_engine_project_current_data_freeze_summary_v1.csv"
@@ -119,6 +120,7 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         "expansion_summary": read_csv(share_dir / TRUTH_EXPANSION_SUMMARY_NAME),
         "policy": read_csv(share_dir / POLICY_RECOMMENDATION_NAME),
         "pipeline": read_csv(share_dir / PIPELINE_MANIFEST_NAME),
+        "fault_event_audit_summary": read_csv(share_dir / FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME),
     }
 
     ensure_columns(
@@ -168,6 +170,17 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         frames["pipeline"],
         ["final_pipeline_pass_flag", "note_ko"],
         PIPELINE_MANIFEST_NAME,
+    )
+    ensure_columns(
+        frames["fault_event_audit_summary"],
+        [
+            "사건유형_재판정_전조형수",
+            "사건유형_재판정_급작수",
+            "전조평가셋편입_패널수",
+            "급작평가셋편입_패널수",
+            "해석과평가셋불일치_패널수",
+        ],
+        FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME,
     )
     return frames
 
@@ -263,12 +276,18 @@ def freeze_reason(
     policy_row: dict[str, str],
     pipeline_row: dict[str, object],
     best_row: dict[str, object],
+    fault_event_summary_row: dict[str, object],
 ) -> str:
     backlog_reason = normalize_text(backlog_row["backlog_reason_ko"])
     rationale = normalize_text(freeze_candidate_row["rationale_ko"])
     best_target = normalize_text(best_row.get("target_name"))
     best_f1 = numeric_float_or_blank(best_row.get("f1"))
     best_support = numeric_float_or_blank(best_row.get("positive_support"))
+    interpreted_precursor_count = numeric_int(fault_event_summary_row["사건유형_재판정_전조형수"])
+    interpreted_abrupt_count = numeric_int(fault_event_summary_row["사건유형_재판정_급작수"])
+    strict_precursor_eval_count = numeric_int(fault_event_summary_row["전조평가셋편입_패널수"])
+    pure_abrupt_eval_count = numeric_int(fault_event_summary_row["급작평가셋편입_패널수"])
+    mismatch_count = numeric_int(fault_event_summary_row["해석과평가셋불일치_패널수"])
 
     if scope == "operator_policy_proxy":
         recommended_policy = normalize_text(policy_row["recommended_policy_name"])
@@ -299,16 +318,25 @@ def freeze_reason(
         if decision == "exploratory_only":
             return (
                 f"step4 pure abrupt/no-precursor scope의 현재 최상위 target은 {best_target} (f1={best_f1}, positive_support={pure_support_text}) 이다. "
-                "precursor-abrupt consistency audit 기준 overlap 2건은 전조형 고장(급격 종료)으로 재분류되어 pure abrupt event positive set에서 제외된다. "
-                "또한 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 strong trigger 이전 precursor-like evidence 때문에 pure abrupt typing holdout 으로 제외된다. "
+                f"fault panel event audit 기준 사건 해석상 전조형 고장 패널은 {interpreted_precursor_count}개, 사건 해석상 급작 고장 패널은 {interpreted_abrupt_count}개다. "
+                f"하지만 엄격 전조 평가셋 편입은 {strict_precursor_eval_count}개, 순수 급작 평가셋 편입은 {pure_abrupt_eval_count}개로 intentionally 다르다. "
+                "c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하지만 엄격 전조 평가셋과 순수 급작 평가셋 모두에 넣지 않는다. "
                 f"따라서 현재 pure abrupt support는 {pure_support_text}건이고 current data에서는 exploratory 수준으로만 유지해야 한다. "
                 f"{support_gap_note} 현재 scope freeze 상태는 do_not_freeze 다. {expansion_note}"
             ).strip()
         return (
             f"step4 pure abrupt/no-precursor scope의 현재 최상위 target은 {best_target} (f1={best_f1}, positive_support={pure_support_text}) 이다. "
-            "precursor-abrupt consistency audit 기준 overlap 2건은 전조형 고장(급격 종료)으로 재분류되어 pure abrupt event positive set에서 제외된다. "
-            "또한 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 strong trigger 이전 precursor-like evidence 때문에 pure abrupt typing holdout 으로 제외된다. "
+            f"사건 해석상 전조형 고장 패널은 {interpreted_precursor_count}개지만 순수 급작 평가셋 편입은 {pure_abrupt_eval_count}개뿐이다. "
+            "c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하지만 순수 급작 평가셋에 넣지 않는다. "
             f"따라서 현재 pure abrupt support는 {pure_support_text}건으로 읽어야 한다. {support_gap_note} {rationale or expansion_note}"
+        ).strip()
+
+    if scope == "step3_precursor_performance":
+        return (
+            f"step3 precursor scope의 현재 최상위 target은 {best_target} (f1={best_f1}, positive_support={best_support}) 이다. "
+            f"fault panel event audit 기준 사건 해석상 전조형 고장 패널은 {interpreted_precursor_count}개지만 엄격 전조 평가셋 편입은 {strict_precursor_eval_count}개다. "
+            f"해석과 평가셋 불일치 panel 은 {mismatch_count}개이며, c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하지만 strict precursor evaluation set에는 아직 넣지 않는다. "
+            f"따라서 step3 positive support는 {best_support}건으로 유지하고 current data에서는 exploratory 수준으로만 읽는다. {backlog_reason} {expansion_note}"
         ).strip()
 
     if decision == "exploratory_only":
@@ -344,6 +372,7 @@ def build_freeze_pack(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
     }
     policy_row = frames["policy"].iloc[0].to_dict()
     pipeline_row = frames["pipeline"].iloc[0].to_dict()
+    fault_event_summary_row = frames["fault_event_audit_summary"].iloc[0].to_dict()
 
     rows: list[dict[str, object]] = []
     for scope in EXPECTED_SCOPES:
@@ -391,6 +420,7 @@ def build_freeze_pack(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
             policy_row={k: normalize_text(v) for k, v in policy_row.items()},
             pipeline_row=pipeline_row,
             best_row=best_row,
+            fault_event_summary_row=fault_event_summary_row,
         )
 
         rows.append(
@@ -444,8 +474,12 @@ def build_freeze_summary(pack_df: pd.DataFrame) -> pd.DataFrame:
 def build_claims(pack_df: pd.DataFrame, frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
     policy_row = frames["policy"].iloc[0].to_dict()
     pipeline_row = frames["pipeline"].iloc[0].to_dict()
+    fault_event_summary_row = frames["fault_event_audit_summary"].iloc[0].to_dict()
     pipeline_pass = numeric_int(pipeline_row["final_pipeline_pass_flag"])
     recommended_policy = normalize_text(policy_row["recommended_policy_name"])
+    interpreted_precursor_count = numeric_int(fault_event_summary_row["사건유형_재판정_전조형수"])
+    strict_precursor_eval_count = numeric_int(fault_event_summary_row["전조평가셋편입_패널수"])
+    pure_abrupt_eval_count = numeric_int(fault_event_summary_row["급작평가셋편입_패널수"])
 
     pack_lookup = {normalize_text(row["eval_scope"]): row for row in pack_df.to_dict(orient="records")}
     step4_pack_row = pack_lookup["step4_abrupt_no_precursor"]
@@ -453,13 +487,15 @@ def build_claims(pack_df: pd.DataFrame, frames: dict[str, pd.DataFrame]) -> pd.D
     step4_decision = normalize_text(step4_pack_row["current_data_decision"])
     if step4_decision == "exploratory_only":
         step4_claim_text = (
-            f"step4 pure abrupt/no-precursor 결과는 precursor-led fault with abrupt ending 2건과 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 holdout을 제외하면 현재 stored data 기준 positive support={step4_support} 로 underpowered 이다. "
+            f"step4 pure abrupt/no-precursor 결과는 사건 해석상 전조형 고장 패널은 {interpreted_precursor_count}개, 엄격 전조 평가셋 편입은 {strict_precursor_eval_count}개, 순수 급작 평가셋 편입은 {pure_abrupt_eval_count}개인 상태에서 순수 급작 평가셋 {pure_abrupt_eval_count}건만을 positive 로 둔다. "
+            f"c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하지만 엄격 전조 평가셋과 순수 급작 평가셋 모두에 넣지 않는다. "
+            f"따라서 현재 stored data 기준 positive support={step4_support} 로 underpowered 이다. "
             "따라서 현재는 stable detector performance 로 freeze하지 말고 exploratory result 로만 써야 한다."
         )
         step4_overclaim = "pure abrupt support 3 결과를 large-support stable benchmark 나 전체 fault-6 event count로 과장하지 말 것."
     else:
         step4_claim_text = (
-            f"step4 pure abrupt/no-precursor 결과는 precursor-led fault with abrupt ending 2건과 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 holdout을 제외한 pure abrupt support={step4_support} 기준으로만 읽어야 하며, "
+            f"step4 pure abrupt/no-precursor 결과는 사건 해석상 전조형 고장 패널은 {interpreted_precursor_count}개, 엄격 전조 평가셋 편입은 {strict_precursor_eval_count}개, 순수 급작 평가셋 편입은 {pure_abrupt_eval_count}개인 상태에서 순수 급작 평가셋 {pure_abrupt_eval_count}건 기준으로만 읽어야 하며, "
             "현재 data 범위에 한정된 bounded current-data conclusion 으로만 유지해야 한다."
         )
         step4_overclaim = "pure abrupt 결과를 overlap precursor-led fault까지 포함한 완결된 detector 성능으로 과장하지 말 것."
@@ -481,7 +517,10 @@ def build_claims(pack_df: pd.DataFrame, frames: dict[str, pd.DataFrame]) -> pd.D
         {
             "claim_id": "claim_step3_precursor",
             "claim_scope": "step3_precursor_performance",
-            "claim_text_ko": "step3 precursor marker 결과는 informative 하지만 underpowered 이므로, 현재 data에서는 stable detector performance 로 freeze하지 말고 exploratory result 로만 써야 한다.",
+            "claim_text_ko": (
+                f"step3 precursor marker 결과는 informative 하지만 underpowered 이므로, 현재 data에서는 stable detector performance 로 freeze하지 말고 exploratory result 로만 써야 한다. "
+                f"사건 해석상 전조형 고장 패널은 {interpreted_precursor_count}개지만 엄격 전조 평가셋 편입은 {strict_precursor_eval_count}개로 intentionally 다르다."
+            ),
             "claim_strength": pack_lookup["step3_precursor_performance"]["allowed_claim_strength"],
             "prohibited_overclaim_ko": "step3 결과를 안정된 detector 성능 또는 배포 가능한 default rule로 주장하지 말 것.",
         },

@@ -83,11 +83,13 @@ This keeps the abrupt6 map aligned with the requested "true abrupt positive only
 
 다만 이번 reconciliation 이후에는 event type 과 terminal failure pattern 을 분리해서 읽어야 한다.
 
-- precursor 가 확인된 overlap 2건은 event type 상 `급작 고장` 이 아니다.
-- 이 2건은 `전조형 고장` 이고 terminal pattern 만 `급격 종료` 다.
-- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 fault panel 이지만, `2025-01-20` 부터 precursor-like evidence 가 있어 pure abrupt typing 은 보류한다.
-- 이 패널의 current re-audit family hint `open_or_device_issue_like` 는 원인군 힌트로는 계속 쓸 수 있다.
-- 따라서 abrupt6 표는 여전히 6행이지만, 의미는 `순수 급작 3건 + 전조형 고장(급격 종료) 2건 + 고장유형 보류 1건` 이다.
+- precursor 가 확인된 사건은 event type 상 `급작 고장` 이 아니다.
+- current authoritative fault-panel event audit 기준 6행의 의미는 `전조형 고장 3건 + 급작 고장 3건` 이다.
+- 이 중 전조형 3건은 다시:
+  - `전조형 고장(급격 종료)` 1건
+  - `전조형 고장(진행성 악화)` 2건
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 fault panel 이고 current re-audit family hint `open_or_device_issue_like` 는 원인군 힌트로 유지한다.
+- 다만 이 파일은 사건 해석과 최종고장양상을 같이 보여줄 뿐, 엄격 전조 평가셋 편입과 같은 뜻으로 쓰지 않는다.
 
 Each row reports:
 
@@ -200,8 +202,8 @@ The smoke test checks:
 - scripts compile
 - abrupt6 output row count is exactly `6`
 - abrupt6 output now distinguishes `사건유형_ko` 와 `최종고장양상_ko`
-- precursor-abrupt same-event overlap 2건은 `전조형 고장 / 급격 종료 / 순수급작_flag=0` 으로 재표기된다.
-- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 `고장유형 보류 / 급작 발생 / 순수급작_flag=0` 으로 재표기된다.
+- `7f7...2.0`, `70ad...1.4`, `c42997...1.1` 은 authoritative fault-panel audit 기준 `전조형 고장 / 순수급작_flag=0` 으로 재표기된다.
+- 이 중 `c42997...1.1` 은 `최종고장양상_ko = 급격 종료` 이고, `7f7...2.0`, `70ad...1.4` 는 `최종고장양상_ko = 진행성 악화` 로 남는다.
 - pure abrupt count is exactly `3`
 - strict abrupt evidence plus accepted-truth backfill produces the expected 6-row family mix
 - `false_positive` / `vendor_rejected` rows are excluded

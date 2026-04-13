@@ -128,7 +128,7 @@ def build_fixture(root: Path) -> None:
                 "recall": 1.0,
                 "precision": 0.75,
                 "f1": 0.8571428571,
-                "note_ko": "pure abrupt after overlap exclusion and c429 holdout",
+                "note_ko": "interpretation precursor 3 / strict precursor eval 2 / pure abrupt eval 3",
             },
             {
                 "eval_scope": "operator_policy_proxy",
@@ -250,9 +250,11 @@ def main() -> None:
         assert_true(abrupt_row["reliability_class"] == "underpowered", "corrected pure abrupt classification mismatch")
         assert_true(abrupt_row["freeze_recommendation"] == "do_not_freeze", "corrected pure abrupt freeze mismatch")
         assert_true(
-            ("same-event overlap 2건" in abrupt_row["reliability_reason_ko"] or "precursor-led fault with abrupt ending" in abrupt_row["reliability_reason_ko"])
+            "사건 해석상 전조형 고장 패널은 3개" in abrupt_row["reliability_reason_ko"]
+            and "엄격 전조 평가셋 편입은 2개" in abrupt_row["reliability_reason_ko"]
+            and "순수 급작 평가셋 편입은 3개" in abrupt_row["reliability_reason_ko"]
             and "c42997" in abrupt_row["reliability_reason_ko"],
-            "corrected pure abrupt reason should mention overlap exclusion and c429 holdout",
+            "corrected pure abrupt reason should mention the 3/2/3 interpretation-vs-eval split",
         )
 
         proxy_row = reliability.loc[reliability["eval_scope"].astype(str).eq("operator_policy_proxy")].iloc[0]

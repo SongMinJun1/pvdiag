@@ -233,9 +233,9 @@ def build_fixture(root: Path) -> None:
             {"site": "alpha", "panel_id": "A1", "고장시점": "2026-03-10", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "순수급작_flag": 1},
             {"site": "alpha", "panel_id": "A2", "고장시점": "2026-03-25", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "순수급작_flag": 1},
             {"site": "alpha", "panel_id": "A3", "고장시점": "2026-03-22", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "순수급작_flag": 1},
-            {"site": "conalog", "panel_id": FORENSIC_HOLDOUT_PANEL_ID, "고장시점": "2025-03-21", "사건유형_ko": "고장유형 보류", "최종고장양상_ko": "급작 발생", "순수급작_flag": 0},
-            {"site": "alpha", "panel_id": "P1", "고장시점": "2026-01-31", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "급격 종료", "순수급작_flag": 0},
-            {"site": "alpha", "panel_id": "P2", "고장시점": "2026-02-10", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "급격 종료", "순수급작_flag": 0},
+            {"site": "conalog", "panel_id": FORENSIC_HOLDOUT_PANEL_ID, "고장시점": "2025-03-21", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "급격 종료", "순수급작_flag": 0},
+            {"site": "alpha", "panel_id": "P1", "고장시점": "2026-01-31", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "진행성 악화", "순수급작_flag": 0},
+            {"site": "alpha", "panel_id": "P2", "고장시점": "2026-02-10", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "진행성 악화", "순수급작_flag": 0},
         ],
         ["site", "panel_id", "고장시점", "사건유형_ko", "최종고장양상_ko", "순수급작_flag"],
     )
@@ -311,6 +311,54 @@ def build_fixture(root: Path) -> None:
             "현재표_보정필요여부_flag",
             "핵심판정_한줄요약_ko",
             "다음보정권고_ko",
+        ],
+    )
+    write_csv(
+        share / "panel_day_engine_fault_panel_event_audit_v1.csv",
+        [
+            {"site": "alpha", "panel_id": "P1", "사건유형_재판정_ko": "전조형 고장", "최종고장양상_재판정_ko": "진행성 악화", "전조평가셋편입_flag": 1, "급작평가셋편입_flag": 0, "전조흔적_flag": 1, "순수급작_flag": 0},
+            {"site": "alpha", "panel_id": "P2", "사건유형_재판정_ko": "전조형 고장", "최종고장양상_재판정_ko": "진행성 악화", "전조평가셋편입_flag": 1, "급작평가셋편입_flag": 0, "전조흔적_flag": 1, "순수급작_flag": 0},
+            {"site": "conalog", "panel_id": FORENSIC_HOLDOUT_PANEL_ID, "사건유형_재판정_ko": "전조형 고장", "최종고장양상_재판정_ko": "급격 종료", "전조평가셋편입_flag": 0, "급작평가셋편입_flag": 0, "전조흔적_flag": 1, "순수급작_flag": 0},
+            {"site": "alpha", "panel_id": "A1", "사건유형_재판정_ko": "급작 고장", "최종고장양상_재판정_ko": "급작 발생", "전조평가셋편입_flag": 0, "급작평가셋편입_flag": 1, "전조흔적_flag": 0, "순수급작_flag": 1},
+            {"site": "alpha", "panel_id": "A2", "사건유형_재판정_ko": "급작 고장", "최종고장양상_재판정_ko": "급작 발생", "전조평가셋편입_flag": 0, "급작평가셋편입_flag": 1, "전조흔적_flag": 0, "순수급작_flag": 1},
+            {"site": "alpha", "panel_id": "A3", "사건유형_재판정_ko": "급작 고장", "최종고장양상_재판정_ko": "급작 발생", "전조평가셋편입_flag": 0, "급작평가셋편입_flag": 1, "전조흔적_flag": 0, "순수급작_flag": 1},
+        ],
+        [
+            "site",
+            "panel_id",
+            "사건유형_재판정_ko",
+            "최종고장양상_재판정_ko",
+            "전조평가셋편입_flag",
+            "급작평가셋편입_flag",
+            "전조흔적_flag",
+            "순수급작_flag",
+        ],
+    )
+    write_csv(
+        share / "panel_day_engine_fault_panel_event_audit_summary_v1.csv",
+        [
+            {
+                "고유_고장패널수": 6,
+                "사건유형_재판정_전조형수": 3,
+                "사건유형_재판정_급작수": 3,
+                "사건유형_재판정_보류수": 0,
+                "전조흔적_패널수": 3,
+                "순수급작_패널수": 3,
+                "전조평가셋편입_패널수": 2,
+                "급작평가셋편입_패널수": 3,
+                "해석과평가셋불일치_패널수": 1,
+            }
+        ],
+        [
+            "고유_고장패널수",
+            "사건유형_재판정_전조형수",
+            "사건유형_재판정_급작수",
+            "사건유형_재판정_보류수",
+            "전조흔적_패널수",
+            "순수급작_패널수",
+            "전조평가셋편입_패널수",
+            "급작평가셋편입_패널수",
+            "해석과평가셋불일치_패널수",
         ],
     )
     write_csv(
@@ -501,8 +549,11 @@ def main() -> None:
             "step4A positive set name should reflect pure abrupt-only correction",
         )
         assert_true(
-            "same-event overlap" in str(step4a_row["note_ko"]) and "holdout" in str(step4a_row["note_ko"]),
-            "step4A note should mention overlap exclusion and c429 holdout",
+            "사건 해석상 전조형 고장 패널은 3개" in str(step4a_row["note_ko"])
+            and "엄격 전조 평가셋 편입은 2개" in str(step4a_row["note_ko"])
+            and "순수 급작 평가셋 편입은 3개" in str(step4a_row["note_ko"])
+            and "c42997" in str(step4a_row["note_ko"]),
+            "step4A note should mention the 3/2/3 interpretation-vs-eval split",
         )
 
         step4b_row = matrix.loc[

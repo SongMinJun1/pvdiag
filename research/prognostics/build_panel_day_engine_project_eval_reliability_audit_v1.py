@@ -154,16 +154,23 @@ def reliability_reason(
             f"positive support가 {positive_support}건으로 너무 작아 수치가 좋아도 불안정하다. "
             "작은 support에서는 perfect F1도 쉽게 과장될 수 있어 현재 conclusion freeze는 권하지 않는다."
         )
+        if eval_scope == "step3_precursor_performance":
+            reason += " 사건 해석상 전조형 고장 패널은 3개지만 엄격 전조 평가셋 편입은 2개라 support=2 로 읽는다."
         if eval_scope == "step4_abrupt_no_precursor":
-            reason += " precursor-abrupt same-event overlap 2건은 precursor-led fault with abrupt ending으로 재분류되어 pure abrupt support에서 제외됐고, c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 precursor-like evidence before trigger 때문에 pure abrupt typing holdout 으로 제외된 상태다."
+            reason += (
+                " 사건 해석상 전조형 고장 패널은 3개지만 엄격 전조 평가셋 편입은 2개이고 순수 급작 평가셋 편입은 3개다. "
+                "c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하지만 엄격 전조 평가셋과 순수 급작 평가셋 모두에 넣지 않는다."
+            )
         return reason
     if reliability_class == "low_support":
         reason = (
             f"positive support가 {positive_support}건으로 아직 작아 interval 해석이 필요하다. "
             "현 시점 기본값으로는 참고 가능하지만 freeze는 caution 수준이 적절하다."
         )
+        if eval_scope == "step3_precursor_performance":
+            reason += " 사건 해석상 전조형 패널 수와 엄격 전조 평가셋 편입 수는 intentionally 다르다."
         if eval_scope == "step4_abrupt_no_precursor":
-            reason += " 이 support는 overlap precursor-led abrupt ending panel과 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 holdout을 제외한 pure abrupt 기준으로 읽어야 한다."
+            reason += " 이 support는 사건 해석상 전조형 패널 3개, 엄격 전조 평가셋 2개와 분리된 순수 급작 평가셋 3건 기준으로만 읽어야 한다."
         return reason
     recall_text = "" if recall is None else f"recall={recall:.3f}"
     precision_text = "" if precision is None else f"precision={precision:.3f}"
@@ -277,7 +284,7 @@ def build_summary_rows(reliability_df: pd.DataFrame) -> pd.DataFrame:
             note_ko = "이 scope는 retrospective proxy row만 있어 workflow value proxy 해석은 가능하지만 classifier default처럼 freeze하면 안 된다."
         elif do_not_freeze_count == target_count:
             if eval_scope == "step4_abrupt_no_precursor":
-                note_ko = "same-event overlap 2건을 precursor-led fault로 재분류하고 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 holdout을 제외한 뒤 pure abrupt support가 3건으로 줄어 현재 scope row들이 underpowered 상태다."
+                note_ko = "순수 급작 평가셋 support가 3건이라 현재 scope row들이 underpowered 상태다. 사건 해석상 전조형 3, 엄격 전조 평가셋 2, 순수 급작 평가셋 3은 intentionally 다른 집합이다."
             else:
                 note_ko = "현재 scope row들이 모두 underpowered라 freeze를 보류하는 편이 안전하다."
         else:

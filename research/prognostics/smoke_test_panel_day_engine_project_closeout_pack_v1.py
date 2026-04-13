@@ -84,17 +84,17 @@ def build_fixture(root: Path) -> None:
             },
             {
                 "eval_scope": "step4_abrupt_no_precursor",
-                "current_data_decision": "freeze_with_caution",
-                "allowed_claim_strength": "bounded_current_data_claim",
+                "current_data_decision": "exploratory_only",
+                "allowed_claim_strength": "exploratory_claim_only",
                 "current_best_target_name": "final_fault_hit_by_anchor",
                 "current_best_metric_kind": "true_case_metric",
-                "current_best_f1": 0.8333333333333334,
-                "current_best_positive_support": 6,
+                "current_best_f1": 0.6666666666666666,
+                "current_best_positive_support": 3,
                 "chosen_operational_workflow_name": "",
                 "release_gate_pass_flag": 1,
                 "pipeline_pass_flag": 1,
-                "final_usage_decision": "bounded_reporting_use",
-                "final_reason_ko": "step4 abrupt bounded use",
+                "final_usage_decision": "exploratory_only",
+                "final_reason_ko": "사건 해석상 전조형 고장 패널은 3개지만 엄격 전조 평가셋 편입은 2개이고 순수 급작 평가셋 편입은 3개다. c42997 row는 전조형 고장/급격 종료로 해석하지만 두 평가셋 모두에서 제외한다.",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -157,9 +157,9 @@ def build_fixture(root: Path) -> None:
             },
             {
                 "final_usage_decision": "bounded_reporting_use",
-                "scope_count": 3,
+                "scope_count": 2,
                 "operational_default_count": 0,
-                "bounded_reporting_use_count": 3,
+                "bounded_reporting_use_count": 2,
                 "exploratory_only_count": 0,
                 "workflow_only_count": 0,
                 "release_gate_pass_flag": 1,
@@ -168,10 +168,10 @@ def build_fixture(root: Path) -> None:
             },
             {
                 "final_usage_decision": "exploratory_only",
-                "scope_count": 2,
+                "scope_count": 3,
                 "operational_default_count": 0,
                 "bounded_reporting_use_count": 0,
-                "exploratory_only_count": 2,
+                "exploratory_only_count": 3,
                 "workflow_only_count": 0,
                 "release_gate_pass_flag": 1,
                 "chosen_operational_workflow_name": "baseline_plus_discovery_cluster",
@@ -260,13 +260,13 @@ def build_fixture(root: Path) -> None:
             },
             {
                 "eval_scope": "step4_abrupt_no_precursor",
-                "current_data_decision": "freeze_with_caution",
-                "final_usage_decision": "bounded_reporting_use",
-                "allowed_claim_strength": "bounded_current_data_claim",
+                "current_data_decision": "exploratory_only",
+                "final_usage_decision": "exploratory_only",
+                "allowed_claim_strength": "exploratory_claim_only",
                 "chosen_operational_workflow_name": "",
                 "release_gate_pass_flag": 1,
                 "pipeline_pass_flag": 1,
-                "handoff_status_ko": "주의해서 사용",
+                "handoff_status_ko": "탐색용으로만 유지",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -353,16 +353,16 @@ def build_fixture(root: Path) -> None:
                 "eval_scope": "step4_abrupt_no_precursor",
                 "current_best_target_name": "final_fault_hit_by_anchor",
                 "current_best_metric_kind": "true_case_metric",
-                "current_best_f1": 0.8333333333333334,
-                "current_best_positive_support": 6,
+                "current_best_f1": 0.6666666666666666,
+                "current_best_positive_support": 3,
                 "current_operational_workflow_name": "",
                 "current_operational_workflow_reason_ko": "",
-                "freeze_recommendation": "freeze_with_caution",
+                "freeze_recommendation": "do_not_freeze",
                 "acquisition_blocked_flag": 1,
-                "current_data_decision": "freeze_with_caution",
-                "allowed_claim_strength": "bounded_current_data_claim",
-                "next_allowed_action": "keep_with_caution_note",
-                "freeze_reason_ko": "step4 abrupt bounded",
+                "current_data_decision": "exploratory_only",
+                "allowed_claim_strength": "exploratory_claim_only",
+                "next_allowed_action": "do_not_upgrade_without_new_truth",
+                "freeze_reason_ko": "사건 해석상 전조형 고장 패널 3, 엄격 전조 평가셋 2, 순수 급작 평가셋 3을 분리해서 읽어야 한다. c42997 row는 전조형 고장/급격 종료 해석이지만 두 평가셋 모두에서 제외한다.",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -432,8 +432,8 @@ def build_fixture(root: Path) -> None:
                 "site": "conalog" if idx == 3 else "siteA",
                 "panel_id": FORENSIC_HOLDOUT_PANEL_ID if idx == 3 else f"panel.{idx}",
                 "고장시점": "2025-03-21" if idx == 3 else f"2025-01-0{idx+1}",
-                "사건유형_ko": "고장유형 보류" if idx == 3 else ("전조형 고장" if is_overlap else "급작 고장"),
-                "최종고장양상_ko": "급작 발생" if idx == 3 else ("급격 종료" if is_overlap else "급작 발생"),
+                "사건유형_ko": "전조형 고장" if idx in {3, 4, 5} else "급작 고장",
+                "최종고장양상_ko": "급격 종료" if idx == 3 else ("진행성 악화" if is_overlap else "급작 발생"),
                 "순수급작_flag": 0 if idx in {3, 4, 5} else 1,
                 "증상명_ko": "개방/장치이상형" if idx in {3, 4} else ("다이오드형" if idx < 3 else "모듈손상형"),
                 "세부근거_ko": "stored truth mapping",
@@ -564,15 +564,6 @@ def build_fixture(root: Path) -> None:
                 "panel_id": "panel.0",
                 "사건유형_ko": "전조형 고장",
                 "사건우선순위": 2,
-                "대표판정여부_flag": 0,
-                "운영위치_ko": "현재 workflow 미포함",
-                "비고_ko": "fixture",
-            },
-            {
-                "site": "siteA",
-                "panel_id": "panel.0",
-                "사건유형_ko": "급작 고장",
-                "사건우선순위": 1,
                 "대표판정여부_flag": 1,
                 "운영위치_ko": "현재 workflow 미포함",
                 "비고_ko": "fixture",
@@ -604,18 +595,22 @@ def build_fixture(root: Path) -> None:
             {
                 "전체_패널수": 25,
                 "고유_고장패널수": 6,
-                "전조사건수": 2,
-                "순수급작사건수": 3,
-                "전조후급격종료_패널수": 2,
-                "고장유형보류_패널수": 1,
-                "순수전조_패널수": 0,
+                "사건해석_전조형_패널수": 3,
+                "사건해석_급작_패널수": 3,
+                "사건해석_전조형_급격종료_패널수": 1,
+                "사건해석_전조형_진행성악화_패널수": 2,
+                "전조흔적_패널수": 3,
+                "순수급작_패널수": 3,
+                "엄격전조평가셋_패널수": 2,
+                "순수급작평가셋_패널수": 3,
+                "해석과평가셋불일치_패널수": 1,
                 "공통원인이력_패널수": 4,
                 "반복이상이력_패널수": 11,
                 "대표판정_급작수": 3,
-                "대표판정_전조형수": 2,
+                "대표판정_전조형수": 3,
                 "대표판정_공통원인수": 4,
                 "대표판정_반복이상수": 10,
-                "대표판정_고장유형보류수": 1,
+                "대표판정_고장유형보류수": 0,
                 "대표판정_불충분수": 5,
                 "고장_패널수": 6,
                 "비고장_패널수": 4,
@@ -634,11 +629,15 @@ def build_fixture(root: Path) -> None:
         [
             "전체_패널수",
             "고유_고장패널수",
-            "전조사건수",
-            "순수급작사건수",
-            "전조후급격종료_패널수",
-            "고장유형보류_패널수",
-            "순수전조_패널수",
+            "사건해석_전조형_패널수",
+            "사건해석_급작_패널수",
+            "사건해석_전조형_급격종료_패널수",
+            "사건해석_전조형_진행성악화_패널수",
+            "전조흔적_패널수",
+            "순수급작_패널수",
+            "엄격전조평가셋_패널수",
+            "순수급작평가셋_패널수",
+            "해석과평가셋불일치_패널수",
             "공통원인이력_패널수",
             "반복이상이력_패널수",
             "대표판정_급작수",
@@ -660,6 +659,18 @@ def build_fixture(root: Path) -> None:
             "클러스터_보조행수",
             "note_ko",
         ],
+    )
+
+    write_csv(
+        share / "panel_day_engine_fault_panel_event_audit_summary_v1.csv",
+        [
+            {
+                "사건유형_재판정_전조형수": 3,
+                "전조평가셋편입_패널수": 2,
+                "급작평가셋편입_패널수": 3,
+            }
+        ],
+        ["사건유형_재판정_전조형수", "전조평가셋편입_패널수", "급작평가셋편입_패널수"],
     )
 
     write_csv(
@@ -765,8 +776,11 @@ def main() -> None:
         assert_true("fault-family reference axis라 고장 panel 6개에만 적용" in markdown, "markdown missing GPVS scope note")
         assert_true("비고장/미확정 panel 19개는 GPVS 비대상" in markdown, "markdown missing GPVS non-target note")
         assert_true("전조형 고장이 급격 종료로 끝난 경우" in markdown, "markdown missing precursor-led abrupt-ending note")
-        assert_true("c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 고장 패널이지만 pure abrupt typing 은 holdout" in markdown, "markdown missing c429 holdout note")
+        assert_true("c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하지만" in markdown, "markdown missing c429 interpretation note")
+        assert_true("엄격 전조 평가셋과 순수 급작 평가셋에는 모두 넣지 않는다" in markdown, "markdown missing c429 eval-set exclusion note")
         assert_true("순수 급작 사건은 현재 stored data 기준 3건" in markdown, "markdown missing pure abrupt count note")
+        assert_true("엄격 전조 평가셋 편입은 2건" in markdown, "markdown missing strict precursor eval count note")
+        assert_true("사건 해석상 전조형 고장 패널은 3건" in markdown, "markdown missing interpreted precursor count note")
         top_read_lines = [
             "- `panel_day_engine_panel_multiaxis_verdict_v1.csv`: panel reader-facing 대표판정을 가장 먼저 본다.",
             "- `panel_day_engine_project_final_decision_pack_v1.csv`: scope별 최종 usage decision 을 바로 이어서 확인한다.",
