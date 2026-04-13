@@ -128,7 +128,7 @@ def build_fixture(root: Path) -> None:
                 "recall": 1.0,
                 "precision": 0.75,
                 "f1": 0.8571428571,
-                "note_ko": "interpretation precursor 3 / strict precursor eval 2 / pure abrupt eval 3",
+                "note_ko": "benchmark reset pure abrupt support 3",
             },
             {
                 "eval_scope": "operator_policy_proxy",
@@ -250,11 +250,10 @@ def main() -> None:
         assert_true(abrupt_row["reliability_class"] == "underpowered", "corrected pure abrupt classification mismatch")
         assert_true(abrupt_row["freeze_recommendation"] == "do_not_freeze", "corrected pure abrupt freeze mismatch")
         assert_true(
-            "사건 해석상 전조형 고장 패널은 3개" in abrupt_row["reliability_reason_ko"]
-            and "엄격 전조 평가셋 편입은 2개" in abrupt_row["reliability_reason_ko"]
-            and "순수 급작 평가셋 편입은 3개" in abrupt_row["reliability_reason_ko"]
-            and "c42997" in abrupt_row["reliability_reason_ko"],
-            "corrected pure abrupt reason should mention the 3/2/3 interpretation-vs-eval split",
+            "pure abrupt benchmark positive support는 3" in abrupt_row["reliability_reason_ko"]
+            and "c42997" in abrupt_row["reliability_reason_ko"]
+            and "pure abrupt benchmark에서는 제외된다" in abrupt_row["reliability_reason_ko"],
+            "corrected pure abrupt reason should mention the benchmark-reset abrupt basis and c429 exclusion",
         )
 
         proxy_row = reliability.loc[reliability["eval_scope"].astype(str).eq("operator_policy_proxy")].iloc[0]

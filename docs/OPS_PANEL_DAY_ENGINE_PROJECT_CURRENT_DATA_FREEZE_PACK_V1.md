@@ -39,11 +39,11 @@
   - 이 scope들은 `current_best_target_name` 을 classifier-style best target 으로 읽으면 안 되고, `coverage_only` 같은 중립 label 로만 해석해야 한다.
 - step3 precursor performance:
   - informative 하지만 underpowered 이고 acquisition 도 현재 막혀 있으므로 exploratory claim 으로만 남긴다.
-  - 여기서 중요한 점은 사건 해석상 전조형 고장 패널 3개와 엄격 전조 평가셋 편입 2개를 같은 뜻으로 읽지 않는 것이다.
+  - benchmark reset 이후 precursor benchmark support는 3이고, old support 2 benchmark wording은 obsolete 다.
 - step4 abrupt/no-precursor:
-  - 사건 해석상 전조형 고장 패널은 3개지만, 엄격 전조 평가셋 편입은 2개이고 순수 급작 평가셋 편입은 3개다.
-  - `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 사건 해석상 `전조형 고장 / 급격 종료` 이지만 엄격 전조 평가셋과 순수 급작 평가셋 둘 다에서 제외한다.
-  - 따라서 pure abrupt positive support 는 현재 3건이고, step4 abrupt scope 는 stale support 6 기준으로 읽으면 안 된다.
+  - benchmark reset 이후 전조형 benchmark support는 3이고 순수 급작 benchmark support도 3이다.
+  - `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 사건 해석상 `전조형 고장 / 급격 종료` 이며 precursor benchmark 에 포함되고 pure abrupt benchmark 에서는 제외한다.
+  - 따라서 pure abrupt positive support 는 현재 3건이고, step4 abrupt scope 는 stale support 6이나 old precursor support 2 기준으로 읽으면 안 된다.
   - 현재 current-data boundary 에서는 pure abrupt scope 도 exploratory 로만 남겨야 한다.
 - step4 common-cause routing:
   - descriptive / exploratory 수준으로 남겨야 한다.
@@ -57,7 +57,7 @@
 - 특히:
   - step3 는 stable detector performance 로 쓰지 않는다.
   - step4 abrupt 는 pure abrupt support 3 기준으로만 읽고, 현재는 exploratory 로 남긴다.
-  - 사건 해석상 전조형 고장 패널 수 3과 엄격 전조 평가셋 편입 2는 intentionally 다른 숫자다.
+  - benchmark reporting 에서는 precursor benchmark support 3과 pure abrupt benchmark support 3을 직접 쓴다.
   - common-cause 는 descriptive routing 으로만 쓴다.
   - operator workflow default 는 operator/workflow proxy claim 으로만 쓴다.
   - structural scope는 “현재 best target” 이 있다고 쓰지 말고, coverage/reference scope라고만 써야 한다.

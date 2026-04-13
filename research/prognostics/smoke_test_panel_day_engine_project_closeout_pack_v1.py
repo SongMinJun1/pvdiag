@@ -75,12 +75,12 @@ def build_fixture(root: Path) -> None:
                 "current_best_target_name": "first_signalcount2",
                 "current_best_metric_kind": "true_case_metric",
                 "current_best_f1": 1.0,
-                "current_best_positive_support": 2,
+                "current_best_positive_support": 3,
                 "chosen_operational_workflow_name": "",
                 "release_gate_pass_flag": 1,
                 "pipeline_pass_flag": 1,
                 "final_usage_decision": "exploratory_only",
-                "final_reason_ko": "step3 exploratory only",
+                "final_reason_ko": "benchmark reset precursor benchmark support 3, c429 included, exploratory only",
             },
             {
                 "eval_scope": "step4_abrupt_no_precursor",
@@ -94,7 +94,7 @@ def build_fixture(root: Path) -> None:
                 "release_gate_pass_flag": 1,
                 "pipeline_pass_flag": 1,
                 "final_usage_decision": "exploratory_only",
-                "final_reason_ko": "사건 해석상 전조형 고장 패널은 3개지만 엄격 전조 평가셋 편입은 2개이고 순수 급작 평가셋 편입은 3개다. c42997 row는 전조형 고장/급격 종료로 해석하지만 두 평가셋 모두에서 제외한다.",
+                "final_reason_ko": "benchmark reset 이후 precursor benchmark support 3, pure abrupt benchmark support 3이다. c42997 row는 전조형 고장/급격 종료로 해석되며 precursor benchmark에 포함되고 pure abrupt benchmark에서는 제외된다.",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -339,7 +339,7 @@ def build_fixture(root: Path) -> None:
                 "current_best_target_name": "first_signalcount2",
                 "current_best_metric_kind": "true_case_metric",
                 "current_best_f1": 1.0,
-                "current_best_positive_support": 2,
+                "current_best_positive_support": 3,
                 "current_operational_workflow_name": "",
                 "current_operational_workflow_reason_ko": "",
                 "freeze_recommendation": "do_not_freeze",
@@ -347,7 +347,7 @@ def build_fixture(root: Path) -> None:
                 "current_data_decision": "exploratory_only",
                 "allowed_claim_strength": "exploratory_claim_only",
                 "next_allowed_action": "do_not_upgrade_without_new_truth",
-                "freeze_reason_ko": "step3 exploratory",
+                "freeze_reason_ko": "benchmark reset precursor support 3 and c429 included",
             },
             {
                 "eval_scope": "step4_abrupt_no_precursor",
@@ -362,7 +362,7 @@ def build_fixture(root: Path) -> None:
                 "current_data_decision": "exploratory_only",
                 "allowed_claim_strength": "exploratory_claim_only",
                 "next_allowed_action": "do_not_upgrade_without_new_truth",
-                "freeze_reason_ko": "사건 해석상 전조형 고장 패널 3, 엄격 전조 평가셋 2, 순수 급작 평가셋 3을 분리해서 읽어야 한다. c42997 row는 전조형 고장/급격 종료 해석이지만 두 평가셋 모두에서 제외한다.",
+                "freeze_reason_ko": "benchmark reset 이후 precursor benchmark 3과 분리된 순수 급작 benchmark 3만을 positive로 읽어야 한다. c42997 row는 precursor benchmark에 포함되고 pure abrupt benchmark에서는 제외한다.",
             },
             {
                 "eval_scope": "step4_common_cause_routing",
@@ -520,17 +520,21 @@ def build_fixture(root: Path) -> None:
         share / "panel_day_engine_panel_multiaxis_verdict_v1.csv",
         [
             {
-                "site": "siteA",
-                "panel_id": "panel.0",
-                "대표판정_ko": "급작 고장",
-                "사건이력_ko": "전조형 고장+급작 고장",
+                "site": "conalog",
+                "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
+                "대표판정_ko": "전조형 고장",
+                "사건이력_ko": "전조형 고장(급격 종료)",
+                "운영최초전조발견일": "2025-02-20",
+                "운영최초전조마커": "first_cond_evt",
+                "사건해석상전조시작일": "2025-01-20",
+                "benchmark전조시작일": "2025-03-18",
                 "전조형이력_flag": 1,
-                "급작고장이력_flag": 1,
+                "급작고장이력_flag": 0,
                 "공통원인이력_flag": 0,
                 "반복이상이력_flag": 0,
                 "패널고장여부_ko": "고장",
                 "커널로그_증상명_ko": "전압 변화형",
-                "커널로그_원인군_ko": "다이오드형",
+                "커널로그_원인군_ko": "개방/장치이상형",
                 "GPVS_참고유형_ko": "전기적 고장 계열",
                 "GPVS_근거_ko": "_share/gpvs_fault_family_eval_cases.csv | site+panel_id | fixture",
                 "운영위치_ko": "현재 workflow 미포함",
@@ -542,6 +546,10 @@ def build_fixture(root: Path) -> None:
             "panel_id",
             "대표판정_ko",
             "사건이력_ko",
+            "운영최초전조발견일",
+            "운영최초전조마커",
+            "사건해석상전조시작일",
+            "benchmark전조시작일",
             "전조형이력_flag",
             "급작고장이력_flag",
             "공통원인이력_flag",
@@ -666,7 +674,7 @@ def build_fixture(root: Path) -> None:
         [
             {
                 "사건유형_재판정_전조형수": 3,
-                "전조평가셋편입_패널수": 2,
+                "전조평가셋편입_패널수": 3,
                 "급작평가셋편입_패널수": 3,
             }
         ],
@@ -776,10 +784,16 @@ def main() -> None:
         assert_true("fault-family reference axis라 고장 panel 6개에만 적용" in markdown, "markdown missing GPVS scope note")
         assert_true("비고장/미확정 panel 19개는 GPVS 비대상" in markdown, "markdown missing GPVS non-target note")
         assert_true("전조형 고장이 급격 종료로 끝난 경우" in markdown, "markdown missing precursor-led abrupt-ending note")
-        assert_true("c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하지만" in markdown, "markdown missing c429 interpretation note")
-        assert_true("엄격 전조 평가셋과 순수 급작 평가셋에는 모두 넣지 않는다" in markdown, "markdown missing c429 eval-set exclusion note")
+        assert_true("c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석되며 precursor benchmark에는 포함되고 pure abrupt benchmark에서는 제외된다." in markdown, "markdown missing c429 benchmark note")
+        assert_true("운영상 최초 전조 발견일은 benchmark onset 과 다를 수 있다." in markdown, "markdown missing operational-vs-benchmark onset note")
+        assert_true("사건 해석용 onset, 운영 detection onset, benchmark onset 을 분리해서 읽어야 한다." in markdown, "markdown missing 3-onset split note")
+        assert_true(
+            "c42997a6-5881-47e7-9035-7de8a2673b54.1.1 예시: interpretive onset = 2025-01-20, operational detection = 2025-02-20, benchmark onset = 2025-03-18"
+            in markdown,
+            "markdown missing c429 3-date split example",
+        )
         assert_true("순수 급작 사건은 현재 stored data 기준 3건" in markdown, "markdown missing pure abrupt count note")
-        assert_true("엄격 전조 평가셋 편입은 2건" in markdown, "markdown missing strict precursor eval count note")
+        assert_true("benchmark reset 이후 전조형 benchmark support 는 3건이고, 순수 급작 benchmark support 는 3건이다." in markdown, "markdown missing benchmark reset support note")
         assert_true("사건 해석상 전조형 고장 패널은 3건" in markdown, "markdown missing interpreted precursor count note")
         top_read_lines = [
             "- `panel_day_engine_panel_multiaxis_verdict_v1.csv`: panel reader-facing 대표판정을 가장 먼저 본다.",

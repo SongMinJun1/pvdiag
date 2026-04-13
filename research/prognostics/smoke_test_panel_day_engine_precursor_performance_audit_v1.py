@@ -60,6 +60,13 @@ def build_fixture_root(tmp_root: Path) -> None:
                 "fault_start_date": "2025-01-20",
                 "vendor_fault_family": "diode_like",
                 "temporality_class": "progressive_local_precursor_expected",
+                "operational_first_precursor_detected_date": "2025-01-10",
+                "operational_first_precursor_marker_name": "first_cond_evt",
+                "operational_lead_days_to_fault_start": 10,
+                "interpretive_precursor_onset_date": "2025-01-10",
+                "interpretive_lead_days_to_fault_start": 10,
+                "benchmark_precursor_onset_date": "2025-01-10",
+                "benchmark_lead_days_to_fault_start": 10,
                 "preferred_precursor_onset_date": "2025-01-10",
                 "preferred_onset_stage": "episode_start_before_alarm",
                 "preferred_onset_confidence": "strong",
@@ -70,29 +77,33 @@ def build_fixture_root(tmp_root: Path) -> None:
                 "fault_start_date": "2025-02-20",
                 "vendor_fault_family": "module_damage_like",
                 "temporality_class": "progressive_local_precursor_expected",
+                "operational_first_precursor_detected_date": "2025-02-08",
+                "operational_first_precursor_marker_name": "first_cond_evt",
+                "operational_lead_days_to_fault_start": 12,
+                "interpretive_precursor_onset_date": "2025-02-10",
+                "interpretive_lead_days_to_fault_start": 10,
+                "benchmark_precursor_onset_date": "2025-02-10",
+                "benchmark_lead_days_to_fault_start": 10,
                 "preferred_precursor_onset_date": "2025-02-10",
                 "preferred_onset_stage": "episode_start_before_corroborated_signal",
                 "preferred_onset_confidence": "medium",
             },
             {
-                "site": "gamma",
-                "panel_id": "p3",
-                "fault_start_date": "2025-03-20",
-                "vendor_fault_family": "diode_like",
-                "temporality_class": "unknown_local_temporality",
-                "preferred_precursor_onset_date": "2025-03-10",
-                "preferred_onset_stage": "episode_start_evt_only",
-                "preferred_onset_confidence": "weak",
-            },
-            {
-                "site": "delta",
-                "panel_id": "p4",
-                "fault_start_date": "2025-04-20",
-                "vendor_fault_family": "diode_like",
+                "site": "conalog",
+                "panel_id": "c42997a6-5881-47e7-9035-7de8a2673b54.1.1",
+                "fault_start_date": "2025-03-21",
+                "vendor_fault_family": "open_or_device_issue_like",
                 "temporality_class": "progressive_local_precursor_expected",
-                "preferred_precursor_onset_date": "",
-                "preferred_onset_stage": "no_detectable_precursor_episode",
-                "preferred_onset_confidence": "weak",
+                "operational_first_precursor_detected_date": "2025-02-20",
+                "operational_first_precursor_marker_name": "first_cond_evt",
+                "operational_lead_days_to_fault_start": 29,
+                "interpretive_precursor_onset_date": "2025-01-20",
+                "interpretive_lead_days_to_fault_start": 60,
+                "benchmark_precursor_onset_date": "2025-03-18",
+                "benchmark_lead_days_to_fault_start": 3,
+                "preferred_precursor_onset_date": "2025-03-18",
+                "preferred_onset_stage": "episode_start_before_corroborated_signal",
+                "preferred_onset_confidence": "medium",
             },
         ],
         [
@@ -101,6 +112,13 @@ def build_fixture_root(tmp_root: Path) -> None:
             "fault_start_date",
             "vendor_fault_family",
             "temporality_class",
+            "operational_first_precursor_detected_date",
+            "operational_first_precursor_marker_name",
+            "operational_lead_days_to_fault_start",
+            "interpretive_precursor_onset_date",
+            "interpretive_lead_days_to_fault_start",
+            "benchmark_precursor_onset_date",
+            "benchmark_lead_days_to_fault_start",
             "preferred_precursor_onset_date",
             "preferred_onset_stage",
             "preferred_onset_confidence",
@@ -167,11 +185,13 @@ def build_fixture_root(tmp_root: Path) -> None:
         },
     )
     add_case_rows(
-        "gamma",
-        "p3",
-        "2025-03-20",
+        "conalog",
+        "c42997a6-5881-47e7-9035-7de8a2673b54.1.1",
+        "2025-03-21",
         {
-            "first_cond_evt": ("2025-03-10", 1),
+            "first_cond_evt": ("2025-03-18", 1),
+            "first_cond_evt_corroborated": ("2025-03-19", 1),
+            "first_signalcount2": ("2025-03-19", 1),
         },
     )
 
@@ -201,23 +221,21 @@ def build_fixture_root(tmp_root: Path) -> None:
                 "precursor_eligible_flag": 1,
             },
             {
-                "site": "gamma",
-                "panel_id": "p3",
-                "fault_start_date": "2025-03-20",
-                "vendor_fault_family": "diode_like",
-                "temporality_class": "unknown_local_temporality",
-                "precursor_eligible_flag": 0,
-            },
-            {
-                "site": "delta",
-                "panel_id": "p4",
-                "fault_start_date": "2025-04-20",
-                "vendor_fault_family": "diode_like",
+                "site": "conalog",
+                "panel_id": "c42997a6-5881-47e7-9035-7de8a2673b54.1.1",
+                "fault_start_date": "2025-03-21",
+                "vendor_fault_family": "open_or_device_issue_like",
                 "temporality_class": "progressive_local_precursor_expected",
                 "precursor_eligible_flag": 1,
             },
         ],
         ["site", "panel_id", "fault_start_date", "vendor_fault_family", "temporality_class", "precursor_eligible_flag"],
+    )
+
+    write_csv(
+        share / "panel_day_engine_fault_panel_event_audit_summary_v1.csv",
+        [{"사건유형_재판정_전조형수": 3}],
+        ["사건유형_재판정_전조형수"],
     )
 
 
@@ -255,7 +273,7 @@ def main() -> None:
         summary_df = pd.read_csv(tmp_root / "_share" / "panel_day_engine_precursor_performance_summary_v1.csv", encoding="utf-8-sig")
         comparison_df = pd.read_csv(tmp_root / "_share" / "panel_day_engine_precursor_performance_marker_comparison_v1.csv", encoding="utf-8-sig")
 
-        assert_true(len(cases_df) == 2, "only detectable-now cases with preferred onset should remain in evaluation universe")
+        assert_true(len(cases_df) == 3, "rebuilt precursor benchmark evaluation universe should contain 3 cases")
 
         p1 = cases_df.loc[cases_df["panel_id"].eq("p1")].iloc[0]
         assert_true(p1["first_cond_evt_onset_capture_class"] == "exact_or_earlier", "exact gap should map to exact_or_earlier")
@@ -270,14 +288,30 @@ def main() -> None:
         assert_true(int(float(p2["first_cond_evt_onset_capture_gap_days"])) == -2, "earlier marker should have negative gap")
         assert_true(p2["first_signalcount2_onset_capture_class"] == "within_3d_late", "2-day late should map to within_3d_late")
 
+        c429 = cases_df.loc[
+            cases_df["panel_id"].eq("c42997a6-5881-47e7-9035-7de8a2673b54.1.1")
+        ].iloc[0]
+        assert_true(c429["site"] == "conalog", "c429 should be included in rebuilt precursor benchmark cases")
+        assert_true(str(c429["operational_first_precursor_detected_date"]) == "2025-02-20", "c429 operational first detection date should be carried through")
+        assert_true(str(c429["operational_first_precursor_marker_name"]) == "first_cond_evt", "c429 operational first marker should be carried through")
+        assert_true(int(float(c429["operational_lead_days_to_fault_start"])) == 29, "c429 operational lead days should be carried through")
+        assert_true(str(c429["interpretive_precursor_onset_date"]) == "2025-01-20", "c429 interpretive onset should be carried through")
+        assert_true(int(float(c429["interpretive_lead_days_to_fault_start"])) == 60, "c429 interpretive lead days should be carried through")
+        assert_true(str(c429["benchmark_precursor_onset_date"]) == "2025-03-18", "c429 benchmark onset should be carried through")
+        assert_true(int(float(c429["benchmark_lead_days_to_fault_start"])) == 3, "c429 benchmark lead days should be carried through")
+        assert_true(
+            c429["first_cond_evt_corroborated_onset_capture_class"] == "within_3d_late",
+            "c429 corroborated marker should remain near the rebuilt preferred onset",
+        )
+
         summary_map = {row["marker_name"]: row for row in summary_df.to_dict(orient="records")}
         first_cond_evt = summary_map["first_cond_evt"]
-        assert_true(int(first_cond_evt["case_count"]) == 2, "summary case_count should match evaluation universe")
-        assert_true(int(first_cond_evt["available_case_count"]) == 2, "first_cond_evt should be available for both cases")
-        assert_true(float(first_cond_evt["exact_or_earlier_rate"]) == 1.0, "first_cond_evt should be exact-or-earlier for both cases")
+        assert_true(int(first_cond_evt["case_count"]) == 3, "summary case_count should match rebuilt benchmark universe")
+        assert_true(int(first_cond_evt["available_case_count"]) == 3, "first_cond_evt should be available for all rebuilt precursor benchmark cases")
+        assert_true(float(first_cond_evt["exact_or_earlier_rate"]) == 1.0, "first_cond_evt should be exact-or-earlier for all rebuilt benchmark cases")
 
         first_pre_alarm = summary_map["first_pre_alarm"]
-        assert_true(int(first_pre_alarm["missing_count"]) == 2, "first_pre_alarm should be missing in both synthetic cases")
+        assert_true(int(first_pre_alarm["missing_count"]) == 3, "first_pre_alarm should be missing in all rebuilt synthetic cases")
         assert_true(float(first_pre_alarm["available_rate"]) == 0.0, "first_pre_alarm available_rate should be zero")
 
         corroborated = summary_map["first_cond_evt_corroborated"]

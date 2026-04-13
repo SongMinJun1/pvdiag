@@ -40,6 +40,10 @@ VERDICT_COLS = [
     "전조평가셋편입_flag",
     "급작평가셋편입_flag",
     "해석대평가차이_ko",
+    "운영최초전조발견일",
+    "운영최초전조마커",
+    "사건해석상전조시작일",
+    "benchmark전조시작일",
     "전조형이력_flag",
     "급작고장이력_flag",
     "공통원인이력_flag",
@@ -303,7 +307,15 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
     )
     ensure_columns(
         frames["precursor_truth"],
-        ["site", "preferred_precursor_onset_date"],
+        [
+            "site",
+            "panel_id",
+            "preferred_precursor_onset_date",
+            "operational_first_precursor_detected_date",
+            "operational_first_precursor_marker_name",
+            "interpretive_precursor_onset_date",
+            "benchmark_precursor_onset_date",
+        ],
         PRECURSOR_ONSET_TRUTH_NAME,
     )
     ensure_columns(
@@ -560,6 +572,23 @@ def build_precursor_positive_keys(precursor_df: pd.DataFrame) -> set[tuple[str, 
     if not keys:
         raise SystemExit(f"{PRECURSOR_ONSET_TRUTH_NAME} has no precursor-positive rows with preferred_precursor_onset_date")
     return keys
+
+
+def precursor_truth_lookup(precursor_df: pd.DataFrame) -> dict[tuple[str, str], dict[str, str]]:
+    panel_col = first_existing_column(
+        precursor_df,
+        ["panel_id", "display_entity_id", "entity_id", "panel_entity_id"],
+        PRECURSOR_ONSET_TRUTH_NAME,
+    )
+    positive_df = precursor_df.loc[precursor_df["preferred_precursor_onset_date"].ne("")].copy()
+    if positive_df[["site", panel_col]].duplicated().any():
+        dup = positive_df.loc[positive_df[["site", panel_col]].duplicated(keep=False), ["site", panel_col]]
+        raise SystemExit(f"{PRECURSOR_ONSET_TRUTH_NAME} must be unique by (site, panel_id): {dup.to_dict(orient='records')[:5]}")
+    lookup: dict[tuple[str, str], dict[str, str]] = {}
+    for row in positive_df.to_dict(orient="records"):
+        key = (normalize_text(row["site"]), normalize_text(row[panel_col]))
+        lookup[key] = {column: normalize_text(value) for column, value in row.items()}
+    return lookup
 
 
 def build_common_cause_positive_keys(common_df: pd.DataFrame) -> set[tuple[str, str]]:
@@ -873,6 +902,7 @@ def build_outputs(
     same_event_overlap_keys = load_same_event_overlap_keys(frames)
     forensic_rule_case = load_forensic_rule_case(frames)
     fault_audit_by_key = fault_event_audit_lookup(frames)
+    precursor_truth_by_key = precursor_truth_lookup(frames["precursor_truth"])
     forensic_rule_key = (FORENSIC_RULE_SITE, FORENSIC_RULE_PANEL_ID)
 
     workflow_keys = set(workflow_by_key.keys())
@@ -891,8 +921,6 @@ def build_outputs(
         raise SystemExit("same-event overlap panels must be included in precursor-positive universe")
     if forensic_rule_key not in abrupt_keys:
         raise SystemExit("forensic target panel must remain in abrupt symptom map universe")
-    if forensic_rule_key in precursor_keys:
-        raise SystemExit("forensic target panel must stay outside current strict precursor evaluation set")
 
     gpvs_by_key, gpvs_feasibility_meta, gpvs_expected_attach_count = recover_gpvs_panel_level_reference_from_audit(
         frames["gpvs_attach_feasibility"],
@@ -913,6 +941,7 @@ def build_outputs(
         key = (site, panel_id)
         workflow_row = workflow_by_key.get(key)
         abrupt_row = abrupt_by_key.get(key)
+        precursor_truth_row = precursor_truth_by_key.get(key)
         is_same_event_overlap = key in same_event_overlap_keys
         active_forensic_rule_case = forensic_rule_case if key == forensic_rule_key else None
         active_fault_audit_row = fault_audit_by_key.get(key)
@@ -943,6 +972,24 @@ def build_outputs(
             forensic_rule_case=active_forensic_rule_case,
             fault_audit_row=active_fault_audit_row,
         )
+        operational_first_precursor_detected_date = ""
+        operational_first_precursor_marker_name = ""
+        interpretive_precursor_onset_date = ""
+        benchmark_precursor_onset_date = ""
+        if precursor_truth_row is not None and panel_fault_status_from_event_type(event_type) == "고장":
+            operational_first_precursor_detected_date = normalize_text(
+                precursor_truth_row.get("operational_first_precursor_detected_date", "")
+            )
+            operational_first_precursor_marker_name = normalize_text(
+                precursor_truth_row.get("operational_first_precursor_marker_name", "")
+            )
+            interpretive_precursor_onset_date = normalize_text(
+                precursor_truth_row.get("interpretive_precursor_onset_date", "")
+            )
+            benchmark_precursor_onset_date = (
+                normalize_text(precursor_truth_row.get("benchmark_precursor_onset_date", ""))
+                or normalize_text(precursor_truth_row.get("preferred_precursor_onset_date", ""))
+            )
         panel_fault_status = panel_fault_status_from_event_type(event_type)
         gpvs_applicability = gpvs_applicability_from_fault_status(panel_fault_status)
         kernel_symptom, kernel_cause_group, kernel_note = map_kernel_axis(event_type, abrupt_row)
@@ -1012,6 +1059,18 @@ def build_outputs(
             caution_parts.append(
                 f"현재 재감사 family hint={forensic_rule_case['현재_재감사라벨_ko']}"
             )
+        onset_split_parts = []
+        if operational_first_precursor_detected_date:
+            onset_split_parts.append(
+                f"운영상 최초 전조 발견={operational_first_precursor_detected_date}"
+                + (f" ({operational_first_precursor_marker_name})" if operational_first_precursor_marker_name else "")
+            )
+        if interpretive_precursor_onset_date:
+            onset_split_parts.append(f"사건 해석상 전조 시작={interpretive_precursor_onset_date}")
+        if benchmark_precursor_onset_date:
+            onset_split_parts.append(f"benchmark 전조 시작={benchmark_precursor_onset_date}")
+        if onset_split_parts:
+            caution_parts.append(" / ".join(onset_split_parts))
         if normalize_text(interpretation["해석대평가차이_ko"]):
             caution_parts.append(normalize_text(interpretation["해석대평가차이_ko"]))
 
@@ -1029,6 +1088,10 @@ def build_outputs(
                 "전조평가셋편입_flag": interpretation["전조평가셋편입_flag"],
                 "급작평가셋편입_flag": interpretation["급작평가셋편입_flag"],
                 "해석대평가차이_ko": interpretation["해석대평가차이_ko"],
+                "운영최초전조발견일": operational_first_precursor_detected_date,
+                "운영최초전조마커": operational_first_precursor_marker_name,
+                "사건해석상전조시작일": interpretive_precursor_onset_date,
+                "benchmark전조시작일": benchmark_precursor_onset_date,
                 "전조형이력_flag": flags["has_전조형고장"],
                 "급작고장이력_flag": flags["has_급작고장"],
                 "공통원인이력_flag": flags["has_공통원인이벤트"],
@@ -1369,6 +1432,7 @@ def build_summary(
             f"same-event overlap {metrics['same_event_overlap_expected']}건은 전조형 고장으로 읽고, c42997 row 는 전조형 고장/급격 종료로 읽되 엄격 전조 평가셋과 순수 급작 평가셋에는 모두 넣지 않는다. "
             f"single-panel forensic explicit rule {metrics['forensic_rule_expected']}건은 c42997 row 설명 근거로 유지하고, same-day fallback onset abrupt row 는 급작 고장으로 다시 허용한다. "
             "이제 사건유형_해석_ko 와 평가셋 편입 flag를 분리해, 사건 해석과 evaluation-set inclusion을 같은 뜻으로 읽지 않게 한다. "
+            "또한 운영상 최초 전조 발견일, 사건 해석상 전조 시작일, benchmark 전조 시작일을 분리해 onset date 의미를 섞지 않게 한다. "
             "event type과 terminal failure pattern은 분리해서 읽는다. "
             f"사건이력 보조표는 panel이 여러 사건군에 속하거나 전조형 고장이 급격 종료로 끝난 경우를 함께 남긴다. {gpvs_note} unmatched panel은 row-by-row 미부착 사유를 함께 남긴다."
         ),

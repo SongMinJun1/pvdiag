@@ -56,15 +56,22 @@
 - GPVS 는 현재 25개 패널 중 12개만 부분 부착이고 나머지는 미부착이라는 점
 - overlap 2건은 전조형 고장이 급격 종료로 끝난 같은 사건으로 읽어야 하고, 사건이력 보조표를 함께 봐야 한다는 점
 - `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 사건 해석상 `전조형 고장 / 급격 종료` 이고, current re-audit family hint `open_or_device_issue_like` 는 보조 원인군 힌트로 남긴다는 점
-- 하지만 이 panel 은 엄격 전조 평가셋과 순수 급작 평가셋 둘 다에서 제외된다는 점
+- 운영상 최초 전조 발견일은 benchmark onset 과 다를 수 있다는 점
+- 사건 해석용 onset, 운영 detection onset, benchmark onset 을 분리해서 읽어야 한다는 점
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 예시는:
+  - interpretive onset = `2025-01-20`
+  - operational detection = `2025-02-20`
+  - benchmark onset = `2025-03-18`
+- benchmark reset 이후 이 panel 은 precursor benchmark 에 포함되고 pure abrupt benchmark 에서는 제외된다는 점
 - 전조형 성능은 표본이 작아 탐색적이라는 점
 - 순수 급작 사건은 current stored data 기준 3건이라는 점
 - 순수 급작 고장은 current stored data 기준 3건이라는 점
-- 사건 해석상 전조형 고장 패널은 3개지만 엄격 전조 평가셋 편입은 2개라는 점
+- 사건 해석상 전조형 고장 패널은 3개이고, benchmark reset 이후 precursor benchmark support 도 3건이라는 점
 - common-cause / 공통원인 이벤트는 탐색적이라는 점
 - chosen operational workflow 가 `baseline_plus_discovery_cluster` 라는 점
 - release gate / pipeline pass 상태
 - 현재는 추가 fault case 수집이 불가능하다는 점
+- old benchmark counts 는 obsolete 라는 점
 
 ## Artifact Index 원칙
 - index 는 최소한 아래 산출물을 포함한다.

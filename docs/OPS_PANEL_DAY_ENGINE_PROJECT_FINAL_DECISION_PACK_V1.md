@@ -17,7 +17,8 @@
 - 따라서 final decision 은 “최고 수치” 보다 “현재 data 로 허용되는 claim boundary” 를 우선한다.
 - 특히:
   - step3 precursor performance 는 informative 해도 exploratory only 로 남는다.
-  - step4 abrupt/no-precursor 는 사건 해석상 전조형 고장 패널 3, 엄격 전조 평가셋 편입 2, 순수 급작 평가셋 편입 3을 구분해서 읽고, pure abrupt support 3 기준으로 현재는 exploratory only 로 남긴다.
+  - step3 precursor benchmark support 는 benchmark reset 이후 3으로 읽는다.
+  - step4 abrupt/no-precursor 는 순수 급작 benchmark support 3 기준으로 현재는 exploratory only 로 남긴다.
   - step4 common-cause routing 은 descriptive / exploratory 로만 유지한다.
   - operator workflow 는 detector 성능 freeze 가 아니라 packaging/QA/pipeline/release gate 를 통과한 workflow handoff 로 읽는다.
 
@@ -52,4 +53,5 @@
 - current-data-limited final reporting / operational-default / handoff pack 이다.
 - 여기서 abrupt 는 pure abrupt event type 만 가리키고, precursor 가 있는 사건의 급격 종료는 terminal failure pattern 으로만 남긴다.
 - `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 사건 해석상 `전조형 고장 / 급격 종료` 이고, current re-audit family hint `open_or_device_issue_like` 는 보조 힌트로 남긴다.
-- 다만 이 panel 은 엄격 전조 평가셋과 순수 급작 평가셋 둘 다에서 제외하므로, 사건 해석과 평가셋 편입은 같은 뜻이 아니다.
+- benchmark reset 이후 이 panel 은 precursor benchmark 에 포함되고 pure abrupt benchmark 에서는 제외된다.
+- old precursor benchmark support 2 wording은 obsolete 다.

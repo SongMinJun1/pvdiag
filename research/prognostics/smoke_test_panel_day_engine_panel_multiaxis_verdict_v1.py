@@ -185,10 +185,43 @@ def build_fixture(root: Path) -> None:
     write_csv(
         share / "panel_day_engine_precursor_onset_truth_v1.csv",
         [
-            {"site": "siteA", "panel_id": "abrupt_5", "preferred_precursor_onset_date": "2025-01-02"},
-            {"site": "siteA", "panel_id": "abrupt_6", "preferred_precursor_onset_date": "2025-01-01"},
+            {
+                "site": "siteA",
+                "panel_id": "abrupt_5",
+                "preferred_precursor_onset_date": "2025-01-02",
+                "operational_first_precursor_detected_date": "2025-01-02",
+                "operational_first_precursor_marker_name": "first_cond_evt",
+                "interpretive_precursor_onset_date": "2025-01-02",
+                "benchmark_precursor_onset_date": "2025-01-02",
+            },
+            {
+                "site": "siteA",
+                "panel_id": "abrupt_6",
+                "preferred_precursor_onset_date": "2025-01-01",
+                "operational_first_precursor_detected_date": "2025-01-01",
+                "operational_first_precursor_marker_name": "first_cond_evt",
+                "interpretive_precursor_onset_date": "2025-01-01",
+                "benchmark_precursor_onset_date": "2025-01-01",
+            },
+            {
+                "site": "conalog",
+                "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
+                "preferred_precursor_onset_date": "2025-03-18",
+                "operational_first_precursor_detected_date": "2025-02-20",
+                "operational_first_precursor_marker_name": "first_cond_evt",
+                "interpretive_precursor_onset_date": "2025-01-20",
+                "benchmark_precursor_onset_date": "2025-03-18",
+            },
         ],
-        ["site", "panel_id", "preferred_precursor_onset_date"],
+        [
+            "site",
+            "panel_id",
+            "preferred_precursor_onset_date",
+            "operational_first_precursor_detected_date",
+            "operational_first_precursor_marker_name",
+            "interpretive_precursor_onset_date",
+            "benchmark_precursor_onset_date",
+        ],
     )
 
     write_csv(
@@ -593,6 +626,10 @@ def main() -> None:
             "전조평가셋편입_flag",
             "급작평가셋편입_flag",
             "해석대평가차이_ko",
+            "운영최초전조발견일",
+            "운영최초전조마커",
+            "사건해석상전조시작일",
+            "benchmark전조시작일",
         }
         assert_true(required_new_columns.issubset(set(verdict_df.columns)), "new interpretation/eval columns missing")
         unmatched_reasons = set(
@@ -653,6 +690,10 @@ def main() -> None:
         assert_true(int(forensic_row["순수급작_flag"]) == 0, "forensic target should not stay pure abrupt")
         assert_true(int(forensic_row["전조평가셋편입_flag"]) == 0, "forensic target should stay outside precursor eval set")
         assert_true(int(forensic_row["급작평가셋편입_flag"]) == 0, "forensic target should stay outside abrupt eval set")
+        assert_true(str(forensic_row["운영최초전조발견일"]) == "2025-02-20", "forensic target operational first detection date mismatch")
+        assert_true(str(forensic_row["운영최초전조마커"]) == "first_cond_evt", "forensic target operational first marker mismatch")
+        assert_true(str(forensic_row["사건해석상전조시작일"]) == "2025-01-20", "forensic target interpretive onset mismatch")
+        assert_true(str(forensic_row["benchmark전조시작일"]) == "2025-03-18", "forensic target benchmark onset mismatch")
         assert_true(
             forensic_row["해석대평가차이_ko"] == "explicit rule상 전조형 고장이지만 현재 strict precursor evaluation set에는 아직 미편입",
             "forensic target mismatch explanation mismatch",
@@ -777,7 +818,7 @@ def main() -> None:
         interpretation_eval_mismatch_count = int(verdict_df["해석대평가차이_ko"].map(normalize_text).ne("").sum())
         assert_true(int(summary_row["전체_패널수"]) == 12, "summary total panel count mismatch")
         assert_true(int(verdict_df["패널고장여부_ko"].eq("고장").sum()) == 6, "fixture fault-panel count should be 6")
-        assert_true(precursor_event_count == 2, "fixture precursor event count should be 2")
+        assert_true(precursor_event_count == 3, "fixture precursor event count should be 3")
         assert_true(pure_abrupt_event_count == 3, "fixture pure abrupt event count should be 3")
         assert_true(abrupt_ending_panel_count == 1, "fixture abrupt-ending precursor count should be 1")
         assert_true(progressive_precursor_panel_count == 2, "fixture progressive precursor panel count should be 2")

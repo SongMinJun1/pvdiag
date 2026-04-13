@@ -145,6 +145,7 @@ def load_inputs(root: Path) -> dict[str, object]:
         "policy": read_csv(share_dir / POLICY_RECOMMENDATION_NAME),
         "release_gate": read_csv(share_dir / RELEASE_GATE_MANIFEST_NAME),
         "pipeline": read_csv(share_dir / PIPELINE_MANIFEST_NAME),
+        "panel_multiaxis_verdict": read_csv(share_dir / PANEL_MULTIAXIS_VERDICT_NAME),
         "panel_multiaxis_summary": read_csv(share_dir / PANEL_MULTIAXIS_SUMMARY_NAME),
         "fault_event_audit_summary": read_csv(share_dir / FAULT_PANEL_EVENT_AUDIT_SUMMARY_NAME),
         "handoff_pack_path": share_dir / HANDOFF_PACK_NAME,
@@ -265,6 +266,18 @@ def load_inputs(root: Path) -> dict[str, object]:
         frames["pipeline"],
         ["final_pipeline_pass_flag", "note_ko"],
         PIPELINE_MANIFEST_NAME,
+    )
+    ensure_columns(
+        frames["panel_multiaxis_verdict"],
+        [
+            "site",
+            "panel_id",
+            "운영최초전조발견일",
+            "운영최초전조마커",
+            "사건해석상전조시작일",
+            "benchmark전조시작일",
+        ],
+        PANEL_MULTIAXIS_VERDICT_NAME,
     )
     ensure_columns(
         frames["panel_multiaxis_summary"],
@@ -673,6 +686,7 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
     policy = frames["policy"]
     release_gate = frames["release_gate"]
     pipeline = frames["pipeline"]
+    panel_multiaxis_verdict = frames["panel_multiaxis_verdict"]
     panel_multiaxis_summary = frames["panel_multiaxis_summary"]
     fault_event_audit_summary = frames["fault_event_audit_summary"]
 
@@ -695,15 +709,27 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
     interpreted_abrupt_count = numeric_int(multiaxis_row["사건해석_급작_패널수"])
     precursor_abrupt_ending_count = numeric_int(multiaxis_row["사건해석_전조형_급격종료_패널수"])
     precursor_progressive_count = numeric_int(multiaxis_row["사건해석_전조형_진행성악화_패널수"])
-    strict_precursor_eval_count = numeric_int(multiaxis_row["엄격전조평가셋_패널수"])
-    pure_abrupt_eval_count = numeric_int(multiaxis_row["순수급작평가셋_패널수"])
-    mismatch_count = numeric_int(multiaxis_row["해석과평가셋불일치_패널수"])
+    precursor_benchmark_support = numeric_int(pack_lookup["step3_precursor_performance"]["current_best_positive_support"])
+    pure_abrupt_benchmark_support = numeric_int(pack_lookup["step4_abrupt_no_precursor"]["current_best_positive_support"])
+    c429_df = panel_multiaxis_verdict.loc[
+        panel_multiaxis_verdict["site"].eq("conalog")
+        & panel_multiaxis_verdict["panel_id"].eq("c42997a6-5881-47e7-9035-7de8a2673b54.1.1")
+    ].copy()
+    if len(c429_df) != 1:
+        raise SystemExit("closeout requires exactly one c42997 row in panel multiaxis verdict table")
+    c429_row = c429_df.iloc[0]
+    c429_operational_detection = normalize_text(c429_row["운영최초전조발견일"])
+    c429_interpretive_onset = normalize_text(c429_row["사건해석상전조시작일"])
+    c429_benchmark_onset = normalize_text(c429_row["benchmark전조시작일"])
+    c429_operational_marker = normalize_text(c429_row["운영최초전조마커"])
+    if not (c429_operational_detection and c429_interpretive_onset and c429_benchmark_onset):
+        raise SystemExit("closeout c42997 row must expose operational/interpretive/benchmark onset dates")
     if interpreted_precursor_count != numeric_int(fault_audit_row["사건유형_재판정_전조형수"]):
         raise SystemExit("closeout precursor interpretation count mismatch between multiaxis summary and fault audit summary")
-    if strict_precursor_eval_count != numeric_int(fault_audit_row["전조평가셋편입_패널수"]):
-        raise SystemExit("closeout strict precursor eval count mismatch between multiaxis summary and fault audit summary")
-    if pure_abrupt_eval_count != numeric_int(fault_audit_row["급작평가셋편입_패널수"]):
-        raise SystemExit("closeout pure abrupt eval count mismatch between multiaxis summary and fault audit summary")
+    if precursor_benchmark_support != interpreted_precursor_count:
+        raise SystemExit("closeout precursor benchmark support must match interpreted precursor count after benchmark reset")
+    if pure_abrupt_benchmark_support != numeric_int(fault_audit_row["급작평가셋편입_패널수"]):
+        raise SystemExit("closeout pure abrupt benchmark support mismatch between final pack and fault audit summary")
 
     return "\n".join(
         [
@@ -712,9 +738,13 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
             "- step1_taxonomy 와 step2_onset_truth 는 structural coverage/reference 범위로만 고정한다.",
             f"- 사건 해석상 전조형 고장 패널은 {interpreted_precursor_count}건이고, 이 중 {precursor_abrupt_ending_count}건은 급격 종료, {precursor_progressive_count}건은 진행성 악화로 본다.",
             "- 즉 전조형 고장이 급격 종료로 끝난 경우가 있어 event type 과 terminal failure pattern 을 분리해서 읽어야 한다.",
-            f"- 엄격 전조 평가셋 편입은 {strict_precursor_eval_count}건이고, 순수 급작 평가셋 편입은 {pure_abrupt_eval_count}건이다.",
-            f"- 순수 급작 사건은 현재 stored data 기준 {pure_abrupt_eval_count}건이다.",
-            "- c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하지만 엄격 전조 평가셋과 순수 급작 평가셋에는 모두 넣지 않는다.",
+            f"- benchmark reset 이후 전조형 benchmark support 는 {precursor_benchmark_support}건이고, 순수 급작 benchmark support 는 {pure_abrupt_benchmark_support}건이다.",
+            "- 이전 benchmark count wording은 obsolete 이며, closeout reporting 은 reset된 benchmark truth만을 기준으로 읽는다.",
+            f"- 순수 급작 사건은 현재 stored data 기준 {pure_abrupt_benchmark_support}건이다.",
+            "- c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석되며 precursor benchmark에는 포함되고 pure abrupt benchmark에서는 제외된다.",
+            "- 운영상 최초 전조 발견일은 benchmark onset 과 다를 수 있다.",
+            "- 사건 해석용 onset, 운영 detection onset, benchmark onset 을 분리해서 읽어야 한다.",
+            f"- c42997a6-5881-47e7-9035-7de8a2673b54.1.1 예시: interpretive onset = {c429_interpretive_onset}, operational detection = {c429_operational_detection}, benchmark onset = {c429_benchmark_onset}",
             f"- 사건 해석상 급작 고장 패널은 현재 stored data 기준 {interpreted_abrupt_count}건이다.",
             f"- 패널별 대표판정표가 이제 완성돼서 `{PANEL_MULTIAXIS_VERDICT_NAME}` 한 장으로 panel {multiaxis_total}개의 대표상태를 볼 수 있다.",
             "",
@@ -728,17 +758,19 @@ def build_closeout_markdown(frames: dict[str, object]) -> str:
             "- step1_taxonomy 는 classifier 성능이 아니라 structural coverage 로만 말한다.",
             "- step2_onset_truth 는 classifier 성능이 아니라 structural reference 로만 말한다.",
             "- event type 과 terminal failure pattern 을 같은 뜻으로 말하면 안 된다.",
-            "- 사건 해석과 평가셋 편입은 intentionally 다를 수 있다.",
-            f"- 현재 사건 해석상 전조형 고장 패널 {interpreted_precursor_count}개와 엄격 전조 평가셋 {strict_precursor_eval_count}개는 같은 숫자가 아니다.",
-            "- c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 현재 재감사 family hint `open_or_device_issue_like` 를 유지하되 strict precursor eval과 pure abrupt eval 둘 다에서 제외한다.",
-            f"- 순수 급작 고장은 `final_fault_hit_by_anchor` 기준 pure abrupt support {pure_abrupt_eval_count}건으로만 읽는다.",
+            "- 운영상 최초 전조 발견일을 사건 해석 onset 이나 benchmark onset 과 같은 뜻으로 말하면 안 된다.",
+            "- 사건 해석과 benchmark 편입을 섞어 한 문장으로 말하면 안 된다.",
+            f"- 현재 사건 해석상 전조형 고장 패널은 {interpreted_precursor_count}개이고, precursor benchmark support 도 {precursor_benchmark_support}건이다.",
+            "- c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 현재 재감사 family hint `open_or_device_issue_like` 를 유지하되 precursor benchmark에는 포함되고 pure abrupt benchmark에서는 제외한다.",
+            f"- c42997a6-5881-47e7-9035-7de8a2673b54.1.1 의 운영상 최초 전조 발견은 `{c429_operational_marker or 'unknown'}` 기준 {c429_operational_detection} 이고, 사건 해석 onset {c429_interpretive_onset}, benchmark onset {c429_benchmark_onset} 과는 역할이 다르다.",
+            f"- 순수 급작 고장은 `final_fault_hit_by_anchor` 기준 pure abrupt support {pure_abrupt_benchmark_support}건으로만 읽는다.",
             f"- GPVS 는 fault-family reference axis라 고장 panel {multiaxis_gpvs_applicable}개에만 적용하고, 그중 {multiaxis_gpvs_attached}개에만 현재 직접 부착돼 있다.",
             f"- 현재 direct GPVS 미부착 고장 panel 은 {multiaxis_gpvs_unattached}개이고, 비고장/미확정 panel {multiaxis_gpvs_nontarget}개는 GPVS 비대상이다.",
             "",
             "## 4. 아직 탐색적으로만 남겨야 하는 것",
             "- 전조형 성능은 표본이 작아 탐색적이다.",
             "- 공통원인 이벤트는 아직 탐색적이다.",
-            f"- 사건 해석상 전조형 고장 {interpreted_precursor_count}건과 엄격 전조 평가셋 {strict_precursor_eval_count}건 사이의 차이 {mismatch_count}건은 사건이력 보조표를 함께 봐야 한다.",
+            f"- precursor benchmark support {precursor_benchmark_support}건과 pure abrupt benchmark support {pure_abrupt_benchmark_support}건 모두 아직 작아 해석은 탐색적으로만 남겨야 한다.",
             "- operator workflow 사용 가능 상태를 detector 일반 성능으로 과장하면 안 된다.",
             "",
             "## 5. 가장 먼저 볼 산출물",

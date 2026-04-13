@@ -261,8 +261,7 @@ def final_reason_for_scope(
     best_f1 = numeric_float_or_blank(pack_row["current_best_f1"])
     best_support = numeric_float_or_blank(pack_row["current_best_positive_support"])
     freeze_reason = normalize_text(pack_row["freeze_reason_ko"])
-    interpreted_precursor_count = numeric_int(fault_event_summary_row["사건유형_재판정_전조형수"])
-    strict_precursor_eval_count = numeric_int(fault_event_summary_row["전조평가셋편입_패널수"])
+    precursor_benchmark_count = numeric_int(fault_event_summary_row["사건유형_재판정_전조형수"])
     pure_abrupt_eval_count = numeric_int(fault_event_summary_row["급작평가셋편입_패널수"])
 
     if scope == "operator_policy_proxy":
@@ -286,24 +285,24 @@ def final_reason_for_scope(
     if scope == "step4_abrupt_no_precursor":
         if usage_decision == "exploratory_only":
             return (
-                f"현재는 추가 fault case 수집이 불가능하고 사건 해석상 전조형 고장 패널은 {interpreted_precursor_count}개지만 순수 급작 평가셋 편입은 {pure_abrupt_eval_count}개뿐이므로, "
-                "c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석하지만 엄격 전조 평가셋과 순수 급작 평가셋 모두에 넣지 않는다. "
+                f"현재는 추가 fault case 수집이 불가능하고 benchmark reset 이후 precursor benchmark support는 {precursor_benchmark_count}개, 순수 급작 benchmark support는 {pure_abrupt_eval_count}개다. "
+                "c42997a6-5881-47e7-9035-7de8a2673b54.1.1 은 전조형 고장/급격 종료로 해석되며 precursor benchmark에는 포함되고 pure abrupt benchmark에서는 제외된다. "
                 f"step4 pure abrupt/no-precursor scope는 positive support={best_support} 기준 exploratory only 로 유지한다. "
                 f"현재 best row는 {best_target} (f1={best_f1}, positive_support={best_support}) 이지만 pure abrupt support가 작아 stable default 결론으로 쓰면 안 된다. "
                 f"{freeze_reason}"
             ).strip()
         return (
-            f"현재는 추가 fault case 수집이 불가능하므로 step4 pure abrupt/no-precursor scope는 사건 해석상 전조형 패널 수와 분리된 pure abrupt evaluation support={best_support} 기준으로만 읽는다. "
+            f"현재는 추가 fault case 수집이 불가능하므로 step4 pure abrupt/no-precursor scope는 benchmark reset 이후 pure abrupt benchmark support={best_support} 기준으로만 읽는다. "
             f"현재 best row는 {best_target} (f1={best_f1}, positive_support={best_support}) 이고 final usage 는 {usage_decision} 다. "
             f"{freeze_reason}"
         ).strip()
 
     if scope == "step3_precursor_performance":
         return (
-            f"현재는 추가 fault case 수집이 불가능하고 사건 해석상 전조형 고장 패널은 {interpreted_precursor_count}개지만 엄격 전조 평가셋 편입은 {strict_precursor_eval_count}개이므로, "
+            f"현재는 추가 fault case 수집이 불가능하고 benchmark reset 이후 precursor benchmark support는 {precursor_benchmark_count}개이며 c42997a6-5881-47e7-9035-7de8a2673b54.1.1 도 여기에 포함되므로, "
             f"step3 precursor scope는 positive support={best_support} 기준 exploratory only 로 유지한다. "
             f"현재 best row는 {best_target} (f1={best_f1}, positive_support={best_support}) 이지만 stable default 결론으로 쓰면 안 된다. "
-            f"{freeze_reason}"
+            f"old precursor support 2 wording은 obsolete 다. {freeze_reason}"
         ).strip()
 
     if usage_decision == "exploratory_only":

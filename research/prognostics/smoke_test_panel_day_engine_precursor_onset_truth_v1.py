@@ -88,28 +88,12 @@ def build_fixture_root(tmp_root: Path) -> None:
                 "precursor_eligible_flag": 1,
             },
             {
-                "site": "beta",
-                "panel_id": "p_weak",
-                "fault_start_date": "2025-03-10",
-                "vendor_fault_family": "diode_like",
+                "site": "conalog",
+                "panel_id": "c42997a6-5881-47e7-9035-7de8a2673b54.1.1",
+                "fault_start_date": "2025-03-21",
+                "vendor_fault_family": "open_or_device_issue_like",
                 "temporality_class": "progressive_local_precursor_expected",
                 "precursor_eligible_flag": 1,
-            },
-            {
-                "site": "beta",
-                "panel_id": "p_none",
-                "fault_start_date": "2025-04-10",
-                "vendor_fault_family": "diode_like",
-                "temporality_class": "progressive_local_precursor_expected",
-                "precursor_eligible_flag": 1,
-            },
-            {
-                "site": "alpha",
-                "panel_id": "p_skip",
-                "fault_start_date": "2025-05-10",
-                "vendor_fault_family": "diode_like",
-                "temporality_class": "abrupt_local_precursor_unexpected",
-                "precursor_eligible_flag": 0,
             },
         ],
         [
@@ -120,6 +104,55 @@ def build_fixture_root(tmp_root: Path) -> None:
             "temporality_class",
             "precursor_eligible_flag",
         ],
+    )
+
+    write_csv(
+        share_dir / "panel_date_reaudit_working.csv",
+        [
+            {"site": "alpha", "panel_id": "p_strong", "vendor_fault_family": "diode_like", "retrospective_onset_date": "2025-01-03"},
+            {"site": "alpha", "panel_id": "p_medium", "vendor_fault_family": "module_damage_like", "retrospective_onset_date": "2025-01-31"},
+            {
+                "site": "conalog",
+                "panel_id": "c42997a6-5881-47e7-9035-7de8a2673b54.1.1",
+                "vendor_fault_family": "open_or_device_issue_like",
+                "retrospective_onset_date": "2025-01-20",
+            },
+        ],
+        ["site", "panel_id", "vendor_fault_family", "retrospective_onset_date"],
+    )
+
+    write_csv(
+        share_dir / "panel_day_engine_fault_panel_event_audit_v1.csv",
+        [
+            {"site": "alpha", "panel_id": "p_strong", "strict_trigger_date": "2025-01-10", "사건유형_재판정_ko": "전조형 고장"},
+            {"site": "alpha", "panel_id": "p_medium", "strict_trigger_date": "2025-02-10", "사건유형_재판정_ko": "전조형 고장"},
+            {
+                "site": "conalog",
+                "panel_id": "c42997a6-5881-47e7-9035-7de8a2673b54.1.1",
+                "strict_trigger_date": "2025-03-21",
+                "사건유형_재판정_ko": "전조형 고장",
+            },
+        ],
+        ["site", "panel_id", "strict_trigger_date", "사건유형_재판정_ko"],
+    )
+
+    write_csv(
+        share_dir / "panel_day_engine_fault_panel_event_audit_summary_v1.csv",
+        [{"사건유형_재판정_전조형수": 3}],
+        ["사건유형_재판정_전조형수"],
+    )
+
+    write_csv(
+        share_dir / "panel_day_engine_c42997_1_1_forensic_summary_v1.csv",
+        [
+            {
+                "site": "conalog",
+                "panel_id": "c42997a6-5881-47e7-9035-7de8a2673b54.1.1",
+                "사건유형_결정_ko": "전조형 고장",
+                "최종고장양상_결정_ko": "급격 종료",
+            }
+        ],
+        ["site", "panel_id", "사건유형_결정_ko", "최종고장양상_결정_ko"],
     )
 
     write_csv(
@@ -136,10 +169,47 @@ def build_fixture_root(tmp_root: Path) -> None:
     )
 
     write_csv(
-        tmp_root / "data" / "beta" / "out" / "ae_simple_local_precursor_gate_daily.csv",
+        tmp_root / "data" / "conalog" / "out" / "ae_simple_local_precursor_gate_daily.csv",
         [
-            {"site": "beta", "panel_id": "p_weak", "date": "2025-03-05", "cond_var": 0, "cond_evt": 1, "cond_dtw": 0, "cond_hs": 0, "pre_ews": 0, "signal_count": 1, "ews_warning": 0, "pre_alarm": 0},
-            {"site": "beta", "panel_id": "p_none", "date": "2025-04-05", "cond_var": 0, "cond_evt": 0, "cond_dtw": 0, "cond_hs": 0, "pre_ews": 1, "signal_count": 0, "ews_warning": 0, "pre_alarm": 0},
+            {
+                "site": "conalog",
+                "panel_id": "c42997a6-5881-47e7-9035-7de8a2673b54.1.1",
+                "date": "2025-02-20",
+                "cond_var": 1,
+                "cond_evt": 1,
+                "cond_dtw": 1,
+                "cond_hs": 0,
+                "pre_ews": 1,
+                "signal_count": 2,
+                "ews_warning": 0,
+                "pre_alarm": 0,
+            },
+            {
+                "site": "conalog",
+                "panel_id": "c42997a6-5881-47e7-9035-7de8a2673b54.1.1",
+                "date": "2025-03-18",
+                "cond_var": 0,
+                "cond_evt": 1,
+                "cond_dtw": 0,
+                "cond_hs": 0,
+                "pre_ews": 0,
+                "signal_count": 1,
+                "ews_warning": 0,
+                "pre_alarm": 0,
+            },
+            {
+                "site": "conalog",
+                "panel_id": "c42997a6-5881-47e7-9035-7de8a2673b54.1.1",
+                "date": "2025-03-19",
+                "cond_var": 1,
+                "cond_evt": 1,
+                "cond_dtw": 1,
+                "cond_hs": 0,
+                "pre_ews": 1,
+                "signal_count": 2,
+                "ews_warning": 0,
+                "pre_alarm": 0,
+            },
         ],
         ["site", "panel_id", "date", "cond_var", "cond_evt", "cond_dtw", "cond_hs", "pre_ews", "signal_count", "ews_warning", "pre_alarm"],
     )
@@ -157,10 +227,11 @@ def build_fixture_root(tmp_root: Path) -> None:
         ["panel_id", "date"],
     )
     write_csv(
-        tmp_root / "data" / "beta" / "out" / "panel_day_core.csv",
+        tmp_root / "data" / "conalog" / "out" / "panel_day_core.csv",
         [
-            {"panel_id": "p_weak", "date": "2025-03-05"},
-            {"panel_id": "p_none", "date": "2025-04-05"},
+            {"panel_id": "c42997a6-5881-47e7-9035-7de8a2673b54.1.1", "date": "2025-02-20"},
+            {"panel_id": "c42997a6-5881-47e7-9035-7de8a2673b54.1.1", "date": "2025-03-18"},
+            {"panel_id": "c42997a6-5881-47e7-9035-7de8a2673b54.1.1", "date": "2025-03-19"},
         ],
         ["panel_id", "date"],
     )
@@ -200,7 +271,7 @@ def main() -> None:
         ladder_df = pd.read_csv(tmp_root / "_share" / "panel_day_engine_precursor_onset_ladder_v1.csv", encoding="utf-8-sig")
         summary_df = pd.read_csv(tmp_root / "_share" / "panel_day_engine_precursor_onset_summary_v1.csv", encoding="utf-8-sig")
 
-        assert_true(len(truth_df) == 4, "only precursor-bearing eligible cases should be emitted")
+        assert_true(len(truth_df) == 3, "rebuilt precursor onset benchmark should emit exactly 3 audited precursor cases")
 
         strong = truth_df.loc[truth_df["panel_id"].eq("p_strong")].iloc[0]
         assert_true(strong["selected_episode_start_date"] == "2025-01-03", "1-day gap episode chaining should preserve early episode start")
@@ -215,28 +286,40 @@ def main() -> None:
         )
         assert_true(int(medium["lead_days_from_preferred_onset_to_fault_start"]) == 10, "medium lead days should be correct")
 
-        weak = truth_df.loc[truth_df["panel_id"].eq("p_weak")].iloc[0]
-        assert_true(weak["preferred_onset_stage"] == "episode_start_evt_only", "weak case should pick evt-only stage")
-        assert_true(int(weak["lead_days_from_preferred_onset_to_fault_start"]) == 5, "weak lead days should be correct")
-
-        none_case = truth_df.loc[truth_df["panel_id"].eq("p_none")].iloc[0]
+        c429 = truth_df.loc[
+            truth_df["panel_id"].eq("c42997a6-5881-47e7-9035-7de8a2673b54.1.1")
+        ].iloc[0]
+        assert_true(c429["site"] == "conalog", "c429 rebuilt benchmark row should be kept under conalog")
+        assert_true(str(c429["preferred_precursor_onset_date"]) == "2025-03-18", "c429 onset date should be rebuilt from stored precursor episode")
         assert_true(
-            none_case["preferred_onset_stage"] == "no_detectable_precursor_episode",
-            "case without cond_evt episode should have no-detectable stage",
+            c429["preferred_onset_stage"] == "episode_start_before_corroborated_signal",
+            "c429 should produce a detectable precursor onset stage in the rebuilt benchmark",
         )
-        assert_true(pd.isna(none_case["lead_days_from_preferred_onset_to_fault_start"]), "no-episode case should not have lead days")
+        assert_true(str(c429["operational_first_precursor_detected_date"]) == "2025-02-20", "c429 operational first detection date mismatch")
+        assert_true(str(c429["operational_first_precursor_marker_name"]) == "first_cond_evt", "c429 operational first detection marker mismatch")
+        assert_true(int(c429["operational_lead_days_to_fault_start"]) == 29, "c429 operational lead days mismatch")
+        assert_true(str(c429["interpretive_precursor_onset_date"]) == "2025-01-20", "c429 interpretive onset date mismatch")
+        assert_true(int(c429["interpretive_lead_days_to_fault_start"]) == 60, "c429 interpretive lead days mismatch")
+        assert_true(str(c429["benchmark_precursor_onset_date"]) == "2025-03-18", "c429 benchmark onset date mismatch")
+        assert_true(int(c429["benchmark_lead_days_to_fault_start"]) == 3, "c429 benchmark lead days mismatch")
 
         preferred_rows = ladder_df.loc[ladder_df["onset_marker"].eq("preferred_precursor_onset")].copy()
-        assert_true(len(preferred_rows) == 4, "ladder should emit one preferred onset row per case")
+        assert_true(len(preferred_rows) == 3, "ladder should emit one preferred onset row per rebuilt precursor benchmark case")
         assert_true(
-            int(preferred_rows.loc[preferred_rows["panel_id"].eq("p_none"), "available_flag"].iloc[0]) == 0,
-            "no-episode case should have unavailable preferred onset",
+            int(preferred_rows.loc[preferred_rows["panel_id"].eq("c42997a6-5881-47e7-9035-7de8a2673b54.1.1"), "available_flag"].iloc[0]) == 1,
+            "c429 preferred onset should be available after benchmark reset",
         )
 
         summary_marker_names = set(summary_df["marker_name"].astype(str))
         assert_true("first_cond_evt" in summary_marker_names, "summary should include onset marker rows")
         assert_true("preferred_onset_confidence" in summary_marker_names, "summary should include confidence distribution")
         assert_true("preferred_onset_stage" in summary_marker_names, "summary should include stage distribution")
+        first_cond_evt_summary = summary_df.loc[
+            summary_df["summary_type"].astype(str).eq("onset_marker")
+            & summary_df["marker_name"].astype(str).eq("first_cond_evt")
+        ].iloc[0]
+        assert_true(int(first_cond_evt_summary["case_count"]) == 3, "rebuilt onset summary support should be 3")
+        assert_true(int(first_cond_evt_summary["available_case_count"]) == 3, "all rebuilt precursor benchmark cases should carry first_cond_evt dates")
 
     for path, previous_bytes in official_bytes.items():
         assert_true(path.read_bytes() == previous_bytes, f"official file changed during smoke: {path.name}")
