@@ -1,0 +1,1085 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+import pandas as pd
+
+TABLE_COLS = [
+    "entity_name",
+    "field_order",
+    "field_name",
+    "data_type",
+    "key_role",
+    "required_flag",
+    "entity_layer",
+    "source_type",
+    "null_policy",
+    "controlled_enum_name",
+    "description_ko",
+    "notes",
+]
+ENUM_COLS = ["enum_name", "enum_order", "enum_value", "description_ko"]
+REASON_COLS = ["reason_code", "reason_domain", "applies_to_entity", "description_ko", "notes"]
+CONFIG_COLS = ["config_key", "default_value", "unit_or_type", "description_ko", "caution_ko"]
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Freeze the anomaly-registry schema design into machine-readable schema artifacts."
+    )
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path(__file__).resolve().parents[2],
+        help="Repository root. Defaults to project root.",
+    )
+    return parser.parse_args()
+
+
+def field(
+    field_name: str,
+    data_type: str,
+    key_role: str,
+    required_flag: int,
+    source_type: str,
+    null_policy: str,
+    description_ko: str,
+    controlled_enum_name: str = "",
+    notes: str = "",
+) -> dict[str, object]:
+    return {
+        "field_name": field_name,
+        "data_type": data_type,
+        "key_role": key_role,
+        "required_flag": required_flag,
+        "source_type": source_type,
+        "null_policy": null_policy,
+        "controlled_enum_name": controlled_enum_name,
+        "description_ko": description_ko,
+        "notes": notes,
+    }
+
+
+ENTITY_SPECS: list[dict[str, object]] = [
+    {
+        "entity_name": "strict_case_ledger_v1",
+        "entity_layer": "raw",
+        "fields": [
+            field("strict_case_id", "string", "primary_key", 1, "derived", "forbidden", "strict row 고유 ID"),
+            field("site", "string", "natural_key", 1, "existing_raw", "forbidden", "사이트 ID"),
+            field("panel_id", "string", "natural_key", 1, "existing_raw", "forbidden", "패널 ID"),
+            field("strict_trigger_date", "date", "natural_key", 1, "existing_raw", "forbidden", "strict trigger 날짜"),
+            field(
+                "strict_source",
+                "string",
+                "context",
+                1,
+                "derived",
+                "forbidden",
+                "strict row 생성 출처",
+                controlled_enum_name="strict_source",
+            ),
+            field(
+                "raw_reason_summary",
+                "string",
+                "context",
+                1,
+                "derived",
+                "blank_if_unknown",
+                "원시 strict row 요약 사유",
+                notes="strict row는 사람에게 직접 보여주는 단위가 아니라 ledger anchor다.",
+            ),
+            field(
+                "provenance_version",
+                "string",
+                "context",
+                1,
+                "derived",
+                "forbidden",
+                "schema/provenance 버전",
+            ),
+        ],
+    },
+    {
+        "entity_name": "panel_day_evidence_matrix_v1",
+        "entity_layer": "evidence",
+        "fields": [
+            field("site", "string", "natural_key", 1, "existing_raw", "forbidden", "사이트 ID"),
+            field("panel_id", "string", "natural_key", 1, "existing_raw", "forbidden", "패널 ID"),
+            field("date", "date", "natural_key", 1, "existing_raw", "forbidden", "panel-day 날짜"),
+            field("coverage_mid", "float", "measure", 1, "existing_raw", "allowed_when_unavailable", "중간 구간 coverage"),
+            field("coverage_ok_flag", "boolean", "derived", 1, "derived", "forbidden", "coverage 기준 충족 여부"),
+            field("mid_ratio", "float", "measure", 1, "existing_raw", "allowed_when_unavailable", "중간 출력 비율"),
+            field("last_ratio", "float", "measure", 1, "existing_raw", "allowed_when_unavailable", "말단 출력 비율"),
+            field("mid_v_ratio", "float", "measure", 1, "existing_raw", "allowed_when_unavailable", "중간 전압 비율"),
+            field("mid_i_ratio", "float", "measure", 1, "existing_raw", "allowed_when_unavailable", "중간 전류 비율"),
+            field("v_drop", "float", "measure", 1, "existing_raw", "allowed_when_unavailable", "전압 드롭 강도"),
+            field("shadow_like_flag", "boolean", "derived", 1, "derived", "forbidden", "shadow-like 패턴 여부"),
+            field("group_off_like_flag", "boolean", "derived", 1, "derived", "forbidden", "group-off-like 패턴 여부"),
+            field(
+                "shape_flag",
+                "boolean",
+                "derived",
+                1,
+                "derived",
+                "allowed_when_unavailable",
+                "shape anomaly 여부",
+                notes="optional shape evidence가 없을 때 false로 강제하지 않기 위해 unavailable null을 허용한다.",
+            ),
+            field(
+                "shape_score",
+                "float",
+                "derived",
+                1,
+                "derived",
+                "allowed_when_unavailable",
+                "shape anomaly 점수",
+                notes="optional shape evidence가 없을 때 0.0으로 강제하지 않는다.",
+            ),
+            field(
+                "instability_flag",
+                "boolean",
+                "derived",
+                1,
+                "derived",
+                "allowed_when_unavailable",
+                "instability 여부",
+                notes="optional instability evidence가 없을 때 false로 강제하지 않기 위해 unavailable null을 허용한다.",
+            ),
+            field(
+                "instability_score",
+                "float",
+                "derived",
+                1,
+                "derived",
+                "allowed_when_unavailable",
+                "instability 점수",
+                notes="optional instability evidence가 없을 때 0.0으로 강제하지 않는다.",
+            ),
+            field("electrical_like_flag", "boolean", "derived", 1, "derived", "forbidden", "electrical-like 패턴 여부"),
+            field("open_device_like_flag", "boolean", "derived", 1, "derived", "forbidden", "open-device-like 패턴 여부"),
+            field(
+                "local_signal_signature",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "blank_if_unknown",
+                "지역 신호 서명 요약",
+                notes="overlap evidence와 local evidence는 동시에 존재할 수 있다.",
+            ),
+            field(
+                "evidence_reason_code",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "blank_if_unknown",
+                "대표 evidence reason code",
+                notes="reason code catalog를 참조한다.",
+            ),
+            field(
+                "group_proxy_value",
+                "string",
+                "context",
+                1,
+                "derived",
+                "blank_if_unknown",
+                "group proxy 값",
+            ),
+            field(
+                "group_proxy_source",
+                "string",
+                "context",
+                1,
+                "derived",
+                "forbidden",
+                "group proxy 계산 출처",
+                controlled_enum_name="group_proxy_source",
+            ),
+            field(
+                "topology_confidence",
+                "string",
+                "context",
+                1,
+                "derived",
+                "forbidden",
+                "topology 신뢰도",
+                controlled_enum_name="topology_confidence",
+                notes="event/episode layer는 context source이지 primary incident generator가 아니다.",
+            ),
+        ],
+    },
+    {
+        "entity_name": "panel_local_episode_registry_v1",
+        "entity_layer": "episode",
+        "fields": [
+            field("site", "string", "natural_key", 1, "existing_raw", "forbidden", "사이트 ID"),
+            field("panel_id", "string", "natural_key", 1, "existing_raw", "forbidden", "패널 ID"),
+            field("panel_episode_id", "string", "primary_key", 1, "derived", "forbidden", "패널 로컬 에피소드 ID"),
+            field("episode_start_date", "date", "measure", 1, "derived", "forbidden", "에피소드 시작일"),
+            field("episode_end_date", "date", "measure", 1, "derived", "forbidden", "에피소드 종료일"),
+            field(
+                "representative_strict_trigger_date",
+                "date",
+                "context",
+                1,
+                "derived",
+                "allowed_when_unavailable",
+                "대표 strict trigger 날짜",
+            ),
+            field("episode_day_count", "integer", "measure", 1, "derived", "forbidden", "에피소드 일수"),
+            field("strict_case_row_count", "integer", "measure", 1, "derived", "forbidden", "매핑된 strict row 수"),
+            field(
+                "dominant_local_family",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "지배적 local family",
+                controlled_enum_name="dominant_local_family",
+                notes="common-cause overlap만으로 dominant_local_family를 정의하면 안 되며 shadow/group-off는 별도 flag로만 유지한다.",
+            ),
+            field(
+                "first_signal_family",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "blank_if_unknown",
+                "첫 신호 family",
+                controlled_enum_name="dominant_local_family",
+            ),
+            field(
+                "peak_signal_family",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "blank_if_unknown",
+                "피크 신호 family",
+                controlled_enum_name="dominant_local_family",
+            ),
+            field(
+                "last_signal_family",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "blank_if_unknown",
+                "마지막 신호 family",
+                controlled_enum_name="dominant_local_family",
+            ),
+            field(
+                "temporal_signature",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "에피소드 시간 서명",
+                controlled_enum_name="temporal_signature",
+            ),
+            field("has_output_drop", "boolean", "derived", 1, "derived", "forbidden", "출력 드롭 포함 여부"),
+            field("has_voltage_drop", "boolean", "derived", 1, "derived", "forbidden", "전압 드롭 포함 여부"),
+            field("has_current_drop", "boolean", "derived", 1, "derived", "forbidden", "전류 드롭 포함 여부"),
+            field(
+                "has_shape_anomaly",
+                "boolean",
+                "derived",
+                1,
+                "derived",
+                "allowed_when_unavailable",
+                "shape anomaly 포함 여부",
+                notes="episode 집계에서도 optional shape evidence 부재를 false와 구분한다.",
+            ),
+            field(
+                "has_instability",
+                "boolean",
+                "derived",
+                1,
+                "derived",
+                "allowed_when_unavailable",
+                "instability 포함 여부",
+                notes="episode 집계에서도 optional instability evidence 부재를 false와 구분한다.",
+            ),
+            field("has_shadow_like", "boolean", "derived", 1, "derived", "forbidden", "shadow-like 포함 여부"),
+            field("has_group_off_like", "boolean", "derived", 1, "derived", "forbidden", "group-off-like 포함 여부"),
+            field(
+                "common_cause_overlap_flag",
+                "boolean",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "common-cause overlap 존재 여부",
+                notes="common-cause overlap만으로 local episode를 자동 생성하면 안 된다.",
+            ),
+            field("linked_incident_count", "integer", "measure", 1, "derived", "forbidden", "연결 incident 수"),
+            field(
+                "episode_confidence",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "episode confidence",
+                controlled_enum_name="episode_confidence",
+            ),
+            field(
+                "open_reason_code",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "blank_if_unknown",
+                "episode open reason code",
+            ),
+            field(
+                "close_reason_code",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "blank_if_unknown",
+                "episode close reason code",
+            ),
+            field(
+                "episode_note",
+                "string",
+                "context",
+                1,
+                "manual",
+                "blank_if_unknown",
+                "검토용 episode 메모",
+                notes="mixed case와 예외 해석은 메모에 남기되 schema는 유지한다.",
+            ),
+        ],
+    },
+    {
+        "entity_name": "common_cause_incident_registry_v1",
+        "entity_layer": "incident",
+        "fields": [
+            field("site", "string", "natural_key", 1, "existing_raw", "forbidden", "사이트 ID"),
+            field("incident_id", "string", "primary_key", 1, "derived", "forbidden", "incident ID"),
+            field("incident_start_date", "date", "measure", 1, "derived", "forbidden", "incident 시작일"),
+            field("incident_end_date", "date", "measure", 1, "derived", "forbidden", "incident 종료일"),
+            field("incident_day_count", "integer", "measure", 1, "derived", "forbidden", "incident 지속 일수"),
+            field(
+                "incident_scope",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "incident 범위",
+                controlled_enum_name="incident_scope",
+            ),
+            field("affected_group_count", "integer", "measure", 1, "derived", "forbidden", "영향 그룹 수"),
+            field("affected_panel_count", "integer", "measure", 1, "derived", "forbidden", "영향 패널 수"),
+            field("max_group_like_share", "float", "measure", 1, "derived", "allowed_when_unavailable", "최대 group-like share"),
+            field("max_site_affected_share", "float", "measure", 1, "derived", "allowed_when_unavailable", "최대 site 영향 비율"),
+            field(
+                "dominant_incident_family",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "blank_if_unknown",
+                "지배적 incident family",
+                controlled_enum_name="dominant_incident_family",
+                notes="incident family는 local family를 재사용하지 않고 incident 전용 enum으로 관리한다.",
+            ),
+            field(
+                "incident_confidence",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "incident confidence",
+                controlled_enum_name="incident_confidence",
+            ),
+            field(
+                "recommended_action",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "권장 대응",
+                controlled_enum_name="recommended_action",
+            ),
+            field(
+                "group_proxy_source_mode",
+                "string",
+                "context",
+                1,
+                "derived",
+                "forbidden",
+                "incident 집계용 group proxy source",
+                controlled_enum_name="group_proxy_source",
+            ),
+            field(
+                "topology_confidence",
+                "string",
+                "context",
+                1,
+                "derived",
+                "forbidden",
+                "incident topology 신뢰도",
+                controlled_enum_name="topology_confidence",
+                notes="기존 event/episode layer는 참고 신호일 뿐 incident auto-open의 primary source가 아니다.",
+            ),
+            field("open_reason_code", "string", "derived", 1, "derived", "blank_if_unknown", "incident open reason code"),
+            field("close_reason_code", "string", "derived", 1, "derived", "blank_if_unknown", "incident close reason code"),
+        ],
+    },
+    {
+        "entity_name": "strict_case_mapping_v1",
+        "entity_layer": "mapping",
+        "fields": [
+            field(
+                "strict_case_id",
+                "string",
+                "primary_key",
+                1,
+                "derived",
+                "forbidden",
+                "strict case 참조 ID",
+                notes="mapping row identity는 strict_case_id를 사용하되 strict_case_ledger_v1.strict_case_id와의 linkage는 유지한다.",
+            ),
+            field("site", "string", "context", 1, "existing_raw", "forbidden", "사이트 ID"),
+            field("panel_id", "string", "context", 1, "existing_raw", "forbidden", "패널 ID"),
+            field("strict_trigger_date", "date", "context", 1, "existing_raw", "forbidden", "strict trigger 날짜"),
+            field(
+                "mapped_panel_episode_id",
+                "string",
+                "foreign_key",
+                1,
+                "derived",
+                "allowed_when_unavailable",
+                "매핑된 panel episode ID",
+            ),
+            field(
+                "mapped_incident_id",
+                "string",
+                "foreign_key",
+                1,
+                "derived",
+                "allowed_when_unavailable",
+                "매핑된 incident ID",
+            ),
+            field(
+                "membership_role",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "멤버십 역할",
+                controlled_enum_name="membership_role",
+                notes="local evidence와 incident membership이 함께 존재할 수 있어 단순 yes/no 대신 축약된 role enum이 필요하다.",
+            ),
+            field(
+                "mapping_confidence",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "매핑 confidence",
+                controlled_enum_name="mapping_confidence",
+            ),
+            field(
+                "mapping_reason_code",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "blank_if_unknown",
+                "매핑 사유 코드",
+            ),
+        ],
+    },
+    {
+        "entity_name": "episode_incident_relation_v1",
+        "entity_layer": "relation",
+        "fields": [
+            field("relation_id", "string", "primary_key", 1, "derived", "forbidden", "relation ID"),
+            field(
+                "src_node_type",
+                "string",
+                "context",
+                1,
+                "derived",
+                "forbidden",
+                "source node 타입",
+                controlled_enum_name="node_type",
+                notes="relation edge는 node 구조를 기록할 뿐 causal claim을 뜻하지 않는다.",
+            ),
+            field("src_node_id", "string", "foreign_key", 1, "derived", "forbidden", "source node ID"),
+            field(
+                "dst_node_type",
+                "string",
+                "context",
+                1,
+                "derived",
+                "forbidden",
+                "destination node 타입",
+                controlled_enum_name="node_type",
+                notes="relation edge는 node 구조를 기록할 뿐 causal claim을 뜻하지 않는다.",
+            ),
+            field("dst_node_id", "string", "foreign_key", 1, "derived", "forbidden", "destination node ID"),
+            field(
+                "relation_type",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "relation 타입",
+                controlled_enum_name="relation_type",
+                notes="relation edge는 observational/structural typed edge일 뿐 same cause나 automatic merge를 뜻하지 않는다.",
+            ),
+            field(
+                "claim_level",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "relation claim 수준",
+                controlled_enum_name="claim_level",
+            ),
+            field(
+                "relation_direction",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "relation 방향",
+                controlled_enum_name="relation_direction",
+            ),
+            field("lead_days", "integer", "measure", 1, "derived", "allowed_when_unavailable", "선행 일수"),
+            field(
+                "relation_confidence",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "relation confidence",
+                controlled_enum_name="relation_confidence",
+            ),
+            field("relation_reason_code", "string", "derived", 1, "derived", "blank_if_unknown", "relation 사유 코드"),
+        ],
+    },
+    {
+        "entity_name": "panel_history_view_v1",
+        "entity_layer": "view",
+        "fields": [
+            field("site", "string", "natural_key", 1, "derived", "forbidden", "사이트 ID"),
+            field("panel_id", "string", "natural_key", 1, "derived", "forbidden", "패널 ID"),
+            field("local_episode_count", "integer", "measure", 1, "derived", "forbidden", "누적 local episode 수"),
+            field("incident_membership_count", "integer", "measure", 1, "derived", "forbidden", "누적 incident membership 수"),
+            field(
+                "latest_local_episode_id",
+                "string",
+                "foreign_key",
+                1,
+                "derived",
+                "allowed_when_unavailable",
+                "최신 local episode ID",
+            ),
+            field(
+                "latest_incident_id",
+                "string",
+                "foreign_key",
+                1,
+                "derived",
+                "allowed_when_unavailable",
+                "최신 incident ID",
+            ),
+            field(
+                "history_summary_ko",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "blank_if_unknown",
+                "패널 이력 요약",
+                notes="panel_history는 읽기용 logical view이며 primary canonical store가 아니다.",
+            ),
+            field(
+                "current_status",
+                "string",
+                "derived",
+                1,
+                "derived",
+                "forbidden",
+                "현재 상태",
+                controlled_enum_name="current_status",
+            ),
+        ],
+    },
+]
+
+ENUM_SPECS: dict[str, list[tuple[str, str]]] = {
+    "strict_source": [
+        ("official_strict_prediction", "공식 strict 예측 행"),
+        ("maintenance_shadow_candidate", "maintenance shadow에서 온 strict 후보"),
+        ("derived_strict_projection", "기존 알고리즘 신호에서 파생된 strict anchor"),
+    ],
+    "dominant_local_family": [
+        ("electrical_like", "전기적 패턴이 지배적임"),
+        ("open_device_like", "개방형 장치 패턴이 지배적임"),
+        ("shape_persistent", "shape anomaly가 지속적으로 지배적임"),
+        ("instability_persistent", "instability가 지속적으로 지배적임"),
+        ("mixed_local", "여러 local family가 혼재함"),
+        ("unknown_local", "지배적 family를 확정하지 못함"),
+    ],
+    "dominant_incident_family": [
+        ("multi_group_collapse", "복수 그룹 동시 붕괴가 지배적임"),
+        ("site_wide_collapse", "사이트 전반 붕괴가 지배적임"),
+        ("synchronized_electrical", "전기적 incident signature가 동기화되어 나타남"),
+        ("synchronized_open_device", "open-device incident signature가 동기화되어 나타남"),
+        ("mixed_incident", "여러 incident family가 혼재함"),
+        ("unresolved_incident", "incident family를 아직 확정하지 못함"),
+    ],
+    "temporal_signature": [
+        ("single_day_spike", "하루성 급격 이벤트"),
+        ("short_burst", "짧은 연속 burst"),
+        ("persistent_flat", "지속적 평탄 저하"),
+        ("intermittent_repeating", "간헐 반복 패턴"),
+        ("lead_in_then_collapse", "전조 후 붕괴 패턴"),
+        ("mixed_timeline", "혼합형 시간 패턴"),
+    ],
+    "incident_scope": [
+        ("single_group", "단일 그룹 범위"),
+        ("multi_group", "복수 그룹 범위"),
+        ("site_wide", "사이트 전반 범위"),
+        ("cross_day_unknown", "범위는 있으나 확정이 약함"),
+    ],
+    "membership_role": [
+        ("local_primary", "주된 local episode 멤버"),
+        ("incident_only", "incident에만 직접 연결됨"),
+        ("mixed_local_and_incident", "local episode와 incident에 동시에 걸침"),
+        ("unresolved", "target 또는 역할을 아직 확정하지 못함"),
+    ],
+    "node_type": [
+        ("panel_local_episode", "panel-local episode node"),
+        ("common_cause_incident", "common-cause incident node"),
+    ],
+    "relation_type": [
+        ("overlaps_day_window", "일자 window가 겹침"),
+        ("precursor_to_incident", "incident보다 먼저 나타난 precursor relation"),
+        ("signature_similarity", "신호 서명이 유사함"),
+    ],
+    "claim_level": [
+        ("observed", "직접 관측된 연결"),
+        ("derived_rule", "규칙으로 유도된 연결"),
+        ("review_hypothesis", "검토용 가설 연결"),
+        ("causal_not_claimed", "연결은 기록하지만 인과를 주장하지 않음"),
+    ],
+    "relation_direction": [
+        ("undirected", "방향성 없음"),
+        ("src_precedes_dst", "source가 먼저 발생"),
+        ("dst_precedes_src", "destination이 먼저 발생"),
+    ],
+    "group_proxy_source": [
+        ("group_key_base", "기존 group_key_base 사용"),
+        ("panel_id_token_proxy", "panel_id token proxy 사용"),
+        ("topology_table", "topology table 참조 사용"),
+        ("manual_override", "수동 override 사용"),
+    ],
+    "topology_confidence": [
+        ("low", "topology 신뢰도가 낮음"),
+        ("medium", "topology 신뢰도가 중간임"),
+        ("high", "topology 신뢰도가 높음"),
+    ],
+    "episode_confidence": [
+        ("low", "episode confidence 낮음"),
+        ("medium", "episode confidence 중간"),
+        ("high", "episode confidence 높음"),
+    ],
+    "incident_confidence": [
+        ("low", "incident confidence 낮음"),
+        ("medium", "incident confidence 중간"),
+        ("high", "incident confidence 높음"),
+    ],
+    "mapping_confidence": [
+        ("low", "mapping confidence 낮음"),
+        ("medium", "mapping confidence 중간"),
+        ("high", "mapping confidence 높음"),
+    ],
+    "relation_confidence": [
+        ("low", "relation confidence 낮음"),
+        ("medium", "relation confidence 중간"),
+        ("high", "relation confidence 높음"),
+    ],
+    "recommended_action": [
+        ("monitor_only", "우선 관찰만 유지"),
+        ("dispatch_field_check", "현장 점검 권장"),
+        ("review_topology", "topology 검토 권장"),
+        ("review_vendor_context", "vendor context 검토 권장"),
+        ("hold_for_more_evidence", "추가 증거 확보 전 보류"),
+    ],
+    "current_status": [
+        ("stable_clear", "현재 특별한 active anomaly 없음"),
+        ("monitoring_local", "local anomaly를 관찰 중"),
+        ("active_local_episode", "active local episode 상태"),
+        ("incident_member", "common-cause incident member 상태"),
+        ("mixed_local_and_common_cause", "local과 common-cause가 동시에 존재"),
+        ("history_only", "과거 이력만 존재"),
+    ],
+    "entity_layer": [
+        ("raw", "원시 ledger 계층"),
+        ("evidence", "panel-day evidence 계층"),
+        ("episode", "panel-local episode 계층"),
+        ("incident", "common-cause incident 계층"),
+        ("mapping", "strict-case mapping 계층"),
+        ("relation", "typed relation edge 계층"),
+        ("view", "읽기용 view 계층"),
+    ],
+    "key_role": [
+        ("primary_key", "주 키"),
+        ("foreign_key", "외래 키"),
+        ("natural_key", "자연 키"),
+        ("measure", "측정값"),
+        ("derived", "파생값"),
+        ("context", "문맥값"),
+    ],
+    "source_type": [
+        ("existing_raw", "기존 원시 입력에서 옴"),
+        ("derived", "규칙/계산으로 파생됨"),
+        ("manual", "수동 검토로 채움"),
+        ("future_optional", "미래 구현에서만 선택적으로 채움"),
+        ("config_reference", "config key를 참조함"),
+    ],
+    "null_policy": [
+        ("forbidden", "null을 허용하지 않음"),
+        ("allowed_when_unavailable", "입력 부재 시 null 허용"),
+        ("blank_if_unknown", "텍스트 기준 미확정이면 blank 허용"),
+    ],
+}
+
+REASON_CODES: list[dict[str, str]] = [
+    {
+        "reason_code": "EVID_ELECTRICAL",
+        "reason_domain": "evidence",
+        "applies_to_entity": "panel_day_evidence_matrix_v1",
+        "description_ko": "electrical-like evidence가 지배적임",
+        "notes": "mid_v_ratio, v_drop, current pattern 조합",
+    },
+    {
+        "reason_code": "EVID_OPEN_DEVICE",
+        "reason_domain": "evidence",
+        "applies_to_entity": "panel_day_evidence_matrix_v1",
+        "description_ko": "open-device-like evidence가 지배적임",
+        "notes": "출력 저하와 전압 보존 패턴",
+    },
+    {
+        "reason_code": "EVID_SHAPE_PERSISTENT",
+        "reason_domain": "evidence",
+        "applies_to_entity": "panel_day_evidence_matrix_v1",
+        "description_ko": "shape anomaly evidence가 지속적임",
+        "notes": "shape_score 기반 persistent signature",
+    },
+    {
+        "reason_code": "EVID_INSTABILITY_PERSISTENT",
+        "reason_domain": "evidence",
+        "applies_to_entity": "panel_day_evidence_matrix_v1",
+        "description_ko": "instability evidence가 지속적임",
+        "notes": "instability_score 기반 persistent signature",
+    },
+    {
+        "reason_code": "EOPEN_ELECTRICAL",
+        "reason_domain": "episode_open",
+        "applies_to_entity": "panel_local_episode_registry_v1",
+        "description_ko": "electrical-like local evidence로 episode open",
+        "notes": "",
+    },
+    {
+        "reason_code": "EOPEN_OPEN_DEVICE",
+        "reason_domain": "episode_open",
+        "applies_to_entity": "panel_local_episode_registry_v1",
+        "description_ko": "open-device-like local evidence로 episode open",
+        "notes": "",
+    },
+    {
+        "reason_code": "EOPEN_SHAPE_PERSISTENT",
+        "reason_domain": "episode_open",
+        "applies_to_entity": "panel_local_episode_registry_v1",
+        "description_ko": "shape persistent evidence로 episode open",
+        "notes": "",
+    },
+    {
+        "reason_code": "EOPEN_INSTABILITY_PERSISTENT",
+        "reason_domain": "episode_open",
+        "applies_to_entity": "panel_local_episode_registry_v1",
+        "description_ko": "instability persistent evidence로 episode open",
+        "notes": "",
+    },
+    {
+        "reason_code": "ECLOSE_RECOVERY_RUN",
+        "reason_domain": "episode_close",
+        "applies_to_entity": "panel_local_episode_registry_v1",
+        "description_ko": "회복 구간이 충분해 episode close",
+        "notes": "config close days 참조",
+    },
+    {
+        "reason_code": "ECLOSE_GAP_BREAK",
+        "reason_domain": "episode_close",
+        "applies_to_entity": "panel_local_episode_registry_v1",
+        "description_ko": "관측 gap으로 episode close",
+        "notes": "gap tolerance config 참조",
+    },
+    {
+        "reason_code": "ECLOSE_DATA_END",
+        "reason_domain": "episode_close",
+        "applies_to_entity": "panel_local_episode_registry_v1",
+        "description_ko": "데이터 종료로 episode close",
+        "notes": "",
+    },
+    {
+        "reason_code": "IOPEN_MULTI_GROUP_COLLAPSE",
+        "reason_domain": "incident_open",
+        "applies_to_entity": "common_cause_incident_registry_v1",
+        "description_ko": "복수 그룹 collapse로 incident open",
+        "notes": "threshold는 config로 분리",
+    },
+    {
+        "reason_code": "IOPEN_SITE_WIDE_COLLAPSE",
+        "reason_domain": "incident_open",
+        "applies_to_entity": "common_cause_incident_registry_v1",
+        "description_ko": "site-wide collapse로 incident open",
+        "notes": "site share 기준 참조",
+    },
+    {
+        "reason_code": "ICLOSE_GROUP_CONTINUITY_BREAK",
+        "reason_domain": "incident_close",
+        "applies_to_entity": "common_cause_incident_registry_v1",
+        "description_ko": "group continuity break로 incident close",
+        "notes": "",
+    },
+    {
+        "reason_code": "ICLOSE_GAP_BREAK",
+        "reason_domain": "incident_close",
+        "applies_to_entity": "common_cause_incident_registry_v1",
+        "description_ko": "관측 gap으로 incident close",
+        "notes": "",
+    },
+    {
+        "reason_code": "ICLOSE_DATA_END",
+        "reason_domain": "incident_close",
+        "applies_to_entity": "common_cause_incident_registry_v1",
+        "description_ko": "데이터 종료로 incident close",
+        "notes": "",
+    },
+    {
+        "reason_code": "MAP_TRIGGER_WITHIN_EPISODE",
+        "reason_domain": "mapping",
+        "applies_to_entity": "strict_case_mapping_v1",
+        "description_ko": "strict trigger가 episode 범위 안에 있음",
+        "notes": "",
+    },
+    {
+        "reason_code": "MAP_TRIGGER_WITHIN_INCIDENT",
+        "reason_domain": "mapping",
+        "applies_to_entity": "strict_case_mapping_v1",
+        "description_ko": "strict trigger가 incident 범위 안에 있음",
+        "notes": "",
+    },
+    {
+        "reason_code": "MAP_TRIGGER_BOTH",
+        "reason_domain": "mapping",
+        "applies_to_entity": "strict_case_mapping_v1",
+        "description_ko": "strict trigger가 episode와 incident 양쪽에 걸침",
+        "notes": "membership_role=mixed_local_and_incident로 분리한다.",
+    },
+    {
+        "reason_code": "MAP_NO_TARGET",
+        "reason_domain": "mapping",
+        "applies_to_entity": "strict_case_mapping_v1",
+        "description_ko": "매핑 가능한 target이 없음",
+        "notes": "",
+    },
+    {
+        "reason_code": "REL_DAY_OVERLAP",
+        "reason_domain": "relation",
+        "applies_to_entity": "episode_incident_relation_v1",
+        "description_ko": "일자 overlap으로 relation 생성",
+        "notes": "relation edge는 same cause를 의미하지 않는다.",
+    },
+    {
+        "reason_code": "REL_PRECURSOR_LEAD_WINDOW",
+        "reason_domain": "relation",
+        "applies_to_entity": "episode_incident_relation_v1",
+        "description_ko": "precursor lead window로 relation 생성",
+        "notes": "lead window threshold는 config로 분리",
+    },
+    {
+        "reason_code": "REL_SIGNATURE_SIMILARITY",
+        "reason_domain": "relation",
+        "applies_to_entity": "episode_incident_relation_v1",
+        "description_ko": "signature similarity로 relation 생성",
+        "notes": "typed edge일 뿐 automatic merge는 아니다.",
+    },
+]
+
+CONFIG_KEYS: list[dict[str, str]] = [
+    {
+        "config_key": "cfg.local_gap_tolerance_days",
+        "default_value": "2",
+        "unit_or_type": "days",
+        "description_ko": "local episode gap tolerance 일수",
+        "caution_ko": "기본값은 provisional이며 바뀌어도 schema는 유지된다.",
+    },
+    {
+        "config_key": "cfg.local_recovery_close_days",
+        "default_value": "3",
+        "unit_or_type": "days",
+        "description_ko": "local recovery close 최소 일수",
+        "caution_ko": "threshold는 구현 단계에서 재조정될 수 있다.",
+    },
+    {
+        "config_key": "cfg.incident_min_group_panels",
+        "default_value": "2",
+        "unit_or_type": "count",
+        "description_ko": "incident open을 위한 최소 group panel 수",
+        "caution_ko": "site 특성에 따라 조정 가능하지만 schema key는 고정이다.",
+    },
+    {
+        "config_key": "cfg.incident_min_group_share",
+        "default_value": "0.50",
+        "unit_or_type": "ratio",
+        "description_ko": "incident open을 위한 최소 group share",
+        "caution_ko": "default ratio는 review 이후 바뀔 수 있다.",
+    },
+    {
+        "config_key": "cfg.incident_min_groups",
+        "default_value": "2",
+        "unit_or_type": "count",
+        "description_ko": "incident open을 위한 최소 group 수",
+        "caution_ko": "multi-group definition은 config로만 조정한다.",
+    },
+    {
+        "config_key": "cfg.incident_min_site_panels",
+        "default_value": "4",
+        "unit_or_type": "count",
+        "description_ko": "site-wide incident 후보 최소 panel 수",
+        "caution_ko": "threshold 변경이 schema 변경을 뜻하지는 않는다.",
+    },
+    {
+        "config_key": "cfg.incident_min_site_share",
+        "default_value": "0.10",
+        "unit_or_type": "ratio",
+        "description_ko": "site-wide incident 후보 최소 site share",
+        "caution_ko": "현재 관측 케이스와 충돌하지 않도록 0.10 이하 default를 유지하되 schema와 분리해 조정한다.",
+    },
+    {
+        "config_key": "cfg.incident_merge_group_overlap_share",
+        "default_value": "0.60",
+        "unit_or_type": "ratio",
+        "description_ko": "incident 병합용 group overlap share",
+        "caution_ko": "relation edge와 incident merge는 다른 단계다.",
+    },
+    {
+        "config_key": "cfg.precursor_min_lead_days",
+        "default_value": "1",
+        "unit_or_type": "days",
+        "description_ko": "precursor 최소 lead 일수",
+        "caution_ko": "관측 정책에 따라 값은 재조정될 수 있다.",
+    },
+    {
+        "config_key": "cfg.precursor_max_lead_days",
+        "default_value": "3",
+        "unit_or_type": "days",
+        "description_ko": "precursor 최대 lead 일수",
+        "caution_ko": "현재 관측 리드 윈도와 맞추기 위해 3일 default를 두되 구현 단계에서 config로만 조정한다.",
+    },
+]
+
+
+def build_schema_tables() -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    for entity_spec in ENTITY_SPECS:
+        entity_name = str(entity_spec["entity_name"])
+        entity_layer = str(entity_spec["entity_layer"])
+        for field_order, field_spec in enumerate(entity_spec["fields"], start=1):
+            rows.append(
+                {
+                    "entity_name": entity_name,
+                    "field_order": field_order,
+                    "field_name": field_spec["field_name"],
+                    "data_type": field_spec["data_type"],
+                    "key_role": field_spec["key_role"],
+                    "required_flag": int(field_spec["required_flag"]),
+                    "entity_layer": entity_layer,
+                    "source_type": field_spec["source_type"],
+                    "null_policy": field_spec["null_policy"],
+                    "controlled_enum_name": field_spec["controlled_enum_name"],
+                    "description_ko": field_spec["description_ko"],
+                    "notes": field_spec["notes"],
+                }
+            )
+    return pd.DataFrame(rows, columns=TABLE_COLS)
+
+
+def build_enum_catalog() -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    for enum_name, values in ENUM_SPECS.items():
+        for enum_order, (enum_value, description_ko) in enumerate(values, start=1):
+            rows.append(
+                {
+                    "enum_name": enum_name,
+                    "enum_order": enum_order,
+                    "enum_value": enum_value,
+                    "description_ko": description_ko,
+                }
+            )
+    return pd.DataFrame(rows, columns=ENUM_COLS)
+
+
+def build_reason_codes() -> pd.DataFrame:
+    return pd.DataFrame(REASON_CODES, columns=REASON_COLS)
+
+
+def build_config_keys() -> pd.DataFrame:
+    return pd.DataFrame(CONFIG_KEYS, columns=CONFIG_COLS)
+
+
+def build_outputs() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    return (
+        build_schema_tables(),
+        build_enum_catalog(),
+        build_reason_codes(),
+        build_config_keys(),
+    )
+
+
+def main() -> None:
+    args = parse_args()
+    root = args.root.resolve()
+    schema_tables_df, enum_catalog_df, reason_codes_df, config_keys_df = build_outputs()
+
+    out_dir = root / "_share"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    schema_tables_df.to_csv(out_dir / "anomaly_registry_schema_tables_v1.csv", index=False, encoding="utf-8-sig")
+    enum_catalog_df.to_csv(out_dir / "anomaly_registry_enum_catalog_v1.csv", index=False, encoding="utf-8-sig")
+    reason_codes_df.to_csv(out_dir / "anomaly_registry_reason_codes_v1.csv", index=False, encoding="utf-8-sig")
+    config_keys_df.to_csv(out_dir / "anomaly_registry_config_keys_v1.csv", index=False, encoding="utf-8-sig")
+    print(
+        "anomaly_registry_schema_tables_v1="
+        f"{len(schema_tables_df)} anomaly_registry_enum_catalog_v1={len(enum_catalog_df)} "
+        f"anomaly_registry_reason_codes_v1={len(reason_codes_df)} anomaly_registry_config_keys_v1={len(config_keys_df)}"
+    )
+
+
+if __name__ == "__main__":
+    main()
