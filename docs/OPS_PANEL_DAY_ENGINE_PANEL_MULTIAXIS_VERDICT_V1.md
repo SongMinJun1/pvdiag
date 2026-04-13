@@ -12,6 +12,7 @@
 - `_share/panel_day_engine_operator_workflow_default_v1.csv`
 - `_share/panel_day_engine_abrupt6_symptom_map_v1.csv`
 - `_share/panel_day_engine_precursor_onset_truth_v1.csv`
+- `_share/panel_day_engine_non_precursor_performance_cases_v1.csv`
 - `_share/panel_day_engine_common_cause_descriptive_retrofit_cases_v1.csv`
 - `_share/panel_day_engine_precursor_abrupt_consistency_cases_v1.csv`
 - `_share/panel_day_engine_precursor_abrupt_consistency_summary_v1.csv`
@@ -77,7 +78,7 @@
 - 핵심은 event type 과 terminal failure pattern 을 분리해서 읽는 것이다.
 - precursor 가 확인된 사건은 panel 에 abrupt marker 가 있어도 event class 자체를 `급작 고장` 으로 두지 않는다.
 - 다만 same-day fallback onset 은 real precursor evidence 로 보지 않으므로 abrupt rule 에서 자동 탈락시키지 않는다.
-- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 strict precursor eval set 에는 아직 없지만, single-panel forensic explicit rule 기준으로는 `전조형 고장` 으로 읽는다.
+- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 single-panel forensic explicit rule 기준으로 `전조형 고장` 이고, benchmark reset 이후 strict precursor eval set 에도 포함된다.
 - multi-membership 자체는 별도 사건보조표에 남기되, overlap same-event panel 은 두 개의 독립 fault event 로 세지지 않는다.
 
 ## 해석층 vs 평가셋
@@ -88,7 +89,10 @@
   - `사건유형_ko = 전조형 고장`
   - `사건유형_해석_ko = 전조형 고장`
   - `판정주의_ko` 에도 onset/trigger rule date 를 함께 적어, 왜 이렇게 읽었는지 바로 보이게 한다.
-- 이렇게 두 층을 분리하는 이유는, 해석상 precursor-like evidence 가 있어도 현재 strict precursor evaluation set 에 자동 편입되지는 않을 수 있기 때문이다.
+- 평가셋 편입은 별도 benchmark truth 파일에서 다시 계산한다.
+  - `전조평가셋편입_flag = 1` iff `_share/panel_day_engine_precursor_onset_truth_v1.csv` 에 panel row 가 존재
+  - `급작평가셋편입_flag = 1` iff `_share/panel_day_engine_non_precursor_performance_cases_v1.csv` 에서 `eval_bucket_v2 == abrupt_or_no_precursor_now`
+- 즉 사건 해석과 평가셋 편입은 개념상 분리하되, 현재 reset benchmark에서는 c429 도 precursor eval set 에 포함된다.
 
 ## onset 날짜 3종
 - 본표는 fault panel에 대해 onset 날짜도 세 층으로 나눠 보여 준다.
@@ -115,9 +119,9 @@
 - `순수급작_flag`
   - corrected pure abrupt set 에 속할 때만 `1`
 - `전조평가셋편입_flag`
-  - 현재 strict precursor positive evaluation set 에 속할 때만 `1`
+  - `_share/panel_day_engine_precursor_onset_truth_v1.csv` 에 panel row 가 있을 때만 `1`
 - `급작평가셋편입_flag`
-  - 현재 pure abrupt evaluation set 에 속할 때만 `1`
+  - `_share/panel_day_engine_non_precursor_performance_cases_v1.csv` 에서 `eval_bucket_v2 == abrupt_or_no_precursor_now` 일 때만 `1`
 - `해석대평가차이_ko`
   - 사람이 읽는 해석과 current evaluation-set inclusion 이 어긋나는 경우 그 이유를 짧게 적는다
 
@@ -272,16 +276,16 @@
   - `사건해석_전조형_급격종료_패널수 = 1`
   - `사건해석_전조형_진행성악화_패널수 = 2`
   - `전조흔적_패널수 = 3`
-  - `엄격전조평가셋_패널수 = 2`
+  - `엄격전조평가셋_패널수 = 3`
   - `순수급작평가셋_패널수 = 3`
-  - `해석과평가셋불일치_패널수 = 1`
+  - `해석과평가셋불일치_패널수 = 0`
   - `공통원인이력_flag == 1` 인 panel 수 = `4`
 - `c42997...1.1` 은 정확히 1행이어야 하고:
   - `사건유형_ko = 전조형 고장`
   - `사건유형_해석_ko = 전조형 고장`
   - `전조흔적_flag = 1`
   - `순수급작_flag = 0`
-  - `전조평가셋편입_flag = 0`
+  - `전조평가셋편입_flag = 1`
   - `급작평가셋편입_flag = 0`
 - overlap same-event panel 은 계속:
   - `사건유형_해석_ko = 전조형 고장`
@@ -303,7 +307,7 @@
 - event supplement 가 multi-membership 을 보존해야 한다.
 - overlap same-event panel 은 `사건유형_ko = 전조형 고장`, `최종고장양상_ko = 진행성 악화`, `사건이력_ko = 전조형 고장` 으로 읽혀야 한다.
 - `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 `사건유형_ko = 전조형 고장`, `사건유형_해석_ko = 전조형 고장`, `패널고장여부_ko = 고장`, `최종고장양상_ko = 급격 종료` 로 읽혀야 한다.
-- c429 row 는 `전조흔적_flag = 1`, `순수급작_flag = 0`, `전조평가셋편입_flag = 0`, `급작평가셋편입_flag = 0` 이어야 한다.
+- c429 row 는 `전조흔적_flag = 1`, `순수급작_flag = 0`, `전조평가셋편입_flag = 1`, `급작평가셋편입_flag = 0` 이어야 한다.
 - 사건 수와 패널 수 summary 가 final row 기준으로 분리 계산되어야 한다.
 - 해석층과 evaluation-set inclusion summary 도 final row 기준으로 계산되어야 한다.
 - abrupt / precursor / common membership count 가 현재 규칙대로 나와야 한다.

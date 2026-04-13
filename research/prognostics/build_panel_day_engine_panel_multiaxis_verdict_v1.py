@@ -12,6 +12,7 @@ KERNELLOG_PROJECT_MAPPING_NAME = "panel_day_engine_kernellog_project_mapping_v1.
 GPV7_PERF_SUMMARY_NAME = "panel_day_engine_gpv7_perf_summary_v1.csv"
 FINAL_DECISION_PACK_NAME = "panel_day_engine_project_final_decision_pack_v1.csv"
 PRECURSOR_ONSET_TRUTH_NAME = "panel_day_engine_precursor_onset_truth_v1.csv"
+NON_PRECURSOR_PERFORMANCE_CASES_NAME = "panel_day_engine_non_precursor_performance_cases_v1.csv"
 COMMON_CAUSE_RETROFIT_NAME = "panel_day_engine_common_cause_descriptive_retrofit_cases_v1.csv"
 GPVS_ATTACH_INVENTORY_NAME = "panel_day_engine_gpvs_panel_attach_inventory_v1.csv"
 GPVS_ATTACH_FEASIBILITY_NAME = "panel_day_engine_gpvs_panel_attach_feasibility_v1.csv"
@@ -250,6 +251,7 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         "gpv7": read_csv(share_dir / GPV7_PERF_SUMMARY_NAME),
         "final_pack": read_csv(share_dir / FINAL_DECISION_PACK_NAME),
         "precursor_truth": read_csv(share_dir / PRECURSOR_ONSET_TRUTH_NAME),
+        "non_precursor_perf": read_csv(share_dir / NON_PRECURSOR_PERFORMANCE_CASES_NAME),
         "common_cause": read_csv(share_dir / COMMON_CAUSE_RETROFIT_NAME),
         "gpvs_attach_inventory": read_csv(share_dir / GPVS_ATTACH_INVENTORY_NAME),
         "gpvs_attach_feasibility": read_csv(share_dir / GPVS_ATTACH_FEASIBILITY_NAME),
@@ -317,6 +319,11 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
             "benchmark_precursor_onset_date",
         ],
         PRECURSOR_ONSET_TRUTH_NAME,
+    )
+    ensure_columns(
+        frames["non_precursor_perf"],
+        ["eval_bucket_v2", "site", "panel_id"],
+        NON_PRECURSOR_PERFORMANCE_CASES_NAME,
     )
     ensure_columns(
         frames["common_cause"],
@@ -591,6 +598,18 @@ def precursor_truth_lookup(precursor_df: pd.DataFrame) -> dict[tuple[str, str], 
     return lookup
 
 
+def build_abrupt_eval_keys(non_precursor_df: pd.DataFrame) -> set[tuple[str, str]]:
+    positive_df = non_precursor_df.loc[
+        non_precursor_df["eval_bucket_v2"].eq("abrupt_or_no_precursor_now")
+    ].copy()
+    keys = panel_key_set(positive_df, "site", "panel_id")
+    if not keys:
+        raise SystemExit(
+            f"{NON_PRECURSOR_PERFORMANCE_CASES_NAME} has no abrupt_or_no_precursor_now rows"
+        )
+    return keys
+
+
 def build_common_cause_positive_keys(common_df: pd.DataFrame) -> set[tuple[str, str]]:
     marker_mask = (
         to_numeric_flag(common_df["current_marker_only_flag"]).eq(1)
@@ -719,70 +738,73 @@ def interpretation_layer_fields(
     flags: dict[str, int],
     event_type: str,
     *,
+    precursor_eval_flag: int,
+    abrupt_eval_flag: int,
     is_same_event_overlap: bool,
     forensic_rule_case: dict[str, str] | None,
     fault_audit_row: dict[str, str] | None,
 ) -> dict[str, object]:
+    def mismatch_text_for(event_type_ko: str, precursor_flag: int, abrupt_flag: int) -> str:
+        if event_type_ko == "전조형 고장" and precursor_flag == 0:
+            return "explicit rule상 전조형 고장이지만 현재 strict precursor evaluation set에는 아직 미편입"
+        if event_type_ko == "급작 고장" and abrupt_flag == 0:
+            return "explicit rule상 급작 고장이지만 현재 pure abrupt evaluation set에는 아직 미편입"
+        return ""
+
     if fault_audit_row is not None:
         event_type_ko = normalize_text(fault_audit_row["사건유형_재판정_ko"]) or event_type
-        precursor_eval_flag = int(pd.to_numeric(pd.Series([fault_audit_row["전조평가셋편입_flag"]]), errors="coerce").fillna(0).iloc[0])
-        abrupt_eval_flag = int(pd.to_numeric(pd.Series([fault_audit_row["급작평가셋편입_flag"]]), errors="coerce").fillna(0).iloc[0])
-        mismatch_text = ""
-        if event_type_ko == "전조형 고장" and precursor_eval_flag == 0:
-            mismatch_text = "explicit rule상 전조형 고장이지만 현재 strict precursor evaluation set에는 아직 미편입"
-        elif event_type_ko == "급작 고장" and abrupt_eval_flag == 0:
-            mismatch_text = "explicit rule상 급작 고장이지만 현재 pure abrupt evaluation set에는 아직 미편입"
         return {
             "사건유형_해석_ko": event_type_ko,
             "전조흔적_flag": int(pd.to_numeric(pd.Series([fault_audit_row["전조흔적_flag"]]), errors="coerce").fillna(0).iloc[0]),
             "순수급작_flag": int(pd.to_numeric(pd.Series([fault_audit_row["순수급작_flag"]]), errors="coerce").fillna(0).iloc[0]),
             "전조평가셋편입_flag": precursor_eval_flag,
             "급작평가셋편입_flag": abrupt_eval_flag,
-            "해석대평가차이_ko": mismatch_text,
+            "해석대평가차이_ko": mismatch_text_for(event_type_ko, precursor_eval_flag, abrupt_eval_flag),
         }
     if is_same_event_overlap:
         return {
             "사건유형_해석_ko": "전조형 고장",
             "전조흔적_flag": 1,
             "순수급작_flag": 0,
-            "전조평가셋편입_flag": 1,
-            "급작평가셋편입_flag": 0,
-            "해석대평가차이_ko": "",
+            "전조평가셋편입_flag": precursor_eval_flag,
+            "급작평가셋편입_flag": abrupt_eval_flag,
+            "해석대평가차이_ko": mismatch_text_for("전조형 고장", precursor_eval_flag, abrupt_eval_flag),
         }
     if forensic_rule_case is not None:
+        event_type_ko = normalize_text(forensic_rule_case["사건유형_결정_ko"]) or event_type
         return {
-            "사건유형_해석_ko": normalize_text(forensic_rule_case["사건유형_결정_ko"]) or event_type,
+            "사건유형_해석_ko": event_type_ko,
             "전조흔적_flag": 1,
             "순수급작_flag": 0,
-            "전조평가셋편입_flag": 0,
-            "급작평가셋편입_flag": 0,
-            "해석대평가차이_ko": "stored-field rule상 전조형 고장이지만 현재 strict precursor evaluation set에는 아직 미편입",
+            "전조평가셋편입_flag": precursor_eval_flag,
+            "급작평가셋편입_flag": abrupt_eval_flag,
+            "해석대평가차이_ko": mismatch_text_for(event_type_ko, precursor_eval_flag, abrupt_eval_flag),
         }
     if flags["has_급작고장"]:
         return {
             "사건유형_해석_ko": "급작 고장",
             "전조흔적_flag": 0,
             "순수급작_flag": 1,
-            "전조평가셋편입_flag": 0,
-            "급작평가셋편입_flag": 1,
-            "해석대평가차이_ko": "",
+            "전조평가셋편입_flag": precursor_eval_flag,
+            "급작평가셋편입_flag": abrupt_eval_flag,
+            "해석대평가차이_ko": mismatch_text_for("급작 고장", precursor_eval_flag, abrupt_eval_flag),
         }
     if flags["has_전조형고장"]:
         return {
             "사건유형_해석_ko": "전조형 고장",
             "전조흔적_flag": 1,
             "순수급작_flag": 0,
-            "전조평가셋편입_flag": 1,
-            "급작평가셋편입_flag": 0,
-            "해석대평가차이_ko": "",
+            "전조평가셋편입_flag": precursor_eval_flag,
+            "급작평가셋편입_flag": abrupt_eval_flag,
+            "해석대평가차이_ko": mismatch_text_for("전조형 고장", precursor_eval_flag, abrupt_eval_flag),
         }
     return {
         "사건유형_해석_ko": event_type,
         "전조흔적_flag": 0,
         "순수급작_flag": 0,
-        "전조평가셋편입_flag": 0,
-        "급작평가셋편입_flag": 0,
-        "해석대평가차이_ko": "",
+        "전조평가셋편입_flag": precursor_eval_flag,
+        "급작평가셋편입_flag": abrupt_eval_flag,
+        "해석대평가차이_ko": mismatch_text_for(event_type, precursor_eval_flag, abrupt_eval_flag),
     }
 
 
@@ -909,6 +931,8 @@ def build_outputs(
     abrupt_keys = set(abrupt_by_key.keys())
     pure_abrupt_keys = abrupt_keys - same_event_overlap_keys - {forensic_rule_key}
     precursor_keys = build_precursor_positive_keys(frames["precursor_truth"])
+    precursor_eval_keys = precursor_keys
+    abrupt_eval_keys = build_abrupt_eval_keys(frames["non_precursor_perf"])
     common_keys = build_common_cause_positive_keys(frames["common_cause"])
     workflow_watch_keys = {
         (normalize_text(row["site"]), normalize_text(row["display_entity_id"]))
@@ -945,6 +969,8 @@ def build_outputs(
         is_same_event_overlap = key in same_event_overlap_keys
         active_forensic_rule_case = forensic_rule_case if key == forensic_rule_key else None
         active_fault_audit_row = fault_audit_by_key.get(key)
+        precursor_eval_flag = int(key in precursor_eval_keys)
+        abrupt_eval_flag = int(key in abrupt_eval_keys)
         flags = {
             "has_전조형고장": int(key in precursor_keys),
             "has_급작고장": int(key in pure_abrupt_keys),
@@ -968,6 +994,8 @@ def build_outputs(
         interpretation = interpretation_layer_fields(
             flags,
             event_type,
+            precursor_eval_flag=precursor_eval_flag,
+            abrupt_eval_flag=abrupt_eval_flag,
             is_same_event_overlap=is_same_event_overlap,
             forensic_rule_case=active_forensic_rule_case,
             fault_audit_row=active_fault_audit_row,
@@ -1202,6 +1230,8 @@ def build_outputs(
         "forensic_rule_expected": 1,
         "fault_audit_expected": len(fault_audit_by_key),
         "precursor_expected": len(precursor_keys),
+        "precursor_eval_expected": len(precursor_eval_keys),
+        "abrupt_eval_expected": len(abrupt_eval_keys),
         "common_expected": len(common_keys),
         "gpvs_expected_attach_count": gpvs_expected_attach_count_applicable,
     }
@@ -1281,12 +1311,12 @@ def validate_real_coverage(
         raise SystemExit(f"사건해석_전조형_진행성악화_패널수 must be 2, found {counts['사건해석_전조형_진행성악화_패널수']}")
     if counts["전조흔적_패널수"] != 3:
         raise SystemExit(f"전조흔적_패널수 must be 3, found {counts['전조흔적_패널수']}")
-    if counts["엄격전조평가셋_패널수"] != 2:
-        raise SystemExit(f"엄격전조평가셋_패널수 must be 2, found {counts['엄격전조평가셋_패널수']}")
+    if counts["엄격전조평가셋_패널수"] != 3:
+        raise SystemExit(f"엄격전조평가셋_패널수 must be 3, found {counts['엄격전조평가셋_패널수']}")
     if counts["순수급작평가셋_패널수"] != 3:
         raise SystemExit(f"순수급작평가셋_패널수 must be 3, found {counts['순수급작평가셋_패널수']}")
-    if counts["해석과평가셋불일치_패널수"] != 1:
-        raise SystemExit(f"해석과평가셋불일치_패널수 must be 1, found {counts['해석과평가셋불일치_패널수']}")
+    if counts["해석과평가셋불일치_패널수"] != 0:
+        raise SystemExit(f"해석과평가셋불일치_패널수 must be 0, found {counts['해석과평가셋불일치_패널수']}")
     if common_membership != 4:
         raise SystemExit(f"panels with 공통원인이력_flag must be 4, found {common_membership}")
     if gpvs_attached != int(metrics["gpvs_expected_attach_count"]):
@@ -1332,18 +1362,19 @@ def validate_real_coverage(
         raise SystemExit("forensic target panel must keep 전조흔적_flag=1")
     if int(pd.to_numeric(forensic_row["순수급작_flag"], errors="coerce")) != 0:
         raise SystemExit("forensic target panel must keep 순수급작_flag=0")
-    if int(pd.to_numeric(forensic_row["전조평가셋편입_flag"], errors="coerce")) != 0:
-        raise SystemExit("forensic target panel must keep 전조평가셋편입_flag=0")
+    if int(pd.to_numeric(forensic_row["전조평가셋편입_flag"], errors="coerce")) != 1:
+        raise SystemExit("forensic target panel must keep 전조평가셋편입_flag=1")
     if int(pd.to_numeric(forensic_row["급작평가셋편입_flag"], errors="coerce")) != 0:
         raise SystemExit("forensic target panel must keep 급작평가셋편입_flag=0")
-    if normalize_text(forensic_row["해석대평가차이_ko"]) != "explicit rule상 전조형 고장이지만 현재 strict precursor evaluation set에는 아직 미편입":
-        raise SystemExit("forensic target panel must expose interpretation/evaluation mismatch text")
+    if normalize_text(forensic_row["해석대평가차이_ko"]) != "":
+        raise SystemExit("forensic target panel should not expose interpretation/evaluation mismatch text after benchmark sync")
     if FORENSIC_RULE_ONSET_DATE not in normalize_text(forensic_row["판정주의_ko"]) or FORENSIC_RULE_TRIGGER_DATE not in normalize_text(forensic_row["판정주의_ko"]):
         raise SystemExit("forensic target panel note must mention onset/trigger dates")
 
     overlap_rows = verdict_df.loc[
         verdict_df["전조평가셋편입_flag"].pipe(to_numeric_flag).eq(1)
         & verdict_df["사건유형_ko"].eq("전조형 고장")
+        & verdict_df["최종고장양상_ko"].eq("진행성 악화")
     ].copy()
     if len(overlap_rows) != metrics["same_event_overlap_expected"]:
         raise SystemExit(
@@ -1427,11 +1458,12 @@ def build_summary(
         "사건보조행수": int(len(event_supplement_df)),
         "클러스터_보조행수": int(len(cluster_supplement_df)),
         "note_ko": (
-            f"main panel table은 unique panel 대표 verdict 표이고 workflow panel {metrics['workflow_panel_count']}건을 기준으로 fault6 rows {metrics['abrupt_fault6_total']}건, 사건 해석상 전조형 3건, 사건 해석상 급작 3건, 엄격 전조 평가셋 2건, 순수 급작 평가셋 3건을 분리해서 적는다. "
+            f"main panel table은 unique panel 대표 verdict 표이고 workflow panel {metrics['workflow_panel_count']}건을 기준으로 fault6 rows {metrics['abrupt_fault6_total']}건, 사건 해석상 전조형 3건, 사건 해석상 급작 3건, 엄격 전조 평가셋 3건, 순수 급작 평가셋 3건을 분리해서 적는다. "
             f"fault panel event audit {metrics['fault_audit_expected']}건을 authoritative fault-event source로 읽어 사건유형/최종고장양상/순수급작 flag를 동기화했다. "
-            f"same-event overlap {metrics['same_event_overlap_expected']}건은 전조형 고장으로 읽고, c42997 row 는 전조형 고장/급격 종료로 읽되 엄격 전조 평가셋과 순수 급작 평가셋에는 모두 넣지 않는다. "
+            f"same-event overlap {metrics['same_event_overlap_expected']}건은 전조형 고장으로 읽고, c42997 row 는 전조형 고장/급격 종료로 읽으며 엄격 전조 평가셋에는 포함하고 순수 급작 평가셋에서는 제외한다. "
             f"single-panel forensic explicit rule {metrics['forensic_rule_expected']}건은 c42997 row 설명 근거로 유지하고, same-day fallback onset abrupt row 는 급작 고장으로 다시 허용한다. "
-            "이제 사건유형_해석_ko 와 평가셋 편입 flag를 분리해, 사건 해석과 evaluation-set inclusion을 같은 뜻으로 읽지 않게 한다. "
+            "이제 전조평가셋편입_flag 는 precursor onset truth membership으로, 급작평가셋편입_flag 는 non-precursor abrupt performance case membership으로 다시 계산한다. "
+            "사건유형_해석_ko 와 평가셋 편입 flag를 분리해, 사건 해석과 evaluation-set inclusion을 같은 뜻으로 읽지 않게 한다. "
             "또한 운영상 최초 전조 발견일, 사건 해석상 전조 시작일, benchmark 전조 시작일을 분리해 onset date 의미를 섞지 않게 한다. "
             "event type과 terminal failure pattern은 분리해서 읽는다. "
             f"사건이력 보조표는 panel이 여러 사건군에 속하거나 전조형 고장이 급격 종료로 끝난 경우를 함께 남긴다. {gpvs_note} unmatched panel은 row-by-row 미부착 사유를 함께 남긴다."

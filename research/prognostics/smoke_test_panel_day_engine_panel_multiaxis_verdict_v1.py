@@ -225,6 +225,16 @@ def build_fixture(root: Path) -> None:
     )
 
     write_csv(
+        share / "panel_day_engine_non_precursor_performance_cases_v1.csv",
+        [
+            {"eval_bucket_v2": "abrupt_or_no_precursor_now", "site": "siteA", "panel_id": "abrupt_1"},
+            {"eval_bucket_v2": "abrupt_or_no_precursor_now", "site": "siteA", "panel_id": "abrupt_2"},
+            {"eval_bucket_v2": "abrupt_or_no_precursor_now", "site": "siteA", "panel_id": "abrupt_3"},
+        ],
+        ["eval_bucket_v2", "site", "panel_id"],
+    )
+
+    write_csv(
         share / "panel_day_engine_common_cause_descriptive_retrofit_cases_v1.csv",
         [
             {"eval_bucket_v2": "non_panel_or_common_cause", "site": "siteCC", "panel_id": "common_1", "current_marker_only_flag": 0, "breadth_marker_only_flag": 1, "combined_marker_flag": 1},
@@ -688,16 +698,13 @@ def main() -> None:
         assert_true(forensic_row["패널고장여부_ko"] == "고장", "forensic target should stay a fault panel")
         assert_true(int(forensic_row["전조흔적_flag"]) == 1, "forensic target should keep precursor-trace flag")
         assert_true(int(forensic_row["순수급작_flag"]) == 0, "forensic target should not stay pure abrupt")
-        assert_true(int(forensic_row["전조평가셋편입_flag"]) == 0, "forensic target should stay outside precursor eval set")
+        assert_true(int(forensic_row["전조평가셋편입_flag"]) == 1, "forensic target should now be in precursor eval set")
         assert_true(int(forensic_row["급작평가셋편입_flag"]) == 0, "forensic target should stay outside abrupt eval set")
         assert_true(str(forensic_row["운영최초전조발견일"]) == "2025-02-20", "forensic target operational first detection date mismatch")
         assert_true(str(forensic_row["운영최초전조마커"]) == "first_cond_evt", "forensic target operational first marker mismatch")
         assert_true(str(forensic_row["사건해석상전조시작일"]) == "2025-01-20", "forensic target interpretive onset mismatch")
         assert_true(str(forensic_row["benchmark전조시작일"]) == "2025-03-18", "forensic target benchmark onset mismatch")
-        assert_true(
-            forensic_row["해석대평가차이_ko"] == "explicit rule상 전조형 고장이지만 현재 strict precursor evaluation set에는 아직 미편입",
-            "forensic target mismatch explanation mismatch",
-        )
+        assert_true(normalize_text(forensic_row["해석대평가차이_ko"]) == "", "forensic target mismatch explanation should be cleared")
         assert_true(forensic_row["GPVS_적용대상_ko"] == "적용대상", "forensic target should stay GPVS applicable")
         assert_true("2025-01-20" in str(forensic_row["판정주의_ko"]), "forensic target note should mention precursor-like start date")
         assert_true("2025-03-21" in str(forensic_row["판정주의_ko"]), "forensic target note should mention strong trigger date")
@@ -825,9 +832,9 @@ def main() -> None:
         assert_true(pure_abrupt_panel_count == 3, "fixture pure abrupt panel count should be 3")
         assert_true(precursor_trace_panel_count == 3, "fixture precursor-trace panel count should be 3")
         assert_true(pure_abrupt_flag_panel_count == 3, "fixture pure-abrupt flag count should be 3")
-        assert_true(precursor_eval_included_count == 2, "fixture precursor-eval inclusion count should be 2")
+        assert_true(precursor_eval_included_count == 3, "fixture precursor-eval inclusion count should be 3")
         assert_true(abrupt_eval_included_count == 3, "fixture abrupt-eval inclusion count should be 3")
-        assert_true(interpretation_eval_mismatch_count == 1, "fixture interpretation/eval mismatch count should be 1")
+        assert_true(interpretation_eval_mismatch_count == 0, "fixture interpretation/eval mismatch count should be 0")
         assert_true(int(summary_row["고유_고장패널수"]) == int(verdict_df["패널고장여부_ko"].eq("고장").sum()), "unique fault-panel summary must come from final rows")
         assert_true(int(summary_row["사건해석_전조형_패널수"]) == int(rep_counts.get("전조형 고장", 0)), "interpreted precursor summary must come from final rows")
         assert_true(int(summary_row["사건해석_급작_패널수"]) == pure_abrupt_panel_count, "interpreted abrupt summary must come from final rows")
