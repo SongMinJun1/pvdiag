@@ -19,6 +19,11 @@
 - `_share/panel_day_engine_precursor_abrupt_consistency_recommendation_v1.csv`
 - `_share/panel_day_engine_c42997_1_1_forensic_summary_v1.csv`
 - `_share/panel_day_engine_fault_panel_event_audit_v1.csv`
+- `_share/panel_day_engine_gpvs_bytype_rebuild_summary_v1.csv`
+- `_share/panel_day_engine_gpvs_detailed_type_inference_audit_v1.csv`
+- `_share/panel_day_engine_gpvs_detailed_type_realpanel_sanity_v1.csv`
+- `_share/panel_day_engine_detailed_fault_bridge_audit_v1.csv`
+- `_share/panel_day_engine_detailed_fault_bridge_summary_v1.csv`
 - `_share/panel_day_engine_kernellog_project_mapping_v1.csv`
 - `_share/panel_day_engine_gpv7_perf_summary_v1.csv`
 - `_share/panel_day_engine_project_final_decision_pack_v1.csv`
@@ -146,7 +151,7 @@
 - single-panel forensic explicit rule row 는 `전조형 고장(급격 종료)` 로 남고, same-event overlap 2건은 corrected audit 결과에 따라 `전조형 고장` 으로 남을 수 있다.
 - `대표판정_ko` 는 reader-facing 대표 label이고, 현재 reconciliation 이후에는 `사건유형_ko` 와 같은 사건 축을 가리킨다.
 - `사건유형_ko` 와 `사건유형_해석_ko` 는 필요하면 달라질 수 있지만, `c42997...1.1` 은 이번 explicit rule 반영 이후 둘 다 `전조형 고장` 으로 맞춘다.
-- 이 row 는 fault panel 이고 explicit rule 기준으로 `전조형 고장` 이지만, 현재는 전조평가셋/순수급작평가셋 모두 미편입 상태를 같이 보여준다.
+- 이 row 는 fault panel 이고 explicit rule 기준으로 `전조형 고장` 이며, 현재 synced benchmark 기준으로 `전조평가셋편입_flag = 1`, `급작평가셋편입_flag = 0` 으로 읽는다.
 
 ## 패널고장여부 축
 - `has_급작고장 == 1` 또는 `has_전조형고장 == 1` 이면 `고장`
@@ -191,6 +196,63 @@
 - current panel universe 와 겹치지 않는 panel 에까지 GPVS type 을 억지로 붙이면 안 된다.
 - 그래서 본표는 GPVS가 붙은 panel 과 안 붙은 panel 을 같이 두되, 안 붙은 경우도 왜 안 붙는지 한 줄씩 투명하게 남긴다.
 
+## GPVS 세부 fault 추론 축
+- GPVS family 축과 별도로 recovered GPVS by-type artifact 기반 세부 fault 축을 추가한다.
+- authoritative source 는 아래 3개다.
+  - `_share/panel_day_engine_gpvs_bytype_rebuild_summary_v1.csv`
+  - `_share/panel_day_engine_gpvs_detailed_type_inference_audit_v1.csv`
+  - `_share/panel_day_engine_gpvs_detailed_type_realpanel_sanity_v1.csv`
+- attach guard 는 다음을 모두 만족할 때만 통과한다.
+  - rebuild summary 에서 `current_recovered_attachable_flag = 1`
+  - audit row 의 `gpvs_detailed_model_source = recovered_artifact`
+  - sanity row 의 `attach_recommendation_ko = attach_ok`
+- synthetic `PVFAULT_labels_day.csv` panel id bridge 는 이 축의 direct source 로 쓰지 않는다.
+- 따라서 기존 `세부fault_*` exact-date bridge 축과도 다른 별도 축으로 읽어야 한다.
+- 본표에는 아래 컬럼을 둔다.
+  - `GPVS_세부fault_code`
+  - `GPVS_세부fault_score`
+  - `GPVS_세부fault_rank2_code`
+  - `GPVS_세부fault_rank2_score`
+  - `GPVS_세부fault_margin`
+  - `GPVS_세부fault_부착상태_ko`
+  - `GPVS_세부fault_근거_ko`
+  - `GPVS_세부fault_판정주의_ko`
+- 고장 panel:
+  - guard 통과 시 `부착`
+  - guard 미충족 시 `판정유보`
+- 비고장/미확정 panel:
+  - `비대상`
+- `GPVS_참고유형_ko` 와 `GPVS_세부fault_code` 는 같은 뜻이 아니다.
+- family uncertainty 가 자동으로 detailed type attachment 를 막지 않는다.
+  - 예: `10305...2.12` 는 `GPVS_참고유형_ko = 불확실` 이어도 recovered by-type attach guard 를 통과하면 `GPVS_세부fault_code = F4L` 을 함께 가질 수 있다.
+- 이 축이 현재 main verdict 의 공식 detailed-fault attachment source 다.
+
+## 세부 fault code 축
+- 세부 fault type exact-date bridge 는 과거 audit-only 시도였고, 현재는 retired path 로 본다.
+- source 는 `PVFAULT_labels_day.csv` 의 `fault_type_max` 였지만 synthetic-string keyed 한계 때문에 real panel official attachment source 로 채택하지 않았다.
+- 따라서 이 축은 bridge provenance 보존용/보조 audit 용으로만 읽고, main summary 나 공식 detailed-fault claim source 로 쓰지 않는다.
+- 본표에는 아래 컬럼을 추가한다.
+  - `세부fault_type_code`
+  - `세부fault_type_label_ko`
+  - `세부fault_부착상태_ko`
+  - `세부fault_근거파일_ko`
+  - `세부fault_기준일`
+  - `세부fault_보류사유_ko`
+- `세부fault_부착상태_ko`
+  - 고장 panel: `부착` 또는 `보류`
+  - 비고장/미확정 panel: `비대상`
+- label 은 raw code prefix 로만 읽는다.
+  - `F1* -> GPVS Fault1`
+  - `F2* -> GPVS Fault2`
+  - ...
+  - `F7* -> GPVS Fault7`
+  - 그 외는 raw code 그대로 둔다.
+- 이 label 은 code readability 용일 뿐, 물리 의미를 새로 해석해 붙이지 않는다.
+- 정리하면:
+  - `GPVS_참고유형_ko` = family axis
+  - `GPVS_세부fault_code` = 공식 detailed-fault axis
+  - `세부fault_type_code` = retired exact-date bridge audit residue
+
 ## 운영 위치
 - workflow row 가 `queue_run` 이면 `바로 확인`
 - workflow row 가 `watch_now_panel` 이면 `경과 관찰`
@@ -230,6 +292,18 @@
     - `GPVS_근거_ko`
     - `GPVS_미부착사유_ko`
     - `GPVS_후보파일_ko`
+    - `GPVS_세부fault_code`
+    - `GPVS_세부fault_score`
+    - `GPVS_세부fault_rank2_code`
+    - `GPVS_세부fault_margin`
+    - `GPVS_세부fault_status_ko`
+    - `GPVS_세부fault_근거_ko`
+    - `세부fault_type_code`
+    - `세부fault_type_label_ko`
+    - `세부fault_부착상태_ko`
+    - `세부fault_근거파일_ko`
+    - `세부fault_기준일`
+    - `세부fault_보류사유_ko`
     - `운영위치_ko`
     - `판정주의_ko`
 - `_share/panel_day_engine_panel_multiaxis_event_supplement_v1.csv`
@@ -252,9 +326,19 @@
     - `엄격전조평가셋_패널수`
     - `순수급작평가셋_패널수`
     - `해석과평가셋불일치_패널수`
+    - `GPVS_세부fault_부착수`
+    - `GPVS_세부fault_판정유보수`
+    - `GPVS_세부fault_추론불가수`
     - `대표판정_전조형수`
     - `대표판정_급작수`
     - `대표판정_고장유형보류수`
+- GPVS 관련해서도 세 축을 섞지 않는다.
+  - `GPVS_참고유형_ko`
+    - family reference
+  - `GPVS_세부fault_*`
+    - learned GPVS by-type inference result
+  - `세부fault_*`
+    - PVFAULT exact-date bridge result
 
 ## Hard Check
 - main panel verdict table 은 `(site, panel_id)` 기준 unique 해야 한다.
@@ -313,6 +397,8 @@
 - abrupt / precursor / common membership count 가 현재 규칙대로 나와야 한다.
 - fault panel 에 대해서만 GPVS attachable panel 은 candidates file 기준으로 실제 부착돼야 한다.
 - non-fault/common-cause/repeating/unresolved row 는 `GPVS_부착상태_ko = 비대상` 이어야 한다.
+- fault row 는 `GPVS_세부fault_status_ko ∈ {부착, 판정유보, 추론불가}` 여야 한다.
+- non-fault row 는 `GPVS_세부fault_*` column 을 blank 로 둬야 한다.
 - unmatched panel 은 허용된 미부착 사유 셋 중 하나를 가져야 한다.
 - cluster row 는 계속 미부착이어야 한다.
 - official outputs 는 smoke 중 바뀌면 안 된다.

@@ -22,6 +22,11 @@ PRECURSOR_ABRUPT_CONSISTENCY_SUMMARY_NAME = "panel_day_engine_precursor_abrupt_c
 PRECURSOR_ABRUPT_CONSISTENCY_RECOMMENDATION_NAME = "panel_day_engine_precursor_abrupt_consistency_recommendation_v1.csv"
 FORENSIC_SUMMARY_NAME = "panel_day_engine_c42997_1_1_forensic_summary_v1.csv"
 FAULT_PANEL_EVENT_AUDIT_NAME = "panel_day_engine_fault_panel_event_audit_v1.csv"
+DETAILED_FAULT_BRIDGE_AUDIT_NAME = "panel_day_engine_detailed_fault_bridge_audit_v1.csv"
+DETAILED_FAULT_BRIDGE_SUMMARY_NAME = "panel_day_engine_detailed_fault_bridge_summary_v1.csv"
+GPVS_BYTYPE_REBUILD_SUMMARY_NAME = "panel_day_engine_gpvs_bytype_rebuild_summary_v1.csv"
+GPVS_DETAILED_TYPE_INFERENCE_AUDIT_NAME = "panel_day_engine_gpvs_detailed_type_inference_audit_v1.csv"
+GPVS_DETAILED_TYPE_REALPANEL_SANITY_NAME = "panel_day_engine_gpvs_detailed_type_realpanel_sanity_v1.csv"
 
 VERDICT_OUTPUT_NAME = "panel_day_engine_panel_multiaxis_verdict_v1.csv"
 EVENT_SUPPLEMENT_OUTPUT_NAME = "panel_day_engine_panel_multiaxis_event_supplement_v1.csv"
@@ -58,6 +63,21 @@ VERDICT_COLS = [
     "GPVS_근거_ko",
     "GPVS_미부착사유_ko",
     "GPVS_후보파일_ko",
+    "GPVS_세부fault_code",
+    "GPVS_세부fault_score",
+    "GPVS_세부fault_rank2_code",
+    "GPVS_세부fault_rank2_score",
+    "GPVS_세부fault_margin",
+    "GPVS_세부fault_status_ko",
+    "GPVS_세부fault_부착상태_ko",
+    "GPVS_세부fault_근거_ko",
+    "GPVS_세부fault_판정주의_ko",
+    "세부fault_type_code",
+    "세부fault_type_label_ko",
+    "세부fault_부착상태_ko",
+    "세부fault_근거파일_ko",
+    "세부fault_기준일",
+    "세부fault_보류사유_ko",
     "운영위치_ko",
     "판정주의_ko",
 ]
@@ -114,6 +134,14 @@ SUMMARY_COLS = [
     "GPVS_미부착_패널key없음수",
     "GPVS_미부착_key부족수",
     "GPVS_미부착_산출물없음수",
+    "GPVS_세부fault_부착수",
+    "GPVS_세부fault_판정유보수",
+    "GPVS_세부fault_추론불가수",
+    "GPVS_세부fault_부착패널수",
+    "GPVS_세부fault_판정유보패널수",
+    "GPVS_세부fault_비대상패널수",
+    "GPVS_세부fault_F2M_패널수",
+    "GPVS_세부fault_F4L_패널수",
     "사건보조행수",
     "클러스터_보조행수",
     "note_ko",
@@ -261,6 +289,11 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         "consistency_recommendation": read_csv(share_dir / PRECURSOR_ABRUPT_CONSISTENCY_RECOMMENDATION_NAME),
         "forensic_summary": read_csv(share_dir / FORENSIC_SUMMARY_NAME),
         "fault_event_audit": read_csv(share_dir / FAULT_PANEL_EVENT_AUDIT_NAME),
+        "detailed_fault_bridge_audit": read_csv(share_dir / DETAILED_FAULT_BRIDGE_AUDIT_NAME),
+        "detailed_fault_bridge_summary": read_csv(share_dir / DETAILED_FAULT_BRIDGE_SUMMARY_NAME),
+        "gpvs_bytype_rebuild_summary": read_csv(share_dir / GPVS_BYTYPE_REBUILD_SUMMARY_NAME),
+        "gpvs_detailed_type_audit": read_csv(share_dir / GPVS_DETAILED_TYPE_INFERENCE_AUDIT_NAME),
+        "gpvs_detailed_type_realpanel_sanity": read_csv(share_dir / GPVS_DETAILED_TYPE_REALPANEL_SANITY_NAME),
     }
 
     ensure_columns(
@@ -402,6 +435,76 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         ],
         FAULT_PANEL_EVENT_AUDIT_NAME,
     )
+    ensure_columns(
+        frames["detailed_fault_bridge_audit"],
+        [
+            "site",
+            "panel_id",
+            "reference_date",
+            "exact_match_file_count",
+            "matched_files_csv",
+            "matched_fault_type_values_csv",
+            "consensus_fault_type_code",
+            "attachable_flag",
+            "attach_reason_ko",
+        ],
+        DETAILED_FAULT_BRIDGE_AUDIT_NAME,
+    )
+    ensure_columns(
+        frames["detailed_fault_bridge_summary"],
+        [
+            "고장패널수",
+            "세부fault_부착수",
+            "세부fault_보류수",
+            "exact_date_match_패널수",
+            "exact_date_conflict_패널수",
+            "exact_date_miss_패널수",
+            "note_ko",
+        ],
+        DETAILED_FAULT_BRIDGE_SUMMARY_NAME,
+    )
+    ensure_columns(
+        frames["gpvs_bytype_rebuild_summary"],
+        [
+            "recovered_model_exported_flag",
+            "recovered_feature_manifest_exported_flag",
+            "recovered_model_source_ko",
+            "parity_overall_status_ko",
+            "current_recovered_attachable_flag",
+            "note_ko",
+        ],
+        GPVS_BYTYPE_REBUILD_SUMMARY_NAME,
+    )
+    ensure_columns(
+        frames["gpvs_detailed_type_audit"],
+        [
+            "site",
+            "panel_id",
+            "event_reference_date",
+            "gpvs_detailed_model_source",
+            "gpvs_family_label",
+            "gpvs_detailed_top1_fault_type",
+            "gpvs_detailed_top1_score",
+            "gpvs_detailed_top2_fault_type",
+            "gpvs_detailed_top2_score",
+            "gpvs_detailed_margin",
+            "gpvs_detailed_status_ko",
+            "gpvs_detailed_reason_ko",
+        ],
+        GPVS_DETAILED_TYPE_INFERENCE_AUDIT_NAME,
+    )
+    ensure_columns(
+        frames["gpvs_detailed_type_realpanel_sanity"],
+        [
+            "site",
+            "panel_id",
+            "gpvs_family_label",
+            "gpvs_detailed_top1_fault_type",
+            "single_type_collapse_flag",
+            "attach_recommendation_ko",
+        ],
+        GPVS_DETAILED_TYPE_REALPANEL_SANITY_NAME,
+    )
     return normalize_frames(frames)
 
 
@@ -446,6 +549,14 @@ def validate_inputs(root: Path, frames: dict[str, pd.DataFrame]) -> None:
         raise SystemExit(f"{GPVS_ATTACH_CANDIDATES_NAME} must be unique by (site, panel_id): {dup.to_dict(orient='records')[:5]}")
     if frames["gpvs_attach_inventory"].empty:
         raise SystemExit(f"{GPVS_ATTACH_INVENTORY_NAME} must not be empty")
+    if len(frames["detailed_fault_bridge_summary"]) != 1:
+        raise SystemExit(
+            f"{DETAILED_FAULT_BRIDGE_SUMMARY_NAME} must contain exactly one row, found {len(frames['detailed_fault_bridge_summary'])}"
+        )
+    if len(frames["gpvs_bytype_rebuild_summary"]) != 1:
+        raise SystemExit(
+            f"{GPVS_BYTYPE_REBUILD_SUMMARY_NAME} must contain exactly one row, found {len(frames['gpvs_bytype_rebuild_summary'])}"
+        )
 
 
 def load_same_event_overlap_keys(frames: dict[str, pd.DataFrame]) -> set[tuple[str, str]]:
@@ -912,6 +1023,114 @@ def gpvs_unattached_reason(
     return "패널수준 GPVS 산출물 없음"
 
 
+def detailed_fault_type_label(code: str) -> str:
+    normalized = normalize_text(code)
+    if len(normalized) >= 2 and normalized[0] == "F" and normalized[1].isdigit():
+        family_idx = normalized[1]
+        if family_idx in {"1", "2", "3", "4", "5", "6", "7"}:
+            return f"GPVS Fault{family_idx}"
+    return normalized
+
+
+def detailed_fault_bridge_lookup(
+    audit_df: pd.DataFrame,
+    summary_df: pd.DataFrame,
+) -> tuple[dict[tuple[str, str], dict[str, str]], dict[str, int | str]]:
+    if audit_df[["site", "panel_id"]].duplicated().any():
+        dup = audit_df.loc[audit_df[["site", "panel_id"]].duplicated(keep=False), ["site", "panel_id"]]
+        raise SystemExit(
+            f"{DETAILED_FAULT_BRIDGE_AUDIT_NAME} must be unique by (site, panel_id): {dup.to_dict(orient='records')[:5]}"
+        )
+    lookup: dict[tuple[str, str], dict[str, str]] = {}
+    for row in audit_df.to_dict(orient="records"):
+        key = (normalize_text(row["site"]), normalize_text(row["panel_id"]))
+        lookup[key] = {column: normalize_text(value) for column, value in row.items()}
+    if len(lookup) != 6:
+        raise SystemExit(f"{DETAILED_FAULT_BRIDGE_AUDIT_NAME} must contain current fault panel 6 rows, found {len(lookup)}")
+
+    summary_row = summary_df.iloc[0]
+    meta = {
+        "fault_panel_count": int(pd.to_numeric(summary_row["고장패널수"], errors="raise")),
+        "attached_count": int(pd.to_numeric(summary_row["세부fault_부착수"], errors="raise")),
+        "held_count": int(pd.to_numeric(summary_row["세부fault_보류수"], errors="raise")),
+        "exact_match_count": int(pd.to_numeric(summary_row["exact_date_match_패널수"], errors="raise")),
+        "conflict_count": int(pd.to_numeric(summary_row["exact_date_conflict_패널수"], errors="raise")),
+        "miss_count": int(pd.to_numeric(summary_row["exact_date_miss_패널수"], errors="raise")),
+        "note_ko": normalize_text(summary_row["note_ko"]),
+    }
+    if meta["fault_panel_count"] != 6:
+        raise SystemExit(f"{DETAILED_FAULT_BRIDGE_SUMMARY_NAME} 고장패널수 must be 6, found {meta['fault_panel_count']}")
+    return lookup, meta
+
+
+def gpvs_detailed_type_attachment_lookup(
+    audit_df: pd.DataFrame,
+    sanity_df: pd.DataFrame,
+    rebuild_summary_df: pd.DataFrame,
+) -> tuple[dict[tuple[str, str], dict[str, str]], dict[str, int | str]]:
+    if audit_df[["site", "panel_id"]].duplicated().any():
+        dup = audit_df.loc[audit_df[["site", "panel_id"]].duplicated(keep=False), ["site", "panel_id"]]
+        raise SystemExit(
+            f"{GPVS_DETAILED_TYPE_INFERENCE_AUDIT_NAME} must be unique by (site, panel_id): {dup.to_dict(orient='records')[:5]}"
+        )
+    if sanity_df[["site", "panel_id"]].duplicated().any():
+        dup = sanity_df.loc[sanity_df[["site", "panel_id"]].duplicated(keep=False), ["site", "panel_id"]]
+        raise SystemExit(
+            f"{GPVS_DETAILED_TYPE_REALPANEL_SANITY_NAME} must be unique by (site, panel_id): {dup.to_dict(orient='records')[:5]}"
+        )
+
+    audit_lookup: dict[tuple[str, str], dict[str, str]] = {}
+    for row in audit_df.to_dict(orient="records"):
+        key = (normalize_text(row["site"]), normalize_text(row["panel_id"]))
+        audit_lookup[key] = {column: normalize_text(value) for column, value in row.items()}
+    sanity_lookup: dict[tuple[str, str], dict[str, str]] = {}
+    for row in sanity_df.to_dict(orient="records"):
+        key = (normalize_text(row["site"]), normalize_text(row["panel_id"]))
+        sanity_lookup[key] = {column: normalize_text(value) for column, value in row.items()}
+
+    if len(audit_lookup) != 6:
+        raise SystemExit(f"{GPVS_DETAILED_TYPE_INFERENCE_AUDIT_NAME} must contain current fault panel 6 rows, found {len(audit_lookup)}")
+    if len(sanity_lookup) != 6:
+        raise SystemExit(f"{GPVS_DETAILED_TYPE_REALPANEL_SANITY_NAME} must contain current fault panel 6 rows, found {len(sanity_lookup)}")
+
+    summary_row = rebuild_summary_df.iloc[0]
+    attachable_flag = int(pd.to_numeric(summary_row["current_recovered_attachable_flag"], errors="raise"))
+    recovered_exported_flag = int(pd.to_numeric(summary_row["recovered_model_exported_flag"], errors="raise"))
+    parity_status = normalize_text(summary_row["parity_overall_status_ko"])
+    note_ko = normalize_text(summary_row["note_ko"])
+
+    lookup: dict[tuple[str, str], dict[str, str]] = {}
+    attached_expected = 0
+    deferred_expected = 0
+    for key, audit_row in audit_lookup.items():
+        sanity_row = sanity_lookup.get(key)
+        attach_recommendation = normalize_text((sanity_row or {}).get("attach_recommendation_ko", ""))
+        model_source = normalize_text(audit_row.get("gpvs_detailed_model_source", ""))
+        guard_ok = (
+            attachable_flag == 1
+            and model_source == "recovered_artifact"
+            and attach_recommendation == "attach_ok"
+        )
+        merged = dict(audit_row)
+        merged["attach_recommendation_ko"] = attach_recommendation
+        merged["__guard_ok"] = "1" if guard_ok else "0"
+        lookup[key] = merged
+        if guard_ok:
+            attached_expected += 1
+        else:
+            deferred_expected += 1
+
+    return lookup, {
+        "fault_panel_count": 6,
+        "attached_count": attached_expected,
+        "deferred_count": deferred_expected,
+        "recovered_exported_flag": recovered_exported_flag,
+        "attachable_flag": attachable_flag,
+        "parity_status_ko": parity_status,
+        "note_ko": note_ko,
+    }
+
+
 def build_outputs(
     root: Path,
     frames: dict[str, pd.DataFrame],
@@ -924,6 +1143,15 @@ def build_outputs(
     same_event_overlap_keys = load_same_event_overlap_keys(frames)
     forensic_rule_case = load_forensic_rule_case(frames)
     fault_audit_by_key = fault_event_audit_lookup(frames)
+    detailed_fault_by_key, detailed_fault_meta = detailed_fault_bridge_lookup(
+        frames["detailed_fault_bridge_audit"],
+        frames["detailed_fault_bridge_summary"],
+    )
+    gpvs_detailed_type_by_key, gpvs_detailed_type_meta = gpvs_detailed_type_attachment_lookup(
+        frames["gpvs_detailed_type_audit"],
+        frames["gpvs_detailed_type_realpanel_sanity"],
+        frames["gpvs_bytype_rebuild_summary"],
+    )
     precursor_truth_by_key = precursor_truth_lookup(frames["precursor_truth"])
     forensic_rule_key = (FORENSIC_RULE_SITE, FORENSIC_RULE_PANEL_ID)
 
@@ -1044,6 +1272,67 @@ def build_outputs(
                 gpvs_candidate_file = normalize_text(gpvs_row.get("GPVS_후보파일_ko", "")) or gpvs_best_source
                 gpvs_expected_attach_count_applicable += 1
 
+        detailed_fault_row = detailed_fault_by_key.get(key)
+        if panel_fault_status == "고장":
+            if detailed_fault_row is None:
+                raise SystemExit(f"{DETAILED_FAULT_BRIDGE_AUDIT_NAME} missing fault panel row for {site}/{panel_id}")
+            detailed_attachable = int(
+                pd.to_numeric(pd.Series([detailed_fault_row["attachable_flag"]]), errors="coerce").fillna(0).iloc[0]
+            )
+            detailed_reference_date = normalize_text(detailed_fault_row["reference_date"])
+            detailed_files = normalize_text(detailed_fault_row["matched_files_csv"])
+            detailed_code = normalize_text(detailed_fault_row["consensus_fault_type_code"])
+            detailed_reason = normalize_text(detailed_fault_row["attach_reason_ko"])
+            if detailed_attachable == 1 and detailed_code:
+                detailed_status = "부착"
+                detailed_label = detailed_fault_type_label(detailed_code)
+                detailed_hold_reason = ""
+            else:
+                detailed_status = "보류"
+                detailed_code = ""
+                detailed_label = ""
+                detailed_hold_reason = detailed_reason
+        else:
+            detailed_status = "비대상"
+            detailed_code = ""
+            detailed_label = ""
+            detailed_files = ""
+            detailed_reference_date = ""
+            detailed_hold_reason = ""
+
+        gpvs_detailed_row = gpvs_detailed_type_by_key.get(key)
+        if panel_fault_status == "고장":
+            attach_guard_ok = gpvs_detailed_row is not None and normalize_text(gpvs_detailed_row.get("__guard_ok")) == "1"
+            if attach_guard_ok:
+                gpvs_detailed_code = normalize_text(gpvs_detailed_row["gpvs_detailed_top1_fault_type"])
+                gpvs_detailed_score = normalize_text(gpvs_detailed_row["gpvs_detailed_top1_score"])
+                gpvs_detailed_rank2 = normalize_text(gpvs_detailed_row["gpvs_detailed_top2_fault_type"])
+                gpvs_detailed_rank2_score = normalize_text(gpvs_detailed_row["gpvs_detailed_top2_score"])
+                gpvs_detailed_margin = normalize_text(gpvs_detailed_row["gpvs_detailed_margin"])
+                gpvs_detailed_attach_status = "부착"
+                gpvs_detailed_reason = "recovered_artifact by-type inference"
+                gpvs_detailed_caution = "family와 detailed type은 별도 축"
+            else:
+                gpvs_detailed_code = ""
+                gpvs_detailed_score = ""
+                gpvs_detailed_rank2 = ""
+                gpvs_detailed_rank2_score = ""
+                gpvs_detailed_margin = ""
+                gpvs_detailed_attach_status = "판정유보"
+                gpvs_detailed_reason = "attach guard 미충족"
+                gpvs_detailed_caution = ""
+            gpvs_detailed_status = gpvs_detailed_attach_status
+        else:
+            gpvs_detailed_code = ""
+            gpvs_detailed_score = ""
+            gpvs_detailed_rank2 = ""
+            gpvs_detailed_rank2_score = ""
+            gpvs_detailed_margin = ""
+            gpvs_detailed_status = "비대상"
+            gpvs_detailed_attach_status = "비대상"
+            gpvs_detailed_reason = ""
+            gpvs_detailed_caution = ""
+
         universe_parts: list[str] = []
         if flags["has_전조형고장"]:
             universe_parts.append("precursor onset truth positive universe 포함")
@@ -1073,6 +1362,18 @@ def build_outputs(
             caution_parts.append(gpvs_unattached_note or GPVS_ABSENCE_REASON)
         if gpvs_attach_status == "비대상":
             caution_parts.append(GPVS_NON_TARGET_REASON)
+        if detailed_status == "부착":
+            caution_parts.append(f"세부fault_type={detailed_label} ({detailed_code}) exact-date consensus 부착")
+        elif detailed_status == "보류":
+            caution_parts.append(f"세부fault_type 보류={detailed_hold_reason or 'unknown'}")
+        if gpvs_detailed_attach_status == "부착":
+            gpvs_detailed_score_part = f", score={gpvs_detailed_score}" if gpvs_detailed_score else ""
+            gpvs_detailed_margin_part = f", margin={gpvs_detailed_margin}" if gpvs_detailed_margin else ""
+            caution_parts.append(
+                f"GPVS learned by-type 세부fault={gpvs_detailed_code}{gpvs_detailed_score_part}{gpvs_detailed_margin_part}"
+            )
+        elif gpvs_detailed_attach_status == "판정유보":
+            caution_parts.append(f"GPVS learned by-type 세부fault 판정유보={gpvs_detailed_reason or 'unknown'}")
         if active_fault_audit_row is not None:
             caution_parts.append(
                 f"fault panel event audit 재판정={normalize_text(active_fault_audit_row['사건유형_재판정_ko'])}/{normalize_text(active_fault_audit_row['최종고장양상_재판정_ko'])}"
@@ -1133,6 +1434,21 @@ def build_outputs(
                 "GPVS_근거_ko": gpvs_reason,
                 "GPVS_미부착사유_ko": gpvs_unattached_note,
                 "GPVS_후보파일_ko": gpvs_candidate_file,
+                "GPVS_세부fault_code": gpvs_detailed_code,
+                "GPVS_세부fault_score": gpvs_detailed_score,
+                "GPVS_세부fault_rank2_code": gpvs_detailed_rank2,
+                "GPVS_세부fault_rank2_score": gpvs_detailed_rank2_score,
+                "GPVS_세부fault_margin": gpvs_detailed_margin,
+                "GPVS_세부fault_status_ko": gpvs_detailed_status,
+                "GPVS_세부fault_부착상태_ko": gpvs_detailed_attach_status,
+                "GPVS_세부fault_근거_ko": gpvs_detailed_reason,
+                "GPVS_세부fault_판정주의_ko": gpvs_detailed_caution,
+                "세부fault_type_code": detailed_code,
+                "세부fault_type_label_ko": detailed_label,
+                "세부fault_부착상태_ko": detailed_status,
+                "세부fault_근거파일_ko": detailed_files,
+                "세부fault_기준일": detailed_reference_date,
+                "세부fault_보류사유_ko": detailed_hold_reason,
                 "운영위치_ko": map_operating_location(workflow_row),
                 "판정주의_ko": " ".join(part for part in caution_parts if part),
             }
@@ -1234,6 +1550,16 @@ def build_outputs(
         "abrupt_eval_expected": len(abrupt_eval_keys),
         "common_expected": len(common_keys),
         "gpvs_expected_attach_count": gpvs_expected_attach_count_applicable,
+        "gpvs_detailed_attached_expected": int(gpvs_detailed_type_meta["attached_count"]),
+        "gpvs_detailed_deferred_expected": int(gpvs_detailed_type_meta["deferred_count"]),
+        "gpvs_detailed_impossible_expected": 0,
+        "gpvs_detailed_note": str(gpvs_detailed_type_meta["note_ko"]),
+        "detailed_fault_attached_expected": int(detailed_fault_meta["attached_count"]),
+        "detailed_fault_held_expected": int(detailed_fault_meta["held_count"]),
+        "detailed_fault_exact_match_expected": int(detailed_fault_meta["exact_match_count"]),
+        "detailed_fault_conflict_expected": int(detailed_fault_meta["conflict_count"]),
+        "detailed_fault_miss_expected": int(detailed_fault_meta["miss_count"]),
+        "detailed_fault_note": str(detailed_fault_meta["note_ko"]),
     }
     return verdict_df, event_supplement_df, cluster_supplement_df, metrics, gpvs_feasibility_meta
 
@@ -1298,6 +1624,12 @@ def validate_real_coverage(
     interpreted_precursor_membership = counts["사건해석_전조형_패널수"]
     common_membership = counts["공통원인이력_패널수"]
     gpvs_attached = int(verdict_df["GPVS_부착상태_ko"].eq("부착").sum())
+    gpvs_detailed_attached = int(verdict_df["GPVS_세부fault_부착상태_ko"].eq("부착").sum())
+    gpvs_detailed_deferred = int(verdict_df["GPVS_세부fault_부착상태_ko"].eq("판정유보").sum())
+    gpvs_detailed_nontarget = int(verdict_df["GPVS_세부fault_부착상태_ko"].eq("비대상").sum())
+    detailed_fault_attached = int(verdict_df["세부fault_부착상태_ko"].eq("부착").sum())
+    detailed_fault_held = int(verdict_df["세부fault_부착상태_ko"].eq("보류").sum())
+    detailed_fault_nontarget = int(verdict_df["세부fault_부착상태_ko"].eq("비대상").sum())
 
     if counts["고유_고장패널수"] != 6:
         raise SystemExit(f"고유_고장패널수 must be 6, found {counts['고유_고장패널수']}")
@@ -1323,6 +1655,26 @@ def validate_real_coverage(
         raise SystemExit(
             f"GPVS attached row count must equal applicable direct-match count {metrics['gpvs_expected_attach_count']}, found {gpvs_attached}"
         )
+    if gpvs_detailed_attached != int(metrics["gpvs_detailed_attached_expected"]):
+        raise SystemExit(
+            f"GPVS detailed attached row count must equal inference summary {metrics['gpvs_detailed_attached_expected']}, found {gpvs_detailed_attached}"
+        )
+    if gpvs_detailed_deferred != int(metrics["gpvs_detailed_deferred_expected"]):
+        raise SystemExit(
+            f"GPVS detailed deferred row count must equal inference summary {metrics['gpvs_detailed_deferred_expected']}, found {gpvs_detailed_deferred}"
+        )
+    if gpvs_detailed_nontarget != int(len(verdict_df) - counts["고유_고장패널수"]):
+        raise SystemExit("GPVS detailed non-target row count must equal non-fault/non-uncertain panel count")
+    if detailed_fault_attached != int(metrics["detailed_fault_attached_expected"]):
+        raise SystemExit(
+            f"세부fault attached row count must equal audit summary {metrics['detailed_fault_attached_expected']}, found {detailed_fault_attached}"
+        )
+    if detailed_fault_held != int(metrics["detailed_fault_held_expected"]):
+        raise SystemExit(
+            f"세부fault held row count must equal audit summary {metrics['detailed_fault_held_expected']}, found {detailed_fault_held}"
+        )
+    if detailed_fault_nontarget != int(len(verdict_df) - counts["고유_고장패널수"]):
+        raise SystemExit("세부fault non-target row count must equal non-fault/non-uncertain panel count")
     if verdict_df.loc[verdict_df["GPVS_적용대상_ko"].eq("적용대상"), "패널고장여부_ko"].ne("고장").any():
         raise SystemExit("GPVS applicable rows must be fault panels only")
     if verdict_df.loc[verdict_df["패널고장여부_ko"].eq("고장"), "GPVS_적용대상_ko"].ne("적용대상").any():
@@ -1341,6 +1693,57 @@ def validate_real_coverage(
         raise SystemExit("GPVS non-target rows must keep GPVS_후보파일_ko blank")
     if verdict_df.loc[verdict_df["GPVS_부착상태_ko"].eq("비대상"), "GPVS_미부착사유_ko"].ne(GPVS_NON_TARGET_REASON).any():
         raise SystemExit(f"GPVS non-target rows must keep GPVS_미부착사유_ko={GPVS_NON_TARGET_REASON}")
+    fault_gpvs_detailed = verdict_df.loc[verdict_df["패널고장여부_ko"].eq("고장")].copy()
+    if fault_gpvs_detailed["GPVS_세부fault_부착상태_ko"].isin(["부착", "판정유보"]).ne(True).any():
+        raise SystemExit("fault rows must keep GPVS_세부fault_부착상태_ko in {부착, 판정유보}")
+    if verdict_df.loc[verdict_df["패널고장여부_ko"].ne("고장"), "GPVS_세부fault_부착상태_ko"].map(normalize_text).ne("비대상").any():
+        raise SystemExit("non-fault rows must keep GPVS_세부fault_부착상태_ko=비대상")
+    if verdict_df["GPVS_세부fault_status_ko"].map(normalize_text).ne(verdict_df["GPVS_세부fault_부착상태_ko"].map(normalize_text)).any():
+        raise SystemExit("GPVS_세부fault_status_ko and GPVS_세부fault_부착상태_ko must stay synchronized")
+    if verdict_df.loc[verdict_df["GPVS_세부fault_부착상태_ko"].eq("부착"), "GPVS_세부fault_code"].map(normalize_text).eq("").any():
+        raise SystemExit("GPVS detailed attached rows must keep non-empty GPVS_세부fault_code")
+    if verdict_df.loc[verdict_df["GPVS_세부fault_부착상태_ko"].eq("판정유보"), "GPVS_세부fault_code"].map(normalize_text).ne("").any():
+        raise SystemExit("GPVS detailed deferred rows must keep empty GPVS_세부fault_code")
+    if verdict_df.loc[verdict_df["GPVS_세부fault_부착상태_ko"].eq("부착"), "GPVS_세부fault_rank2_score"].map(normalize_text).eq("").any():
+        raise SystemExit("GPVS detailed attached rows must keep non-empty GPVS_세부fault_rank2_score")
+    if verdict_df.loc[verdict_df["GPVS_세부fault_부착상태_ko"].eq("부착"), "GPVS_세부fault_판정주의_ko"].map(normalize_text).ne("family와 detailed type은 별도 축").any():
+        raise SystemExit("GPVS detailed attached rows must keep the separation caution note")
+    if verdict_df.loc[verdict_df["GPVS_세부fault_부착상태_ko"].isin(["부착", "판정유보"]), "GPVS_세부fault_근거_ko"].map(normalize_text).eq("").any():
+        raise SystemExit("fault rows with GPVS detailed inference status must keep non-empty GPVS_세부fault_근거_ko")
+    gpvs_detailed_nontarget_subset = verdict_df.loc[
+        verdict_df["패널고장여부_ko"].ne("고장"),
+        [
+            "GPVS_세부fault_code",
+            "GPVS_세부fault_score",
+            "GPVS_세부fault_rank2_code",
+            "GPVS_세부fault_rank2_score",
+            "GPVS_세부fault_margin",
+            "GPVS_세부fault_근거_ko",
+            "GPVS_세부fault_판정주의_ko",
+        ],
+    ].copy()
+    if not gpvs_detailed_nontarget_subset.empty:
+        gpvs_detailed_nontarget_subset = gpvs_detailed_nontarget_subset.apply(lambda column: column.map(normalize_text))
+    if gpvs_detailed_nontarget_subset.ne("").any().any():
+        raise SystemExit("non-fault rows must keep GPVS detailed inference columns blank")
+    if verdict_df.loc[verdict_df["패널고장여부_ko"].eq("고장"), "세부fault_부착상태_ko"].isin(["부착", "보류"]).ne(True).any():
+        raise SystemExit("fault rows must keep 세부fault_부착상태_ko in {부착, 보류}")
+    if verdict_df.loc[verdict_df["패널고장여부_ko"].ne("고장"), "세부fault_부착상태_ko"].ne("비대상").any():
+        raise SystemExit("non-fault rows must keep 세부fault_부착상태_ko=비대상")
+    if verdict_df.loc[verdict_df["세부fault_부착상태_ko"].eq("부착"), "세부fault_type_code"].map(normalize_text).eq("").any():
+        raise SystemExit("세부fault attached rows must keep non-empty 세부fault_type_code")
+    if verdict_df.loc[verdict_df["세부fault_부착상태_ko"].eq("부착"), "세부fault_type_label_ko"].map(normalize_text).eq("").any():
+        raise SystemExit("세부fault attached rows must keep non-empty 세부fault_type_label_ko")
+    if verdict_df.loc[verdict_df["세부fault_부착상태_ko"].eq("보류"), "세부fault_보류사유_ko"].map(normalize_text).eq("").any():
+        raise SystemExit("세부fault held rows must keep non-empty 세부fault_보류사유_ko")
+    detailed_nontarget_subset = verdict_df.loc[
+        verdict_df["세부fault_부착상태_ko"].eq("비대상"),
+        ["세부fault_type_code", "세부fault_type_label_ko", "세부fault_근거파일_ko", "세부fault_기준일", "세부fault_보류사유_ko"],
+    ].copy()
+    if not detailed_nontarget_subset.empty:
+        detailed_nontarget_subset = detailed_nontarget_subset.apply(lambda column: column.map(normalize_text))
+    if detailed_nontarget_subset.ne("").any().any():
+        raise SystemExit("세부fault non-target rows must keep detailed-fault columns blank")
 
     forensic_df = verdict_df.loc[
         verdict_df["site"].eq(FORENSIC_RULE_SITE) & verdict_df["panel_id"].eq(FORENSIC_RULE_PANEL_ID)
@@ -1370,6 +1773,22 @@ def validate_real_coverage(
         raise SystemExit("forensic target panel should not expose interpretation/evaluation mismatch text after benchmark sync")
     if FORENSIC_RULE_ONSET_DATE not in normalize_text(forensic_row["판정주의_ko"]) or FORENSIC_RULE_TRIGGER_DATE not in normalize_text(forensic_row["판정주의_ko"]):
         raise SystemExit("forensic target panel note must mention onset/trigger dates")
+    if normalize_text(forensic_row["GPVS_세부fault_code"]) != "F2M":
+        raise SystemExit("forensic target panel must keep GPVS_세부fault_code=F2M after recovered-artifact attachment")
+    if normalize_text(forensic_row["GPVS_세부fault_부착상태_ko"]) != "부착":
+        raise SystemExit("forensic target panel must keep GPVS_세부fault_부착상태_ko=부착")
+
+    special_10305_df = verdict_df.loc[
+        verdict_df["site"].eq("ktc_ess") & verdict_df["panel_id"].eq("10305b40-b67e-40d1-9cd1-271b6642a3d9.2.12")
+    ].copy()
+    if len(special_10305_df) > 1:
+        raise SystemExit("10305 real fault panel must appear at most once in main panel verdict table")
+    if len(special_10305_df) == 1:
+        special_10305_row = special_10305_df.iloc[0]
+        if normalize_text(special_10305_row["GPVS_참고유형_ko"]) != "불확실":
+            raise SystemExit("10305 row must keep GPVS_참고유형_ko=불확실")
+        if normalize_text(special_10305_row["GPVS_세부fault_code"]) != "F4L":
+            raise SystemExit("10305 row must keep GPVS_세부fault_code=F4L")
 
     overlap_rows = verdict_df.loc[
         verdict_df["전조평가셋편입_flag"].pipe(to_numeric_flag).eq(1)
@@ -1428,6 +1847,14 @@ def build_summary(
     gpvs_attached = int(verdict_df["GPVS_부착상태_ko"].eq("부착").sum())
     gpvs_unattached = int(verdict_df["GPVS_부착상태_ko"].eq("미부착").sum())
     gpvs_non_target = int(verdict_df["GPVS_부착상태_ko"].eq("비대상").sum())
+    gpvs_detailed_attached = int(verdict_df["GPVS_세부fault_부착상태_ko"].eq("부착").sum())
+    gpvs_detailed_deferred = int(verdict_df["GPVS_세부fault_부착상태_ko"].eq("판정유보").sum())
+    gpvs_detailed_nontarget = int(verdict_df["GPVS_세부fault_부착상태_ko"].eq("비대상").sum())
+    gpvs_detailed_f2m = int(verdict_df["GPVS_세부fault_code"].eq("F2M").sum())
+    gpvs_detailed_f4l = int(verdict_df["GPVS_세부fault_code"].eq("F4L").sum())
+    detailed_fault_attached = int(verdict_df["세부fault_부착상태_ko"].eq("부착").sum())
+    detailed_fault_held = int(verdict_df["세부fault_부착상태_ko"].eq("보류").sum())
+    detailed_fault_non_target = int(verdict_df["세부fault_부착상태_ko"].eq("비대상").sum())
     gpvs_reason_counts = (
         verdict_df.loc[verdict_df["GPVS_부착상태_ko"].eq("미부착"), "GPVS_미부착사유_ko"].value_counts().to_dict()
     )
@@ -1455,6 +1882,14 @@ def build_summary(
         "GPVS_미부착_패널key없음수": int(gpvs_reason_counts.get("GPVS 패널수준 후보 파일은 있으나 이 패널 key가 없음", 0)),
         "GPVS_미부착_key부족수": int(gpvs_reason_counts.get("GPVS 결과는 있으나 패널수준 key가 없음", 0)),
         "GPVS_미부착_산출물없음수": int(gpvs_reason_counts.get("패널수준 GPVS 산출물 없음", 0)),
+        "GPVS_세부fault_부착수": gpvs_detailed_attached,
+        "GPVS_세부fault_판정유보수": gpvs_detailed_deferred,
+        "GPVS_세부fault_추론불가수": 0,
+        "GPVS_세부fault_부착패널수": gpvs_detailed_attached,
+        "GPVS_세부fault_판정유보패널수": gpvs_detailed_deferred,
+        "GPVS_세부fault_비대상패널수": gpvs_detailed_nontarget,
+        "GPVS_세부fault_F2M_패널수": gpvs_detailed_f2m,
+        "GPVS_세부fault_F4L_패널수": gpvs_detailed_f4l,
         "사건보조행수": int(len(event_supplement_df)),
         "클러스터_보조행수": int(len(cluster_supplement_df)),
         "note_ko": (
@@ -1466,6 +1901,11 @@ def build_summary(
             "사건유형_해석_ko 와 평가셋 편입 flag를 분리해, 사건 해석과 evaluation-set inclusion을 같은 뜻으로 읽지 않게 한다. "
             "또한 운영상 최초 전조 발견일, 사건 해석상 전조 시작일, benchmark 전조 시작일을 분리해 onset date 의미를 섞지 않게 한다. "
             "event type과 terminal failure pattern은 분리해서 읽는다. "
+            f"GPVS 세부 fault는 learned GPVS by-type inference 결과를 recovered GPVS by-type artifact parity 일치 이후 real panel event date에 다시 적용해 현재 부착 {gpvs_detailed_attached}건 / 판정유보 {gpvs_detailed_deferred}건 / 비대상 {gpvs_detailed_nontarget}건이다. "
+            f"현재 code 분포는 F2M {gpvs_detailed_f2m}건, F4L {gpvs_detailed_f4l}건이다. "
+            "GPVS family label 과 GPVS detailed fault code 는 별도 축이며, family 불확실이더라도 recovered by-type inference attach guard를 통과하면 detailed type은 부착할 수 있다. "
+            "공식 detailed-fault attachment source 는 recovered GPVS by-type inference 이고, 과거 PVFAULT exact-date bridge 경로는 audit-only 실패 경로로 retire 했다. "
+            "이 세부 fault 축은 GPVS family reference 와 별개로 읽는다. "
             f"사건이력 보조표는 panel이 여러 사건군에 속하거나 전조형 고장이 급격 종료로 끝난 경우를 함께 남긴다. {gpvs_note} unmatched panel은 row-by-row 미부착 사유를 함께 남긴다."
         ),
     }
