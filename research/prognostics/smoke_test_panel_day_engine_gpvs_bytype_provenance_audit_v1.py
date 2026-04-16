@@ -274,6 +274,8 @@ def main() -> None:
         assert_true("# 2. 원본 모델 복구 가능 여부" in note_text, "note section 2 missing")
         assert_true("# 3. 왜 fallback_lr를 붙이면 안 되는지" in note_text, "note section 3 missing")
         assert_true("# 4. 다음에 정말 필요한 것" in note_text, "note section 4 missing")
+        assert_true("fallback_lr" in note_text, "note should explicitly mention fallback_lr surrogate")
+        assert_true("current_fallback_lr_attachable_flag" in note_text, "note should mention fallback attachability")
 
     after = {path: file_digest(path) for path in official_outputs}
     assert_true(before == after, "official outputs changed during smoke test")

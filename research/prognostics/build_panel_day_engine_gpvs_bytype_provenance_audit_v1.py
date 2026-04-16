@@ -112,7 +112,18 @@ def collect_serialized_artifacts(root: Path) -> list[Path]:
         if not base.exists():
             continue
         for pattern in SERIALIZED_PATTERNS:
-            hits.extend(path for path in base.rglob(pattern) if path.is_file())
+            for path in base.rglob(pattern):
+                if not path.is_file():
+                    continue
+                name = path.name.lower()
+                rel = relative_str(path, root).lower()
+                if path.suffix.lower() == ".json":
+                    # Keep JSON only when it looks like an exported model bundle, not a manifest.
+                    if "manifest" in name:
+                        continue
+                    if not any(token in rel for token in ["model", "artifact", "bundle", "bytype", "fault_type"]):
+                        continue
+                hits.append(path)
     return sorted({path.resolve() for path in hits})
 
 
@@ -455,6 +466,7 @@ def build_summary(root: Path, inventory_flags: dict[str, object]) -> pd.DataFram
         f"external_eval_trains_model={int(inventory_flags['external_eval_trains_model_flag'])}, "
         f"external_eval_precomputed_scores_only={int(inventory_flags['external_eval_precomputed_scores_only_flag'])}. "
         f"current_real_fault_panel_count={current_context['real_fault_panel_count']}. "
+        f"current_audit_uses_fallback_model={int(current_context['fallback_model_flag'])}. "
         f"fallback_top1_collapse_flag={collapse_flag}, grouped_cv_degenerate_flag={grouped_cv_degenerate_flag}, "
         f"unique_source_count_per_fault_type_is_one_flag={unique_source_all_one_flag}. "
         f"따라서 current_fallback_lr_attachable_flag={current_fallback_lr_attachable_flag}."
@@ -491,6 +503,8 @@ def build_note(root: Path, inventory_df: pd.DataFrame, summary_df: pd.DataFrame)
         inventory_df["exists_flag"].eq(1)
         & inventory_df["artifact_kind"].isin(
             [
+                "serialized_model",
+                "feature_manifest",
                 "evaluation_script",
                 "training_script",
                 "score_frame",
@@ -514,6 +528,8 @@ def build_note(root: Path, inventory_df: pd.DataFrame, summary_df: pd.DataFrame)
     grouped_cv_degenerate_flag = int(summary["grouped_cv_degenerate_flag"])
     unique_source_flag = int(summary["unique_source_count_per_fault_type_is_one_flag"])
     attachable_flag = int(summary["current_fallback_lr_attachable_flag"])
+    current_context = load_current_fallback_context(root)
+    current_audit_uses_fallback_model = int(current_context["fallback_model_flag"])
 
     lines = [
         "# 1. 현재 확인된 by-type 자산",
@@ -522,10 +538,29 @@ def build_note(root: Path, inventory_df: pd.DataFrame, summary_df: pd.DataFrame)
         "# 2. 원본 모델 복구 가능 여부",
         f"- 현재 provenance_status 는 `{status}` 이다.",
         f"- serialized by-type model artifact 발견 여부는 `{serialized_found}` 이고, feature manifest 발견 여부는 `{manifest_found}` 이다.",
-        "- 따라서 지금 repo/local output 자산만으로는 `original_trained_head_recovered` 라고 말할 수 없다.",
-        "",
-        "# 3. 왜 fallback_lr를 붙이면 안 되는지",
-        "- 현재 detailed-type audit 기준 real fault panel 6건의 top1 이 모두 `F4L` 로 collapse 한다.",
+    ]
+    if status == "original_trained_head_recovered":
+        lines.append(
+            "- 현재 repo/local output 자산 안에는 recovered export 형태의 by-type model + feature manifest 가 있어, recoverable head 는 확인된다."
+        )
+    else:
+        lines.append("- 따라서 지금 repo/local output 자산만으로는 recoverable by-type head 가 충분히 확인되지 않는다.")
+    lines.extend(
+        [
+            "",
+            "# 3. 왜 fallback_lr를 붙이면 안 되는지",
+        ]
+    )
+    if current_audit_uses_fallback_model:
+        lines.append("- 현재 detailed-type audit 이 fallback_lr 경로를 사용 중이라, surrogate generalization 상태를 그대로 봐야 한다.")
+    else:
+        lines.append("- 현재 detailed-type audit 은 recovered artifact 를 쓰고 있더라도, fallback_lr surrogate 자체의 신뢰성 평가는 별도로 유지해야 한다.")
+    if collapse_flag:
+        lines.append("- fallback_lr 기준 real fault panel top1 이 한 label로 collapse 하는 신호가 관측됐다.")
+    else:
+        lines.append("- 현재 실산출물은 collapse 상태가 아니더라도, fallback_lr surrogate 자체는 아래 조건 때문에 여전히 attach 불가다.")
+    lines.extend(
+        [
         f"- grouped CV degenerate flag 는 `{grouped_cv_degenerate_flag}` 이고, fault_type별 unique_source_count==1 flag 는 `{unique_source_flag}` 이다.",
         f"- 그래서 current_fallback_lr_attachable_flag 는 `{attachable_flag}` 이며, main verdict attachment 용도로 쓰면 안 된다.",
         "",
@@ -534,7 +569,8 @@ def build_note(root: Path, inventory_df: pd.DataFrame, summary_df: pd.DataFrame)
         "- 실제 inference 시 쓰였던 정확한 feature manifest / preprocessing manifest",
         "- real panel feature frame을 original by-type head 입력으로 연결하는 재현 가능한 inference path",
         "- source diversity 와 scenario provenance 가 보이는 학습 자산",
-    ]
+        ]
+    )
     if collapse_flag:
         lines.insert(
             len(lines) - 5,
