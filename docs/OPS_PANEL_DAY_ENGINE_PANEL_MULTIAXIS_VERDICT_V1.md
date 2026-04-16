@@ -22,6 +22,10 @@
 - `_share/panel_day_engine_gpvs_bytype_rebuild_summary_v1.csv`
 - `_share/panel_day_engine_gpvs_detailed_type_inference_audit_v1.csv`
 - `_share/panel_day_engine_gpvs_detailed_type_realpanel_sanity_v1.csv`
+- `_share/panel_day_engine_gpvs_mlpe_panel_agreement_v1.csv`
+- `_share/panel_day_engine_gpvs_canonical_dictionary_v1.csv`
+- `_share/panel_day_engine_gpvs_mlpe_fault_matching_table_v1.csv`
+- `_share/panel_day_engine_gpvs_mlpe_compatibility_summary_v1.csv`
 - `_share/panel_day_engine_detailed_fault_bridge_audit_v1.csv`
 - `_share/panel_day_engine_detailed_fault_bridge_summary_v1.csv`
 - `_share/panel_day_engine_kernellog_project_mapping_v1.csv`
@@ -194,7 +198,17 @@
     - `패널수준 GPVS 산출물 없음`
 - GPVS 는 여전히 reference axis 이고, 메인 사건 성격 판정축이 아니다.
 - current panel universe 와 겹치지 않는 panel 에까지 GPVS type 을 억지로 붙이면 안 된다.
-- 그래서 본표는 GPVS가 붙은 panel 과 안 붙은 panel 을 같이 두되, 안 붙은 경우도 왜 안 붙는지 한 줄씩 투명하게 남긴다.
+- 다만 front-facing 본표는 low-level provenance/code를 그대로 노출하지 않는다.
+- 본표가 직접 보여 주는 GPVS 컬럼은 아래 네 개다.
+  - `GPVS_내부참고유형_ko`
+    - 우리 시스템 내부 해석 layer
+  - `GPVS_외부참조패턴_ko`
+    - 외부 GPVS 실험에서 닮은 canonical pattern group
+  - `GPVS_참조사용등급_ko`
+    - 해당 패널에서 reference로 얼마나 믿을 수 있는지
+  - `GPVS_참조설명_ko`
+    - front-facing human-readable 설명
+- 즉 main verdict 표는 `내부 해석 family` 와 `외부 참조 pattern` 을 같이 보여 주되, GPVS를 direct root-cause classifier로 읽지 않게 한다.
 
 ## GPVS 세부 fault 추론 축
 - GPVS family 축과 별도로 recovered GPVS by-type artifact 기반 세부 fault 축을 추가한다.
@@ -208,24 +222,19 @@
   - sanity row 의 `attach_recommendation_ko = attach_ok`
 - synthetic `PVFAULT_labels_day.csv` panel id bridge 는 이 축의 direct source 로 쓰지 않는다.
 - 따라서 기존 `세부fault_*` exact-date bridge 축과도 다른 별도 축으로 읽어야 한다.
-- 본표에는 아래 컬럼을 둔다.
-  - `GPVS_세부fault_code`
-  - `GPVS_세부fault_score`
-  - `GPVS_세부fault_rank2_code`
-  - `GPVS_세부fault_rank2_score`
-  - `GPVS_세부fault_margin`
-  - `GPVS_세부fault_부착상태_ko`
-  - `GPVS_세부fault_근거_ko`
-  - `GPVS_세부fault_판정주의_ko`
+- low-level by-type code, rank, margin, 시나리오 family/name/description/mode/warning 은 audit/provenance 파일에 남긴다.
+- front-facing main verdict 표는 이 low-level 세부코드를 그대로 보여 주지 않고, canonicalized external reference pattern만 노출한다.
 - 고장 panel:
   - guard 통과 시 `부착`
   - guard 미충족 시 `판정유보`
 - 비고장/미확정 panel:
   - `비대상`
-- `GPVS_참고유형_ko` 와 `GPVS_세부fault_code` 는 같은 뜻이 아니다.
+- `GPVS_내부참고유형_ko` 와 `GPVS_외부참조패턴_ko` 는 같은 뜻이 아니다.
 - family uncertainty 가 자동으로 detailed type attachment 를 막지 않는다.
-  - 예: `10305...2.12` 는 `GPVS_참고유형_ko = 불확실` 이어도 recovered by-type attach guard 를 통과하면 `GPVS_세부fault_code = F4L` 을 함께 가질 수 있다.
-- 이 축이 현재 main verdict 의 공식 detailed-fault attachment source 다.
+  - 예: `10305...2.12` 는 내부참고유형이 `불확실` 이어도 external reference pattern 은 `패널·어레이 mismatch 참조` 로 붙을 수 있다.
+- external reference pattern 은 recovered GPVS by-type inference 와 canonical dictionary/matching policy를 거쳐 front-facing 이름으로 다시 표현한 것이다.
+- 따라서 `F2M/F4L` raw code 를 실제 패널 물리 root cause 이름으로 번역하면 안 되고, front-facing 표에서는 `참조 패턴` 으로만 읽어야 한다.
+- old PVFAULT exact-date bridge attempt 는 audit-only retired path 이고, official detailed-fault attachment source 는 recovered GPVS by-type inference 다.
 
 ## 세부 fault code 축
 - 세부 fault type exact-date bridge 는 과거 audit-only 시도였고, 현재는 retired path 로 본다.
@@ -249,8 +258,9 @@
   - 그 외는 raw code 그대로 둔다.
 - 이 label 은 code readability 용일 뿐, 물리 의미를 새로 해석해 붙이지 않는다.
 - 정리하면:
-  - `GPVS_참고유형_ko` = family axis
-  - `GPVS_세부fault_code` = 공식 detailed-fault axis
+  - `GPVS_참고유형_ko` = 내부 해석 family axis
+  - `GPVS_세부fault_code` = 외부 GPVS 실험 시나리오 axis
+  - `GPVS_시나리오_*` = external scenario code 를 사람이 읽기 쉽게 푼 설명 축
   - `세부fault_type_code` = retired exact-date bridge audit residue
 
 ## 운영 위치

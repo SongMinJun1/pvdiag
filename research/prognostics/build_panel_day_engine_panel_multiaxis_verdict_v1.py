@@ -27,6 +27,10 @@ DETAILED_FAULT_BRIDGE_SUMMARY_NAME = "panel_day_engine_detailed_fault_bridge_sum
 GPVS_BYTYPE_REBUILD_SUMMARY_NAME = "panel_day_engine_gpvs_bytype_rebuild_summary_v1.csv"
 GPVS_DETAILED_TYPE_INFERENCE_AUDIT_NAME = "panel_day_engine_gpvs_detailed_type_inference_audit_v1.csv"
 GPVS_DETAILED_TYPE_REALPANEL_SANITY_NAME = "panel_day_engine_gpvs_detailed_type_realpanel_sanity_v1.csv"
+GPVS_MLPE_PANEL_AGREEMENT_NAME = "panel_day_engine_gpvs_mlpe_panel_agreement_v1.csv"
+GPVS_CANONICAL_DICTIONARY_NAME = "panel_day_engine_gpvs_canonical_dictionary_v1.csv"
+GPVS_MLPE_FAULT_MATCHING_TABLE_NAME = "panel_day_engine_gpvs_mlpe_fault_matching_table_v1.csv"
+GPVS_MLPE_COMPATIBILITY_SUMMARY_NAME = "panel_day_engine_gpvs_mlpe_compatibility_summary_v1.csv"
 
 VERDICT_OUTPUT_NAME = "panel_day_engine_panel_multiaxis_verdict_v1.csv"
 EVENT_SUPPLEMENT_OUTPUT_NAME = "panel_day_engine_panel_multiaxis_event_supplement_v1.csv"
@@ -59,19 +63,10 @@ VERDICT_COLS = [
     "커널로그_증상명_ko",
     "커널로그_원인군_ko",
     "GPVS_부착상태_ko",
-    "GPVS_참고유형_ko",
-    "GPVS_근거_ko",
-    "GPVS_미부착사유_ko",
-    "GPVS_후보파일_ko",
-    "GPVS_세부fault_code",
-    "GPVS_세부fault_score",
-    "GPVS_세부fault_rank2_code",
-    "GPVS_세부fault_rank2_score",
-    "GPVS_세부fault_margin",
-    "GPVS_세부fault_status_ko",
-    "GPVS_세부fault_부착상태_ko",
-    "GPVS_세부fault_근거_ko",
-    "GPVS_세부fault_판정주의_ko",
+    "GPVS_내부참고유형_ko",
+    "GPVS_외부참조패턴_ko",
+    "GPVS_참조사용등급_ko",
+    "GPVS_참조설명_ko",
     "세부fault_type_code",
     "세부fault_type_label_ko",
     "세부fault_부착상태_ko",
@@ -151,6 +146,81 @@ PANEL_LEVEL_PREVIEW_CLASSES = {"queue_run", "watch_now_panel"}
 CLUSTER_PREVIEW_CLASS = "secondary_value_cluster"
 GPVS_ABSENCE_REASON = "현재 저장 산출물에는 패널별 GPVS 직접 판정이 없음"
 GPVS_NON_TARGET_REASON = "고장 패널이 아니어서 GPVS 적용 대상 아님"
+GPVS_SCENARIO_WARNING = "외부 GPVS 실험 시나리오 설명이며 실제 패널의 물리 root cause를 직접 뜻하지 않음"
+GPVS_REFERENCE_ONLY_NOTE = "GPVS는 direct root-cause classifier가 아니라 reference layer로만 사용"
+GPVS_FRONT_PATTERN_NAME_MAP = {
+    "F0": "정상 기준선",
+    "F1": "인버터/전력변환 이상 패턴",
+    "F2": "제어·계측 이상 힌트",
+    "F3": "계통 교란 플래그",
+    "F4": "패널·어레이 mismatch 참조",
+    "F5": "부분 개방·접속 이상 참조",
+    "F6": "제어기 gain 이상 패턴",
+    "F7": "제어기 시정수 이상 패턴",
+}
+GPVS_FRONT_DESCRIPTION_MAP = {
+    "F0": "비고장 기준 패턴으로 다른 패널의 drift 비교 기준",
+    "F1": "현재 패널 단독표 직접 해석보다 시스템/통합 결과표 후보로만 보류",
+    "F2": "제어 피드백 센서 이상과 유사한 패턴으로, 패널 물리 고장이라기보다 제어·계측 경로 이상 힌트로만 사용",
+    "F3": "외부 계통 변동/순간 저전압과 유사한 교란 이벤트 패턴",
+    "F4": "일부 패널 불균형이 나타나는 패턴으로, 부분 음영뿐 아니라 오염·열화·다이오드/접속 이상 등과 유사하게 보일 수 있음",
+    "F5": "부분 개방회로/접속 약화처럼 보이는 mismatch 패턴으로, 커넥터 이탈·접점 불량·내부 단선과 더 잘 이어짐",
+    "F6": "현재 패널 단독표 직접 해석보다 시스템/통합 결과표 후보로만 보류",
+    "F7": "현재 패널 단독표 직접 해석보다 시스템/통합 결과표 후보로만 보류",
+}
+GPVS_REFERENCE_GRADE_MAP = {
+    "참고가능": "참고가능",
+    "주의참고": "주의참고",
+    "비권장": "비권장",
+}
+
+GPVS_SCENARIO_FAMILY_MAP = {
+    "F0": {
+        "family": "정상 기준",
+        "name": "정상 운전 시나리오",
+        "description": "fault를 넣지 않은 기준 실험 상태",
+    },
+    "F1": {
+        "family": "인버터/전력변환부 이상",
+        "name": "인버터 전력소자 이상 시나리오",
+        "description": "인버터 내부 IGBT 등 전력소자 고장으로 전력변환 경로 자체가 깨지는 상황",
+    },
+    "F2": {
+        "family": "제어·계측 이상",
+        "name": "제어 피드백 센서 이상 시나리오",
+        "description": "전류/전압 피드백 센서 이상으로 제어기가 실제 상태를 잘못 읽어 MPPT 또는 인버터 제어가 어긋나는 상황",
+    },
+    "F3": {
+        "family": "계통 이상",
+        "name": "계통 전압 이상 시나리오",
+        "description": "외부 계통 측 간헐적 전압 sag 등으로 운전 안정성이 흔들리는 상황",
+    },
+    "F4": {
+        "family": "PV 어레이 이상",
+        "name": "PV 어레이 mismatch(부분 음영) 시나리오",
+        "description": "일부 패널이 부분 음영을 받아 어레이 내 전압·전류 균형이 깨지는 상황",
+    },
+    "F5": {
+        "family": "PV 어레이 이상",
+        "name": "PV 어레이 mismatch(부분 개방회로) 시나리오",
+        "description": "PV 어레이 일부에 open-circuit 성격 이상이 생겨 어레이 균형이 깨지는 상황",
+    },
+    "F6": {
+        "family": "제어기 이상",
+        "name": "부스트 컨버터 PI gain 이상 시나리오",
+        "description": "PI 제어기의 gain 설정 이상으로 제어 응답이 비정상화되는 상황",
+    },
+    "F7": {
+        "family": "제어기 이상",
+        "name": "부스트 컨버터 PI 시정수 이상 시나리오",
+        "description": "PI 제어기의 time constant 이상으로 응답 속도와 안정화 과정이 비정상화되는 상황",
+    },
+}
+
+GPVS_SCENARIO_MODE_MAP = {
+    "L": "제한출력 운전(IPPT)",
+    "M": "최대전력점 추종 운전(MPPT)",
+}
 
 EVENT_HISTORY_ORDER = [
     "전조형 고장",
@@ -270,6 +340,79 @@ def to_numeric_flag(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce").fillna(0)
 
 
+def gpvs_scenario_fields(gpvs_detailed_code: object) -> dict[str, str]:
+    code = normalize_text(gpvs_detailed_code)
+    blank = {
+        "GPVS_시나리오_family_ko": "",
+        "GPVS_시나리오명_ko": "",
+        "GPVS_시나리오_고장상황설명_ko": "",
+        "GPVS_운전모드_ko": "",
+        "GPVS_해석주의_ko": "",
+    }
+    if not code:
+        return blank
+
+    prefix = code[:2] if len(code) >= 2 else ""
+    suffix = code[-1] if len(code) >= 1 else ""
+    scenario_meta = GPVS_SCENARIO_FAMILY_MAP.get(prefix)
+    if scenario_meta is None:
+        return {
+            "GPVS_시나리오_family_ko": "",
+            "GPVS_시나리오명_ko": f"외부 GPVS 시나리오 {code}",
+            "GPVS_시나리오_고장상황설명_ko": "공식 GPVS 시나리오 map에 직접 등록되지 않은 코드",
+            "GPVS_운전모드_ko": GPVS_SCENARIO_MODE_MAP.get(suffix, ""),
+            "GPVS_해석주의_ko": GPVS_SCENARIO_WARNING,
+        }
+    return {
+        "GPVS_시나리오_family_ko": scenario_meta["family"],
+        "GPVS_시나리오명_ko": scenario_meta["name"],
+        "GPVS_시나리오_고장상황설명_ko": scenario_meta["description"],
+        "GPVS_운전모드_ko": GPVS_SCENARIO_MODE_MAP.get(suffix, ""),
+        "GPVS_해석주의_ko": GPVS_SCENARIO_WARNING,
+    }
+
+
+def canonical_gpvs_code(gpvs_detailed_code: object) -> str:
+    code = normalize_text(gpvs_detailed_code).upper()
+    if len(code) < 2 or not code.startswith("F"):
+        return ""
+    canonical = code[:2]
+    return canonical if canonical in GPVS_FRONT_PATTERN_NAME_MAP else ""
+
+
+def gpvs_front_facing_fields(
+    *,
+    panel_fault_status: str,
+    gpvs_type: str,
+    gpvs_detailed_code: str,
+    panel_agreement_row: dict[str, str] | None,
+) -> dict[str, str]:
+    blank = {
+        "GPVS_내부참고유형_ko": "",
+        "GPVS_외부참조패턴_ko": "",
+        "GPVS_참조사용등급_ko": "",
+        "GPVS_참조설명_ko": "",
+    }
+    if panel_fault_status != "고장":
+        return blank
+
+    canonical_code = canonical_gpvs_code(gpvs_detailed_code)
+    internal_type = normalize_text(gpvs_type)
+    usefulness = ""
+    if panel_agreement_row is not None:
+        usefulness = GPVS_REFERENCE_GRADE_MAP.get(
+            normalize_text(panel_agreement_row.get("overall_gpvs_reference_usefulness_ko", "")),
+            "",
+        )
+
+    return {
+        "GPVS_내부참고유형_ko": "" if internal_type in {"", "미부착", "비대상"} else internal_type,
+        "GPVS_외부참조패턴_ko": GPVS_FRONT_PATTERN_NAME_MAP.get(canonical_code, ""),
+        "GPVS_참조사용등급_ko": usefulness,
+        "GPVS_참조설명_ko": GPVS_FRONT_DESCRIPTION_MAP.get(canonical_code, ""),
+    }
+
+
 def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
     share_dir = root / "_share"
     frames = {
@@ -294,6 +437,10 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         "gpvs_bytype_rebuild_summary": read_csv(share_dir / GPVS_BYTYPE_REBUILD_SUMMARY_NAME),
         "gpvs_detailed_type_audit": read_csv(share_dir / GPVS_DETAILED_TYPE_INFERENCE_AUDIT_NAME),
         "gpvs_detailed_type_realpanel_sanity": read_csv(share_dir / GPVS_DETAILED_TYPE_REALPANEL_SANITY_NAME),
+        "gpvs_mlpe_panel_agreement": read_csv(share_dir / GPVS_MLPE_PANEL_AGREEMENT_NAME),
+        "gpvs_canonical_dictionary": read_csv(share_dir / GPVS_CANONICAL_DICTIONARY_NAME),
+        "gpvs_mlpe_fault_matching": read_csv(share_dir / GPVS_MLPE_FAULT_MATCHING_TABLE_NAME),
+        "gpvs_mlpe_compatibility_summary": read_csv(share_dir / GPVS_MLPE_COMPATIBILITY_SUMMARY_NAME),
     }
 
     ensure_columns(
@@ -505,6 +652,47 @@ def load_inputs(root: Path) -> dict[str, pd.DataFrame]:
         ],
         GPVS_DETAILED_TYPE_REALPANEL_SANITY_NAME,
     )
+    ensure_columns(
+        frames["gpvs_mlpe_panel_agreement"],
+        [
+            "site",
+            "panel_id",
+            "overall_gpvs_reference_usefulness_ko",
+            "overall_gpvs_trust_note_ko",
+        ],
+        GPVS_MLPE_PANEL_AGREEMENT_NAME,
+    )
+    ensure_columns(
+        frames["gpvs_canonical_dictionary"],
+        [
+            "canonical_gpvs_code",
+            "current_usage_tier_ko",
+            "mlpe_reference_name_ko",
+            "usage_rule_ko",
+            "note_ko",
+        ],
+        GPVS_CANONICAL_DICTIONARY_NAME,
+    )
+    ensure_columns(
+        frames["gpvs_mlpe_fault_matching"],
+        [
+            "mlpe_official_fault_ko",
+            "canonical_gpvs_code",
+            "match_strength_ko",
+            "match_role_ko",
+            "recommendation_ko",
+        ],
+        GPVS_MLPE_FAULT_MATCHING_TABLE_NAME,
+    )
+    ensure_columns(
+        frames["gpvs_mlpe_compatibility_summary"],
+        [
+            "fault_panel_count",
+            "final_recommendation_ko",
+            "note_ko",
+        ],
+        GPVS_MLPE_COMPATIBILITY_SUMMARY_NAME,
+    )
     return normalize_frames(frames)
 
 
@@ -556,6 +744,27 @@ def validate_inputs(root: Path, frames: dict[str, pd.DataFrame]) -> None:
     if len(frames["gpvs_bytype_rebuild_summary"]) != 1:
         raise SystemExit(
             f"{GPVS_BYTYPE_REBUILD_SUMMARY_NAME} must contain exactly one row, found {len(frames['gpvs_bytype_rebuild_summary'])}"
+        )
+    if len(frames["gpvs_mlpe_compatibility_summary"]) != 1:
+        raise SystemExit(
+            f"{GPVS_MLPE_COMPATIBILITY_SUMMARY_NAME} must contain exactly one row, found {len(frames['gpvs_mlpe_compatibility_summary'])}"
+        )
+    compatibility_recommendation = normalize_text(
+        frames["gpvs_mlpe_compatibility_summary"].iloc[0]["final_recommendation_ko"]
+    )
+    if compatibility_recommendation != "참고축으로만 사용":
+        raise SystemExit(
+            f"{GPVS_MLPE_COMPATIBILITY_SUMMARY_NAME} final_recommendation_ko must be 참고축으로만 사용, got {compatibility_recommendation or '<blank>'}"
+        )
+    canonical_codes = {
+        normalize_text(value)
+        for value in frames["gpvs_canonical_dictionary"]["canonical_gpvs_code"].tolist()
+        if normalize_text(value)
+    }
+    missing_canonical_codes = sorted(set(GPVS_FRONT_PATTERN_NAME_MAP) - canonical_codes)
+    if missing_canonical_codes:
+        raise SystemExit(
+            f"{GPVS_CANONICAL_DICTIONARY_NAME} missing canonical codes required by front-facing GPVS map: {missing_canonical_codes}"
         )
 
 
@@ -1131,10 +1340,28 @@ def gpvs_detailed_type_attachment_lookup(
     }
 
 
+def gpvs_reference_front_lookup(
+    panel_agreement_df: pd.DataFrame,
+) -> dict[tuple[str, str], dict[str, str]]:
+    if panel_agreement_df[["site", "panel_id"]].duplicated().any():
+        dup = panel_agreement_df.loc[
+            panel_agreement_df[["site", "panel_id"]].duplicated(keep=False),
+            ["site", "panel_id"],
+        ]
+        raise SystemExit(
+            f"{GPVS_MLPE_PANEL_AGREEMENT_NAME} must be unique by (site, panel_id): {dup.to_dict(orient='records')[:5]}"
+        )
+    lookup: dict[tuple[str, str], dict[str, str]] = {}
+    for row in panel_agreement_df.to_dict(orient="records"):
+        key = (normalize_text(row["site"]), normalize_text(row["panel_id"]))
+        lookup[key] = {column: normalize_text(value) for column, value in row.items()}
+    return lookup
+
+
 def build_outputs(
     root: Path,
     frames: dict[str, pd.DataFrame],
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, int], str]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, int | str], dict[str, str]]:
     workflow_panel_df = build_workflow_panel_df(frames["workflow"])
     cluster_df = build_cluster_df(frames["workflow"])
     workflow_by_key = workflow_lookup(workflow_panel_df)
@@ -1152,6 +1379,7 @@ def build_outputs(
         frames["gpvs_detailed_type_realpanel_sanity"],
         frames["gpvs_bytype_rebuild_summary"],
     )
+    gpvs_reference_front_by_key = gpvs_reference_front_lookup(frames["gpvs_mlpe_panel_agreement"])
     precursor_truth_by_key = precursor_truth_lookup(frames["precursor_truth"])
     forensic_rule_key = (FORENSIC_RULE_SITE, FORENSIC_RULE_PANEL_ID)
 
@@ -1402,6 +1630,16 @@ def build_outputs(
             caution_parts.append(" / ".join(onset_split_parts))
         if normalize_text(interpretation["해석대평가차이_ko"]):
             caution_parts.append(normalize_text(interpretation["해석대평가차이_ko"]))
+        gpvs_scenario_info = gpvs_scenario_fields(gpvs_detailed_code)
+        gpvs_reference_front_row = gpvs_reference_front_by_key.get(key)
+        if panel_fault_status == "고장" and gpvs_reference_front_row is None:
+            raise SystemExit(f"{GPVS_MLPE_PANEL_AGREEMENT_NAME} missing fault panel row for {site}/{panel_id}")
+        gpvs_front_fields = gpvs_front_facing_fields(
+            panel_fault_status=panel_fault_status,
+            gpvs_type=gpvs_type,
+            gpvs_detailed_code=gpvs_detailed_code,
+            panel_agreement_row=gpvs_reference_front_row,
+        )
 
         panel_rows.append(
             {
@@ -1430,6 +1668,10 @@ def build_outputs(
                 "커널로그_증상명_ko": kernel_symptom,
                 "커널로그_원인군_ko": kernel_cause_group,
                 "GPVS_부착상태_ko": gpvs_attach_status,
+                "GPVS_내부참고유형_ko": gpvs_front_fields["GPVS_내부참고유형_ko"],
+                "GPVS_외부참조패턴_ko": gpvs_front_fields["GPVS_외부참조패턴_ko"],
+                "GPVS_참조사용등급_ko": gpvs_front_fields["GPVS_참조사용등급_ko"],
+                "GPVS_참조설명_ko": gpvs_front_fields["GPVS_참조설명_ko"],
                 "GPVS_참고유형_ko": gpvs_type,
                 "GPVS_근거_ko": gpvs_reason,
                 "GPVS_미부착사유_ko": gpvs_unattached_note,
@@ -1443,6 +1685,11 @@ def build_outputs(
                 "GPVS_세부fault_부착상태_ko": gpvs_detailed_attach_status,
                 "GPVS_세부fault_근거_ko": gpvs_detailed_reason,
                 "GPVS_세부fault_판정주의_ko": gpvs_detailed_caution,
+                "GPVS_시나리오_family_ko": gpvs_scenario_info["GPVS_시나리오_family_ko"],
+                "GPVS_시나리오명_ko": gpvs_scenario_info["GPVS_시나리오명_ko"],
+                "GPVS_시나리오_고장상황설명_ko": gpvs_scenario_info["GPVS_시나리오_고장상황설명_ko"],
+                "GPVS_운전모드_ko": gpvs_scenario_info["GPVS_운전모드_ko"],
+                "GPVS_해석주의_ko": gpvs_scenario_info["GPVS_해석주의_ko"],
                 "세부fault_type_code": detailed_code,
                 "세부fault_type_label_ko": detailed_label,
                 "세부fault_부착상태_ko": detailed_status,
@@ -1530,7 +1777,8 @@ def build_outputs(
             }
         )
 
-    verdict_df = pd.DataFrame(panel_rows).reindex(columns=VERDICT_COLS)
+    verdict_internal_df = pd.DataFrame(panel_rows)
+    verdict_df = verdict_internal_df.reindex(columns=VERDICT_COLS)
     event_supplement_df = pd.DataFrame(event_rows).reindex(columns=EVENT_SUPPLEMENT_COLS)
     cluster_supplement_df = pd.DataFrame(cluster_rows).reindex(columns=CLUSTER_COLS)
 
@@ -1561,7 +1809,7 @@ def build_outputs(
         "detailed_fault_miss_expected": int(detailed_fault_meta["miss_count"]),
         "detailed_fault_note": str(detailed_fault_meta["note_ko"]),
     }
-    return verdict_df, event_supplement_df, cluster_supplement_df, metrics, gpvs_feasibility_meta
+    return verdict_df, verdict_internal_df, event_supplement_df, cluster_supplement_df, metrics, gpvs_feasibility_meta
 
 
 def compute_final_row_counts(verdict_df: pd.DataFrame) -> dict[str, int]:
@@ -1726,6 +1974,48 @@ def validate_real_coverage(
         gpvs_detailed_nontarget_subset = gpvs_detailed_nontarget_subset.apply(lambda column: column.map(normalize_text))
     if gpvs_detailed_nontarget_subset.ne("").any().any():
         raise SystemExit("non-fault rows must keep GPVS detailed inference columns blank")
+    if verdict_df.loc[verdict_df["GPVS_세부fault_code"].map(normalize_text).ne(""), "GPVS_해석주의_ko"].map(normalize_text).ne(GPVS_SCENARIO_WARNING).any():
+        raise SystemExit("rows with GPVS_세부fault_code must keep GPVS_해석주의_ko warning text")
+    attached_scenario_subset = verdict_df.loc[
+        verdict_df["GPVS_세부fault_code"].map(normalize_text).ne(""),
+        [
+            "GPVS_시나리오_family_ko",
+            "GPVS_시나리오명_ko",
+            "GPVS_시나리오_고장상황설명_ko",
+            "GPVS_운전모드_ko",
+            "GPVS_해석주의_ko",
+        ],
+    ].copy()
+    if attached_scenario_subset.apply(lambda column: column.map(normalize_text)).eq("").any().any():
+        raise SystemExit("rows with GPVS_세부fault_code must keep non-empty GPVS scenario semantics columns")
+    gpvs_scenario_nontarget_subset = verdict_df.loc[
+        verdict_df["GPVS_세부fault_code"].map(normalize_text).eq(""),
+        [
+            "GPVS_시나리오_family_ko",
+            "GPVS_시나리오명_ko",
+            "GPVS_시나리오_고장상황설명_ko",
+            "GPVS_운전모드_ko",
+            "GPVS_해석주의_ko",
+        ],
+    ].copy()
+    if not gpvs_scenario_nontarget_subset.empty:
+        gpvs_scenario_nontarget_subset = gpvs_scenario_nontarget_subset.apply(lambda column: column.map(normalize_text))
+    if gpvs_scenario_nontarget_subset.ne("").any().any():
+        raise SystemExit("rows without GPVS_세부fault_code must keep GPVS scenario semantics columns blank")
+    front_facing_columns = [
+        "GPVS_내부참고유형_ko",
+        "GPVS_외부참조패턴_ko",
+        "GPVS_참조사용등급_ko",
+        "GPVS_참조설명_ko",
+    ]
+    front_non_fault_subset = verdict_df.loc[
+        verdict_df["패널고장여부_ko"].ne("고장"),
+        front_facing_columns,
+    ].copy()
+    if not front_non_fault_subset.empty:
+        front_non_fault_subset = front_non_fault_subset.apply(lambda column: column.map(normalize_text))
+    if front_non_fault_subset.ne("").any().any():
+        raise SystemExit("non-fault/unresolved rows must keep front-facing GPVS columns blank")
     if verdict_df.loc[verdict_df["패널고장여부_ko"].eq("고장"), "세부fault_부착상태_ko"].isin(["부착", "보류"]).ne(True).any():
         raise SystemExit("fault rows must keep 세부fault_부착상태_ko in {부착, 보류}")
     if verdict_df.loc[verdict_df["패널고장여부_ko"].ne("고장"), "세부fault_부착상태_ko"].ne("비대상").any():
@@ -1777,6 +2067,22 @@ def validate_real_coverage(
         raise SystemExit("forensic target panel must keep GPVS_세부fault_code=F2M after recovered-artifact attachment")
     if normalize_text(forensic_row["GPVS_세부fault_부착상태_ko"]) != "부착":
         raise SystemExit("forensic target panel must keep GPVS_세부fault_부착상태_ko=부착")
+    if normalize_text(forensic_row["GPVS_시나리오_family_ko"]) != "제어·계측 이상":
+        raise SystemExit("forensic target panel must expose GPVS_시나리오_family_ko=제어·계측 이상")
+    if normalize_text(forensic_row["GPVS_시나리오명_ko"]) != "제어 피드백 센서 이상 시나리오":
+        raise SystemExit("forensic target panel must expose F2M scenario name")
+    if normalize_text(forensic_row["GPVS_운전모드_ko"]) != "최대전력점 추종 운전(MPPT)":
+        raise SystemExit("forensic target panel must expose F2M mode=MPPT")
+    if normalize_text(forensic_row["GPVS_해석주의_ko"]) != GPVS_SCENARIO_WARNING:
+        raise SystemExit("forensic target panel must keep GPVS scenario warning text")
+    if normalize_text(forensic_row["GPVS_내부참고유형_ko"]) != normalize_text(forensic_row["GPVS_참고유형_ko"]):
+        raise SystemExit("forensic target panel must surface internal GPVS interpretation in GPVS_내부참고유형_ko")
+    if normalize_text(forensic_row["GPVS_외부참조패턴_ko"]) != "제어·계측 이상 힌트":
+        raise SystemExit("forensic target panel must expose GPVS_외부참조패턴_ko=제어·계측 이상 힌트")
+    if normalize_text(forensic_row["GPVS_참조사용등급_ko"]) != "비권장":
+        raise SystemExit("forensic target panel must expose GPVS_참조사용등급_ko=비권장")
+    if "제어 피드백 센서 이상과 유사한 패턴" not in normalize_text(forensic_row["GPVS_참조설명_ko"]):
+        raise SystemExit("forensic target panel must expose human-readable GPVS reference description for F2")
 
     special_10305_df = verdict_df.loc[
         verdict_df["site"].eq("ktc_ess") & verdict_df["panel_id"].eq("10305b40-b67e-40d1-9cd1-271b6642a3d9.2.12")
@@ -1789,6 +2095,20 @@ def validate_real_coverage(
             raise SystemExit("10305 row must keep GPVS_참고유형_ko=불확실")
         if normalize_text(special_10305_row["GPVS_세부fault_code"]) != "F4L":
             raise SystemExit("10305 row must keep GPVS_세부fault_code=F4L")
+        if normalize_text(special_10305_row["GPVS_시나리오_family_ko"]) != "PV 어레이 이상":
+            raise SystemExit("10305 row must expose GPVS_시나리오_family_ko=PV 어레이 이상")
+        if normalize_text(special_10305_row["GPVS_시나리오명_ko"]) != "PV 어레이 mismatch(부분 음영) 시나리오":
+            raise SystemExit("10305 row must expose F4L scenario name")
+        if normalize_text(special_10305_row["GPVS_운전모드_ko"]) != "제한출력 운전(IPPT)":
+            raise SystemExit("10305 row must expose F4L mode=IPPT")
+        if normalize_text(special_10305_row["GPVS_내부참고유형_ko"]) != "불확실":
+            raise SystemExit("10305 row must surface GPVS_내부참고유형_ko=불확실")
+        if normalize_text(special_10305_row["GPVS_외부참조패턴_ko"]) != "패널·어레이 mismatch 참조":
+            raise SystemExit("10305 row must expose GPVS_외부참조패턴_ko=패널·어레이 mismatch 참조")
+        if normalize_text(special_10305_row["GPVS_참조사용등급_ko"]) != "주의참고":
+            raise SystemExit("10305 row must expose GPVS_참조사용등급_ko=주의참고")
+        if "일부 패널 불균형이 나타나는 패턴" not in normalize_text(special_10305_row["GPVS_참조설명_ko"]):
+            raise SystemExit("10305 row must expose human-readable GPVS reference description for F4")
 
     overlap_rows = verdict_df.loc[
         verdict_df["전조평가셋편입_flag"].pipe(to_numeric_flag).eq(1)
@@ -1904,6 +2224,7 @@ def build_summary(
             f"GPVS 세부 fault는 learned GPVS by-type inference 결과를 recovered GPVS by-type artifact parity 일치 이후 real panel event date에 다시 적용해 현재 부착 {gpvs_detailed_attached}건 / 판정유보 {gpvs_detailed_deferred}건 / 비대상 {gpvs_detailed_nontarget}건이다. "
             f"현재 code 분포는 F2M {gpvs_detailed_f2m}건, F4L {gpvs_detailed_f4l}건이다. "
             "GPVS family label 과 GPVS detailed fault code 는 별도 축이며, family 불확실이더라도 recovered by-type inference attach guard를 통과하면 detailed type은 부착할 수 있다. "
+            "GPVS detailed fault code는 외부 GPVS 실험 시나리오 참조축이므로 F2M/F4L을 실제 패널 물리 root cause 이름으로 직접 번역하면 안 된다. "
             "공식 detailed-fault attachment source 는 recovered GPVS by-type inference 이고, 과거 PVFAULT exact-date bridge 경로는 audit-only 실패 경로로 retire 했다. "
             "이 세부 fault 축은 GPVS family reference 와 별개로 읽는다. "
             f"사건이력 보조표는 panel이 여러 사건군에 속하거나 전조형 고장이 급격 종료로 끝난 경우를 함께 남긴다. {gpvs_note} unmatched panel은 row-by-row 미부착 사유를 함께 남긴다."
@@ -1932,9 +2253,9 @@ def main() -> None:
     root = args.root.resolve()
     frames = load_inputs(root)
     validate_inputs(root, frames)
-    verdict_df, event_supplement_df, cluster_supplement_df, metrics, gpvs_feasibility_meta = build_outputs(root, frames)
-    validate_real_coverage(verdict_df, event_supplement_df, cluster_supplement_df, metrics)
-    summary_df = build_summary(verdict_df, event_supplement_df, cluster_supplement_df, metrics, gpvs_feasibility_meta)
+    verdict_df, verdict_internal_df, event_supplement_df, cluster_supplement_df, metrics, gpvs_feasibility_meta = build_outputs(root, frames)
+    validate_real_coverage(verdict_internal_df, event_supplement_df, cluster_supplement_df, metrics)
+    summary_df = build_summary(verdict_internal_df, event_supplement_df, cluster_supplement_df, metrics, gpvs_feasibility_meta)
     write_outputs(root, verdict_df, event_supplement_df, cluster_supplement_df, summary_df)
 
 

@@ -83,6 +83,10 @@
   - 운영 최초 전조 발견 = 2025-02-20
   - 사건 해석 onset = 2025-01-20
   - benchmark onset = 2025-03-18
+- `GPVS_내부참고유형_ko` 는 우리 시스템 내부 해석이라는 점
+- `GPVS_외부참조패턴_ko` 는 외부 GPVS 실험에서 닮은 패턴군이라는 점
+- `GPVS_참조사용등급_ko` 는 해당 패널에서 reference로 얼마나 믿을 수 있는지라는 점
+- GPVS 는 direct root-cause classifier 가 아니라 reference layer 라는 점
 - markdown 마지막 git context 문장은 refreshed status snapshot 의 branch / HEAD 를 그대로 반영해야 한다.
 
 ## 검증 포인트
