@@ -55,7 +55,8 @@
 - 패널별 대표판정표가 이제 완성됐다는 점
 - 한 패널에 대해 우리판정 / 커널로그 판정 / GPVS 참고판정 / 운영위치를 한 줄로 볼 수 있다는 점
 - `GPVS_내부참고유형_ko` 는 고장 패널에만 붙는 우리 시스템 내부 해석 reference axis 라는 점
-- `GPVS_외부참조패턴_ko` 는 recovered by-type inference 와 canonical matching policy를 거쳐 붙인 외부 GPVS 실험 참조 패턴이라는 점
+- `GPVS_외부참조패턴_ko` 는 recovered by-type inference 와 canonical matching policy를 거쳐, 외부 GPVS 시나리오를 MLPE 운영 언어로 정리한 참조 패턴명이라는 점
+  - 예: `국소 출력 불균형형`, `장치 응답 이상형`
 - `GPVS_참조사용등급_ko` 는 해당 패널에서 reference로 얼마나 믿을 수 있는지라는 점
 - GPVS 는 direct root-cause classifier 가 아니라 reference layer 라는 점
 - overlap 2건은 전조형 고장이 급격 종료로 끝난 같은 사건으로 읽어야 하고, 사건이력 보조표를 함께 봐야 한다는 점

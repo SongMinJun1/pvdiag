@@ -201,13 +201,14 @@
 - 다만 front-facing 본표는 low-level provenance/code를 그대로 노출하지 않는다.
 - 본표가 직접 보여 주는 GPVS 컬럼은 아래 네 개다.
   - `GPVS_내부참고유형_ko`
-    - 우리 시스템 내부 해석 layer
+    - 우리 시스템 내부 해석 결과
   - `GPVS_외부참조패턴_ko`
-    - 외부 GPVS 실험에서 닮은 canonical pattern group
+    - 외부 GPVS 시나리오를 MLPE 운영 언어로 정리한 참조 패턴명
+    - 예: `국소 출력 불균형형`, `장치 응답 이상형`, `전력변환부 이상형`
   - `GPVS_참조사용등급_ko`
     - 해당 패널에서 reference로 얼마나 믿을 수 있는지
   - `GPVS_참조설명_ko`
-    - front-facing human-readable 설명
+    - 그 참조 패턴이 실제로 어떤 고장상황과 닮았는지 설명
 - 즉 main verdict 표는 `내부 해석 family` 와 `외부 참조 pattern` 을 같이 보여 주되, GPVS를 direct root-cause classifier로 읽지 않게 한다.
 
 ## GPVS 세부 fault 추론 축
@@ -231,7 +232,7 @@
   - `비대상`
 - `GPVS_내부참고유형_ko` 와 `GPVS_외부참조패턴_ko` 는 같은 뜻이 아니다.
 - family uncertainty 가 자동으로 detailed type attachment 를 막지 않는다.
-  - 예: `10305...2.12` 는 내부참고유형이 `불확실` 이어도 external reference pattern 은 `패널·어레이 mismatch 참조` 로 붙을 수 있다.
+  - 예: `10305...2.12` 는 내부참고유형이 `불확실` 이어도 external reference pattern 은 `국소 출력 불균형형` 으로 붙을 수 있다.
 - external reference pattern 은 recovered GPVS by-type inference 와 canonical dictionary/matching policy를 거쳐 front-facing 이름으로 다시 표현한 것이다.
 - 따라서 `F2M/F4L` raw code 를 실제 패널 물리 root cause 이름으로 번역하면 안 되고, front-facing 표에서는 `참조 패턴` 으로만 읽어야 한다.
 - old PVFAULT exact-date bridge attempt 는 audit-only retired path 이고, official detailed-fault attachment source 는 recovered GPVS by-type inference 다.

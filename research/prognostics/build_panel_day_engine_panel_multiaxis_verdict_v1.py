@@ -149,24 +149,24 @@ GPVS_NON_TARGET_REASON = "고장 패널이 아니어서 GPVS 적용 대상 아�
 GPVS_SCENARIO_WARNING = "외부 GPVS 실험 시나리오 설명이며 실제 패널의 물리 root cause를 직접 뜻하지 않음"
 GPVS_REFERENCE_ONLY_NOTE = "GPVS는 direct root-cause classifier가 아니라 reference layer로만 사용"
 GPVS_FRONT_PATTERN_NAME_MAP = {
-    "F0": "정상 기준선",
-    "F1": "인버터/전력변환 이상 패턴",
-    "F2": "제어·계측 이상 힌트",
-    "F3": "계통 교란 플래그",
-    "F4": "패널·어레이 mismatch 참조",
-    "F5": "부분 개방·접속 이상 참조",
-    "F6": "제어기 gain 이상 패턴",
-    "F7": "제어기 시정수 이상 패턴",
+    "F0": "정상 기준형",
+    "F1": "전력변환부 이상형",
+    "F2": "장치 응답 이상형",
+    "F3": "외부 계통 교란형",
+    "F4": "국소 출력 불균형형",
+    "F5": "부분 개방·접속 이상형",
+    "F6": "제어 응답 이상형",
+    "F7": "제어 응답 이상형",
 }
 GPVS_FRONT_DESCRIPTION_MAP = {
-    "F0": "비고장 기준 패턴으로 다른 패널의 drift 비교 기준",
-    "F1": "현재 패널 단독표 직접 해석보다 시스템/통합 결과표 후보로만 보류",
-    "F2": "제어 피드백 센서 이상과 유사한 패턴으로, 패널 물리 고장이라기보다 제어·계측 경로 이상 힌트로만 사용",
-    "F3": "외부 계통 변동/순간 저전압과 유사한 교란 이벤트 패턴",
-    "F4": "일부 패널 불균형이 나타나는 패턴으로, 부분 음영뿐 아니라 오염·열화·다이오드/접속 이상 등과 유사하게 보일 수 있음",
-    "F5": "부분 개방회로/접속 약화처럼 보이는 mismatch 패턴으로, 커넥터 이탈·접점 불량·내부 단선과 더 잘 이어짐",
-    "F6": "현재 패널 단독표 직접 해석보다 시스템/통합 결과표 후보로만 보류",
-    "F7": "현재 패널 단독표 직접 해석보다 시스템/통합 결과표 후보로만 보류",
+    "F0": "비고장 기준 패턴으로, 다른 패널/구간의 변화량을 비교하는 기준선",
+    "F1": "인버터 전력변환부 이상과 유사한 패턴",
+    "F2": "센서/피드백 오류로 장치 응답이 어긋나는 패턴으로, 패널 물리 파손보다 장치 응답 이상 힌트로 해석",
+    "F3": "외부 계통 변동이나 순간 저전압과 유사한 교란 이벤트 패턴",
+    "F4": "일부 패널의 출력 균형이 깨지는 패턴으로, 부분 음영뿐 아니라 오염·열화·다이오드/접속 이상 등과 유사하게 보일 수 있음",
+    "F5": "일부 연결부가 끊기거나 약해진 것처럼 보이는 패턴으로, 커넥터 이탈·접점 불량·부분 단선과 더 잘 이어짐",
+    "F6": "제어 응답 또는 제어 파라미터 이상과 유사한 패턴",
+    "F7": "제어 응답 또는 제어 파라미터 이상과 유사한 패턴",
 }
 GPVS_REFERENCE_GRADE_MAP = {
     "참고가능": "참고가능",
@@ -2016,6 +2016,11 @@ def validate_real_coverage(
         front_non_fault_subset = front_non_fault_subset.apply(lambda column: column.map(normalize_text))
     if front_non_fault_subset.ne("").any().any():
         raise SystemExit("non-fault/unresolved rows must keep front-facing GPVS columns blank")
+    front_facing_series = verdict_df[front_facing_columns].fillna("").astype(str).stack()
+    front_facing_text = "\n".join(front_facing_series.tolist())
+    for forbidden_token in ["F0", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "IPPT", "MPPT", "제한출력 운전", "최대전력점 추종"]:
+        if forbidden_token in front_facing_text:
+            raise SystemExit(f"front-facing GPVS columns must not expose raw code/mode token: {forbidden_token}")
     if verdict_df.loc[verdict_df["패널고장여부_ko"].eq("고장"), "세부fault_부착상태_ko"].isin(["부착", "보류"]).ne(True).any():
         raise SystemExit("fault rows must keep 세부fault_부착상태_ko in {부착, 보류}")
     if verdict_df.loc[verdict_df["패널고장여부_ko"].ne("고장"), "세부fault_부착상태_ko"].ne("비대상").any():
@@ -2077,11 +2082,11 @@ def validate_real_coverage(
         raise SystemExit("forensic target panel must keep GPVS scenario warning text")
     if normalize_text(forensic_row["GPVS_내부참고유형_ko"]) != normalize_text(forensic_row["GPVS_참고유형_ko"]):
         raise SystemExit("forensic target panel must surface internal GPVS interpretation in GPVS_내부참고유형_ko")
-    if normalize_text(forensic_row["GPVS_외부참조패턴_ko"]) != "제어·계측 이상 힌트":
-        raise SystemExit("forensic target panel must expose GPVS_외부참조패턴_ko=제어·계측 이상 힌트")
+    if normalize_text(forensic_row["GPVS_외부참조패턴_ko"]) != "장치 응답 이상형":
+        raise SystemExit("forensic target panel must expose GPVS_외부참조패턴_ko=장치 응답 이상형")
     if normalize_text(forensic_row["GPVS_참조사용등급_ko"]) != "비권장":
         raise SystemExit("forensic target panel must expose GPVS_참조사용등급_ko=비권장")
-    if "제어 피드백 센서 이상과 유사한 패턴" not in normalize_text(forensic_row["GPVS_참조설명_ko"]):
+    if "센서/피드백 오류로 장치 응답이 어긋나는 패턴" not in normalize_text(forensic_row["GPVS_참조설명_ko"]):
         raise SystemExit("forensic target panel must expose human-readable GPVS reference description for F2")
 
     special_10305_df = verdict_df.loc[
@@ -2103,11 +2108,11 @@ def validate_real_coverage(
             raise SystemExit("10305 row must expose F4L mode=IPPT")
         if normalize_text(special_10305_row["GPVS_내부참고유형_ko"]) != "불확실":
             raise SystemExit("10305 row must surface GPVS_내부참고유형_ko=불확실")
-        if normalize_text(special_10305_row["GPVS_외부참조패턴_ko"]) != "패널·어레이 mismatch 참조":
-            raise SystemExit("10305 row must expose GPVS_외부참조패턴_ko=패널·어레이 mismatch 참조")
+        if normalize_text(special_10305_row["GPVS_외부참조패턴_ko"]) != "국소 출력 불균형형":
+            raise SystemExit("10305 row must expose GPVS_외부참조패턴_ko=국소 출력 불균형형")
         if normalize_text(special_10305_row["GPVS_참조사용등급_ko"]) != "주의참고":
             raise SystemExit("10305 row must expose GPVS_참조사용등급_ko=주의참고")
-        if "일부 패널 불균형이 나타나는 패턴" not in normalize_text(special_10305_row["GPVS_참조설명_ko"]):
+        if "일부 패널의 출력 균형이 깨지는 패턴" not in normalize_text(special_10305_row["GPVS_참조설명_ko"]):
             raise SystemExit("10305 row must expose human-readable GPVS reference description for F4")
 
     overlap_rows = verdict_df.loc[
