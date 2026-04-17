@@ -699,10 +699,28 @@ def main() -> None:
             f"{row['site']}::{row['panel_id']}": row["GPVS_최종사용권고_ko"]
             for row in pack_df.to_dict(orient="records")
         }
-        assert_true(rec_map["conalog::panel_f4_1"] == "핵심참조", "F4 caution panel should remain core reference")
-        assert_true(rec_map["conalog::panel_f2_1"] == "비권장", "F2 low-compatibility panel should degrade to 비권장")
+        assert_true(rec_map["conalog::panel_f4_1"] == "핵심참조", "first F4 row must remain 핵심참조")
+        assert_true(rec_map["ktc_ess::panel_f4_2"] == "핵심참조", "second F4 row must remain 핵심참조")
+        assert_true(rec_map["conalog::panel_f2_1"] == "보조참조", "first F2 row must become 보조참조")
+        assert_true(rec_map["gangui::panel_f2_2"] == "보조참조", "second F2 row must become 보조참조")
+        assert_true(rec_map["gangui::panel_f2_3"] == "보조참조", "third F2 row must become 보조참조")
+        assert_true(rec_map["ktc_ess::panel_f2_4"] == "보조참조", "fourth F2 row must become 보조참조")
+        row_c429 = pack_df[pack_df["panel_id"] == "panel_f2_1"].iloc[0]
+        assert_true(row_c429["GPVS_매칭정책_ko"] == "보조참조", "matching policy must stay 보조참조")
+        assert_true(row_c429["GPVS_호환성판정_ko"] == "직접 판정축 사용 비권장", "compatibility judgment must stay unchanged")
+        assert_true(row_c429["GPVS_최종사용권고_ko"] == "보조참조", "final recommendation must not downgrade to 비권장")
+        assert_true("직접 root-cause 판정에는 쓰지 말고 보조참조로만 사용" in str(row_c429["GPVS_권고사유_ko"]), "F2 reason must explicitly preserve 보조참조 wording")
+        summary = summary_df.iloc[0].to_dict()
+        assert_true(int(summary["core_reference_count"]) == 2, "core_reference_count must equal 2")
+        assert_true(int(summary["core_reference_candidate_count"]) == 0, "core_reference_candidate_count must equal 0")
+        assert_true(int(summary["auxiliary_reference_count"]) == 4, "auxiliary_reference_count must equal 4")
+        assert_true(int(summary["confounder_flag_count"]) == 0, "confounder_flag_count must equal 0")
+        assert_true(int(summary["reserved_system_count"]) == 0, "reserved_system_count must equal 0")
+        assert_true(int(summary["not_recommended_count"]) == 0, "not_recommended_count must equal 0")
         assert_true("GPVS 내부판정과 외부참조는 서로 다른 레이어" in note_text, "note must separate internal and external GPVS layers")
         assert_true("reference layer" in note_text, "note must preserve reference-layer rule")
+        assert_true("reference-only 는 unusable 을 뜻하지 않습니다." in note_text, "note must explain reference-only is not unusable")
+        assert_true("auxiliary-reference row 는 direct root-cause 사용을 금지한 채 보조참조로는 계속 사용할 수 있습니다." in note_text, "note must preserve auxiliary-reference usability")
 
     after = {path: file_digest(path) for path in official_outputs}
     for path in official_outputs:
