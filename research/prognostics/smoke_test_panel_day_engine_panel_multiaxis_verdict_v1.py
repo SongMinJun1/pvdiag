@@ -1217,17 +1217,17 @@ def main() -> None:
             "GPVS attach count must equal feasibility overlap count",
         )
         assert_true(forensic_row["GPVS_내부참고유형_ko"] == "개방/장치이상 계열", "c429 front-facing internal GPVS label mismatch")
-        assert_true(forensic_row["GPVS_외부참조패턴_ko"] == "제어·계측 이상 힌트", "c429 front-facing external GPVS pattern mismatch")
+        assert_true(forensic_row["GPVS_외부참조패턴_ko"] == "장치 응답 이상형", "c429 front-facing external GPVS pattern mismatch")
         assert_true(forensic_row["GPVS_참조사용등급_ko"] == "비권장", "c429 front-facing GPVS usage grade mismatch")
         assert_true(
-            "제어 피드백 센서 이상과 유사한 패턴" in str(forensic_row["GPVS_참조설명_ko"]),
+            "센서/피드백 오류로 장치 응답이 어긋나는 패턴" in str(forensic_row["GPVS_참조설명_ko"]),
             "c429 front-facing GPVS description mismatch",
         )
         assert_true(abrupt_only_row["GPVS_내부참고유형_ko"] == "불확실", "10305 front-facing internal GPVS label mismatch")
-        assert_true(abrupt_only_row["GPVS_외부참조패턴_ko"] == "패널·어레이 mismatch 참조", "10305-like front-facing external GPVS pattern mismatch")
+        assert_true(abrupt_only_row["GPVS_외부참조패턴_ko"] == "국소 출력 불균형형", "10305-like front-facing external GPVS pattern mismatch")
         assert_true(abrupt_only_row["GPVS_참조사용등급_ko"] == "주의참고", "10305-like front-facing GPVS usage grade mismatch")
         assert_true(
-            "일부 패널 불균형이 나타나는 패턴" in str(abrupt_only_row["GPVS_참조설명_ko"]),
+            "일부 패널의 출력 균형이 깨지는 패턴" in str(abrupt_only_row["GPVS_참조설명_ko"]),
             "10305-like front-facing GPVS description mismatch",
         )
         for row in [common_row, repeat_row, unknown_row]:
@@ -1251,14 +1251,24 @@ def main() -> None:
         precursor_attach_row = verdict_df.loc[(verdict_df["site"].eq("siteA")) & (verdict_df["panel_id"].eq("abrupt_5"))].iloc[0]
         precursor_attach_row_2 = verdict_df.loc[(verdict_df["site"].eq("siteA")) & (verdict_df["panel_id"].eq("abrupt_6"))].iloc[0]
 
-        assert_true(conflict_row["GPVS_외부참조패턴_ko"] == "제어·계측 이상 힌트", "first abrupt front-facing GPVS pattern mismatch")
+        assert_true(conflict_row["GPVS_외부참조패턴_ko"] == "장치 응답 이상형", "first abrupt front-facing GPVS pattern mismatch")
         assert_true(conflict_row["GPVS_참조사용등급_ko"] == "비권장", "first abrupt GPVS usage grade mismatch")
-        assert_true(miss_row["GPVS_외부참조패턴_ko"] == "제어·계측 이상 힌트", "second abrupt front-facing GPVS pattern mismatch")
+        assert_true(miss_row["GPVS_외부참조패턴_ko"] == "장치 응답 이상형", "second abrupt front-facing GPVS pattern mismatch")
         assert_true(miss_row["GPVS_참조사용등급_ko"] == "비권장", "second abrupt GPVS usage grade mismatch")
-        assert_true(precursor_attach_row["GPVS_외부참조패턴_ko"] == "패널·어레이 mismatch 참조", "precursor F4 front-facing GPVS pattern mismatch")
+        assert_true(precursor_attach_row["GPVS_외부참조패턴_ko"] == "국소 출력 불균형형", "precursor F4 front-facing GPVS pattern mismatch")
         assert_true(precursor_attach_row["GPVS_참조사용등급_ko"] == "주의참고", "precursor F4 GPVS usage grade mismatch")
-        assert_true(precursor_attach_row_2["GPVS_외부참조패턴_ko"] == "제어·계측 이상 힌트", "second precursor F2 front-facing GPVS pattern mismatch")
+        assert_true(precursor_attach_row_2["GPVS_외부참조패턴_ko"] == "장치 응답 이상형", "second precursor F2 front-facing GPVS pattern mismatch")
         assert_true(precursor_attach_row_2["GPVS_참조사용등급_ko"] == "비권장", "second precursor F2 GPVS usage grade mismatch")
+
+        front_facing_text = "\n".join(
+            verdict_df[["GPVS_내부참고유형_ko", "GPVS_외부참조패턴_ko", "GPVS_참조사용등급_ko", "GPVS_참조설명_ko"]]
+            .fillna("")
+            .astype(str)
+            .stack()
+            .tolist()
+        )
+        for forbidden_token in ["F0", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "IPPT", "MPPT", "제한출력 운전", "최대전력점 추종"]:
+            assert_true(forbidden_token not in front_facing_text, f"front-facing GPVS text must not expose raw code/mode token: {forbidden_token}")
 
         assert_true(conflict_row["세부fault_부착상태_ko"] == "보류", "conflict path should hold detailed fault attach")
         assert_true(normalize_text(conflict_row["세부fault_type_code"]) == "", "conflict row must not keep detailed fault code")
@@ -1311,8 +1321,8 @@ def main() -> None:
         gpvs_front_pattern_nontarget_count = int(
             verdict_df.loc[verdict_df["패널고장여부_ko"].ne("고장"), "GPVS_외부참조패턴_ko"].map(normalize_text).eq("").sum()
         )
-        gpvs_pattern_f2_count = int(verdict_df["GPVS_외부참조패턴_ko"].eq("제어·계측 이상 힌트").sum())
-        gpvs_pattern_f4_count = int(verdict_df["GPVS_외부참조패턴_ko"].eq("패널·어레이 mismatch 참조").sum())
+        gpvs_pattern_f2_count = int(verdict_df["GPVS_외부참조패턴_ko"].eq("장치 응답 이상형").sum())
+        gpvs_pattern_f4_count = int(verdict_df["GPVS_외부참조패턴_ko"].eq("국소 출력 불균형형").sum())
         assert_true(int(summary_row["전체_패널수"]) == 12, "summary total panel count mismatch")
         assert_true(int(verdict_df["패널고장여부_ko"].eq("고장").sum()) == 6, "fixture fault-panel count should be 6")
         assert_true(precursor_event_count == 3, "fixture precursor event count should be 3")

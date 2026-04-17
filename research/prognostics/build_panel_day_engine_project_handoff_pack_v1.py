@@ -471,7 +471,7 @@ def build_markdown(facts: dict[str, object]) -> str:
         "## 3. 전조/급작 읽는 법",
         "- 사건 해석, 운영 최초 전조 발견일, benchmark onset, 평가셋 편입은 같은 뜻이 아니다.",
         "- `GPVS_내부참고유형_ko` 는 우리 시스템 내부 해석이다.",
-        "- `GPVS_외부참조패턴_ko` 는 외부 GPVS 실험에서 닮은 패턴군이다.",
+        "- `GPVS_외부참조패턴_ko` 는 외부 GPVS 시나리오를 MLPE 운영 언어로 정리한 참조 패턴명이다. 예: `국소 출력 불균형형`, `장치 응답 이상형`.",
         "- `GPVS_참조사용등급_ko` 는 해당 패널에서 reference로 얼마나 믿을 수 있는지다.",
         "- GPVS 는 direct root-cause classifier 가 아니라 reference layer 다.",
         f"- `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` 은 사건 해석상 `{facts['c429_event_type']}` 이고 최종고장양상은 `{facts['c429_terminal_pattern']}` 다.",

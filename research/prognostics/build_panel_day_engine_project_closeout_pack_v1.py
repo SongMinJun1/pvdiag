@@ -790,7 +790,7 @@ def build_closeout_markdown(frames: dict[str, object], status_snapshot_df: pd.Da
             f"- GPVS 는 fault-family reference axis라 고장 panel {multiaxis_gpvs_applicable}개에만 적용하고, 그중 {multiaxis_gpvs_attached}개에만 현재 직접 부착돼 있다.",
             f"- 현재 direct GPVS 미부착 고장 panel 은 {multiaxis_gpvs_unattached}개이고, 비고장/미확정 panel {multiaxis_gpvs_nontarget}개는 GPVS 비대상이다.",
             "- `GPVS_내부참고유형_ko` 는 우리 시스템 내부 해석이다.",
-            "- `GPVS_외부참조패턴_ko` 는 외부 GPVS 실험에서 닮은 패턴군이다.",
+            "- `GPVS_외부참조패턴_ko` 는 외부 GPVS 시나리오를 MLPE 운영 언어로 정리한 참조 패턴명이다. 예: `국소 출력 불균형형`, `장치 응답 이상형`.",
             "- `GPVS_참조사용등급_ko` 는 해당 패널에서 reference로 얼마나 믿을 수 있는지다.",
             "- GPVS 는 direct root-cause classifier 가 아니라 reference layer 다.",
             "",

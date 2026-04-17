@@ -755,7 +755,11 @@ def main() -> None:
         assert_true("fault-family reference axis라 고장 panel 6개에만 적용" in markdown, "markdown missing GPVS scope note")
         assert_true("비고장/미확정 panel 19개는 GPVS 비대상" in markdown, "markdown missing GPVS non-target note")
         assert_true("`GPVS_내부참고유형_ko` 는 우리 시스템 내부 해석이다." in markdown, "markdown missing GPVS internal interpretation note")
-        assert_true("`GPVS_외부참조패턴_ko` 는 외부 GPVS 실험에서 닮은 패턴군이다." in markdown, "markdown missing GPVS external reference note")
+        assert_true(
+            "`GPVS_외부참조패턴_ko` 는 외부 GPVS 시나리오를 MLPE 운영 언어로 정리한 참조 패턴명이다. 예: `국소 출력 불균형형`, `장치 응답 이상형`."
+            in markdown,
+            "markdown missing GPVS external reference note",
+        )
         assert_true("`GPVS_참조사용등급_ko` 는 해당 패널에서 reference로 얼마나 믿을 수 있는지다." in markdown, "markdown missing GPVS usage-grade note")
         assert_true("GPVS 는 direct root-cause classifier 가 아니라 reference layer 다." in markdown, "markdown missing GPVS reference-layer caution note")
         assert_true("전조형 고장이 급격 종료로 끝난 경우" in markdown, "markdown missing precursor-led abrupt-ending note")
@@ -768,6 +772,8 @@ def main() -> None:
             "markdown missing c429 3-date split example",
         )
         assert_true("순수 급작 사건은 현재 stored data 기준 3건" in markdown, "markdown missing pure abrupt count note")
+        for forbidden_token in ["F0", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "IPPT", "MPPT"]:
+            assert_true(forbidden_token not in markdown, f"closeout markdown must not expose raw GPVS code/mode token: {forbidden_token}")
         assert_true("benchmark reset 이후 전조형 benchmark support 는 3건이고, 순수 급작 benchmark support 는 3건이다." in markdown, "markdown missing benchmark reset support note")
         assert_true("사건 해석상 전조형 고장 패널은 3건" in markdown, "markdown missing interpreted precursor count note")
         assert_true(
