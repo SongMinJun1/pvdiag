@@ -20,6 +20,12 @@
 - `data/gpvs/out/gpvs_window_scores.csv`
 - optional `_share/gpvs_fault_family_eval_cases.csv`
 
+## front-facing schema 단순화 대응
+- current front-facing verdict table 은 `GPVS_내부참고유형_ko`, `GPVS_외부참조패턴_ko` 같은 단순화된 column 을 우선 노출한다.
+- 예전 low-level GPVS field (`GPVS_참고유형_ko`, `GPVS_세부fault_code`, `GPVS_시나리오명_ko`) 는 main verdict table 에 항상 남아 있다고 가정하지 않는다.
+- compatibility audit 이 low-level GPVS family/code/scenario 를 다시 써야 할 때는 `_share/panel_day_engine_gpvs_detailed_type_inference_audit_v1.csv` 같은 audit/provenance artifact 에서 보강해 resolve 한다.
+- 따라서 current simplified verdict schema 에서는 stale missing-column warning 없이 동작해야 한다.
+
 ## 출력
 - `_share/panel_day_engine_gpvs_mlpe_feature_compatibility_v1.csv`
   - recovered manifest / training feature schema / real-panel inference schema 비교

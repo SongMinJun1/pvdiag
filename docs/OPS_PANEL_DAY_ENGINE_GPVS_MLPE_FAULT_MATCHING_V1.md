@@ -11,6 +11,12 @@
 - `_share/panel_day_engine_gpvs_mlpe_compatibility_summary_v1.csv`
 - `_share/panel_day_engine_gpvs_detailed_type_inference_audit_v1.csv`
 
+## front-facing schema 단순화 대응
+- current front-facing verdict table 은 low-level GPVS code/scenario 를 직접 노출하지 않는 simplified schema 를 쓸 수 있다.
+- 그래서 fault matching 은 `GPVS_세부fault_code`, `GPVS_시나리오명_ko` 같은 옛 field 를 main verdict table 에서 필수로 요구하지 않는다.
+- canonical GPVS code 가 front-facing verdict 에 없으면 `_share/panel_day_engine_gpvs_detailed_type_inference_audit_v1.csv` 같은 audit/provenance artifact 에서 resolve 한다.
+- 즉, low-level GPVS field 는 audit/provenance artifact 에만 남아 있어도 matching conclusion 과 support count 를 유지할 수 있어야 한다.
+
 ## canonical code 정규화
 - front-facing matching에서는 `F2M`, `F4L` 같은 mode suffix를 제거한다.
 - 즉:

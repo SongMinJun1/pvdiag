@@ -46,17 +46,17 @@ def build_fixture(root: Path) -> None:
     share_dir.mkdir(parents=True, exist_ok=True)
 
     verdict_rows = [
-        {"site": "siteA", "panel_id": "panel_f4_1", "패널고장여부_ko": "고장", "GPVS_세부fault_code": "F4L", "GPVS_참고유형_ko": "전기적 고장 계열", "GPVS_시나리오명_ko": "PV 어레이 mismatch(부분 음영) 시나리오"},
-        {"site": "siteA", "panel_id": "panel_f2_1", "패널고장여부_ko": "고장", "GPVS_세부fault_code": "F2M", "GPVS_참고유형_ko": "개방/장치이상 계열", "GPVS_시나리오명_ko": "제어 피드백 센서 이상 시나리오"},
-        {"site": "siteA", "panel_id": "panel_f2_2", "패널고장여부_ko": "고장", "GPVS_세부fault_code": "F2M", "GPVS_참고유형_ko": "전기적 고장 계열", "GPVS_시나리오명_ko": "제어 피드백 센서 이상 시나리오"},
-        {"site": "siteA", "panel_id": "panel_f2_3", "패널고장여부_ko": "고장", "GPVS_세부fault_code": "F2M", "GPVS_참고유형_ko": "전기적 고장 계열", "GPVS_시나리오명_ko": "제어 피드백 센서 이상 시나리오"},
-        {"site": "siteA", "panel_id": "panel_f4_2", "패널고장여부_ko": "고장", "GPVS_세부fault_code": "F4L", "GPVS_참고유형_ko": "불확실", "GPVS_시나리오명_ko": "PV 어레이 mismatch(부분 음영) 시나리오"},
-        {"site": "siteA", "panel_id": "panel_f2_4", "패널고장여부_ko": "고장", "GPVS_세부fault_code": "F2M", "GPVS_참고유형_ko": "전기적 고장 계열", "GPVS_시나리오명_ko": "제어 피드백 센서 이상 시나리오"},
+        {"site": "siteA", "panel_id": "panel_f4_1", "패널고장여부_ko": "고장", "GPVS_내부참고유형_ko": "전기적 고장 계열", "GPVS_외부참조패턴_ko": "패널·어레이 mismatch 참조"},
+        {"site": "siteA", "panel_id": "panel_f2_1", "패널고장여부_ko": "고장", "GPVS_내부참고유형_ko": "개방/장치이상 계열", "GPVS_외부참조패턴_ko": "제어·계측 이상 힌트"},
+        {"site": "siteA", "panel_id": "panel_f2_2", "패널고장여부_ko": "고장", "GPVS_내부참고유형_ko": "전기적 고장 계열", "GPVS_외부참조패턴_ko": "제어·계측 이상 힌트"},
+        {"site": "siteA", "panel_id": "panel_f2_3", "패널고장여부_ko": "고장", "GPVS_내부참고유형_ko": "전기적 고장 계열", "GPVS_외부참조패턴_ko": "제어·계측 이상 힌트"},
+        {"site": "siteA", "panel_id": "panel_f4_2", "패널고장여부_ko": "고장", "GPVS_내부참고유형_ko": "불확실", "GPVS_외부참조패턴_ko": "패널·어레이 mismatch 참조"},
+        {"site": "siteA", "panel_id": "panel_f2_4", "패널고장여부_ko": "고장", "GPVS_내부참고유형_ko": "전기적 고장 계열", "GPVS_외부참조패턴_ko": "제어·계측 이상 힌트"},
     ]
     write_csv(
         share_dir / "panel_day_engine_panel_multiaxis_verdict_v1.csv",
         verdict_rows,
-        ["site", "panel_id", "패널고장여부_ko", "GPVS_세부fault_code", "GPVS_참고유형_ko", "GPVS_시나리오명_ko"],
+        ["site", "panel_id", "패널고장여부_ko", "GPVS_내부참고유형_ko", "GPVS_외부참조패턴_ko"],
     )
 
     agreement_rows = [
@@ -150,6 +150,8 @@ def main() -> None:
         result = run([sys.executable, str(build_script), "--root", str(root)], REPO_ROOT)
         if result.returncode != 0:
             raise SystemExit(f"build failed\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}")
+        combined_output = f"{result.stdout}\n{result.stderr}"
+        assert_true("missing columns" not in combined_output, "current simplified verdict schema should not trigger missing columns path")
 
         for output_name in OUTPUTS:
             output_path = root / "_share" / output_name
@@ -167,6 +169,13 @@ def main() -> None:
         assert_true(int(summary_df.iloc[0]["confounder_count"]) == 1, "confounder_count must equal 1")
         assert_true(int(summary_df.iloc[0]["reserved_system_count"]) == 3, "reserved_system_count must equal 3")
         assert_true(not matching_df.empty, "matching table must not be empty")
+        support_map = {
+            str(row["canonical_gpvs_code"]).strip(): int(row["current_real_fault_support_count"])
+            for row in dictionary_df.to_dict(orient="records")
+            if str(row["canonical_gpvs_code"]).strip()
+        }
+        assert_true(support_map["F2"] == 4, "F2 support count must stay 4 under simplified verdict schema")
+        assert_true(support_map["F4"] == 2, "F4 support count must stay 2 under simplified verdict schema")
         assert_true("L/M은 front-facing matching에서는 제거한다" in note_text, "note must mention removing L/M in front-facing matching")
 
     after = {path: file_digest(path) for path in official_outputs}

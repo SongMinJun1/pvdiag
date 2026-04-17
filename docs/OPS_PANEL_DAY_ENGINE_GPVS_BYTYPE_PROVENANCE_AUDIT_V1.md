@@ -23,6 +23,12 @@
   - `_share/panel_day_engine_gpvs_detailed_type_inference_summary_v1.csv`
   - `_share/panel_day_engine_gpvs_detailed_type_cv_summary_v1.csv`
 
+## front-facing schema와 provenance 분리
+- current `_share/panel_day_engine_panel_multiaxis_verdict_v1.csv` 의 front-facing GPVS column 은 단순화되어 있다.
+- 따라서 예전 low-level GPVS field (`GPVS_참고유형_ko`, `GPVS_세부fault_code`, `GPVS_시나리오명_ko` 등)를 main verdict table 에서 직접 기대하지 않는다.
+- low-level GPVS family/code provenance 는 detailed-type audit/provenance artifact 쪽에 남고, 이번 provenance audit 도 그 보조 산출물을 기준으로 해석한다.
+- 즉, front-facing verdict schema 단순화와 by-type provenance audit 은 분리된 질문이다.
+
 ## 핵심 점검 항목
 - serialized by-type model artifact 가 실제로 있는가
 - feature manifest / preprocessing manifest 가 있는가

@@ -243,6 +243,8 @@ def build_training_asset_rows(root: Path) -> tuple[list[dict[str, object]], int]
 
 def load_current_fallback_context(root: Path) -> dict[str, object]:
     share_dir = root / "_share"
+    # The front-facing panel verdict schema is intentionally simplified; fallback provenance
+    # comes from the detailed-type audit artifacts rather than legacy GPVS columns on that table.
     audit_df = read_optional_csv(share_dir / CURRENT_AUDIT_NAME)
     summary_df = read_optional_csv(share_dir / CURRENT_AUDIT_SUMMARY_NAME)
     cv_df = read_optional_csv(share_dir / CURRENT_AUDIT_CV_NAME)

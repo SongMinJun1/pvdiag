@@ -122,6 +122,20 @@ def build_fixture(root: Path) -> None:
         "# GPVS Final Summary\n- model: LogisticRegression\n- split: grouped_source\n",
         encoding="utf-8",
     )
+    write_csv(
+        share_dir / "panel_day_engine_panel_multiaxis_verdict_v1.csv",
+        [
+            {
+                "site": "siteA",
+                "panel_id": "panel_0",
+                "패널고장여부_ko": "고장",
+                "커널로그_원인군_ko": "다이오드형",
+                "GPVS_내부참고유형_ko": "전기적 고장 계열",
+                "GPVS_외부참조패턴_ko": "패널·어레이 mismatch 참조",
+            }
+        ],
+        ["site", "panel_id", "패널고장여부_ko", "커널로그_원인군_ko", "GPVS_내부참고유형_ko", "GPVS_외부참조패턴_ko"],
+    )
 
     write_csv(
         share_dir / "panel_day_engine_gpvs_detailed_type_inference_audit_v1.csv",
@@ -238,6 +252,8 @@ def main() -> None:
 
         result = run([sys.executable, str(build_script), "--root", str(root)], repo_root)
         assert_true(result.returncode == 0, f"builder failed: {result.stderr or result.stdout}")
+        combined_output = f"{result.stdout}\n{result.stderr}"
+        assert_true("missing columns" not in combined_output, "simplified front-facing verdict fixture must not trigger stale missing columns path")
 
         inventory_path = root / "_share/panel_day_engine_gpvs_bytype_provenance_inventory_v1.csv"
         summary_path = root / "_share/panel_day_engine_gpvs_bytype_provenance_summary_v1.csv"
