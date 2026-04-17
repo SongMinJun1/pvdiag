@@ -16,7 +16,6 @@ if str(REPO_ROOT) not in sys.path:
 
 from research.prognostics import gpvs_train_supervised as gpvs_supervised
 from research.prognostics.build_panel_day_engine_gpvs_detailed_type_inference_audit_v1 import (
-    build_inputs,
     build_real_panel_feature_row,
     ensure_columns,
     load_model_bundle,
@@ -100,6 +99,33 @@ SUMMARY_COLS = [
 
 WARNING_TEXT = "GPVS original scenario space and MLPE official problem-type space are not identical."
 
+VERDICT_REQUIRED_COLS = ["site", "panel_id", "패널고장여부_ko", "커널로그_원인군_ko"]
+VERDICT_FAMILY_COL_CANDIDATES = ["GPVS_내부참고유형_ko", "GPVS_참고유형_ko"]
+VERDICT_SCENARIO_COL_CANDIDATES = ["GPVS_외부참조시나리오명_ko", "GPVS_시나리오명_ko"]
+VERDICT_PATTERN_COL_CANDIDATES = ["GPVS_외부참조패턴_ko"]
+
+GPVS_SCENARIO_NAME_BY_CANONICAL_CODE = {
+    "F0": "정상 운전 시나리오",
+    "F1": "인버터 전력소자 이상 시나리오",
+    "F2": "제어 피드백 센서 이상 시나리오",
+    "F3": "계통 전압 이상 시나리오",
+    "F4": "PV 어레이 mismatch(부분 음영) 시나리오",
+    "F5": "PV 어레이 mismatch(부분 개방회로) 시나리오",
+    "F6": "부스트 컨버터 PI gain 이상 시나리오",
+    "F7": "부스트 컨버터 PI 시정수 이상 시나리오",
+}
+
+GPVS_SCENARIO_NAME_BY_PATTERN = {
+    "정상 기준선": "정상 운전 시나리오",
+    "인버터/전력변환 이상 패턴": "인버터 전력소자 이상 시나리오",
+    "제어·계측 이상 힌트": "제어 피드백 센서 이상 시나리오",
+    "계통 교란 플래그": "계통 전압 이상 시나리오",
+    "패널·어레이 mismatch 참조": "PV 어레이 mismatch(부분 음영) 시나리오",
+    "부분 개방·접속 이상 참조": "PV 어레이 mismatch(부분 개방회로) 시나리오",
+    "제어기 gain 이상 패턴": "부스트 컨버터 PI gain 이상 시나리오",
+    "제어기 시정수 이상 패턴": "부스트 컨버터 PI 시정수 이상 시나리오",
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -126,6 +152,44 @@ def read_optional_csv(path: Path) -> pd.DataFrame | None:
     if not path.exists():
         return None
     return pd.read_csv(path, low_memory=False, encoding="utf-8-sig")
+
+
+def first_existing_column(df: pd.DataFrame, candidates: list[str]) -> str:
+    for candidate in candidates:
+        if candidate in df.columns:
+            return candidate
+    return ""
+
+
+def normalized_column_or_blank(df: pd.DataFrame, column_name: str) -> pd.Series:
+    if not column_name:
+        return pd.Series([""] * len(df), index=df.index, dtype="object")
+    return df[column_name].map(normalize_text)
+
+
+def canonicalize_gpvs_code(value: object) -> str:
+    text = normalize_text(value).upper()
+    if len(text) < 2 or not text.startswith("F"):
+        return ""
+    candidate = text[:2]
+    return candidate if candidate in GPVS_SCENARIO_NAME_BY_CANONICAL_CODE else ""
+
+
+def resolve_scenario_name(
+    *,
+    legacy_scenario_name: object,
+    detailed_fault_type: object,
+    front_pattern_name: object,
+) -> str:
+    scenario_name = normalize_text(legacy_scenario_name)
+    if scenario_name:
+        return scenario_name
+
+    canonical_code = canonicalize_gpvs_code(detailed_fault_type)
+    if canonical_code:
+        return GPVS_SCENARIO_NAME_BY_CANONICAL_CODE.get(canonical_code, "")
+
+    return GPVS_SCENARIO_NAME_BY_PATTERN.get(normalize_text(front_pattern_name), "")
 
 
 def choose_reference_date(row: pd.Series) -> str:
@@ -155,7 +219,8 @@ def load_manifest(root: Path) -> dict[str, object]:
 
 def build_context(root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame | None]:
     share_dir = root / "_share"
-    fault_df, verdict_df = build_inputs(root)
+    fault_df = normalize_frame(read_csv(share_dir / FAULT_PANEL_EVENT_AUDIT_NAME))
+    verdict_df = normalize_frame(read_csv(share_dir / PANEL_MULTIAXIS_VERDICT_NAME))
     detailed_df = normalize_frame(read_csv(share_dir / DETAILED_TYPE_AUDIT_NAME))
     rebuild_summary_df = normalize_frame(read_csv(share_dir / REBUILD_SUMMARY_NAME))
     optional_family_eval_df = read_optional_csv(share_dir / OPTIONAL_FAMILY_EVAL_NAME)
@@ -167,17 +232,14 @@ def build_context(root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame 
         ["site", "panel_id", "strict_trigger_date", "first_final_fault_date", "사건유형_재판정_ko", "최종고장양상_재판정_ko"],
         FAULT_PANEL_EVENT_AUDIT_NAME,
     )
-    ensure_columns(
-        verdict_df,
-        ["site", "panel_id", "패널고장여부_ko", "커널로그_원인군_ko", "GPVS_참고유형_ko"],
-        PANEL_MULTIAXIS_VERDICT_NAME,
-    )
+    ensure_columns(verdict_df, VERDICT_REQUIRED_COLS, PANEL_MULTIAXIS_VERDICT_NAME)
     ensure_columns(
         detailed_df,
         [
             "site",
             "panel_id",
             "event_reference_date",
+            "gpvs_family_label",
             "gpvs_detailed_model_source",
             "gpvs_detailed_top1_fault_type",
             "gpvs_detailed_top1_score",
@@ -204,6 +266,14 @@ def build_context(root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame 
             f"{PANEL_MULTIAXIS_VERDICT_NAME} must contain exactly 6 fault rows by 패널고장여부_ko==고장, found {len(verdict_fault)}"
         )
 
+    family_col = first_existing_column(verdict_fault, VERDICT_FAMILY_COL_CANDIDATES)
+    scenario_col = first_existing_column(verdict_fault, VERDICT_SCENARIO_COL_CANDIDATES)
+    pattern_col = first_existing_column(verdict_fault, VERDICT_PATTERN_COL_CANDIDATES)
+    verdict_fault = verdict_fault.copy()
+    verdict_fault["resolved_gpvs_family_ko"] = normalized_column_or_blank(verdict_fault, family_col)
+    verdict_fault["resolved_gpvs_external_scenario_ko"] = normalized_column_or_blank(verdict_fault, scenario_col)
+    verdict_fault["resolved_gpvs_external_pattern_ko"] = normalized_column_or_blank(verdict_fault, pattern_col)
+
     merged = (
         fault_only.merge(
             verdict_fault,
@@ -218,6 +288,17 @@ def build_context(root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame 
             suffixes=("", "_detail"),
         )
         .reset_index(drop=True)
+    )
+    merged["GPVS_참고유형_ko"] = merged["resolved_gpvs_family_ko"].map(normalize_text)
+    family_blank = merged["GPVS_참고유형_ko"].eq("")
+    merged.loc[family_blank, "GPVS_참고유형_ko"] = merged.loc[family_blank, "gpvs_family_label"].map(normalize_text)
+    merged["GPVS_외부참조시나리오명_ko"] = merged.apply(
+        lambda row: resolve_scenario_name(
+            legacy_scenario_name=row.get("resolved_gpvs_external_scenario_ko", ""),
+            detailed_fault_type=row.get("gpvs_detailed_top1_fault_type", ""),
+            front_pattern_name=row.get("resolved_gpvs_external_pattern_ko", ""),
+        ),
+        axis=1,
     )
     return merged, rebuild_summary_df, optional_family_eval_df
 

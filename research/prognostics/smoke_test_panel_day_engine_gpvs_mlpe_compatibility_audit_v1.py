@@ -124,26 +124,26 @@ def build_fixture(root: Path) -> None:
     )
 
     verdict_rows = [
-        {"site": "siteA", "panel_id": "panel_f4_1", "패널고장여부_ko": "고장", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "진행성 악화", "커널로그_원인군_ko": "다이오드형", "GPVS_참고유형_ko": "전기적 고장 계열", "GPVS_시나리오명_ko": "PV 어레이 mismatch(부분 음영) 시나리오"},
-        {"site": "siteA", "panel_id": "panel_f2_1", "패널고장여부_ko": "고장", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "급격 종료", "커널로그_원인군_ko": "개방/장치이상형", "GPVS_참고유형_ko": "개방/장치이상 계열", "GPVS_시나리오명_ko": "제어 피드백 센서 이상 시나리오"},
-        {"site": "siteA", "panel_id": "panel_f2_2", "패널고장여부_ko": "고장", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "커널로그_원인군_ko": "다이오드형", "GPVS_참고유형_ko": "전기적 고장 계열", "GPVS_시나리오명_ko": "제어 피드백 센서 이상 시나리오"},
-        {"site": "siteA", "panel_id": "panel_f2_3", "패널고장여부_ko": "고장", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "커널로그_원인군_ko": "다이오드형", "GPVS_참고유형_ko": "전기적 고장 계열", "GPVS_시나리오명_ko": "제어 피드백 센서 이상 시나리오"},
-        {"site": "siteA", "panel_id": "panel_f4_2", "패널고장여부_ko": "고장", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "커널로그_원인군_ko": "다이오드형", "GPVS_참고유형_ko": "불확실", "GPVS_시나리오명_ko": "PV 어레이 mismatch(부분 음영) 시나리오"},
-        {"site": "siteA", "panel_id": "panel_f2_4", "패널고장여부_ko": "고장", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "진행성 악화", "커널로그_원인군_ko": "모듈손상형", "GPVS_참고유형_ko": "전기적 고장 계열", "GPVS_시나리오명_ko": "제어 피드백 센서 이상 시나리오"},
+        {"site": "siteA", "panel_id": "panel_f4_1", "패널고장여부_ko": "고장", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "진행성 악화", "커널로그_원인군_ko": "다이오드형", "GPVS_내부참고유형_ko": "전기적 고장 계열", "GPVS_외부참조패턴_ko": "패널·어레이 mismatch 참조"},
+        {"site": "siteA", "panel_id": "panel_f2_1", "패널고장여부_ko": "고장", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "급격 종료", "커널로그_원인군_ko": "개방/장치이상형", "GPVS_내부참고유형_ko": "개방/장치이상 계열", "GPVS_외부참조패턴_ko": "제어·계측 이상 힌트"},
+        {"site": "siteA", "panel_id": "panel_f2_2", "패널고장여부_ko": "고장", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "커널로그_원인군_ko": "다이오드형", "GPVS_내부참고유형_ko": "전기적 고장 계열", "GPVS_외부참조패턴_ko": "제어·계측 이상 힌트"},
+        {"site": "siteA", "panel_id": "panel_f2_3", "패널고장여부_ko": "고장", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "커널로그_원인군_ko": "다이오드형", "GPVS_내부참고유형_ko": "전기적 고장 계열", "GPVS_외부참조패턴_ko": "제어·계측 이상 힌트"},
+        {"site": "siteA", "panel_id": "panel_f4_2", "패널고장여부_ko": "고장", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "커널로그_원인군_ko": "다이오드형", "GPVS_내부참고유형_ko": "불확실", "GPVS_외부참조패턴_ko": "패널·어레이 mismatch 참조"},
+        {"site": "siteA", "panel_id": "panel_f2_4", "패널고장여부_ko": "고장", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "진행성 악화", "커널로그_원인군_ko": "모듈손상형", "GPVS_내부참고유형_ko": "전기적 고장 계열", "GPVS_외부참조패턴_ko": "제어·계측 이상 힌트"},
     ]
     write_csv(
         share / "panel_day_engine_panel_multiaxis_verdict_v1.csv",
         verdict_rows,
-        ["site", "panel_id", "패널고장여부_ko", "사건유형_ko", "최종고장양상_ko", "커널로그_원인군_ko", "GPVS_참고유형_ko", "GPVS_시나리오명_ko"],
+        ["site", "panel_id", "패널고장여부_ko", "사건유형_ko", "최종고장양상_ko", "커널로그_원인군_ko", "GPVS_내부참고유형_ko", "GPVS_외부참조패턴_ko"],
     )
 
     detailed_rows = [
-        {"site": "siteA", "panel_id": "panel_f4_1", "event_reference_date": "2025-01-10", "gpvs_detailed_model_source": "recovered_artifact", "gpvs_detailed_top1_fault_type": "F4L", "gpvs_detailed_top1_score": 0.90, "gpvs_detailed_top2_fault_type": "F2M", "gpvs_detailed_top2_score": 0.10, "gpvs_detailed_margin": 0.80, "gpvs_detailed_status_ko": "추론성공"},
-        {"site": "siteA", "panel_id": "panel_f2_1", "event_reference_date": "2025-01-10", "gpvs_detailed_model_source": "recovered_artifact", "gpvs_detailed_top1_fault_type": "F2M", "gpvs_detailed_top1_score": 0.95, "gpvs_detailed_top2_fault_type": "F4L", "gpvs_detailed_top2_score": 0.05, "gpvs_detailed_margin": 0.90, "gpvs_detailed_status_ko": "추론성공"},
-        {"site": "siteA", "panel_id": "panel_f2_2", "event_reference_date": "2025-01-10", "gpvs_detailed_model_source": "recovered_artifact", "gpvs_detailed_top1_fault_type": "F2M", "gpvs_detailed_top1_score": 0.94, "gpvs_detailed_top2_fault_type": "F4L", "gpvs_detailed_top2_score": 0.06, "gpvs_detailed_margin": 0.88, "gpvs_detailed_status_ko": "추론성공"},
-        {"site": "siteA", "panel_id": "panel_f2_3", "event_reference_date": "2025-01-10", "gpvs_detailed_model_source": "recovered_artifact", "gpvs_detailed_top1_fault_type": "F2M", "gpvs_detailed_top1_score": 0.93, "gpvs_detailed_top2_fault_type": "F4L", "gpvs_detailed_top2_score": 0.07, "gpvs_detailed_margin": 0.86, "gpvs_detailed_status_ko": "추론성공"},
-        {"site": "siteA", "panel_id": "panel_f4_2", "event_reference_date": "2025-01-10", "gpvs_detailed_model_source": "recovered_artifact", "gpvs_detailed_top1_fault_type": "F4L", "gpvs_detailed_top1_score": 0.89, "gpvs_detailed_top2_fault_type": "F2M", "gpvs_detailed_top2_score": 0.11, "gpvs_detailed_margin": 0.78, "gpvs_detailed_status_ko": "추론성공"},
-        {"site": "siteA", "panel_id": "panel_f2_4", "event_reference_date": "2025-01-10", "gpvs_detailed_model_source": "recovered_artifact", "gpvs_detailed_top1_fault_type": "F2M", "gpvs_detailed_top1_score": 0.92, "gpvs_detailed_top2_fault_type": "F4L", "gpvs_detailed_top2_score": 0.08, "gpvs_detailed_margin": 0.84, "gpvs_detailed_status_ko": "추론성공"},
+        {"site": "siteA", "panel_id": "panel_f4_1", "event_reference_date": "2025-01-10", "gpvs_family_label": "전기적 고장 계열", "gpvs_detailed_model_source": "recovered_artifact", "gpvs_detailed_top1_fault_type": "F4L", "gpvs_detailed_top1_score": 0.90, "gpvs_detailed_top2_fault_type": "F2M", "gpvs_detailed_top2_score": 0.10, "gpvs_detailed_margin": 0.80, "gpvs_detailed_status_ko": "추론성공"},
+        {"site": "siteA", "panel_id": "panel_f2_1", "event_reference_date": "2025-01-10", "gpvs_family_label": "개방/장치이상 계열", "gpvs_detailed_model_source": "recovered_artifact", "gpvs_detailed_top1_fault_type": "F2M", "gpvs_detailed_top1_score": 0.95, "gpvs_detailed_top2_fault_type": "F4L", "gpvs_detailed_top2_score": 0.05, "gpvs_detailed_margin": 0.90, "gpvs_detailed_status_ko": "추론성공"},
+        {"site": "siteA", "panel_id": "panel_f2_2", "event_reference_date": "2025-01-10", "gpvs_family_label": "전기적 고장 계열", "gpvs_detailed_model_source": "recovered_artifact", "gpvs_detailed_top1_fault_type": "F2M", "gpvs_detailed_top1_score": 0.94, "gpvs_detailed_top2_fault_type": "F4L", "gpvs_detailed_top2_score": 0.06, "gpvs_detailed_margin": 0.88, "gpvs_detailed_status_ko": "추론성공"},
+        {"site": "siteA", "panel_id": "panel_f2_3", "event_reference_date": "2025-01-10", "gpvs_family_label": "전기적 고장 계열", "gpvs_detailed_model_source": "recovered_artifact", "gpvs_detailed_top1_fault_type": "F2M", "gpvs_detailed_top1_score": 0.93, "gpvs_detailed_top2_fault_type": "F4L", "gpvs_detailed_top2_score": 0.07, "gpvs_detailed_margin": 0.86, "gpvs_detailed_status_ko": "추론성공"},
+        {"site": "siteA", "panel_id": "panel_f4_2", "event_reference_date": "2025-01-10", "gpvs_family_label": "불확실", "gpvs_detailed_model_source": "recovered_artifact", "gpvs_detailed_top1_fault_type": "F4L", "gpvs_detailed_top1_score": 0.89, "gpvs_detailed_top2_fault_type": "F2M", "gpvs_detailed_top2_score": 0.11, "gpvs_detailed_margin": 0.78, "gpvs_detailed_status_ko": "추론성공"},
+        {"site": "siteA", "panel_id": "panel_f2_4", "event_reference_date": "2025-01-10", "gpvs_family_label": "전기적 고장 계열", "gpvs_detailed_model_source": "recovered_artifact", "gpvs_detailed_top1_fault_type": "F2M", "gpvs_detailed_top1_score": 0.92, "gpvs_detailed_top2_fault_type": "F4L", "gpvs_detailed_top2_score": 0.08, "gpvs_detailed_margin": 0.84, "gpvs_detailed_status_ko": "추론성공"},
     ]
     write_csv(
         share / "panel_day_engine_gpvs_detailed_type_inference_audit_v1.csv",
@@ -152,6 +152,7 @@ def build_fixture(root: Path) -> None:
             "site",
             "panel_id",
             "event_reference_date",
+            "gpvs_family_label",
             "gpvs_detailed_model_source",
             "gpvs_detailed_top1_fault_type",
             "gpvs_detailed_top1_score",
@@ -291,6 +292,8 @@ def main() -> None:
         result = run([sys.executable, str(build_script), "--root", str(root)], repo_root)
         if result.returncode != 0:
             raise SystemExit(f"build failed\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}")
+        combined_output = f"{result.stdout}\n{result.stderr}"
+        assert_true("missing columns" not in combined_output, "current simplified verdict schema should not trigger missing columns path")
 
         for output_name in OUTPUTS:
             output_path = root / "_share" / output_name
@@ -301,12 +304,32 @@ def main() -> None:
         agreement_df = pd.read_csv(root / "_share" / OUTPUTS[2], low_memory=False, encoding="utf-8-sig")
         summary_df = pd.read_csv(root / "_share" / OUTPUTS[3], low_memory=False, encoding="utf-8-sig")
         note_text = (root / "_share" / OUTPUTS[4]).read_text(encoding="utf-8")
+        summary_row = summary_df.iloc[0]
 
         assert_true(not feature_df.empty, "feature compatibility output must not be empty")
         assert_true(len(distribution_df) == 6, "distribution shift output must contain 6 fault panels")
         assert_true(len(agreement_df) == 6, "panel agreement output must contain 6 fault panels")
-        assert_true(int(summary_df.iloc[0]["fault_panel_count"]) == 6, "summary fault_panel_count must equal 6")
-        assert_true(str(summary_df.iloc[0]["final_recommendation_ko"]).strip() != "", "final_recommendation_ko must be populated")
+        assert_true(int(summary_row["fault_panel_count"]) == 6, "summary fault_panel_count must equal 6")
+        assert_true(str(summary_row["final_recommendation_ko"]).strip() != "", "final_recommendation_ko must be populated")
+        assert_true(int(summary_row["family_alignment_count"]) == 4, "family_alignment_count must stay 4")
+        assert_true(int(summary_row["family_partial_alignment_count"]) == 1, "family_partial_alignment_count must stay 1")
+        assert_true(int(summary_row["family_conflict_count"]) == 0, "family_conflict_count must stay 0")
+        assert_true(int(summary_row["scenario_partial_alignment_count"]) == 2, "scenario_partial_alignment_count must stay 2")
+        assert_true(int(summary_row["scenario_conflict_count"]) == 4, "scenario_conflict_count must stay 4")
+        assert_true(int(summary_row["gpvs_reference_caution_count"]) == 2, "caution count must stay 2")
+        assert_true(int(summary_row["gpvs_reference_not_recommended_count"]) == 4, "not recommended count must stay 4")
+        scenario_map = {
+            (str(row["site"]).strip(), str(row["panel_id"]).strip()): str(row["GPVS_외부참조시나리오명_ko"]).strip()
+            for row in agreement_df.to_dict(orient="records")
+        }
+        assert_true(
+            scenario_map[("siteA", "panel_f4_1")] == "PV 어레이 mismatch(부분 음영) 시나리오",
+            "F4 scenario name should resolve from detailed provenance under simplified verdict schema",
+        )
+        assert_true(
+            scenario_map[("siteA", "panel_f2_1")] == "제어 피드백 센서 이상 시나리오",
+            "F2 scenario name should resolve from detailed provenance under simplified verdict schema",
+        )
         assert_true(
             "GPVS original scenario space and MLPE official problem-type space are not identical" in note_text,
             "note must explain GPVS/MLPE label-space difference",

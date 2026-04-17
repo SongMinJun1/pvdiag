@@ -51,6 +51,8 @@ SUMMARY_COLS = [
 ]
 
 CANONICAL_CODES = [f"F{idx}" for idx in range(8)]
+VERDICT_REQUIRED_COLS = ["site", "panel_id", "패널고장여부_ko"]
+LEGACY_GPVS_CODE_COL_CANDIDATES = ["GPVS_세부fault_code"]
 
 CANONICAL_POLICY = {
     "F0": {
@@ -219,6 +221,13 @@ def ensure_columns(df: pd.DataFrame, required: list[str], name: str) -> None:
         raise SystemExit(f"{name} missing columns: {missing}")
 
 
+def first_existing_column(df: pd.DataFrame, candidates: list[str]) -> str:
+    for candidate in candidates:
+        if candidate in df.columns:
+            return candidate
+    return ""
+
+
 def canonicalize_gpvs_code(value: object) -> str:
     text = normalize_text(value)
     match = re.match(r"^(F[0-7])", text)
@@ -240,11 +249,7 @@ def load_inputs(root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, p
     compatibility_summary_df = normalize_frame(read_csv(share_dir / GPVS_MLPE_COMPATIBILITY_SUMMARY_NAME))
     detailed_audit_df = normalize_frame(read_csv(share_dir / GPVS_DETAILED_AUDIT_NAME))
 
-    ensure_columns(
-        verdict_df,
-        ["site", "panel_id", "패널고장여부_ko", "GPVS_세부fault_code", "GPVS_참고유형_ko", "GPVS_시나리오명_ko"],
-        PANEL_MULTIAXIS_VERDICT_NAME,
-    )
+    ensure_columns(verdict_df, VERDICT_REQUIRED_COLS, PANEL_MULTIAXIS_VERDICT_NAME)
     ensure_columns(
         agreement_df,
         [
@@ -281,7 +286,10 @@ def build_fault_panel_context(
     audit_subset = detailed_audit_df[["site", "panel_id", "gpvs_detailed_top1_fault_type"]].copy()
     audit_subset["audit_canonical_gpvs_code"] = audit_subset["gpvs_detailed_top1_fault_type"].map(canonicalize_gpvs_code)
 
-    fault_df["canonical_gpvs_code"] = fault_df["GPVS_세부fault_code"].map(canonicalize_gpvs_code)
+    legacy_code_col = first_existing_column(fault_df, LEGACY_GPVS_CODE_COL_CANDIDATES)
+    fault_df["legacy_canonical_gpvs_code"] = ""
+    if legacy_code_col:
+        fault_df["legacy_canonical_gpvs_code"] = fault_df[legacy_code_col].map(canonicalize_gpvs_code)
     merged = fault_df.merge(
         audit_subset[["site", "panel_id", "audit_canonical_gpvs_code"]],
         on=["site", "panel_id"],
@@ -294,13 +302,19 @@ def build_fault_panel_context(
 
     mismatch_df = merged.loc[
         merged["audit_canonical_gpvs_code"].map(normalize_text).ne("")
-        & merged["canonical_gpvs_code"].map(normalize_text).ne(merged["audit_canonical_gpvs_code"].map(normalize_text))
+        & merged["legacy_canonical_gpvs_code"].map(normalize_text).ne("")
+        & merged["legacy_canonical_gpvs_code"].map(normalize_text).ne(merged["audit_canonical_gpvs_code"].map(normalize_text))
     ].copy()
     if not mismatch_df.empty:
         raise SystemExit(
             "current attached GPVS canonical code and detailed audit top1 code disagree: "
-            + mismatch_df[["site", "panel_id", "canonical_gpvs_code", "audit_canonical_gpvs_code"]].to_string(index=False)
+            + mismatch_df[["site", "panel_id", "legacy_canonical_gpvs_code", "audit_canonical_gpvs_code"]].to_string(index=False)
         )
+    merged["canonical_gpvs_code"] = merged["legacy_canonical_gpvs_code"].map(normalize_text)
+    missing_code_mask = merged["canonical_gpvs_code"].eq("")
+    merged.loc[missing_code_mask, "canonical_gpvs_code"] = merged.loc[missing_code_mask, "audit_canonical_gpvs_code"].map(
+        normalize_text
+    )
     return merged
 
 
