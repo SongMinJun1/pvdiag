@@ -43,10 +43,15 @@
   - canonical GPVS↔MLPE matching policy를 사용한다.
 - `GPVS_최종사용권고_ko`
   - compatibility와 matching tier를 보수적으로 합친다.
+  - reference-only 는 unusable을 뜻하지 않는다.
+  - 그래서 `보조참조` row는 direct root-cause 사용을 금지한 채 최종 권고도 `보조참조`로 유지한다.
+  - `비권장`은 matching policy 자체가 비권장이거나 required evidence가 비어 있을 때만 사용한다.
   - GPVS를 direct root-cause classifier로 승격하지 않는다.
 
 ## 해석 원칙
 - GPVS 내부판정과 외부참조는 서로 다른 레이어다.
 - 외부참조는 근거 사례이지 direct root-cause 판정값이 아니다.
 - compatibility audit 결과에 따라 GPVS는 reference layer로만 사용한다.
+- reference-only 는 unusable 을 뜻하지 않는다.
+- auxiliary-reference row도 direct root-cause 판정에는 쓰지 말고 보조참조로만 사용한다.
 - matching 정책에 따라 `F0/F4/F5/F2/F3/F1/F6/F7`의 사용 등급이 갈린다.
