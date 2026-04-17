@@ -663,6 +663,10 @@ def main() -> None:
             "GPVS 는 고장 패널 `6` 개에만 적용하고 현재 `6` 개 모두 부착됐다.",
             "비고장/미확정 패널 `19` 개는 GPVS 비대상이다.",
             "사건 해석, 운영 최초 전조 발견일, benchmark onset, 평가셋 편입은 같은 뜻이 아니다.",
+            "`GPVS_내부참고유형_ko` 는 우리 시스템 내부 해석이다.",
+            "`GPVS_외부참조패턴_ko` 는 외부 GPVS 시나리오를 MLPE 운영 언어로 정리한 참조 패턴명이다. 예: `국소 출력 불균형형`, `장치 응답 이상형`.",
+            "`GPVS_참조사용등급_ko` 는 해당 패널에서 reference로 얼마나 믿을 수 있는지다.",
+            "GPVS 는 direct root-cause classifier 가 아니라 reference layer 다.",
             "c429 사건 해석 onset 은 `2025-01-20` 이고 benchmark onset 은 `2025-03-18` 이다.",
             "c429 운영 최초 전조 발견은 `2025-02-20` (`first_cond_evt`) 이다.",
             "c429 panel row의 평가셋 편입 flag 는 전조=`1`, 급작=`0` 로 분리돼 있다.",
@@ -680,6 +684,8 @@ def main() -> None:
         ]
         for snippet in forbidden_snippets:
             assert_true(snippet not in markdown_text, f"stale wording leaked into markdown: {snippet}")
+        for forbidden_token in ["F0", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "IPPT", "MPPT"]:
+            assert_true(forbidden_token not in markdown_text, f"handoff markdown must not expose raw GPVS code/mode token: {forbidden_token}")
 
     after_digests = [(str(path), file_digest(path)) for path in official_outputs]
     assert_true(before_digests == after_digests, "smoke test modified official outputs")
