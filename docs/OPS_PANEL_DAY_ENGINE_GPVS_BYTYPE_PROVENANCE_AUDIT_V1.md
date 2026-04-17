@@ -7,10 +7,11 @@
 - main panel verdict table 에 detailed type 을 attach 하지 않는다.
 
 ## 왜 필요한가
-- 현재 real fault panel 6건에 대한 detailed-type audit 은 모두 `top1 = F4L` 로 collapse 한다.
-- grouped CV summary 도 사실상 all-zero 이다.
-- `gpvs_window_scores.csv` 기준 `fault_type` 별 `train_source_count == 1` 이다.
-- 따라서 지금의 `fallback_lr:gpvs_window_scores.csv` 결과는 provenance 를 밝히지 못한 surrogate 로 봐야 하고, 그대로 attach 하면 안 된다.
+- provenance audit 이 보는 질문과 detailed-type attachment 질문은 다르다.
+- provenance audit 은 먼저 “recoverable by-type head 가 repo/output 자산 안에 있는가”를 본다.
+- 동시에 `fallback_lr:gpvs_window_scores.csv` surrogate 가 독립적으로 attach 가능한지는 별도로 본다.
+- `gpvs_window_scores.csv` 기준 `fault_type` 별 `train_source_count == 1` 이면, fallback surrogate 는 여전히 강한 제약을 가진다.
+- 따라서 recovered artifact 가 있더라도, fallback surrogate 를 그대로 attach 해도 된다는 뜻은 아니다.
 
 ## 입력
 - `data/gpvs/out/gpvs_window_scores.csv`
@@ -22,6 +23,12 @@
   - `_share/panel_day_engine_gpvs_detailed_type_inference_summary_v1.csv`
   - `_share/panel_day_engine_gpvs_detailed_type_cv_summary_v1.csv`
 
+## front-facing schema와 provenance 분리
+- current `_share/panel_day_engine_panel_multiaxis_verdict_v1.csv` 의 front-facing GPVS column 은 단순화되어 있다.
+- 따라서 예전 low-level GPVS field (`GPVS_참고유형_ko`, `GPVS_세부fault_code`, `GPVS_시나리오명_ko` 등)를 main verdict table 에서 직접 기대하지 않는다.
+- low-level GPVS family/code provenance 는 detailed-type audit/provenance artifact 쪽에 남고, 이번 provenance audit 도 그 보조 산출물을 기준으로 해석한다.
+- 즉, front-facing verdict schema 단순화와 by-type provenance audit 은 분리된 질문이다.
+
 ## 핵심 점검 항목
 - serialized by-type model artifact 가 실제로 있는가
 - feature manifest / preprocessing manifest 가 있는가
@@ -31,7 +38,7 @@
 
 ## provenance 상태 분류
 - `original_trained_head_recovered`
-  - serialized by-type head 와 feature manifest 를 함께 확인한 경우
+  - repo/local output 자산 안에서 serialized by-type head 와 feature manifest 를 함께 확인한 경우
 - `only_evaluation_assets_present`
   - 평가 스크립트/metrics 는 있으나 recoverable head 는 없는 경우
 - `only_synthetic_score_assets_present`
@@ -71,4 +78,5 @@
 - `PVFAULT_labels_day.csv` synthetic-string key 문제와는 별개로, 이번 audit 은 “원본 GPVS by-type head 자체가 repo에 남아 있는가”를 본다.
 - `external_eval_gpvs.py` 가 by-type metrics 를 만든다고 해서 trained by-type head 가 저장돼 있다는 뜻은 아니다.
 - current fallback surrogate 는 provenance 와 generalization 이 둘 다 불충분하면 attach 하면 안 된다.
-- 특히 real panel 6건이 모두 같은 top1 detailed type 으로 collapse 하는 현재 상태는 audit-only 로 유지해야 한다.
+- recovered export artifact 존재 여부와 `current_fallback_lr_attachable_flag` 는 같은 질문이 아니다.
+- 즉, recoverable head 가 확인돼도 fallback surrogate 자체는 계속 `attach 불가`로 남을 수 있다.

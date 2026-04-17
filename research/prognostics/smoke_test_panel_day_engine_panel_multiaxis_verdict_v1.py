@@ -11,6 +11,8 @@ from pathlib import Path
 import pandas as pd
 
 FORENSIC_HOLDOUT_PANEL_ID = "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"
+SPECIAL_10305_SITE = "ktc_ess"
+SPECIAL_10305_PANEL_ID = "10305b40-b67e-40d1-9cd1-271b6642a3d9.2.12"
 
 
 def assert_true(condition: bool, message: str) -> None:
@@ -51,8 +53,8 @@ def build_fixture(root: Path) -> None:
         [
             {
                 "preview_attention_class": "queue_run",
-                "site": "siteA",
-                "display_entity_id": "abrupt_1",
+                "site": SPECIAL_10305_SITE,
+                "display_entity_id": SPECIAL_10305_PANEL_ID,
                 "display_start_date": "2026-02-01",
                 "display_end_date": "2026-02-02",
                 "display_span_or_day_count": 2,
@@ -168,7 +170,7 @@ def build_fixture(root: Path) -> None:
     )
 
     abrupt_rows = [
-        {"site": "siteA", "panel_id": "abrupt_1", "고장시점": "2025-01-01", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "순수급작_flag": 1, "증상명_ko": "다이오드형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
+        {"site": SPECIAL_10305_SITE, "panel_id": SPECIAL_10305_PANEL_ID, "고장시점": "2025-01-01", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "순수급작_flag": 1, "증상명_ko": "다이오드형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
         {"site": "siteA", "panel_id": "abrupt_2", "고장시점": "2025-01-02", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "순수급작_flag": 1, "증상명_ko": "다이오드형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
         {"site": "siteA", "panel_id": "abrupt_3", "고장시점": "2025-01-03", "사건유형_ko": "급작 고장", "최종고장양상_ko": "급작 발생", "순수급작_flag": 1, "증상명_ko": "다이오드형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
         {"site": "conalog", "panel_id": FORENSIC_HOLDOUT_PANEL_ID, "고장시점": "2025-03-21", "사건유형_ko": "전조형 고장", "최종고장양상_ko": "급격 종료", "순수급작_flag": 0, "증상명_ko": "개방/장치이상형", "세부근거_ko": "fixture", "source_field_ko": "vendor_fault_family", "비고_ko": "fixture"},
@@ -227,7 +229,7 @@ def build_fixture(root: Path) -> None:
     write_csv(
         share / "panel_day_engine_non_precursor_performance_cases_v1.csv",
         [
-            {"eval_bucket_v2": "abrupt_or_no_precursor_now", "site": "siteA", "panel_id": "abrupt_1"},
+            {"eval_bucket_v2": "abrupt_or_no_precursor_now", "site": SPECIAL_10305_SITE, "panel_id": SPECIAL_10305_PANEL_ID},
             {"eval_bucket_v2": "abrupt_or_no_precursor_now", "site": "siteA", "panel_id": "abrupt_2"},
             {"eval_bucket_v2": "abrupt_or_no_precursor_now", "site": "siteA", "panel_id": "abrupt_3"},
         ],
@@ -332,8 +334,8 @@ def build_fixture(root: Path) -> None:
         share / "panel_day_engine_fault_panel_event_audit_v1.csv",
         [
             {
-                "site": "siteA",
-                "panel_id": "abrupt_1",
+                "site": SPECIAL_10305_SITE,
+                "panel_id": SPECIAL_10305_PANEL_ID,
                 "현재표_사건유형_ko": "급작 고장",
                 "현재표_최종고장양상_ko": "급작 발생",
                 "전조흔적_flag": 0,
@@ -436,8 +438,8 @@ def build_fixture(root: Path) -> None:
         share / "panel_day_engine_detailed_fault_bridge_audit_v1.csv",
         [
             {
-                "site": "siteA",
-                "panel_id": "abrupt_1",
+                "site": SPECIAL_10305_SITE,
+                "panel_id": SPECIAL_10305_PANEL_ID,
                 "reference_date": "2025-01-01",
                 "exact_match_file_count": 2,
                 "matched_files_csv": "data/pvfault/out/PVFAULT_labels_day.csv|_share/external_pvfault_20260304/PVFAULT_labels_day.csv",
@@ -657,7 +659,15 @@ def build_fixture(root: Path) -> None:
             {
                 "site": "conalog",
                 "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
-                "GPVS_참고유형_ko": "전기적 고장 계열",
+                "GPVS_참고유형_ko": "개방/장치이상 계열",
+                "source_path": "_share/gpvs_fault_family_eval_cases.csv",
+                "source_key_ko": "site+panel_id",
+                "비고_ko": "prediction_source=critical_phenotype_v3",
+            },
+            {
+                "site": SPECIAL_10305_SITE,
+                "panel_id": SPECIAL_10305_PANEL_ID,
+                "GPVS_참고유형_ko": "불확실",
                 "source_path": "_share/gpvs_fault_family_eval_cases.csv",
                 "source_key_ko": "site+panel_id",
                 "비고_ko": "prediction_source=critical_phenotype_v3",
@@ -708,8 +718,8 @@ def build_fixture(root: Path) -> None:
         share / "panel_day_engine_gpvs_detailed_type_inference_audit_v1.csv",
         [
             {
-                "site": "siteA",
-                "panel_id": "abrupt_1",
+                "site": SPECIAL_10305_SITE,
+                "panel_id": SPECIAL_10305_PANEL_ID,
                 "event_reference_date": "2025-01-01",
                 "gpvs_detailed_model_source": "recovered_artifact",
                 "gpvs_family_label": "불확실",
@@ -812,8 +822,8 @@ def build_fixture(root: Path) -> None:
         share / "panel_day_engine_gpvs_detailed_type_realpanel_sanity_v1.csv",
         [
             {
-                "site": "siteA",
-                "panel_id": "abrupt_1",
+                "site": SPECIAL_10305_SITE,
+                "panel_id": SPECIAL_10305_PANEL_ID,
                 "gpvs_family_label": "불확실",
                 "gpvs_detailed_top1_fault_type": "F4L",
                 "single_type_collapse_flag": 0,
@@ -867,6 +877,121 @@ def build_fixture(root: Path) -> None:
             "gpvs_detailed_top1_fault_type",
             "single_type_collapse_flag",
             "attach_recommendation_ko",
+        ],
+    )
+
+    write_csv(
+        share / "panel_day_engine_gpvs_mlpe_panel_agreement_v1.csv",
+        [
+            {
+                "site": SPECIAL_10305_SITE,
+                "panel_id": SPECIAL_10305_PANEL_ID,
+                "gpvs_family_label": "불확실",
+                "gpvs_detailed_top1_fault_type": "F4L",
+                "overall_gpvs_reference_usefulness_ko": "주의참고",
+                "overall_gpvs_trust_note_ko": "feature shift가 커서 reference-only로 읽어야 함",
+            },
+            {
+                "site": "siteA",
+                "panel_id": "abrupt_2",
+                "gpvs_family_label": "전기적 고장 계열",
+                "gpvs_detailed_top1_fault_type": "F2M",
+                "overall_gpvs_reference_usefulness_ko": "비권장",
+                "overall_gpvs_trust_note_ko": "scenario conflict가 커 direct trust를 주기 어려움",
+            },
+            {
+                "site": "siteA",
+                "panel_id": "abrupt_3",
+                "gpvs_family_label": "전기적 고장 계열",
+                "gpvs_detailed_top1_fault_type": "F2M",
+                "overall_gpvs_reference_usefulness_ko": "비권장",
+                "overall_gpvs_trust_note_ko": "scenario conflict가 커 direct trust를 주기 어려움",
+            },
+            {
+                "site": "siteA",
+                "panel_id": "abrupt_5",
+                "gpvs_family_label": "전기적 고장 계열",
+                "gpvs_detailed_top1_fault_type": "F4L",
+                "overall_gpvs_reference_usefulness_ko": "주의참고",
+                "overall_gpvs_trust_note_ko": "reference-only로 읽는 편이 안전함",
+            },
+            {
+                "site": "siteA",
+                "panel_id": "abrupt_6",
+                "gpvs_family_label": "전기적 고장 계열",
+                "gpvs_detailed_top1_fault_type": "F2M",
+                "overall_gpvs_reference_usefulness_ko": "비권장",
+                "overall_gpvs_trust_note_ko": "scenario conflict가 커 direct trust를 주기 어려움",
+            },
+            {
+                "site": "conalog",
+                "panel_id": FORENSIC_HOLDOUT_PANEL_ID,
+                "gpvs_family_label": "개방/장치이상 계열",
+                "gpvs_detailed_top1_fault_type": "F2M",
+                "overall_gpvs_reference_usefulness_ko": "비권장",
+                "overall_gpvs_trust_note_ko": "외부 scenario/family 방향성이 현재 kernel-log 원인군과 직접 충돌",
+            },
+        ],
+        [
+            "site",
+            "panel_id",
+            "gpvs_family_label",
+            "gpvs_detailed_top1_fault_type",
+            "overall_gpvs_reference_usefulness_ko",
+            "overall_gpvs_trust_note_ko",
+        ],
+    )
+
+    write_csv(
+        share / "panel_day_engine_gpvs_canonical_dictionary_v1.csv",
+        [
+            {"canonical_gpvs_code": "F0", "current_usage_tier_ko": "baseline", "mlpe_reference_name_ko": "정상 기준선", "usage_rule_ko": "baseline only", "note_ko": "fixture"},
+            {"canonical_gpvs_code": "F1", "current_usage_tier_ko": "reserved_system_level", "mlpe_reference_name_ko": "인버터 전력변환부 시스템 시나리오", "usage_rule_ko": "reserved", "note_ko": "fixture"},
+            {"canonical_gpvs_code": "F2", "current_usage_tier_ko": "auxiliary_reference", "mlpe_reference_name_ko": "제어/계측 이상 보조 힌트", "usage_rule_ko": "auxiliary", "note_ko": "fixture"},
+            {"canonical_gpvs_code": "F3", "current_usage_tier_ko": "confounder_only", "mlpe_reference_name_ko": "계통 교란 플래그", "usage_rule_ko": "confounder", "note_ko": "fixture"},
+            {"canonical_gpvs_code": "F4", "current_usage_tier_ko": "core_reference", "mlpe_reference_name_ko": "패널·어레이 mismatch 핵심 참조", "usage_rule_ko": "core", "note_ko": "fixture"},
+            {"canonical_gpvs_code": "F5", "current_usage_tier_ko": "core_reference_candidate", "mlpe_reference_name_ko": "부분 개방회로 계열 핵심 참조 후보", "usage_rule_ko": "candidate", "note_ko": "fixture"},
+            {"canonical_gpvs_code": "F6", "current_usage_tier_ko": "reserved_system_level", "mlpe_reference_name_ko": "제어기 gain 이상 시스템 시나리오", "usage_rule_ko": "reserved", "note_ko": "fixture"},
+            {"canonical_gpvs_code": "F7", "current_usage_tier_ko": "reserved_system_level", "mlpe_reference_name_ko": "제어기 시정수 이상 시스템 시나리오", "usage_rule_ko": "reserved", "note_ko": "fixture"},
+        ],
+        [
+            "canonical_gpvs_code",
+            "current_usage_tier_ko",
+            "mlpe_reference_name_ko",
+            "usage_rule_ko",
+            "note_ko",
+        ],
+    )
+
+    write_csv(
+        share / "panel_day_engine_gpvs_mlpe_fault_matching_table_v1.csv",
+        [
+            {"mlpe_official_fault_ko": "정션박스 손상", "canonical_gpvs_code": "F4", "match_strength_ko": "강", "match_role_ko": "핵심참조", "recommendation_ko": "reference only"},
+            {"mlpe_official_fault_ko": "케이블 접점불량(단선)", "canonical_gpvs_code": "F5", "match_strength_ko": "강", "match_role_ko": "핵심참조", "recommendation_ko": "candidate"},
+            {"mlpe_official_fault_ko": "인버터/스트링 동작 불량", "canonical_gpvs_code": "F2", "match_strength_ko": "약", "match_role_ko": "보조참조", "recommendation_ko": "hint only"},
+        ],
+        [
+            "mlpe_official_fault_ko",
+            "canonical_gpvs_code",
+            "match_strength_ko",
+            "match_role_ko",
+            "recommendation_ko",
+        ],
+    )
+
+    write_csv(
+        share / "panel_day_engine_gpvs_mlpe_compatibility_summary_v1.csv",
+        [
+            {
+                "fault_panel_count": 6,
+                "final_recommendation_ko": "참고축으로만 사용",
+                "note_ko": "fixture summary",
+            }
+        ],
+        [
+            "fault_panel_count",
+            "final_recommendation_ko",
+            "note_ko",
         ],
     )
 
@@ -941,6 +1066,17 @@ def main() -> None:
             "세부fault_근거파일_ko",
             "세부fault_기준일",
             "세부fault_보류사유_ko",
+            "GPVS_내부참고유형_ko",
+            "GPVS_외부참조패턴_ko",
+            "GPVS_참조사용등급_ko",
+            "GPVS_참조설명_ko",
+        }
+        assert_true(required_new_columns.issubset(set(verdict_df.columns)), "front-facing interpretation/GPVS columns missing")
+        forbidden_low_level_gpvs_columns = {
+            "GPVS_참고유형_ko",
+            "GPVS_근거_ko",
+            "GPVS_미부착사유_ko",
+            "GPVS_후보파일_ko",
             "GPVS_세부fault_code",
             "GPVS_세부fault_score",
             "GPVS_세부fault_rank2_code",
@@ -950,23 +1086,22 @@ def main() -> None:
             "GPVS_세부fault_부착상태_ko",
             "GPVS_세부fault_근거_ko",
             "GPVS_세부fault_판정주의_ko",
+            "GPVS_시나리오_family_ko",
+            "GPVS_시나리오명_ko",
+            "GPVS_시나리오_고장상황설명_ko",
+            "GPVS_운전모드_ko",
+            "GPVS_해석주의_ko",
         }
-        assert_true(required_new_columns.issubset(set(verdict_df.columns)), "new interpretation/eval columns missing")
-        unmatched_reasons = set(
-            normalize_text(value)
-            for value in verdict_df.loc[verdict_df["GPVS_부착상태_ko"].eq("미부착"), "GPVS_미부착사유_ko"].tolist()
-            if normalize_text(value)
+        assert_true(
+            not forbidden_low_level_gpvs_columns.intersection(set(verdict_df.columns)),
+            "low-level GPVS columns should not leak into front-facing main verdict output",
         )
-        allowed_unmatched_reasons = {
-            "GPVS 패널수준 후보 파일은 있으나 이 패널 key가 없음",
-            "GPVS 결과는 있으나 패널수준 key가 없음",
-            "패널수준 GPVS 산출물 없음",
-        }
-        assert_true(unmatched_reasons.issubset(allowed_unmatched_reasons), "unexpected GPVS unattached reason detected")
 
         overlap_row = verdict_df.loc[(verdict_df["site"].eq("siteA")) & (verdict_df["panel_id"].eq("abrupt_6"))].iloc[0]
         overlap_row_2 = verdict_df.loc[(verdict_df["site"].eq("siteA")) & (verdict_df["panel_id"].eq("abrupt_5"))].iloc[0]
-        abrupt_only_row = verdict_df.loc[(verdict_df["site"].eq("siteA")) & (verdict_df["panel_id"].eq("abrupt_1"))].iloc[0]
+        abrupt_only_row = verdict_df.loc[
+            (verdict_df["site"].eq(SPECIAL_10305_SITE)) & (verdict_df["panel_id"].eq(SPECIAL_10305_PANEL_ID))
+        ].iloc[0]
         forensic_row = verdict_df.loc[(verdict_df["site"].eq("conalog")) & (verdict_df["panel_id"].eq(FORENSIC_HOLDOUT_PANEL_ID))].iloc[0]
         common_row = verdict_df.loc[(verdict_df["site"].eq("siteCC")) & (verdict_df["panel_id"].eq("common_1"))].iloc[0]
         repeat_row = verdict_df.loc[(verdict_df["site"].eq("siteB")) & (verdict_df["panel_id"].eq("panel_repeat"))].iloc[0]
@@ -1072,55 +1207,37 @@ def main() -> None:
         assert_true(cluster_row["대표판정_ko"] == "공통원인 이벤트", "cluster representative mapping failed")
         assert_true(cluster_row["운영위치_ko"] == "추가 발견 후보", "cluster operating location mapping failed")
 
-        assert_true(forensic_row["GPVS_참고유형_ko"] == "전기적 고장 계열", "matched forensic row should attach GPVS type")
         assert_true(forensic_row["GPVS_부착상태_ko"] == "부착", "matched forensic row should mark GPVS attached")
-        assert_true("site+panel_id" in str(forensic_row["GPVS_근거_ko"]), "matched forensic row should carry compact GPVS evidence")
-        assert_true(normalize_text(forensic_row["GPVS_미부착사유_ko"]) == "", "matched forensic row should keep GPVS unattached reason blank")
-        assert_true(
-            forensic_row["GPVS_후보파일_ko"] == "_share/gpvs_fault_family_eval_cases.csv",
-            "matched row should expose candidate source path",
-        )
         assert_true(common_row["GPVS_부착상태_ko"] == "비대상", "common-cause row should not be a GPVS target")
-        assert_true(common_row["GPVS_참고유형_ko"] == "비대상", "common-cause row should keep GPVS non-target label")
-        assert_true(common_row["GPVS_미부착사유_ko"] == "고장 패널이 아니어서 GPVS 적용 대상 아님", "common-cause row should keep GPVS non-target reason")
-        assert_true(normalize_text(common_row["GPVS_후보파일_ko"]) == "", "common-cause row should not keep GPVS candidate file")
-        assert_true(normalize_text(common_row["GPVS_근거_ko"]) == "", "common-cause row should not keep GPVS evidence text")
         assert_true(repeat_row["GPVS_부착상태_ko"] == "비대상", "repeat row should not be a GPVS target")
-        assert_true(repeat_row["GPVS_참고유형_ko"] == "비대상", "repeat row should keep GPVS non-target label")
         assert_true(unknown_row["GPVS_부착상태_ko"] == "비대상", "unknown row should not be a GPVS target")
-        assert_true(unknown_row["GPVS_참고유형_ko"] == "비대상", "unknown row should keep GPVS non-target label")
-        assert_true(abrupt_only_row["GPVS_참고유형_ko"] == "미부착", "unmatched fault row should stay unattached")
-        assert_true(abrupt_only_row["GPVS_부착상태_ko"] == "미부착", "unmatched fault row should mark GPVS unattached")
+        assert_true(abrupt_only_row["GPVS_부착상태_ko"] == "부착", "10305 row should keep GPVS family attach status after front-facing sync")
         assert_true(
-            "패널별 GPVS 직접 판정이 없음" in str(abrupt_only_row["GPVS_근거_ko"]),
-            "unmatched row should keep GPVS absence reason",
-        )
-        assert_true(
-            abrupt_only_row["GPVS_미부착사유_ko"] == "GPVS 패널수준 후보 파일은 있으나 이 패널 key가 없음",
-            "unmatched row should expose the specific GPVS unattached reason",
-        )
-        assert_true(
-            abrupt_only_row["GPVS_후보파일_ko"] == "_share/gpvs_fault_family_eval_cases.csv",
-            "unmatched row should keep best candidate file",
-        )
-        assert_true(
-            int((verdict_df["GPVS_부착상태_ko"] == "부착").sum()) == 1,
+            int((verdict_df["GPVS_부착상태_ko"] == "부착").sum()) == 2,
             "GPVS attach count must equal feasibility overlap count",
         )
-        assert_true(forensic_row["GPVS_참고유형_ko"] == "전기적 고장 계열", "GPVS family column should remain unchanged")
-        assert_true(abrupt_only_row["GPVS_세부fault_부착상태_ko"] == "부착", "GPVS detailed attach path failed")
-        assert_true(abrupt_only_row["GPVS_세부fault_status_ko"] == "부착", "legacy GPVS detailed status should stay synchronized")
-        assert_true(abrupt_only_row["GPVS_세부fault_code"] == "F4L", "10305-like GPVS detailed attached code mismatch")
-        assert_true(abrupt_only_row["GPVS_세부fault_rank2_code"] == "F2M", "GPVS detailed rank2 mismatch")
-        assert_true(normalize_text(abrupt_only_row["GPVS_세부fault_rank2_score"]) != "", "GPVS detailed attached row should keep rank2 score")
-        assert_true(abrupt_only_row["GPVS_참고유형_ko"] == "미부착", "fixture unmatched family column should remain unchanged")
-        assert_true(normalize_text(abrupt_only_row["GPVS_세부fault_근거_ko"]) == "recovered_artifact by-type inference", "GPVS detailed attached row should keep recovered-artifact evidence text")
-        assert_true(normalize_text(abrupt_only_row["GPVS_세부fault_판정주의_ko"]) == "family와 detailed type은 별도 축", "GPVS detailed attached row should keep separation note")
-        assert_true(forensic_row["GPVS_세부fault_부착상태_ko"] == "부착", "c429 fixture should attach detailed type after recovered-artifact sync")
-        assert_true(forensic_row["GPVS_세부fault_code"] == "F2M", "c429 fixture GPVS detailed code mismatch")
-        assert_true(normalize_text(common_row["GPVS_세부fault_부착상태_ko"]) == "비대상", "common-cause row should keep GPVS detailed non-target")
-        assert_true(normalize_text(repeat_row["GPVS_세부fault_부착상태_ko"]) == "비대상", "repeat row should keep GPVS detailed non-target")
-        assert_true(normalize_text(unknown_row["GPVS_세부fault_부착상태_ko"]) == "비대상", "unknown row should keep GPVS detailed non-target")
+        assert_true(forensic_row["GPVS_내부참고유형_ko"] == "개방/장치이상 계열", "c429 front-facing internal GPVS label mismatch")
+        assert_true(forensic_row["GPVS_외부참조패턴_ko"] == "장치 응답 이상형", "c429 front-facing external GPVS pattern mismatch")
+        assert_true(forensic_row["GPVS_참조사용등급_ko"] == "비권장", "c429 front-facing GPVS usage grade mismatch")
+        assert_true(
+            "센서/피드백 오류로 장치 응답이 어긋나는 패턴" in str(forensic_row["GPVS_참조설명_ko"]),
+            "c429 front-facing GPVS description mismatch",
+        )
+        assert_true(abrupt_only_row["GPVS_내부참고유형_ko"] == "불확실", "10305 front-facing internal GPVS label mismatch")
+        assert_true(abrupt_only_row["GPVS_외부참조패턴_ko"] == "국소 출력 불균형형", "10305-like front-facing external GPVS pattern mismatch")
+        assert_true(abrupt_only_row["GPVS_참조사용등급_ko"] == "주의참고", "10305-like front-facing GPVS usage grade mismatch")
+        assert_true(
+            "일부 패널의 출력 균형이 깨지는 패턴" in str(abrupt_only_row["GPVS_참조설명_ko"]),
+            "10305-like front-facing GPVS description mismatch",
+        )
+        for row in [common_row, repeat_row, unknown_row]:
+            for column in [
+                "GPVS_내부참고유형_ko",
+                "GPVS_외부참조패턴_ko",
+                "GPVS_참조사용등급_ko",
+                "GPVS_참조설명_ko",
+            ]:
+                assert_true(normalize_text(row[column]) == "", f"non-fault rows must keep {column} blank")
 
         assert_true(abrupt_only_row["세부fault_부착상태_ko"] == "부착", "exact-date consensus row should attach detailed fault")
         assert_true(abrupt_only_row["세부fault_type_code"] == "F101", "attached detailed fault code mismatch")
@@ -1134,13 +1251,24 @@ def main() -> None:
         precursor_attach_row = verdict_df.loc[(verdict_df["site"].eq("siteA")) & (verdict_df["panel_id"].eq("abrupt_5"))].iloc[0]
         precursor_attach_row_2 = verdict_df.loc[(verdict_df["site"].eq("siteA")) & (verdict_df["panel_id"].eq("abrupt_6"))].iloc[0]
 
-        assert_true(conflict_row["GPVS_세부fault_부착상태_ko"] == "부착", "all fault rows should attach GPVS detailed type after guard sync")
-        assert_true(conflict_row["GPVS_세부fault_code"] == "F2M", "first abrupt F2M code mismatch")
-        assert_true(miss_row["GPVS_세부fault_부착상태_ko"] == "부착", "second abrupt row should also attach GPVS detailed type")
-        assert_true(miss_row["GPVS_세부fault_code"] == "F2M", "second abrupt F2M code mismatch")
-        assert_true(precursor_attach_row["GPVS_세부fault_부착상태_ko"] == "부착", "precursor row should attach GPVS detailed type")
-        assert_true(precursor_attach_row["GPVS_세부fault_code"] == "F4L", "precursor row learned GPVS detailed code mismatch")
-        assert_true(precursor_attach_row_2["GPVS_세부fault_code"] == "F2M", "second precursor row learned GPVS detailed code mismatch")
+        assert_true(conflict_row["GPVS_외부참조패턴_ko"] == "장치 응답 이상형", "first abrupt front-facing GPVS pattern mismatch")
+        assert_true(conflict_row["GPVS_참조사용등급_ko"] == "비권장", "first abrupt GPVS usage grade mismatch")
+        assert_true(miss_row["GPVS_외부참조패턴_ko"] == "장치 응답 이상형", "second abrupt front-facing GPVS pattern mismatch")
+        assert_true(miss_row["GPVS_참조사용등급_ko"] == "비권장", "second abrupt GPVS usage grade mismatch")
+        assert_true(precursor_attach_row["GPVS_외부참조패턴_ko"] == "국소 출력 불균형형", "precursor F4 front-facing GPVS pattern mismatch")
+        assert_true(precursor_attach_row["GPVS_참조사용등급_ko"] == "주의참고", "precursor F4 GPVS usage grade mismatch")
+        assert_true(precursor_attach_row_2["GPVS_외부참조패턴_ko"] == "장치 응답 이상형", "second precursor F2 front-facing GPVS pattern mismatch")
+        assert_true(precursor_attach_row_2["GPVS_참조사용등급_ko"] == "비권장", "second precursor F2 GPVS usage grade mismatch")
+
+        front_facing_text = "\n".join(
+            verdict_df[["GPVS_내부참고유형_ko", "GPVS_외부참조패턴_ko", "GPVS_참조사용등급_ko", "GPVS_참조설명_ko"]]
+            .fillna("")
+            .astype(str)
+            .stack()
+            .tolist()
+        )
+        for forbidden_token in ["F0", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "IPPT", "MPPT", "제한출력 운전", "최대전력점 추종"]:
+            assert_true(forbidden_token not in front_facing_text, f"front-facing GPVS text must not expose raw code/mode token: {forbidden_token}")
 
         assert_true(conflict_row["세부fault_부착상태_ko"] == "보류", "conflict path should hold detailed fault attach")
         assert_true(normalize_text(conflict_row["세부fault_type_code"]) == "", "conflict row must not keep detailed fault code")
@@ -1186,11 +1314,15 @@ def main() -> None:
         precursor_eval_included_count = int(pd.to_numeric(verdict_df["전조평가셋편입_flag"]).sum())
         abrupt_eval_included_count = int(pd.to_numeric(verdict_df["급작평가셋편입_flag"]).sum())
         interpretation_eval_mismatch_count = int(verdict_df["해석대평가차이_ko"].map(normalize_text).ne("").sum())
-        gpvs_detailed_attached_count = int(verdict_df["GPVS_세부fault_부착상태_ko"].eq("부착").sum())
-        gpvs_detailed_deferred_count = int(verdict_df["GPVS_세부fault_부착상태_ko"].eq("판정유보").sum())
-        gpvs_detailed_nontarget_count = int(verdict_df["GPVS_세부fault_부착상태_ko"].eq("비대상").sum())
-        gpvs_detailed_f2m_count = int(verdict_df["GPVS_세부fault_code"].eq("F2M").sum())
-        gpvs_detailed_f4l_count = int(verdict_df["GPVS_세부fault_code"].eq("F4L").sum())
+        gpvs_front_pattern_attached_count = int(verdict_df["GPVS_외부참조패턴_ko"].map(normalize_text).ne("").sum())
+        gpvs_front_pattern_blank_fault_count = int(
+            verdict_df.loc[verdict_df["패널고장여부_ko"].eq("고장"), "GPVS_외부참조패턴_ko"].map(normalize_text).eq("").sum()
+        )
+        gpvs_front_pattern_nontarget_count = int(
+            verdict_df.loc[verdict_df["패널고장여부_ko"].ne("고장"), "GPVS_외부참조패턴_ko"].map(normalize_text).eq("").sum()
+        )
+        gpvs_pattern_f2_count = int(verdict_df["GPVS_외부참조패턴_ko"].eq("장치 응답 이상형").sum())
+        gpvs_pattern_f4_count = int(verdict_df["GPVS_외부참조패턴_ko"].eq("국소 출력 불균형형").sum())
         assert_true(int(summary_row["전체_패널수"]) == 12, "summary total panel count mismatch")
         assert_true(int(verdict_df["패널고장여부_ko"].eq("고장").sum()) == 6, "fixture fault-panel count should be 6")
         assert_true(precursor_event_count == 3, "fixture precursor event count should be 3")
@@ -1225,24 +1357,24 @@ def main() -> None:
         assert_true(int(summary_row["비고장_패널수"]) == int(fault_counts.get("비고장", 0)), "non-fault summary mismatch")
         assert_true(int(summary_row["미확정_패널수"]) == int(fault_counts.get("미확정", 0)), "unknown-status summary mismatch")
         assert_true(int(summary_row["GPVS_적용대상_패널수"]) == 6, "GPVS applicable summary mismatch")
-        assert_true(int(summary_row["GPVS_부착수"]) == 1, "GPVS attached summary mismatch")
-        assert_true(int(summary_row["GPVS_미부착수"]) == 5, "GPVS unattached summary mismatch")
+        assert_true(int(summary_row["GPVS_부착수"]) == 2, "GPVS attached summary mismatch")
+        assert_true(int(summary_row["GPVS_미부착수"]) == 4, "GPVS unattached summary mismatch")
         assert_true(int(summary_row["GPVS_비대상수"]) == 6, "GPVS non-target summary mismatch")
-        assert_true(int(summary_row["GPVS_미부착_패널key없음수"]) == 5, "GPVS unattached missing-panel-key summary mismatch")
+        assert_true(int(summary_row["GPVS_미부착_패널key없음수"]) == 4, "GPVS unattached missing-panel-key summary mismatch")
         assert_true(int(summary_row["GPVS_미부착_key부족수"]) == 0, "GPVS key-poor summary mismatch")
         assert_true(int(summary_row["GPVS_미부착_산출물없음수"]) == 0, "GPVS no-artifact summary mismatch")
-        assert_true(int(summary_row["GPVS_세부fault_부착수"]) == gpvs_detailed_attached_count, "GPVS learned by-type attached summary mismatch")
-        assert_true(int(summary_row["GPVS_세부fault_판정유보수"]) == gpvs_detailed_deferred_count, "GPVS learned by-type deferred summary mismatch")
+        assert_true(int(summary_row["GPVS_세부fault_부착수"]) == gpvs_front_pattern_attached_count, "GPVS learned by-type attached summary mismatch")
+        assert_true(int(summary_row["GPVS_세부fault_판정유보수"]) == gpvs_front_pattern_blank_fault_count, "GPVS learned by-type deferred summary mismatch")
         assert_true(int(summary_row["GPVS_세부fault_추론불가수"]) == 0, "GPVS learned by-type impossible summary mismatch")
-        assert_true(gpvs_detailed_attached_count == 6, "fixture should attach GPVS detailed fault to all 6 fault panels")
-        assert_true(gpvs_detailed_deferred_count == 0, "fixture should keep GPVS detailed deferred count at 0")
-        assert_true(int(summary_row["GPVS_세부fault_부착패널수"]) == gpvs_detailed_attached_count, "GPVS detailed attached panel summary mismatch")
-        assert_true(int(summary_row["GPVS_세부fault_판정유보패널수"]) == gpvs_detailed_deferred_count, "GPVS detailed deferred panel summary mismatch")
-        assert_true(int(summary_row["GPVS_세부fault_비대상패널수"]) == gpvs_detailed_nontarget_count, "GPVS detailed non-target panel summary mismatch")
-        assert_true(int(summary_row["GPVS_세부fault_F2M_패널수"]) == gpvs_detailed_f2m_count, "GPVS detailed F2M summary mismatch")
-        assert_true(int(summary_row["GPVS_세부fault_F4L_패널수"]) == gpvs_detailed_f4l_count, "GPVS detailed F4L summary mismatch")
-        assert_true(gpvs_detailed_f2m_count == 4, "fixture should keep GPVS detailed F2M count at 4")
-        assert_true(gpvs_detailed_f4l_count == 2, "fixture should keep GPVS detailed F4L count at 2")
+        assert_true(gpvs_front_pattern_attached_count == 6, "fixture should attach GPVS front-facing reference pattern to all 6 fault panels")
+        assert_true(gpvs_front_pattern_blank_fault_count == 0, "fixture should keep GPVS front-facing blank fault count at 0")
+        assert_true(int(summary_row["GPVS_세부fault_부착패널수"]) == gpvs_front_pattern_attached_count, "GPVS detailed attached panel summary mismatch")
+        assert_true(int(summary_row["GPVS_세부fault_판정유보패널수"]) == gpvs_front_pattern_blank_fault_count, "GPVS detailed deferred panel summary mismatch")
+        assert_true(int(summary_row["GPVS_세부fault_비대상패널수"]) == gpvs_front_pattern_nontarget_count, "GPVS detailed non-target panel summary mismatch")
+        assert_true(int(summary_row["GPVS_세부fault_F2M_패널수"]) == gpvs_pattern_f2_count, "GPVS detailed F2M summary mismatch")
+        assert_true(int(summary_row["GPVS_세부fault_F4L_패널수"]) == gpvs_pattern_f4_count, "GPVS detailed F4L summary mismatch")
+        assert_true(gpvs_pattern_f2_count == 4, "fixture should keep GPVS front-facing F2 count at 4")
+        assert_true(gpvs_pattern_f4_count == 2, "fixture should keep GPVS front-facing F4 count at 2")
         stale_summary_columns = {
             "세부fault_부착수",
             "세부fault_보류수",
@@ -1260,6 +1392,7 @@ def main() -> None:
         assert_true("same-day fallback onset" in str(summary_row["note_ko"]), "summary note should mention same-day fallback abrupt correction")
         assert_true("모두 부착" in str(summary_row["note_ko"]) or "부분" in str(summary_row["note_ko"]), "summary note should mention GPVS attach scope")
         assert_true("GPVS 세부 fault는 learned GPVS by-type inference 결과" in str(summary_row["note_ko"]), "summary note should mention learned GPVS by-type inference")
+        assert_true("외부 GPVS 실험 시나리오 참조축" in str(summary_row["note_ko"]), "summary note should mention external GPVS scenario axis")
         assert_true("PVFAULT exact-date bridge" in str(summary_row["note_ko"]), "summary note should explain retired PVFAULT exact-date bridge path")
         assert_true("retired path" in str(summary_row["note_ko"]) or "retire" in str(summary_row["note_ko"]), "summary note should mark exact-date bridge path as retired")
         assert_true("현재 부착 0건 / 보류 6건 / 비대상 19건" not in str(summary_row["note_ko"]), "summary note should not keep stale 0/6/19 bridge wording")
