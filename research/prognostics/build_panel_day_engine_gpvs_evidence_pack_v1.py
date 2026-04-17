@@ -460,21 +460,26 @@ def build_matching_evidence(
     return "; ".join(part for part in parts if part)
 
 
-def combine_final_recommendation(matching_policy: str, compatibility_judgment: str) -> str:
-    if matching_policy in {"기준선", "교란플래그", "시스템보류"}:
-        return matching_policy
-    if compatibility_judgment == "비교곤란":
+def combine_final_recommendation(
+    matching_policy: str,
+    compatibility_judgment: str,
+    has_internal_evidence: bool,
+    has_external_evidence: bool,
+) -> str:
+    if not has_internal_evidence or not has_external_evidence:
         return "비권장"
-    if compatibility_judgment == "직접 판정축 사용 비권장":
-        downgrade = {
-            "핵심참조": "핵심참조후보",
-            "핵심참조후보": "보조참조",
-            "보조참조": "비권장",
-        }
-        return downgrade.get(matching_policy, "비권장")
-    if compatibility_judgment in {"참고축으로만 사용", "조건부 참고 가능"}:
-        return matching_policy or "비권장"
-    return matching_policy or "비권장"
+    if matching_policy == "비권장":
+        return "비권장"
+    if matching_policy in {
+        "핵심참조",
+        "핵심참조후보",
+        "보조참조",
+        "교란플래그",
+        "시스템보류",
+        "기준선",
+    }:
+        return matching_policy
+    return "비권장"
 
 
 def build_recommendation_reason(
@@ -486,20 +491,20 @@ def build_recommendation_reason(
 ) -> str:
     pattern_or_code = external_pattern or canonical_code or "GPVS reference"
     if final_recommendation == "핵심참조":
-        return f"{pattern_or_code}는 reference layer에서 가장 유용하고 현재 패널 호환성도 조건부 참고 가능 수준이라 핵심참조로 유지한다."
+        return f"{pattern_or_code}는 direct root-cause가 아니라 reference-only 핵심참조로만 사용한다."
     if final_recommendation == "핵심참조후보":
-        return f"{pattern_or_code}는 의미 있는 reference지만 현재 패널 호환성 제약이 있어 핵심참조후보로 한 단계 낮춰 둔다."
+        return f"{pattern_or_code}는 direct root-cause가 아니라 reference-only 핵심참조후보로만 사용한다."
     if final_recommendation == "보조참조":
-        return f"{pattern_or_code}는 직접 원인 판정보다 보조 힌트로만 안전하게 사용할 수 있어 보조참조로 둔다."
+        return f"{pattern_or_code}는 직접 root-cause 판정에는 쓰지 말고 보조참조로만 사용한다."
     if final_recommendation == "교란플래그":
         return f"{pattern_or_code}는 고장명보다 교란 신호를 표시하는 용도로만 쓰는 것이 안전하다."
     if final_recommendation == "시스템보류":
         return f"{pattern_or_code}는 현재 패널 단독표보다 시스템/통합 결과표 후보축으로만 보류한다."
     if final_recommendation == "기준선":
         return f"{pattern_or_code}는 fault명이 아니라 비교 기준선으로만 사용한다."
-    if compatibility_judgment == "직접 판정축 사용 비권장":
-        return f"{pattern_or_code}는 현재 패널에서 호환성 근거가 약해 direct root-cause처럼 쓰지 않고 비권장으로 둔다."
-    return f"{pattern_or_code}는 현재 운영 원칙상 reference layer를 넘는 사용을 허용하지 않아 비권장으로 둔다."
+    if matching_policy == "비권장":
+        return f"{pattern_or_code}는 matching policy 자체가 비권장이라 direct root-cause로도 reference로도 쓰지 않는다."
+    return f"{pattern_or_code}는 required evidence가 부족하거나 unusable 상태라 비권장으로 둔다."
 
 
 def main() -> None:
@@ -575,7 +580,14 @@ def main() -> None:
             normalize_text(compatibility_summary_row.get("final_recommendation_ko")),
         )
         matching_policy = build_matching_policy(canonical_code, canonical_map)
-        final_recommendation = combine_final_recommendation(matching_policy, compatibility_judgment)
+        internal_evidence = build_internal_evidence(family_row, attach_row)
+        external_evidence = build_external_evidence(detailed_row, sanity_row)
+        final_recommendation = combine_final_recommendation(
+            matching_policy,
+            compatibility_judgment,
+            internal_evidence != "근거 파일 미확인",
+            external_evidence != "근거 파일 미확인",
+        )
 
         pack_rows.append(
             {
@@ -585,9 +597,9 @@ def main() -> None:
                 "최종고장양상_ko": normalize_text(row.get("최종고장양상_ko")),
                 "커널로그_원인군_ko": normalize_text(row.get("커널로그_원인군_ko")),
                 "GPVS_내부판정_ko": internal_verdict,
-                "GPVS_내부판정근거_ko": build_internal_evidence(family_row, attach_row),
+                "GPVS_내부판정근거_ko": internal_evidence,
                 "GPVS_외부참조패턴_ko": external_pattern,
-                "GPVS_외부참조근거_ko": build_external_evidence(detailed_row, sanity_row),
+                "GPVS_외부참조근거_ko": external_evidence,
                 "GPVS_호환성판정_ko": compatibility_judgment,
                 "GPVS_호환성근거_ko": build_compatibility_evidence(
                     agreement_row,
@@ -665,6 +677,8 @@ def main() -> None:
         "# 3. GPVS↔MLPE 호환성 근거",
         f"- compatibility summary는 `{normalize_text(compatibility_summary_row.get('final_recommendation_ko'))}` 입니다.",
         f"- summary note: {normalize_text(compatibility_summary_row.get('note_ko'))}",
+        "- reference-only 는 unusable 을 뜻하지 않습니다.",
+        "- auxiliary-reference row 는 direct root-cause 사용을 금지한 채 보조참조로는 계속 사용할 수 있습니다.",
         "- 호환성 audit 결과에 따라 GPVS는 reference layer로만 사용합니다.",
         "",
         "# 4. GPVS↔MLPE matching 근거",
