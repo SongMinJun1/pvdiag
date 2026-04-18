@@ -1,0 +1,11 @@
+input_csv_name: input_sample.csv
+output_subdir: output
+panel_result_name: panel_result_v1.csv
+site_summary_name: site_summary_v1.csv
+metadata_name: run_metadata_v1.json
+error_log_name: error_log_v1.csv
+experimental_reference_name: experimental_reference_result_v1.csv
+default_fault_status: 미확정
+default_event_type: 불충분
+default_terminal_pattern: 불충분
+default_conalog_family: 불충분
