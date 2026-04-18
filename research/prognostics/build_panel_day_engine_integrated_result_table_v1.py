@@ -11,6 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 VERDICT_NAME = "panel_day_engine_panel_multiaxis_verdict_v1.csv"
 EVIDENCE_PACK_NAME = "panel_day_engine_gpvs_evidence_pack_v1.csv"
+HEURISTIC_NAME = "panel_day_engine_cause_candidate_heuristics_v1.csv"
 
 OUTPUT_TABLE_NAME = "panel_day_engine_integrated_result_table_v1.csv"
 OUTPUT_SUMMARY_NAME = "panel_day_engine_integrated_result_summary_v1.csv"
@@ -28,9 +29,13 @@ EVIDENCE_REQUIRED_COLS = [
     "panel_id",
     "GPVS_최종사용권고_ko",
 ]
-
-INTERNAL_GPVS_COL_CANDIDATES = ["GPVS_내부참고유형_ko", "GPVS_참고유형_ko"]
-EXTERNAL_GPVS_COL_CANDIDATES = ["GPVS_외부참조패턴_ko", "GPVS_외부참조시나리오명_ko"]
+HEURISTIC_REQUIRED_COLS = [
+    "site",
+    "panel_id",
+    "원인후보_top1_ko",
+    "원인후보_top2_ko",
+    "원인후보_top3_ko",
+]
 
 TABLE_COLS = [
     "site",
@@ -39,11 +44,9 @@ TABLE_COLS = [
     "사건유형_ko",
     "최종고장양상_ko",
     "커널로그_원인군_ko",
-    "GPVS_내부참고유형_ko",
-    "GPVS_외부참조패턴_ko",
-    "GPVS_최종사용권고_ko",
-    "대표판정요약_ko",
-    "판정근거요약_ko",
+    "1순위_의심원인_ko",
+    "2순위_의심원인_ko",
+    "3순위_의심원인_ko",
 ]
 
 SUMMARY_COLS = [
@@ -89,13 +92,6 @@ def ensure_columns(df: pd.DataFrame, required: list[str], name: str) -> None:
         raise SystemExit(f"{name} missing columns: {missing}")
 
 
-def first_existing_column(df: pd.DataFrame, candidates: list[str], frame_name: str) -> str:
-    for candidate in candidates:
-        if candidate in df.columns:
-            return candidate
-    raise SystemExit(f"{frame_name} missing any of columns: {candidates}")
-
-
 def row_key(site: object, panel_id: object) -> tuple[str, str]:
     return normalize_text(site), normalize_text(panel_id)
 
@@ -106,55 +102,42 @@ def validate_unique_keys(df: pd.DataFrame, name: str) -> None:
         raise SystemExit(f"{name} must be unique by (site, panel_id): {dup.to_dict(orient='records')[:5]}")
 
 
-def summarize_fault_row(event_type: str, terminal_pattern: str, kernel_family: str) -> str:
-    kernel_text = kernel_family or "불충분"
-    return f"{event_type}으로 해석되며 최종고장양상은 {terminal_pattern}이고 커널로그 원인군은 {kernel_text}이다."
+DISPLAY_HEURISTIC_NAME_MAP = {
+    "다이오드·서브스트링형": "다이오드·국소 회로 이상형",
+    "접속·부분개방형": "접촉 끊김 형",
+    "센서·피드백형": "장치 측정 이상형",
+    "제어응답형": "장치 응답 이상형",
+    "전력변환부형": "전력변환부 이상형",
+    "외부계통교란형": "외부 전원 흔들림형",
+}
 
 
-def summarize_non_fault_row(panel_fault_status: str, event_type: str) -> str:
-    if panel_fault_status == "비고장":
-        if event_type == "공통원인 이벤트":
-            return "현재는 공통원인 이벤트로 분류되며 개별 패널 고장으로 보지 않는다."
-        return "현재는 비고장으로 분류되며 개별 패널 고장으로 해석하지 않는다."
-    if event_type == "반복 이상":
-        return "현재는 반복 이상으로 관찰 중이며 확정 고장 패널로 보지 않는다."
-    if event_type == "불충분":
-        return "현재는 미확정 상태로 남아 있어 추가 해석이 필요하다."
-    if event_type:
-        return f"현재는 {event_type} 상태로 관찰 중이며 추가 확인이 필요하다."
-    return "현재는 미확정 상태로 남아 있으며 추가 확인이 필요하다."
-
-
-def summarize_fault_rationale(kernel_family: str, gpvs_pattern: str, gpvs_recommendation: str) -> str:
-    kernel_text = kernel_family or "불충분"
-    if gpvs_pattern and gpvs_recommendation:
-        return f"커널로그는 {kernel_text}, GPVS는 {gpvs_pattern}을 {gpvs_recommendation}로 제시"
-    return f"커널로그는 {kernel_text}로 읽고 GPVS 참조는 현재 비워 둔다"
+def display_heuristic_name(raw_label: str) -> str:
+    normalized = normalize_text(raw_label)
+    return DISPLAY_HEURISTIC_NAME_MAP.get(normalized, normalized)
 
 
 def build_integrated_rows(
     verdict_df: pd.DataFrame,
-    evidence_df: pd.DataFrame,
-    internal_gpvs_col: str,
-    external_gpvs_col: str,
+    heuristic_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    evidence_lookup = {
+    heuristic_lookup = {
         row_key(row["site"], row["panel_id"]): {
             column: normalize_text(value) for column, value in row.items()
         }
-        for row in evidence_df.to_dict(orient="records")
+        for row in heuristic_df.to_dict(orient="records")
     }
     fault_keys = {
         row_key(row["site"], row["panel_id"])
         for row in verdict_df.loc[verdict_df["패널고장여부_ko"].map(normalize_text).eq("고장")].to_dict(orient="records")
     }
-    evidence_keys = set(evidence_lookup)
-    missing_fault_keys = sorted(fault_keys - evidence_keys)
-    unexpected_evidence_keys = sorted(evidence_keys - fault_keys)
+    heuristic_keys = set(heuristic_lookup)
+    missing_fault_keys = sorted(fault_keys - heuristic_keys)
+    unexpected_heuristic_keys = sorted(heuristic_keys - fault_keys)
     if missing_fault_keys:
-        raise SystemExit(f"{EVIDENCE_PACK_NAME} missing fault panel rows: {missing_fault_keys[:5]}")
-    if unexpected_evidence_keys:
-        raise SystemExit(f"{EVIDENCE_PACK_NAME} contains non-fault panel rows: {unexpected_evidence_keys[:5]}")
+        raise SystemExit(f"{HEURISTIC_NAME} missing fault panel rows: {missing_fault_keys[:5]}")
+    if unexpected_heuristic_keys:
+        raise SystemExit(f"{HEURISTIC_NAME} contains non-fault panel rows: {unexpected_heuristic_keys[:5]}")
 
     rows: list[dict[str, str]] = []
     for row in verdict_df.to_dict(orient="records"):
@@ -167,20 +150,14 @@ def build_integrated_rows(
         key = (site, panel_id)
 
         if panel_fault_status == "고장":
-            evidence_row = evidence_lookup[key]
-            gpvs_internal = normalize_text(row.get(internal_gpvs_col)) or normalize_text(evidence_row.get("GPVS_내부판정_ko"))
-            gpvs_external = normalize_text(row.get(external_gpvs_col)) or normalize_text(evidence_row.get("GPVS_외부참조패턴_ko"))
-            gpvs_final = normalize_text(evidence_row.get("GPVS_최종사용권고_ko"))
-            if not gpvs_final:
-                raise SystemExit(f"{EVIDENCE_PACK_NAME} missing GPVS_최종사용권고_ko for {site}/{panel_id}")
-            representative_summary = summarize_fault_row(event_type, terminal_pattern, kernel_family)
-            rationale_summary = summarize_fault_rationale(kernel_family, gpvs_external, gpvs_final)
+            heuristic_row = heuristic_lookup[key]
+            top1 = display_heuristic_name(heuristic_row["원인후보_top1_ko"])
+            top2 = display_heuristic_name(heuristic_row["원인후보_top2_ko"])
+            top3 = display_heuristic_name(heuristic_row["원인후보_top3_ko"])
         else:
-            gpvs_internal = ""
-            gpvs_external = ""
-            gpvs_final = ""
-            representative_summary = summarize_non_fault_row(panel_fault_status, event_type)
-            rationale_summary = ""
+            top1 = ""
+            top2 = ""
+            top3 = ""
 
         rows.append(
             {
@@ -190,11 +167,9 @@ def build_integrated_rows(
                 "사건유형_ko": event_type,
                 "최종고장양상_ko": terminal_pattern,
                 "커널로그_원인군_ko": kernel_family,
-                "GPVS_내부참고유형_ko": gpvs_internal,
-                "GPVS_외부참조패턴_ko": gpvs_external,
-                "GPVS_최종사용권고_ko": gpvs_final,
-                "대표판정요약_ko": representative_summary,
-                "판정근거요약_ko": rationale_summary,
+                "1순위_의심원인_ko": top1,
+                "2순위_의심원인_ko": top2,
+                "3순위_의심원인_ko": top3,
             }
         )
 
@@ -204,14 +179,14 @@ def build_integrated_rows(
     return integrated_df.drop(columns="__fault_sort").reset_index(drop=True).reindex(columns=TABLE_COLS)
 
 
-def build_summary(table_df: pd.DataFrame) -> pd.DataFrame:
+def build_summary(table_df: pd.DataFrame, evidence_df: pd.DataFrame) -> pd.DataFrame:
     total_count = int(len(table_df))
     fault_count = int(table_df["패널고장여부_ko"].map(normalize_text).eq("고장").sum())
     non_fault_or_unresolved_count = total_count - fault_count
-    gpvs_recommendation = table_df["GPVS_최종사용권고_ko"].map(normalize_text)
+    gpvs_recommendation = evidence_df["GPVS_최종사용권고_ko"].map(normalize_text)
     core_count = int(gpvs_recommendation.eq("핵심참조").sum())
     auxiliary_count = int(gpvs_recommendation.eq("보조참조").sum())
-    gpvs_not_used_count = int(gpvs_recommendation.isin(["", "비권장"]).sum())
+    gpvs_not_used_count = int(non_fault_or_unresolved_count)
 
     row = {
         "total_panel_count": total_count,
@@ -221,9 +196,9 @@ def build_summary(table_df: pd.DataFrame) -> pd.DataFrame:
         "gpvs_auxiliary_reference_count": auxiliary_count,
         "gpvs_not_used_count": gpvs_not_used_count,
         "note_ko": (
-            "이 표는 panel multiaxis verdict를 primary로 읽고, kernel-log를 직접 운영 해석 층으로, "
-            "GPVS를 reference-only 보조층으로 합친 front-facing unified reading table이다. "
-            "raw GPVS evidence/code/score는 evidence pack에만 남기고 여기서는 다시 노출하지 않는다."
+            "이 표는 최종 front-facing table이며 panel multiaxis verdict를 primary로 읽는다. "
+            "kernel-log 원인군과 heuristic suspected-cause ranking만 남기고, GPVS internal/external/evidence detail은 evidence pack에만 유지한다. "
+            "display friendliness를 위해 여섯 개 heuristic label만 표 안에서 표시용으로 바꿔 적고, raw heuristic output은 그대로 둔다."
         ),
     }
     return pd.DataFrame([row]).reindex(columns=SUMMARY_COLS)
@@ -243,16 +218,16 @@ def main() -> None:
 
     verdict_df = read_csv(share_dir / VERDICT_NAME)
     evidence_df = read_csv(share_dir / EVIDENCE_PACK_NAME)
+    heuristic_df = read_csv(share_dir / HEURISTIC_NAME)
     ensure_columns(verdict_df, VERDICT_REQUIRED_COLS, VERDICT_NAME)
     ensure_columns(evidence_df, EVIDENCE_REQUIRED_COLS, EVIDENCE_PACK_NAME)
+    ensure_columns(heuristic_df, HEURISTIC_REQUIRED_COLS, HEURISTIC_NAME)
     validate_unique_keys(verdict_df, VERDICT_NAME)
     validate_unique_keys(evidence_df, EVIDENCE_PACK_NAME)
+    validate_unique_keys(heuristic_df, HEURISTIC_NAME)
 
-    internal_gpvs_col = first_existing_column(verdict_df, INTERNAL_GPVS_COL_CANDIDATES, VERDICT_NAME)
-    external_gpvs_col = first_existing_column(verdict_df, EXTERNAL_GPVS_COL_CANDIDATES, VERDICT_NAME)
-
-    table_df = build_integrated_rows(verdict_df, evidence_df, internal_gpvs_col, external_gpvs_col)
-    summary_df = build_summary(table_df)
+    table_df = build_integrated_rows(verdict_df, heuristic_df)
+    summary_df = build_summary(table_df, evidence_df)
     write_outputs(root, table_df, summary_df)
 
 

@@ -22,11 +22,9 @@ TABLE_REQUIRED_COLS = [
     "사건유형_ko",
     "최종고장양상_ko",
     "커널로그_원인군_ko",
-    "GPVS_내부참고유형_ko",
-    "GPVS_외부참조패턴_ko",
-    "GPVS_최종사용권고_ko",
-    "대표판정요약_ko",
-    "판정근거요약_ko",
+    "1순위_의심원인_ko",
+    "2순위_의심원인_ko",
+    "3순위_의심원인_ko",
 ]
 
 SUMMARY_REQUIRED_COLS = [
@@ -40,6 +38,11 @@ SUMMARY_REQUIRED_COLS = [
 ]
 
 FORBIDDEN_COLS = {
+    "GPVS_내부참고유형_ko",
+    "GPVS_외부참조패턴_ko",
+    "GPVS_최종사용권고_ko",
+    "대표판정요약_ko",
+    "판정근거요약_ko",
     "GPVS_세부fault_code",
     "GPVS_세부fault_score",
     "GPVS_세부fault_rank2_code",
@@ -60,6 +63,17 @@ FORBIDDEN_VALUE_PATTERNS = [
     r"\bscore\b",
     r"\bmargin\b",
 ]
+
+DISPLAY_REMAP = {
+    "다이오드·서브스트링형": "다이오드·국소 회로 이상형",
+    "접속·부분개방형": "접촉 끊김 형",
+    "센서·피드백형": "장치 측정 이상형",
+    "제어응답형": "장치 응답 이상형",
+    "전력변환부형": "전력변환부 이상형",
+    "외부계통교란형": "외부 전원 흔들림형",
+}
+
+UNMAPPED_LABELS = {"부분음영형", "오염형", "열화형", "원인미확정"}
 
 
 def assert_true(condition: bool, message: str) -> None:
@@ -94,6 +108,7 @@ def main() -> None:
 
     missing_table_cols = [column for column in TABLE_REQUIRED_COLS if column not in table_df.columns]
     assert_true(not missing_table_cols, f"table missing columns: {missing_table_cols}")
+    assert_true(table_df.columns.tolist() == TABLE_REQUIRED_COLS, f"integrated table columns must match exactly: {TABLE_REQUIRED_COLS}")
     missing_summary_cols = [column for column in SUMMARY_REQUIRED_COLS if column not in summary_df.columns]
     assert_true(not missing_summary_cols, f"summary missing columns: {missing_summary_cols}")
 
@@ -119,16 +134,9 @@ def main() -> None:
     assert_true(statuses.iloc[:6].eq("고장").all(), "fault panels must be ordered first in the integrated table")
     assert_true(not statuses.iloc[6:].eq("고장").any(), "non-fault/unresolved panels must follow the fault block")
 
-    fault_recommendation_counts = fault_df["GPVS_최종사용권고_ko"].map(normalize_text).value_counts().to_dict()
-    assert_true(int(fault_recommendation_counts.get("핵심참조", 0)) == 2, "fault block must contain 2 핵심참조 rows")
-    assert_true(int(fault_recommendation_counts.get("보조참조", 0)) == 4, "fault block must contain 4 보조참조 rows")
-    assert_true(int(fault_recommendation_counts.get("비권장", 0)) == 0, "fault block must not contain 비권장 rows")
-
-    non_fault_gpvs = non_fault_df[
-        ["GPVS_내부참고유형_ko", "GPVS_외부참조패턴_ko", "GPVS_최종사용권고_ko"]
-    ].apply(lambda column: column.map(normalize_text))
-    assert_true(not non_fault_gpvs.ne("").any().any(), "non-fault/unresolved rows must keep GPVS columns blank")
-    assert_true(non_fault_df["판정근거요약_ko"].map(normalize_text).eq("").all(), "non-fault/unresolved rows must keep 판정근거요약_ko blank")
+    for column in ["1순위_의심원인_ko", "2순위_의심원인_ko", "3순위_의심원인_ko"]:
+        assert_true(fault_df[column].map(normalize_text).ne("").all(), f"fault rows must populate {column}")
+        assert_true(non_fault_df[column].map(normalize_text).eq("").all(), f"non-fault/unresolved rows must keep {column} blank")
 
     c429_row = table_df.loc[
         table_df["site"].eq("conalog")
@@ -136,9 +144,9 @@ def main() -> None:
     ]
     assert_true(len(c429_row) == 1, "expected c429 row in integrated table")
     c429 = c429_row.iloc[0]
-    assert_true(normalize_text(c429["GPVS_외부참조패턴_ko"]) == "장치 응답 이상형", "c429 row must keep 장치 응답 이상형")
-    assert_true(normalize_text(c429["GPVS_최종사용권고_ko"]) == "보조참조", "c429 row must keep 보조참조")
-    assert_true("GPVS는 장치 응답 이상형을 보조참조로 제시" in normalize_text(c429["판정근거요약_ko"]), "c429 rationale summary mismatch")
+    assert_true(normalize_text(c429["1순위_의심원인_ko"]) == "장치 측정 이상형", "c429 top1 display label mismatch")
+    assert_true(normalize_text(c429["2순위_의심원인_ko"]) == "접촉 끊김 형", "c429 top2 display label mismatch")
+    assert_true(normalize_text(c429["3순위_의심원인_ko"]) == "장치 응답 이상형", "c429 top3 display label mismatch")
 
     row_10305 = table_df.loc[
         table_df["site"].eq("ktc_ess")
@@ -146,9 +154,31 @@ def main() -> None:
     ]
     assert_true(len(row_10305) == 1, "expected 10305 row in integrated table")
     row_10305_data = row_10305.iloc[0]
-    assert_true(normalize_text(row_10305_data["GPVS_외부참조패턴_ko"]) == "국소 출력 불균형형", "10305 row must keep 국소 출력 불균형형")
-    assert_true(normalize_text(row_10305_data["GPVS_최종사용권고_ko"]) == "핵심참조", "10305 row must keep 핵심참조")
-    assert_true("GPVS는 국소 출력 불균형형을 핵심참조로 제시" in normalize_text(row_10305_data["판정근거요약_ko"]), "10305 rationale summary mismatch")
+    assert_true(normalize_text(row_10305_data["1순위_의심원인_ko"]) == "다이오드·국소 회로 이상형", "10305 top1 display label mismatch")
+    assert_true(normalize_text(row_10305_data["2순위_의심원인_ko"]) == "부분음영형", "10305 top2 should stay unrenamed")
+    assert_true(normalize_text(row_10305_data["3순위_의심원인_ko"]) == "접촉 끊김 형", "10305 top3 display label mismatch")
+
+    row_70ad = table_df.loc[
+        table_df["site"].eq("ktc_ess")
+        & table_df["panel_id"].eq("70ad2d87-cdb6-4842-81b7-71c7599bbf05.1.4")
+    ]
+    assert_true(len(row_70ad) == 1, "expected 70ad row in integrated table")
+    row_70ad_data = row_70ad.iloc[0]
+    assert_true(normalize_text(row_70ad_data["1순위_의심원인_ko"]) == "열화형", "70ad top1 should stay unrenamed")
+    assert_true(normalize_text(row_70ad_data["2순위_의심원인_ko"]) == "장치 측정 이상형", "70ad top2 display label mismatch")
+    assert_true(normalize_text(row_70ad_data["3순위_의심원인_ko"]) == "다이오드·국소 회로 이상형", "70ad top3 display label mismatch")
+
+    display_values = [normalize_text(value) for value in table_df[["1순위_의심원인_ko", "2순위_의심원인_ko", "3순위_의심원인_ko"]].stack().tolist()]
+    for raw_label, display_label in DISPLAY_REMAP.items():
+        assert_true(raw_label not in display_values, f"raw heuristic label must not appear in integrated table display: {raw_label}")
+        if display_label in display_values:
+            continue
+        if raw_label in {"전력변환부형", "외부계통교란형"}:
+            continue
+        raise SystemExit(f"expected display-renamed label missing from integrated table: {display_label}")
+    for label in UNMAPPED_LABELS:
+        if label in {"부분음영형", "열화형"}:
+            assert_true(label in display_values, f"unmapped heuristic label should stay visible: {label}")
 
     flat_text = "\n".join(
         [column for column in table_df.columns] + [normalize_text(value) for value in table_df.astype(str).stack().tolist()]
@@ -157,9 +187,9 @@ def main() -> None:
         assert_true(re.search(pattern, flat_text) is None, f"integrated front-facing output exposed forbidden GPVS token: {pattern}")
 
     note_text = normalize_text(summary_row["note_ko"])
-    assert_true("panel multiaxis verdict" in note_text, "summary note must mention panel multiaxis verdict as primary")
-    assert_true("kernel-log" in note_text, "summary note must mention kernel-log interpretation layer")
-    assert_true("reference-only" in note_text, "summary note must mention GPVS reference-only rule")
+    assert_true("최종 front-facing table" in note_text, "summary note must mention final front-facing table")
+    assert_true("evidence pack" in note_text, "summary note must mention evidence pack location for GPVS details")
+    assert_true("heuristic" in note_text, "summary note must mention suspected-cause heuristic ranking")
 
 
 if __name__ == "__main__":
