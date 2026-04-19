@@ -1,19 +1,21 @@
 # Quickstart
 
-## 1. stable handoff CLI 먼저 사용
-- `package/stable_handoff/README.md`
-- `package/stable_handoff/RUNBOOK.md`
+## 1. demonstration
+- `package/bin/run_demo.bat`
+- packaged example input 으로 one-click foundation 을 실행함
 
-## 2. one-click foundation 사용
-- `package/oneclick/OPS_ONECLICK_OPERATION_GUIDE_V1.md`
+## 2. actual input folder 실행
+- `package/bin/run_real.bat`
+- `package/bin/settings.template.json` 또는 `settings.json` 을 이용하여 input-root, output-root, config 를 지정함
 
-## 3. daily report 생성
-- `package/oneclick/OPS_DAILY_REPORT_AUTOMATION_V1.md`
-- `package/oneclick/daily_report_template.md`
+## 3. optional GUI
+- `package/app/app_streamlit.py`
+- foundation GUI 이며 stable output 과 optional experimental output 을 분리해서 보여줌
 
-## 4. optional experimental/reference output
-- GPVS 관련 문서는 `package/docs/OPS_GPVS_EXTERNAL_DATA_INVENTORY_V1.md`
-- heuristic 관련 snapshot 은 `package/examples/panel_day_engine_cause_candidate_summary_v1.csv`
+## 4. system / dashboard integration
+- stable direct CLI 는 `package/app/run_conalog_infer.py`
+- one-click orchestration 은 `package/app/run_oneclick.py`
+- 문서를 scraping 하지 말고 executable entrypoint 를 직접 호출해야 함
 
 ## 운영 원칙
 - stable output 을 먼저 읽어야 함

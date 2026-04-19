@@ -25,6 +25,9 @@ REQUIRED_TOP_LEVEL_DOCS = [
 ]
 
 REQUIRED_PACKAGE_DIRS = [
+    PACKAGE_ROOT / "app",
+    PACKAGE_ROOT / "bin",
+    PACKAGE_ROOT / "config",
     PACKAGE_ROOT / "docs",
     PACKAGE_ROOT / "stable_handoff",
     PACKAGE_ROOT / "runtime",
@@ -105,6 +108,15 @@ def main() -> None:
         raise SystemExit(f"summary missing keys: {missing_summary_keys}")
 
     sample_paths = [
+        PACKAGE_ROOT / "app/run_conalog_infer.py",
+        PACKAGE_ROOT / "app/run_realtime.py",
+        PACKAGE_ROOT / "app/run_oneclick.py",
+        PACKAGE_ROOT / "app/app_streamlit.py",
+        PACKAGE_ROOT / "config/runtime.yaml",
+        PACKAGE_ROOT / "bin/run_demo.bat",
+        PACKAGE_ROOT / "bin/run_real.bat",
+        PACKAGE_ROOT / "bin/open_results.bat",
+        PACKAGE_ROOT / "bin/settings.template.json",
         PACKAGE_ROOT / "stable_handoff/examples/output_panel_result_sample.csv",
         PACKAGE_ROOT / "examples/integrated_result_table_v1.csv",
         PACKAGE_ROOT / "runtime/panel_day_engine_runtime_latency_report_v1.csv",
@@ -112,6 +124,52 @@ def main() -> None:
     ]
     for path in sample_paths:
         assert_exists(path)
+
+    run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import py_compile; "
+                f"py_compile.compile(r'{PACKAGE_ROOT / 'app/run_conalog_infer.py'}', cfile='/tmp/final_delivery_run_conalog_infer.pyc', doraise=True); "
+                f"py_compile.compile(r'{PACKAGE_ROOT / 'app/run_realtime.py'}', cfile='/tmp/final_delivery_run_realtime.pyc', doraise=True); "
+                f"py_compile.compile(r'{PACKAGE_ROOT / 'app/run_oneclick.py'}', cfile='/tmp/final_delivery_run_oneclick.pyc', doraise=True); "
+                f"py_compile.compile(r'{PACKAGE_ROOT / 'app/app_streamlit.py'}', cfile='/tmp/final_delivery_app_streamlit.pyc', doraise=True)"
+            ),
+        ]
+    )
+
+    metadata_files = [str(path.relative_to(PACKAGE_ROOT)) for path in PACKAGE_ROOT.rglob("._*")]
+    if metadata_files:
+        raise SystemExit(f"AppleDouble metadata files must not remain in package: {metadata_files}")
+
+    integrated_source = REPO_ROOT / "_share/panel_day_engine_integrated_result_table_v1.csv"
+    with integrated_source.open("r", encoding="utf-8-sig", newline="") as handle:
+        source_reader = csv.DictReader(handle)
+        source_columns = source_reader.fieldnames or []
+    with (PACKAGE_ROOT / "examples/integrated_result_table_v1.csv").open("r", encoding="utf-8-sig", newline="") as handle:
+        packaged_reader = csv.DictReader(handle)
+        packaged_columns = packaged_reader.fieldnames or []
+    if source_columns != packaged_columns:
+        raise SystemExit(
+            "final integrated table schema changed inside delivery pack: "
+            f"source={source_columns}, packaged={packaged_columns}"
+        )
+
+    readme_text = (RELEASE_ROOT / "README.md").read_text(encoding="utf-8")
+    known_limits_text = (RELEASE_ROOT / "KNOWN_LIMITS.md").read_text(encoding="utf-8")
+    delivery_manifest_text = (RELEASE_ROOT / "DELIVERY_MANIFEST.md").read_text(encoding="utf-8")
+    required_phrases = [
+        "reference-only",
+        "triage-only",
+        "run_demo.bat",
+        "run_real.bat",
+        "package/app/run_conalog_infer.py",
+    ]
+    combined_text = "\n".join([readme_text, known_limits_text, delivery_manifest_text])
+    missing_phrases = [phrase for phrase in required_phrases if phrase not in combined_text]
+    if missing_phrases:
+        raise SystemExit(f"delivery docs missing boundary/executable phrases: {missing_phrases}")
 
     after_hashes = {path: sha256(path) for path in WATCHED_FROZEN_OUTPUTS}
     if before_hashes != after_hashes:
