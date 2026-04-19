@@ -3,6 +3,7 @@
 ## 1. demonstration
 - `package/bin/run_demo.bat`
 - packaged example input 으로 one-click foundation 을 실행함
+- Python 3 설치는 필요하지만, git 설치는 dry-run/demo 흐름에 필수 아님
 
 ## 2. actual input folder 실행
 - `package/bin/run_real.bat`
@@ -21,3 +22,4 @@
 ## 운영 원칙
 - stable output 을 먼저 읽어야 함
 - reference_only 와 triage_only 는 stable default output 과 혼동하면 안 됨
+- demo/one-click 은 현재 minimal setup 기준으로 지원하지만, Python 설치 자체는 필요함

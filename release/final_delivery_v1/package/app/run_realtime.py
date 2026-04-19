@@ -77,16 +77,20 @@ def required_config(config: dict[str, str], path: Path) -> None:
 
 
 def git_value(args: list[str]) -> str:
-    result = subprocess.run(
-        ["git", *args],
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return "git_unavailable"
     if result.returncode != 0:
-        return ""
-    return result.stdout.strip()
+        return "git_unavailable"
+    value = result.stdout.strip()
+    return value or "git_unavailable"
 
 
 def now_utc() -> str:

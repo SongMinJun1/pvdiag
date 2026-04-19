@@ -63,6 +63,8 @@ def assert_exists(path: Path) -> None:
 
 def main() -> None:
     run([sys.executable, "-m", "py_compile", "pv_ae/panel_day_engine.py"])
+    run([sys.executable, "-m", "py_compile", str(REPO_ROOT / "app/run_realtime.py")])
+    run([sys.executable, "-m", "py_compile", str(REPO_ROOT / "app/run_oneclick.py")])
     run([sys.executable, "-m", "py_compile", str(BUILD_SCRIPT)])
     run([sys.executable, "-m", "py_compile", str(Path(__file__))])
 
@@ -168,6 +170,8 @@ def main() -> None:
         "run_real.bat",
         "package/app/run_conalog_infer.py",
         "git metadata",
+        "Python 3",
+        "git executable",
     ]
     combined_text = "\n".join([readme_text, known_limits_text, delivery_manifest_text])
     missing_phrases = [phrase for phrase in required_phrases if phrase not in combined_text]
@@ -209,6 +213,48 @@ def main() -> None:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         if metadata.get("git_branch") != "git_unavailable" or metadata.get("git_head") != "git_unavailable":
             raise SystemExit(f"gitless dry-run metadata must mark git_unavailable, got: {metadata}")
+
+    package_runtime_config = PACKAGE_ROOT / "config/runtime.yaml"
+    with tempfile.TemporaryDirectory(prefix="final_delivery_oneclick_gitless_") as tmp_dir:
+        oneclick_output_root = Path(tmp_dir)
+        env = dict(os.environ)
+        env["PATH"] = ""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(PACKAGE_ROOT / "app/run_oneclick.py"),
+                "--dry-run",
+                "--input-root",
+                str(package_input_root),
+                "--output-root",
+                str(oneclick_output_root),
+                "--config",
+                str(package_runtime_config),
+                "--include-experimental",
+                "off",
+                "--report",
+                "on",
+            ],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env,
+        )
+        if result.returncode != 0:
+            raise SystemExit(result.stderr or result.stdout or "gitless one-click dry-run failed")
+        latest_dir = oneclick_output_root / "latest"
+        plan_path = latest_dir / "oneclick_plan_v1.json"
+        runtime_log_path = latest_dir / "runtime_log_v1.jsonl"
+        failure_log_path = latest_dir / "failure_log_v1.jsonl"
+        runtime_metadata_path = latest_dir / "conalog_run_metadata_v1.json"
+        assert_exists(plan_path)
+        assert_exists(runtime_log_path)
+        assert_exists(failure_log_path)
+        assert_exists(runtime_metadata_path)
+        runtime_metadata = json.loads(runtime_metadata_path.read_text(encoding="utf-8"))
+        if runtime_metadata.get("git_branch") != "git_unavailable" or runtime_metadata.get("git_head") != "git_unavailable":
+            raise SystemExit(f"gitless one-click dry-run metadata must mark git_unavailable, got: {runtime_metadata}")
 
     after_hashes = {path: sha256(path) for path in WATCHED_FROZEN_OUTPUTS}
     if before_hashes != after_hashes:
