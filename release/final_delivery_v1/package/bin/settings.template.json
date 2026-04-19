@@ -1,0 +1,7 @@
+{
+  "input_root": "C:/conalog/input",
+  "output_root": "C:/conalog/output",
+  "config": "C:/conalog/package/config/runtime.yaml",
+  "include_experimental": "off",
+  "report": "on"
+}
