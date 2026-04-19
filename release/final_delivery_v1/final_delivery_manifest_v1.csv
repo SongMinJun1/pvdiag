@@ -4,6 +4,15 @@ KNOWN_LIMITS.md,release_doc,documentation,1,release top-level 안내 문서
 QUICKSTART.md,release_doc,documentation,1,release top-level 안내 문서
 README.md,release_doc,documentation,1,release top-level 안내 문서
 RELEASE_NOTES.md,release_doc,documentation,1,release top-level 안내 문서
+package/app/app_streamlit.py,package_entrypoint,stable,1,package-local streamlit GUI wrapper
+package/app/run_conalog_infer.py,package_entrypoint,stable,1,package-local stable conalog handoff CLI entrypoint
+package/app/run_oneclick.py,package_entrypoint,stable,1,package-local one-click executable wrapper
+package/app/run_realtime.py,package_entrypoint,stable,1,runtime feasibility wrapper entrypoint
+package/bin/open_results.bat,operator_wrapper,stable,1,Windows result opener
+package/bin/run_demo.bat,operator_wrapper,stable,1,Windows demo wrapper
+package/bin/run_real.bat,operator_wrapper,stable,1,Windows real-run wrapper
+package/bin/settings.template.json,operator_wrapper,stable,1,Windows settings template
+package/config/runtime.yaml,package_config,stable,1,package-local runtime config
 package/docs/INTEGRATED_RESULT_TABLE_POINTER.md,integrated_table_pointer,documentation,1,final integrated result table schema pointer
 package/docs/MAIL_GPVS_DATA_USAGE_SUMMARY_V1.md,gpvs_mail_draft,reference_only,1,GPVS usage 설명용 메일 초안
 package/docs/OPS_CONALOG_HANDOFF_PACK_V1.md,handoff_doc,documentation,1,conalog handoff pack 안내 문서
@@ -25,7 +34,7 @@ package/runtime/OPS_RUNTIME_INFERENCE_GUIDE_V1.md,runtime_doc,documentation,1,ru
 package/runtime/OPS_RUNTIME_LATENCY_REPORT_V1.md,runtime_doc,documentation,1,runtime latency explanation
 package/runtime/panel_day_engine_runtime_latency_report_v1.csv,runtime_report_csv,documentation,1,measured runtime latency report
 package/runtime/panel_day_engine_runtime_readiness_summary_v1.csv,runtime_report_csv,documentation,1,runtime readiness summary
-package/runtime/runtime.yaml,runtime_config,stable,1,runtime foundation config snapshot
+package/runtime/runtime.yaml,runtime_config_snapshot,documentation,1,repo runtime config snapshot for comparison
 package/stable_handoff/ALGORITHM_SPEC.md,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
 package/stable_handoff/CHANGELOG.md,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
 package/stable_handoff/INPUT_SCHEMA.md,stable_handoff_asset,stable,1,stable conalog handoff pack 자산

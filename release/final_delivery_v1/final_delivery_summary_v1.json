@@ -1,12 +1,12 @@
 {
-  "generated_at_utc": "2026-04-19T02:10:31Z",
+  "generated_at_utc": "2026-04-19T11:21:41Z",
   "git_branch": "release/final-delivery-v1",
-  "git_head": "8fb18281222d5eb3408b5938a565c19614c6ff71",
-  "official_freeze_tag_before_release": "project-main-freeze-v9",
+  "git_head": "bab732eba81f721edc17eb08bcd469103cdbfa03",
+  "official_freeze_tag_before_release": "project-main-freeze-v10",
   "delivery_pack_version": "final_delivery_v1",
-  "stable_artifact_count": 15,
+  "stable_artifact_count": 23,
   "reference_only_artifact_count": 3,
   "triage_only_artifact_count": 1,
-  "documentation_count": 20,
-  "note_ko": "본 release pack 은 assembly/packaging 전용 결과임. stable/default semantics 를 바꾸지 않았고, GPVS 는 reference_only, heuristic 은 triage_only 로만 유지하였음."
+  "documentation_count": 21,
+  "note_ko": "본 release pack 은 executable delivery hotfix 결과임. stable/default semantics 를 바꾸지 않았고, GPVS 는 reference_only, heuristic 은 triage_only 로만 유지하였음."
 }
