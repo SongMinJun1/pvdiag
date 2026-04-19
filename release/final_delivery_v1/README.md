@@ -23,6 +23,10 @@
 - `package/config/runtime.yaml`
 - stable handoff pack
 - stable output 계약과 integrated result schema
+- stable CLI 는 현재 delivery pack 기준으로 검증된 진입점임
+- demo/one-click foundation 도 최소 setup 기준으로 바로 시연 가능하도록 정리하였음
+- Python 3 설치는 여전히 필요함
+- git executable 이 없어도 stable dry-run/demo flow 는 계속 수행 가능함
 - git metadata 가 대상 장비에서 unavailable 일 수 있으나, 이는 stable dry-run 또는 stable output generation 을 막지 않음
 
 ## 무엇이 reference-only 인가

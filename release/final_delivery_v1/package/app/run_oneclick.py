@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import traceback
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -24,6 +25,7 @@ CAUSE_TRIAGE_EXPORT_NAME = "cause_candidate_triage_export_v1.csv"
 PANEL_RESULT_NAME = "conalog_panel_result_v1.csv"
 SITE_SUMMARY_NAME = "conalog_site_summary_v1.csv"
 METADATA_NAME = "conalog_run_metadata_v1.json"
+RUNTIME_LOG_NAME = "runtime_log_v1.jsonl"
 FAILURE_LOG_NAME = "failure_log_v1.jsonl"
 REFERENCE_SIDECAR_NAME = "conalog_reference_sidecar_v1.csv"
 
@@ -89,6 +91,18 @@ def write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def append_jsonl(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+
+def ensure_jsonl_file(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_text("", encoding="utf-8")
+
+
 def read_json(path: Path) -> dict[str, object]:
     if not path.exists():
         return {}
@@ -128,6 +142,75 @@ def build_plan(args: argparse.Namespace) -> dict[str, object]:
             "conalog 는 direct operational interpretation layer, GPVS 는 reference-only, heuristic 은 triage-only 로만 취급함."
         ),
     }
+
+
+def latest_paths(output_root: Path) -> dict[str, Path]:
+    current_latest_dir = latest_dir(output_root)
+    return {
+        "latest_dir": current_latest_dir,
+        "runtime_log": current_latest_dir / RUNTIME_LOG_NAME,
+        "failure_log": current_latest_dir / FAILURE_LOG_NAME,
+        "plan": current_latest_dir / "oneclick_plan_v1.json",
+    }
+
+
+def log_event(path: Path, *, level: str, status: str, message_ko: str, extra: dict[str, object] | None = None) -> None:
+    payload: dict[str, object] = {
+        "logged_at_utc": now_utc(),
+        "level": level,
+        "status": status,
+        "message_ko": message_ko,
+    }
+    if extra:
+        payload.update(extra)
+    append_jsonl(path, payload)
+
+
+def short_runtime_failure_message(*, dry_run: bool) -> str:
+    if dry_run:
+        return "one-click dry-run 실패: runtime wrapper 실행을 확인하십시오."
+    return "one-click 실행 실패: runtime wrapper 실행을 확인하십시오."
+
+
+def short_report_failure_message() -> str:
+    return "one-click 실행 실패: daily report 생성 단계를 확인하십시오."
+
+
+def detail_text(result: subprocess.CompletedProcess[str]) -> str:
+    return (result.stderr or result.stdout or "").strip()
+
+
+def record_failure(
+    paths: dict[str, Path],
+    *,
+    stage: str,
+    message_ko: str,
+    detail_ko: str,
+    plan: dict[str, object] | None = None,
+) -> None:
+    ensure_jsonl_file(paths["runtime_log"])
+    ensure_jsonl_file(paths["failure_log"])
+    log_event(
+        paths["runtime_log"],
+        level="error",
+        status="failed",
+        message_ko=message_ko,
+        extra={"stage": stage},
+    )
+    append_jsonl(
+        paths["failure_log"],
+        {
+            "logged_at_utc": now_utc(),
+            "stage": stage,
+            "message_ko": message_ko,
+            "detail_ko": detail_ko,
+        },
+    )
+    if plan is not None:
+        failed_plan = dict(plan)
+        failed_plan["status"] = "failed"
+        failed_plan["operator_message_ko"] = message_ko
+        write_json(paths["plan"], failed_plan)
 
 
 def run_runtime(args: argparse.Namespace) -> subprocess.CompletedProcess[str]:
@@ -315,21 +398,60 @@ def main(argv: list[str] | None = None) -> int:
     if not config_path.exists():
         raise FileNotFoundError(f"missing config: {config_path}")
     output_root.mkdir(parents=True, exist_ok=True)
-    latest_output_dir = latest_dir(output_root)
+    paths = latest_paths(output_root)
+    latest_output_dir = paths["latest_dir"]
     latest_output_dir.mkdir(parents=True, exist_ok=True)
+    ensure_jsonl_file(paths["runtime_log"])
+    ensure_jsonl_file(paths["failure_log"])
+    log_event(
+        paths["runtime_log"],
+        level="info",
+        status="started",
+        message_ko="one-click orchestration 시작",
+        extra={"dry_run": bool(args.dry_run), "include_experimental": args.include_experimental, "report": args.report},
+    )
 
     plan = build_plan(args)
     if args.dry_run:
+        plan["optional_sections_note_ko"] = (
+            "dry-run 에서는 optional experimental/reference section 과 daily report 상세 section 이 실제 생성되지 않을 수 있음."
+        )
+        plan["daily_report_template_available_flag"] = int(TEMPLATE_PATH.exists())
         runtime_result = run_runtime(args)
         if runtime_result.returncode != 0:
-            raise SystemExit(runtime_result.stderr or runtime_result.stdout)
-        write_json(latest_output_dir / "oneclick_plan_v1.json", plan)
+            operator_message = short_runtime_failure_message(dry_run=True)
+            record_failure(
+                paths,
+                stage="runtime_wrapper",
+                message_ko=operator_message,
+                detail_ko=detail_text(runtime_result),
+                plan=plan,
+            )
+            print(operator_message, file=sys.stderr)
+            return 1
+        log_event(
+            paths["runtime_log"],
+            level="info",
+            status="dry_run_plan",
+            message_ko="one-click dry-run 계획 생성 완료",
+            extra={"daily_report_template_available_flag": int(TEMPLATE_PATH.exists())},
+        )
+        write_json(paths["plan"], plan)
         print(json.dumps(plan, ensure_ascii=False))
         return 0
 
     runtime_result = run_runtime(args)
     if runtime_result.returncode != 0:
-        raise SystemExit(runtime_result.stderr or runtime_result.stdout)
+        operator_message = short_runtime_failure_message(dry_run=False)
+        record_failure(
+            paths,
+            stage="runtime_wrapper",
+            message_ko=operator_message,
+            detail_ko=detail_text(runtime_result),
+            plan=plan,
+        )
+        print(operator_message, file=sys.stderr)
+        return 1
 
     panel_df = read_csv(latest_output_dir / PANEL_RESULT_NAME)
     site_df = read_csv(latest_output_dir / SITE_SUMMARY_NAME)
@@ -345,10 +467,29 @@ def main(argv: list[str] | None = None) -> int:
         write_optional_experimental_exports(latest_output_dir, sidecar_df)
 
     if args.report == "on":
-        report_text = build_daily_report(latest_output_dir, panel_df, site_df, sidecar_df)
-        (latest_output_dir / DAILY_REPORT_NAME).write_text(report_text, encoding="utf-8")
+        try:
+            report_text = build_daily_report(latest_output_dir, panel_df, site_df, sidecar_df)
+            (latest_output_dir / DAILY_REPORT_NAME).write_text(report_text, encoding="utf-8")
+        except Exception:
+            operator_message = short_report_failure_message()
+            record_failure(
+                paths,
+                stage="daily_report",
+                message_ko=operator_message,
+                detail_ko=traceback.format_exc().strip(),
+                plan=plan,
+            )
+            print(operator_message, file=sys.stderr)
+            return 1
 
-    write_json(latest_output_dir / "oneclick_plan_v1.json", plan)
+    log_event(
+        paths["runtime_log"],
+        level="info",
+        status="completed",
+        message_ko="one-click orchestration 완료",
+        extra={"include_experimental": args.include_experimental, "report": args.report},
+    )
+    write_json(paths["plan"], plan)
     print(
         json.dumps(
             {

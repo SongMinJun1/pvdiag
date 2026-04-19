@@ -60,6 +60,10 @@ TOP_LEVEL_DOCS = {
 - `package/config/runtime.yaml`
 - stable handoff pack
 - stable output 계약과 integrated result schema
+- stable CLI 는 현재 delivery pack 기준으로 검증된 진입점임
+- demo/one-click foundation 도 최소 setup 기준으로 바로 시연 가능하도록 정리하였음
+- Python 3 설치는 여전히 필요함
+- git executable 이 없어도 stable dry-run/demo flow 는 계속 수행 가능함
 - git metadata 가 대상 장비에서 unavailable 일 수 있으나, 이는 stable dry-run 또는 stable output generation 을 막지 않음
 
 ## 무엇이 reference-only 인가
@@ -83,6 +87,7 @@ TOP_LEVEL_DOCS = {
 ## 1. demonstration
 - `package/bin/run_demo.bat`
 - packaged example input 으로 one-click foundation 을 실행함
+- Python 3 설치는 필요하지만, git 설치는 dry-run/demo 흐름에 필수 아님
 
 ## 2. actual input folder 실행
 - `package/bin/run_real.bat`
@@ -101,6 +106,7 @@ TOP_LEVEL_DOCS = {
 ## 운영 원칙
 - stable output 을 먼저 읽어야 함
 - reference_only 와 triage_only 는 stable default output 과 혼동하면 안 됨
+- demo/one-click 은 현재 minimal setup 기준으로 지원하지만, Python 설치 자체는 필요함
 """,
     "RELEASE_NOTES.md": """# Release Notes
 
@@ -135,6 +141,8 @@ TOP_LEVEL_DOCS = {
 - one-click 은 foundation 이며 full production scheduler 가 아님
 - stable output 과 experimental/reference output 은 혼동하면 안 됨
 - dashboard 또는 외부 시스템은 문서를 scraping 하지 말고 `package/app/` entrypoint 를 직접 호출해야 함
+- Python 3 설치는 여전히 필요함
+- git executable 이 대상 장비에 없어도 demo/dry-run 흐름은 계속 수행 가능함
 - git metadata 는 원본 저장소 밖에서 unavailable 일 수 있으나, 이는 stable dry-run 또는 stable output generation 을 막지 않음
 """,
     "DELIVERY_MANIFEST.md": """# Delivery Manifest
@@ -710,6 +718,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import traceback
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -731,6 +740,7 @@ CAUSE_TRIAGE_EXPORT_NAME = "cause_candidate_triage_export_v1.csv"
 PANEL_RESULT_NAME = "conalog_panel_result_v1.csv"
 SITE_SUMMARY_NAME = "conalog_site_summary_v1.csv"
 METADATA_NAME = "conalog_run_metadata_v1.json"
+RUNTIME_LOG_NAME = "runtime_log_v1.jsonl"
 FAILURE_LOG_NAME = "failure_log_v1.jsonl"
 REFERENCE_SIDECAR_NAME = "conalog_reference_sidecar_v1.csv"
 
@@ -796,6 +806,18 @@ def write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
 
 
+def append_jsonl(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False) + "\\n")
+
+
+def ensure_jsonl_file(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_text("", encoding="utf-8")
+
+
 def read_json(path: Path) -> dict[str, object]:
     if not path.exists():
         return {}
@@ -835,6 +857,75 @@ def build_plan(args: argparse.Namespace) -> dict[str, object]:
             "conalog 는 direct operational interpretation layer, GPVS 는 reference-only, heuristic 은 triage-only 로만 취급함."
         ),
     }
+
+
+def latest_paths(output_root: Path) -> dict[str, Path]:
+    current_latest_dir = latest_dir(output_root)
+    return {
+        "latest_dir": current_latest_dir,
+        "runtime_log": current_latest_dir / RUNTIME_LOG_NAME,
+        "failure_log": current_latest_dir / FAILURE_LOG_NAME,
+        "plan": current_latest_dir / "oneclick_plan_v1.json",
+    }
+
+
+def log_event(path: Path, *, level: str, status: str, message_ko: str, extra: dict[str, object] | None = None) -> None:
+    payload: dict[str, object] = {
+        "logged_at_utc": now_utc(),
+        "level": level,
+        "status": status,
+        "message_ko": message_ko,
+    }
+    if extra:
+        payload.update(extra)
+    append_jsonl(path, payload)
+
+
+def short_runtime_failure_message(*, dry_run: bool) -> str:
+    if dry_run:
+        return "one-click dry-run 실패: runtime wrapper 실행을 확인하십시오."
+    return "one-click 실행 실패: runtime wrapper 실행을 확인하십시오."
+
+
+def short_report_failure_message() -> str:
+    return "one-click 실행 실패: daily report 생성 단계를 확인하십시오."
+
+
+def detail_text(result: subprocess.CompletedProcess[str]) -> str:
+    return (result.stderr or result.stdout or "").strip()
+
+
+def record_failure(
+    paths: dict[str, Path],
+    *,
+    stage: str,
+    message_ko: str,
+    detail_ko: str,
+    plan: dict[str, object] | None = None,
+) -> None:
+    ensure_jsonl_file(paths["runtime_log"])
+    ensure_jsonl_file(paths["failure_log"])
+    log_event(
+        paths["runtime_log"],
+        level="error",
+        status="failed",
+        message_ko=message_ko,
+        extra={"stage": stage},
+    )
+    append_jsonl(
+        paths["failure_log"],
+        {
+            "logged_at_utc": now_utc(),
+            "stage": stage,
+            "message_ko": message_ko,
+            "detail_ko": detail_ko,
+        },
+    )
+    if plan is not None:
+        failed_plan = dict(plan)
+        failed_plan["status"] = "failed"
+        failed_plan["operator_message_ko"] = message_ko
+        write_json(paths["plan"], failed_plan)
 
 
 def run_runtime(args: argparse.Namespace) -> subprocess.CompletedProcess[str]:
@@ -1022,21 +1113,60 @@ def main(argv: list[str] | None = None) -> int:
     if not config_path.exists():
         raise FileNotFoundError(f"missing config: {config_path}")
     output_root.mkdir(parents=True, exist_ok=True)
-    latest_output_dir = latest_dir(output_root)
+    paths = latest_paths(output_root)
+    latest_output_dir = paths["latest_dir"]
     latest_output_dir.mkdir(parents=True, exist_ok=True)
+    ensure_jsonl_file(paths["runtime_log"])
+    ensure_jsonl_file(paths["failure_log"])
+    log_event(
+        paths["runtime_log"],
+        level="info",
+        status="started",
+        message_ko="one-click orchestration 시작",
+        extra={"dry_run": bool(args.dry_run), "include_experimental": args.include_experimental, "report": args.report},
+    )
 
     plan = build_plan(args)
     if args.dry_run:
+        plan["optional_sections_note_ko"] = (
+            "dry-run 에서는 optional experimental/reference section 과 daily report 상세 section 이 실제 생성되지 않을 수 있음."
+        )
+        plan["daily_report_template_available_flag"] = int(TEMPLATE_PATH.exists())
         runtime_result = run_runtime(args)
         if runtime_result.returncode != 0:
-            raise SystemExit(runtime_result.stderr or runtime_result.stdout)
-        write_json(latest_output_dir / "oneclick_plan_v1.json", plan)
+            operator_message = short_runtime_failure_message(dry_run=True)
+            record_failure(
+                paths,
+                stage="runtime_wrapper",
+                message_ko=operator_message,
+                detail_ko=detail_text(runtime_result),
+                plan=plan,
+            )
+            print(operator_message, file=sys.stderr)
+            return 1
+        log_event(
+            paths["runtime_log"],
+            level="info",
+            status="dry_run_plan",
+            message_ko="one-click dry-run 계획 생성 완료",
+            extra={"daily_report_template_available_flag": int(TEMPLATE_PATH.exists())},
+        )
+        write_json(paths["plan"], plan)
         print(json.dumps(plan, ensure_ascii=False))
         return 0
 
     runtime_result = run_runtime(args)
     if runtime_result.returncode != 0:
-        raise SystemExit(runtime_result.stderr or runtime_result.stdout)
+        operator_message = short_runtime_failure_message(dry_run=False)
+        record_failure(
+            paths,
+            stage="runtime_wrapper",
+            message_ko=operator_message,
+            detail_ko=detail_text(runtime_result),
+            plan=plan,
+        )
+        print(operator_message, file=sys.stderr)
+        return 1
 
     panel_df = read_csv(latest_output_dir / PANEL_RESULT_NAME)
     site_df = read_csv(latest_output_dir / SITE_SUMMARY_NAME)
@@ -1052,10 +1182,29 @@ def main(argv: list[str] | None = None) -> int:
         write_optional_experimental_exports(latest_output_dir, sidecar_df)
 
     if args.report == "on":
-        report_text = build_daily_report(latest_output_dir, panel_df, site_df, sidecar_df)
-        (latest_output_dir / DAILY_REPORT_NAME).write_text(report_text, encoding="utf-8")
+        try:
+            report_text = build_daily_report(latest_output_dir, panel_df, site_df, sidecar_df)
+            (latest_output_dir / DAILY_REPORT_NAME).write_text(report_text, encoding="utf-8")
+        except Exception:
+            operator_message = short_report_failure_message()
+            record_failure(
+                paths,
+                stage="daily_report",
+                message_ko=operator_message,
+                detail_ko=traceback.format_exc().strip(),
+                plan=plan,
+            )
+            print(operator_message, file=sys.stderr)
+            return 1
 
-    write_json(latest_output_dir / "oneclick_plan_v1.json", plan)
+    log_event(
+        paths["runtime_log"],
+        level="info",
+        status="completed",
+        message_ko="one-click orchestration 완료",
+        extra={"include_experimental": args.include_experimental, "report": args.report},
+    )
+    write_json(paths["plan"], plan)
     print(
         json.dumps(
             {
@@ -1171,8 +1320,22 @@ set PACKAGE_ROOT=%~dp0..
 set INPUT_ROOT=%PACKAGE_ROOT%\\stable_handoff\\examples
 set OUTPUT_ROOT=%PACKAGE_ROOT%\\demo_output
 set CONFIG_PATH=%PACKAGE_ROOT%\\config\\runtime.yaml
+set "PYTHON_CMD="
 
-python "%PACKAGE_ROOT%\\app\\run_oneclick.py" ^
+where py >nul 2>nul
+if %errorlevel%==0 (
+  set "PYTHON_CMD=py -3"
+) else (
+  where python >nul 2>nul
+  if %errorlevel%==0 (
+    set "PYTHON_CMD=python"
+  ) else (
+    echo Python 3가 필요합니다. Python을 설치한 뒤 다시 실행하십시오.
+    exit /b 1
+  )
+)
+
+call %PYTHON_CMD% "%PACKAGE_ROOT%\\app\\run_oneclick.py" ^
   --input-root "%INPUT_ROOT%" ^
   --output-root "%OUTPUT_ROOT%" ^
   --config "%CONFIG_PATH%" ^
@@ -1187,10 +1350,27 @@ echo [OK] results written under %OUTPUT_ROOT%\\latest
 RUN_REAL_BAT_TEXT = """@echo off
 setlocal
 set PACKAGE_ROOT=%~dp0..
+set TEMPLATE_FILE=%PACKAGE_ROOT%\\bin\\settings.template.json
 set SETTINGS_FILE=%PACKAGE_ROOT%\\bin\\settings.json
-if not exist "%SETTINGS_FILE%" set SETTINGS_FILE=%PACKAGE_ROOT%\\bin\\settings.template.json
+set "PYTHON_CMD="
 
-python -c "import json, pathlib, subprocess, sys; root = pathlib.Path(r'%PACKAGE_ROOT%'); settings_path = pathlib.Path(r'%SETTINGS_FILE%'); settings = json.loads(settings_path.read_text(encoding='utf-8')); cmd = [sys.executable, str(root / 'app' / 'run_oneclick.py'), '--input-root', settings['input_root'], '--output-root', settings['output_root'], '--config', settings.get('config', str(root / 'config' / 'runtime.yaml')), '--include-experimental', settings.get('include_experimental', 'off'), '--report', settings.get('report', 'on')]; raise SystemExit(subprocess.call(cmd))"
+where py >nul 2>nul
+if %errorlevel%==0 (
+  set "PYTHON_CMD=py -3"
+) else (
+  where python >nul 2>nul
+  if %errorlevel%==0 (
+    set "PYTHON_CMD=python"
+  ) else (
+    echo Python 3가 필요합니다. Python을 설치한 뒤 다시 실행하십시오.
+    exit /b 1
+  )
+)
+
+if not exist "%SETTINGS_FILE%" copy "%TEMPLATE_FILE%" "%SETTINGS_FILE%" >nul
+
+call %PYTHON_CMD% -c "import json, pathlib, subprocess, sys; root = pathlib.Path(r'%PACKAGE_ROOT%'); settings_path = pathlib.Path(r'%SETTINGS_FILE%'); settings = json.loads(settings_path.read_text(encoding='utf-8')); input_root = str(settings.get('input_root', '')).strip(); output_root = str(settings.get('output_root', '')).strip(); config_path = str(settings.get('config', str(root / 'config' / 'runtime.yaml'))).strip(); placeholder_input = input_root in {'', 'C:/conalog/input'}; placeholder_output = output_root in {'', 'C:/conalog/output'}; missing_input = (not placeholder_input) and (not pathlib.Path(input_root).exists()); invalid = placeholder_input or placeholder_output or missing_input; print('먼저 settings.json의 input_root/output_root를 실제 경로로 수정하십시오.') if invalid else None; subprocess.Popen(['notepad', str(settings_path)]) if invalid else None; cmd = [sys.executable, str(root / 'app' / 'run_oneclick.py'), '--input-root', input_root, '--output-root', output_root, '--config', config_path, '--include-experimental', str(settings.get('include_experimental', 'off')), '--report', str(settings.get('report', 'on'))]; raise SystemExit(0 if invalid else subprocess.call(cmd))"
+if errorlevel 1 exit /b %errorlevel%
 """
 
 OPEN_RESULTS_BAT_TEXT = """@echo off
