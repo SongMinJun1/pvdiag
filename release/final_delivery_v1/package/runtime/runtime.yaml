@@ -1,0 +1,12 @@
+input_root: delivery/conalog_handoff_v1/examples
+output_root: /tmp/pvdiag_runtime
+include_experimental: off
+poll_seconds: 300
+stable_output_subdir: latest
+runtime_log_name: runtime_log_v1.jsonl
+failure_log_name: failure_log_v1.jsonl
+latest_summary_name: conalog_site_summary_v1.csv
+handoff_config_path: delivery/conalog_handoff_v1/config/default.yaml
+latest_panel_result_name: conalog_panel_result_v1.csv
+latest_metadata_name: conalog_run_metadata_v1.json
+latest_reference_sidecar_name: conalog_reference_sidecar_v1.csv

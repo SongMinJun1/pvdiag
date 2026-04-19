@@ -1,0 +1,7 @@
+﻿measurement_scope,metric_name,metric_value,unit,note_ko
+runtime_cli_help,elapsed_seconds,0.033848,seconds,--help startup/argument parsing 시간임
+runtime_once_dry_run,elapsed_seconds,0.352775,seconds,path/config 검증과 runtime plan 생성 시간을 측정하였음
+runtime_poll_dry_run,elapsed_seconds,0.364156,seconds,poll wrapper 의 planning/startup 오버헤드만 측정하였음
+runtime_once_foundation,elapsed_seconds,0.292333,seconds,stable mini-batch once wrapper 가 latest output 을 생성하는 시간을 측정하였음
+runtime_once_foundation_experimental,elapsed_seconds,0.301969,seconds,experimental reference sidecar opt-in 경로의 wrapper 시간을 측정하였음
+runtime_continuous_streaming,elapsed_seconds,,seconds,continuous streaming steady-state latency 는 이번 feasibility 단계에서 측정하지 않았음

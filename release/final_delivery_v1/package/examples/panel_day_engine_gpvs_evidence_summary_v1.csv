@@ -1,0 +1,2 @@
+﻿fault_panel_count,internal_evidence_available_count,external_evidence_available_count,compatibility_reference_only_flag,core_reference_count,core_reference_candidate_count,auxiliary_reference_count,confounder_flag_count,reserved_system_count,not_recommended_count,final_operational_rule_ko,note_ko
+6,6,6,1,2,0,4,0,0,0,GPVS는 direct root-cause classifier가 아니라 reference layer로만 사용,"compatibility=참고축으로만 사용, matching_policy=F0/F4/F5 core, F2 auxiliary, F3 confounder, F1/F6/F7 reserved, provenance=original_trained_head_recovered, rebuild_attachable=1"

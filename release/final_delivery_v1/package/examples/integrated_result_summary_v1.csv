@@ -1,0 +1,2 @@
+﻿total_panel_count,fault_panel_count,non_fault_or_unresolved_count,gpvs_core_reference_count,gpvs_auxiliary_reference_count,gpvs_not_used_count,note_ko
+25,6,19,2,4,19,"이 표는 최종 front-facing table이며 panel multiaxis verdict를 primary로 읽는다. kernel-log 원인군과 heuristic suspected-cause ranking만 남기고, GPVS internal/external/evidence detail은 evidence pack에만 유지한다. display friendliness를 위해 여섯 개 heuristic label만 표 안에서 표시용으로 바꿔 적고, raw heuristic output은 그대로 둔다."
