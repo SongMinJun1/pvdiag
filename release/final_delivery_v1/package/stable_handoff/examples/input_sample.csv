@@ -1,0 +1,3 @@
+site,panel_id,observation_date,alarm_flag
+conalog,example-panel-001,2026-01-01,1
+conalog,example-panel-002,2026-01-01,0
