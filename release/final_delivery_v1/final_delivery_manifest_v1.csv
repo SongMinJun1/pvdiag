@@ -1,0 +1,40 @@
+﻿relative_path,artifact_kind,stability_level_ko,included_flag,note_ko
+DELIVERY_MANIFEST.md,release_doc,documentation,1,release top-level 안내 문서
+KNOWN_LIMITS.md,release_doc,documentation,1,release top-level 안내 문서
+QUICKSTART.md,release_doc,documentation,1,release top-level 안내 문서
+README.md,release_doc,documentation,1,release top-level 안내 문서
+RELEASE_NOTES.md,release_doc,documentation,1,release top-level 안내 문서
+package/docs/INTEGRATED_RESULT_TABLE_POINTER.md,integrated_table_pointer,documentation,1,final integrated result table schema pointer
+package/docs/MAIL_GPVS_DATA_USAGE_SUMMARY_V1.md,gpvs_mail_draft,reference_only,1,GPVS usage 설명용 메일 초안
+package/docs/OPS_CONALOG_HANDOFF_PACK_V1.md,handoff_doc,documentation,1,conalog handoff pack 안내 문서
+package/docs/OPS_CONALOG_RULEBASE_VS_HYBRID_ENGINE_V1.md,comparison_doc,documentation,1,conalog rulebase vs hybrid engine 대외 설명 문서
+package/docs/OPS_FAULT_COVERAGE_AND_MODEL_PERFORMANCE_V1.md,coverage_report,documentation,1,fault coverage 및 model performance 설명 문서
+package/docs/OPS_GPVS_EXTERNAL_DATA_INVENTORY_V1.md,gpvs_inventory_doc,reference_only,1,GPVS external data inventory 문서
+package/docs/OPS_REALTIME_OPERATION_READINESS_V1.md,runtime_readiness_doc,documentation,1,runtime readiness 판단 문서
+package/docs/panel_day_engine_fault_coverage_matrix_v1.csv,coverage_report_csv,documentation,1,fault coverage matrix snapshot
+package/docs/panel_day_engine_model_metrics_v1.csv,coverage_report_csv,documentation,1,layer metric snapshot
+package/examples/integrated_result_summary_v1.csv,stable_snapshot_csv,stable,1,current frozen integrated result summary snapshot
+package/examples/integrated_result_table_v1.csv,stable_snapshot_csv,stable,1,current frozen integrated result table snapshot
+package/examples/panel_day_engine_cause_candidate_summary_v1.csv,triage_summary_csv,triage_only,1,heuristic triage summary snapshot
+package/examples/panel_day_engine_gpvs_evidence_summary_v1.csv,reference_summary_csv,reference_only,1,GPVS reference usage summary snapshot
+package/oneclick/OPS_DAILY_REPORT_AUTOMATION_V1.md,oneclick_doc,documentation,1,daily report automation guide
+package/oneclick/OPS_ONECLICK_OPERATION_GUIDE_V1.md,oneclick_doc,documentation,1,one-click operation guide
+package/oneclick/daily_report_template.md,template,documentation,1,daily report template
+package/runtime/OPS_RUNTIME_FAILURE_HANDLING_V1.md,runtime_doc,documentation,1,runtime failure handling guide
+package/runtime/OPS_RUNTIME_INFERENCE_GUIDE_V1.md,runtime_doc,documentation,1,runtime guide
+package/runtime/OPS_RUNTIME_LATENCY_REPORT_V1.md,runtime_doc,documentation,1,runtime latency explanation
+package/runtime/panel_day_engine_runtime_latency_report_v1.csv,runtime_report_csv,documentation,1,measured runtime latency report
+package/runtime/panel_day_engine_runtime_readiness_summary_v1.csv,runtime_report_csv,documentation,1,runtime readiness summary
+package/runtime/runtime.yaml,runtime_config,stable,1,runtime foundation config snapshot
+package/stable_handoff/ALGORITHM_SPEC.md,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
+package/stable_handoff/CHANGELOG.md,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
+package/stable_handoff/INPUT_SCHEMA.md,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
+package/stable_handoff/KNOWN_LIMITS.md,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
+package/stable_handoff/OUTPUT_SCHEMA.md,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
+package/stable_handoff/README.md,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
+package/stable_handoff/RUNBOOK.md,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
+package/stable_handoff/config/default.yaml,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
+package/stable_handoff/docker/Dockerfile,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
+package/stable_handoff/examples/input_sample.csv,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
+package/stable_handoff/examples/output_panel_result_sample.csv,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
+package/stable_handoff/tests/smoke_test_conalog_handoff.py,stable_handoff_asset,stable,1,stable conalog handoff pack 자산
