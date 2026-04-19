@@ -5,7 +5,7 @@ QUICKSTART.md,release_doc,documentation,1,release top-level 안내 문서
 README.md,release_doc,documentation,1,release top-level 안내 문서
 RELEASE_NOTES.md,release_doc,documentation,1,release top-level 안내 문서
 package/app/app_streamlit.py,package_entrypoint,stable,1,package-local streamlit GUI wrapper
-package/app/run_conalog_infer.py,package_entrypoint,stable,1,stable conalog handoff CLI entrypoint
+package/app/run_conalog_infer.py,package_entrypoint,stable,1,package-local stable conalog handoff CLI entrypoint
 package/app/run_oneclick.py,package_entrypoint,stable,1,package-local one-click executable wrapper
 package/app/run_realtime.py,package_entrypoint,stable,1,runtime feasibility wrapper entrypoint
 package/bin/open_results.bat,operator_wrapper,stable,1,Windows result opener

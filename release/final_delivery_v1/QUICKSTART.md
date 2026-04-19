@@ -16,6 +16,7 @@
 - stable direct CLI 는 `package/app/run_conalog_infer.py`
 - one-click orchestration 은 `package/app/run_oneclick.py`
 - 문서를 scraping 하지 말고 executable entrypoint 를 직접 호출해야 함
+- git executable 이 대상 장비 PATH 에 없어도 stable dry-run 은 계속 수행 가능함
 
 ## 운영 원칙
 - stable output 을 먼저 읽어야 함

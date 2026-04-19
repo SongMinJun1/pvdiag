@@ -23,6 +23,7 @@
 - `package/config/runtime.yaml`
 - stable handoff pack
 - stable output 계약과 integrated result schema
+- git metadata 가 대상 장비에서 unavailable 일 수 있으나, 이는 stable dry-run 또는 stable output generation 을 막지 않음
 
 ## 무엇이 reference-only 인가
 - GPVS inventory, GPVS usage mail draft, GPVS evidence summary snapshot
