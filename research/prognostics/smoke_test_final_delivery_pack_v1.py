@@ -4,7 +4,9 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import os
 import subprocess
+import tempfile
 import sys
 from pathlib import Path
 
@@ -165,11 +167,48 @@ def main() -> None:
         "run_demo.bat",
         "run_real.bat",
         "package/app/run_conalog_infer.py",
+        "git metadata",
     ]
     combined_text = "\n".join([readme_text, known_limits_text, delivery_manifest_text])
     missing_phrases = [phrase for phrase in required_phrases if phrase not in combined_text]
     if missing_phrases:
         raise SystemExit(f"delivery docs missing boundary/executable phrases: {missing_phrases}")
+
+    package_config = PACKAGE_ROOT / "stable_handoff/config/default.yaml"
+    package_input_root = PACKAGE_ROOT / "stable_handoff/examples"
+    with tempfile.TemporaryDirectory(prefix="final_delivery_gitless_") as tmp_dir:
+        dryrun_output_root = Path(tmp_dir)
+        env = dict(os.environ)
+        env["PATH"] = ""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(PACKAGE_ROOT / "app/run_conalog_infer.py"),
+                "--dry-run",
+                "--input-root",
+                str(package_input_root),
+                "--output-root",
+                str(dryrun_output_root),
+                "--config",
+                str(package_config),
+                "--include-experimental",
+                "off",
+            ],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env,
+        )
+        if result.returncode != 0:
+            raise SystemExit(result.stderr or result.stdout or "gitless package dry-run failed")
+        metadata_path = dryrun_output_root / "output/run_metadata_v1.json"
+        error_log_path = dryrun_output_root / "output/error_log_v1.csv"
+        assert_exists(metadata_path)
+        assert_exists(error_log_path)
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if metadata.get("git_branch") != "git_unavailable" or metadata.get("git_head") != "git_unavailable":
+            raise SystemExit(f"gitless dry-run metadata must mark git_unavailable, got: {metadata}")
 
     after_hashes = {path: sha256(path) for path in WATCHED_FROZEN_OUTPUTS}
     if before_hashes != after_hashes:

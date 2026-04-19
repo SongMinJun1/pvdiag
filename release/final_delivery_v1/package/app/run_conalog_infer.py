@@ -100,16 +100,20 @@ def required_config(config: dict[str, str], keys: list[str], path: Path) -> None
 
 
 def git_value(args: list[str]) -> str:
-    result = subprocess.run(
-        ["git", *args],
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return "git_unavailable"
     if result.returncode != 0:
-        return ""
-    return result.stdout.strip()
+        return "git_unavailable"
+    value = result.stdout.strip()
+    return value or "git_unavailable"
 
 
 def discover_candidate_csvs(input_root: Path, limit: int = 12) -> list[str]:
@@ -285,42 +289,29 @@ def main(argv: list[str] | None = None) -> int:
             include_experimental=args.include_experimental,
             dry_run=True,
             note_ko=(
-                "conalog stable handoff dry-run 계획임. stable output 이 delivery 기본값이며, "
-                "GPVS 는 reference-only, heuristic 은 triage-only 로만 취급함."
+                "stable dry-run plan 임. git metadata 가 unavailable 이어도 dry-run 및 output metadata 생성은 계속 수행함."
             ),
             extra={
-                "run_status_ko": "dry_run_plan",
                 "expected_input_csv": str(input_csv_path),
-                "expected_input_found_flag": bool(input_csv_path.exists()),
-                "expected_input_schema_ok_flag": schema_ok,
-                "candidate_input_csvs": candidate_csvs,
-                "planned_outputs": [
-                    str(paths["metadata"]),
-                    str(paths["error_log"]),
-                    str(paths["panel_result"]),
-                    str(paths["site_summary"]),
-                ]
-                + ([str(paths["experimental"])] if args.include_experimental == "on" else []),
+                "candidate_csvs": candidate_csvs,
                 "input_row_count": input_row_count,
+                "input_schema_ok": schema_ok,
+                "stable_output_files": [
+                    paths["panel_result"].name,
+                    paths["site_summary"].name,
+                    paths["metadata"].name,
+                    paths["error_log"].name,
+                ],
+                "experimental_output_files": [paths["experimental"].name] if args.include_experimental == "on" else [],
             },
         )
         write_json(paths["metadata"], metadata)
         write_error_log(paths["error_log"], error_rows)
-        print(
-            json.dumps(
-                {
-                    "dry_run": True,
-                    "expected_input_csv": str(input_csv_path),
-                    "candidate_input_csvs": candidate_csvs,
-                    "output_dir": str(paths["output_dir"]),
-                },
-                ensure_ascii=False,
-            )
-        )
+        print(json.dumps(metadata, ensure_ascii=False))
         return 0
 
     if not input_csv_path.exists():
-        raise SystemExit(f"missing required input file for non-dry-run: {input_csv_path}")
+        raise SystemExit(f"missing expected input csv: {input_csv_path}")
 
     input_df = pd.read_csv(input_csv_path, low_memory=False, encoding="utf-8-sig")
     ensure_input_schema(input_df, input_csv_path)
@@ -330,10 +321,6 @@ def main(argv: list[str] | None = None) -> int:
     panel_df.to_csv(paths["panel_result"], index=False, encoding="utf-8-sig")
     site_summary_df.to_csv(paths["site_summary"], index=False, encoding="utf-8-sig")
 
-    if args.include_experimental == "on":
-        experimental_df = build_experimental_reference(input_df)
-        experimental_df.to_csv(paths["experimental"], index=False, encoding="utf-8-sig")
-
     metadata = build_run_metadata(
         config_path=config_path,
         input_root=input_root,
@@ -341,24 +328,35 @@ def main(argv: list[str] | None = None) -> int:
         include_experimental=args.include_experimental,
         dry_run=False,
         note_ko=(
-            "conalog stable handoff foundation 실행 결과임. stable output 은 direct operational interpretation layer 기준의 "
-            "기본 delivery 계약이며, GPVS 는 reference-only, heuristic 은 triage-only 로만 분리함."
+            "stable handoff foundation output 임. panel multiaxis verdict 를 primary 로 유지하며 conalog 를 direct operational interpretation layer 로 둠."
         ),
         extra={
-            "run_status_ko": "foundation_placeholder_run",
-            "resolved_input_csv": str(input_csv_path),
             "input_row_count": int(len(input_df)),
+            "candidate_csvs": candidate_csvs,
+            "stable_output_files": [
+                paths["panel_result"].name,
+                paths["site_summary"].name,
+                paths["metadata"].name,
+                paths["error_log"].name,
+            ],
+            "experimental_output_files": [paths["experimental"].name] if args.include_experimental == "on" else [],
         },
     )
     write_json(paths["metadata"], metadata)
+
+    if args.include_experimental == "on":
+        experimental_df = build_experimental_reference(input_df)
+        experimental_df.to_csv(paths["experimental"], index=False, encoding="utf-8-sig")
+
     write_error_log(paths["error_log"], error_rows)
     print(
         json.dumps(
             {
-                "dry_run": False,
+                "status": "completed",
                 "panel_result": str(paths["panel_result"]),
                 "site_summary": str(paths["site_summary"]),
-                "experimental_emitted": args.include_experimental == "on",
+                "metadata": str(paths["metadata"]),
+                "experimental_reference": str(paths["experimental"]) if args.include_experimental == "on" else "",
             },
             ensure_ascii=False,
         )
