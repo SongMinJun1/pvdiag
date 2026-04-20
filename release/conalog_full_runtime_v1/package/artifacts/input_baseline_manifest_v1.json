@@ -1,0 +1,65 @@
+{
+  "sites": {
+    "conalog": {
+      "file_count": 536,
+      "total_bytes": 3831367301,
+      "first_filenames": [
+        "2024-09-06-커널로그1호-5m.csv",
+        "2024-09-07-커널로그1호-5m.csv",
+        "2024-09-08-커널로그1호-5m.csv",
+        "2024-09-09-커널로그1호-5m.csv",
+        "2024-09-10-커널로그1호-5m.csv"
+      ],
+      "last_filenames": [
+        "ae_simple_ews_warnings.csv",
+        "ae_simple_fault_candidates.csv",
+        "ae_simple_panel_alarms.csv",
+        "ae_simple_prefault_B_daily.csv",
+        "ae_simple_scores.csv"
+      ],
+      "min_date": "2024-09-06",
+      "max_date": "2026-02-18"
+    },
+    "gangui": {
+      "file_count": 325,
+      "total_bytes": 1551009589,
+      "first_filenames": [
+        "2025-04-08-극동대학교 강의동-5m.csv",
+        "2025-04-09-극동대학교 강의동-5m.csv",
+        "2025-04-10-극동대학교 강의동-5m.csv",
+        "2025-04-11-극동대학교 강의동-5m.csv",
+        "2025-04-12-극동대학교 강의동-5m.csv"
+      ],
+      "last_filenames": [
+        "ae_simple_ews_warnings.csv",
+        "ae_simple_fault_candidates.csv",
+        "ae_simple_panel_alarms.csv",
+        "ae_simple_prefault_B_daily.csv",
+        "ae_simple_scores.csv"
+      ],
+      "min_date": "2025-04-08",
+      "max_date": "2026-02-19"
+    },
+    "ktc_ess": {
+      "file_count": 541,
+      "total_bytes": 2101249399,
+      "first_filenames": [
+        "2024-08-13-KTC ESS시험동 옥상-5m.csv",
+        "2024-08-14-KTC ESS시험동 옥상-5m.csv",
+        "2024-08-15-KTC ESS시험동 옥상-5m.csv",
+        "2024-08-16-KTC ESS시험동 옥상-5m.csv",
+        "2024-08-17-KTC ESS시험동 옥상-5m.csv"
+      ],
+      "last_filenames": [
+        "ae_simple_ews_warnings.csv",
+        "ae_simple_fault_candidates.csv",
+        "ae_simple_panel_alarms.csv",
+        "ae_simple_prefault_B_daily.csv",
+        "ae_simple_scores.csv"
+      ],
+      "min_date": "2024-08-13",
+      "max_date": "2026-02-19"
+    }
+  },
+  "note_ko": "이 manifest는 고정 fault6 결과표가 만들어진 현재 baseline raw corpus의 경량 fingerprint다. target 환경에서 파일 수/총용량/날짜 범위를 비교해 exact replay 여부를 점검한다."
+}
