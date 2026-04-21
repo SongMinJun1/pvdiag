@@ -9,6 +9,7 @@ import tempfile
 from pathlib import Path
 
 import pandas as pd
+from openpyxl import load_workbook
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -44,6 +45,7 @@ SNAPSHOT_COPY_PS1 = PACKAGE_ROOT / "bin" / "snapshot_copy.ps1"
 DAILY_RUN_BAT = PACKAGE_ROOT / "bin" / "daily_run.bat"
 INCREMENTAL_RUN_BAT = PACKAGE_ROOT / "bin" / "incremental_run.bat"
 RUN_DEMO_BAT = PACKAGE_ROOT / "bin" / "run_demo.bat"
+RUN_GUIDED_REAL_BAT = PACKAGE_ROOT / "bin" / "run_guided_real.bat"
 RUN_IMPORTED_REAL_BAT = PACKAGE_ROOT / "bin" / "run_imported_real.bat"
 RESOLVE_PYTHON_BAT = PACKAGE_ROOT / "bin" / "resolve_python.bat"
 WINDOWS_RUNTIME_MANIFEST = PACKAGE_ROOT / "runtime" / "windows_x64" / "runtime_manifest_v1.json"
@@ -64,24 +66,21 @@ EXPECTED_FAULT6_COLS = [
 EXPECTED_PREVIEW_COLS = [
     "site",
     "panel_id",
-    "패널고장여부_ko",
-    "사건유형_ko",
-    "최종고장양상_ko",
-    "라벨된 fault",
-    "1순위_의심원인_ko",
-    "2순위_의심원인_ko",
-    "3순위_의심원인_ko",
-    "커널로그 기존 알고리즘",
+    "전조날짜",
+    "고장 기준일",
+    "최종고장양상",
+    "운영 판정",
+    "상위 해석 후보",
+    "기존 알고리즘 source",
 ]
-EXPECTED_PREVIEW_ALGORITHM = {
-    ("conalog", "7f7dd654-2760-4eb2-a197-3ebb72b85cda.2.0"): "panel-bypass",
-    ("conalog", "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"): "disconnection",
-    ("gangui", "bf1a912f-6cf0-4f12-8e97-9d9d86576511.0.7"): "panel-bypass",
-    ("gangui", "bf1a912f-6cf0-4f12-8e97-9d9d86576511.2.16"): "panel-bypass",
-    ("ktc_ess", "10305b40-b67e-40d1-9cd1-271b6642a3d9.2.12"): "panel-bypass",
-    ("ktc_ess", "70ad2d87-cdb6-4842-81b7-71c7599bbf05.1.4"): "panel-bypass",
+EXPECTED_PREVIEW_DATE_ROWS = {
+    ("conalog", "7f7dd654-2760-4eb2-a197-3ebb72b85cda.2.0"): ("2024-11-06", "2024-11-26"),
+    ("conalog", "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"): ("2025-01-20", "2025-03-21"),
+    ("gangui", "bf1a912f-6cf0-4f12-8e97-9d9d86576511.0.7"): ("전조없음", "2025-06-08"),
+    ("gangui", "bf1a912f-6cf0-4f12-8e97-9d9d86576511.2.16"): ("전조없음", "2025-06-08"),
+    ("ktc_ess", "10305b40-b67e-40d1-9cd1-271b6642a3d9.2.12"): ("전조없음", "2025-08-16"),
+    ("ktc_ess", "70ad2d87-cdb6-4842-81b7-71c7599bbf05.1.4"): ("2025-01-25", "2025-02-02"),
 }
-
 
 def make_dummy_site(tmp_root: Path, site: str) -> None:
     raw_dir = tmp_root / site / "raw"
@@ -122,6 +121,7 @@ def main() -> None:
         SUMMARY,
         PACKAGE_ROOT / "bin" / "run_real.bat",
         RUN_DEMO_BAT,
+        RUN_GUIDED_REAL_BAT,
         PACKAGE_ROOT / "requirements.txt",
         STAGING_PS1,
         SNAPSHOT_COPY_PS1,
@@ -276,6 +276,8 @@ def main() -> None:
         root_live_summary_path = output_root / "result" / "live_chain_summary_v1.json"
         root_live_report_path = output_root / "result" / "fault_panel_result_current_report_v1.md"
         root_master_report_path = output_root / "result" / "fault_panel_result_master_report_v1.md"
+        root_detailed_report_path = output_root / "result" / "fault_panel_result_detailed_report_v1.xlsx"
+        root_precursor_report_path = output_root / "result" / "fault_panel_result_precursor_report_v1.csv"
         root_raw_only_fault_path = output_root / "result" / "fault_panel_result_raw_only_current_v1.csv"
         root_raw_only_preview_path = output_root / "result" / "fault_panel_result_raw_only_current_preview_v1.csv"
         root_raw_only_summary_path = output_root / "result" / "raw_only_chain_summary_v1.json"
@@ -295,6 +297,8 @@ def main() -> None:
             root_live_summary_path,
             root_live_report_path,
             root_master_report_path,
+            root_detailed_report_path,
+            root_precursor_report_path,
             root_raw_only_fault_path,
             root_raw_only_preview_path,
             root_raw_only_summary_path,
@@ -305,6 +309,22 @@ def main() -> None:
         ]:
             if not path.exists():
                 raise SystemExit(f"packaged live chain run missing output: {path}")
+        detailed_book = load_workbook(root_detailed_report_path, read_only=True)
+        expected_sheets = {
+            "overview",
+            "current_preview",
+            "raw_only_preview",
+            "raw_only_evidence",
+            "precursor_report",
+            "raw_only_candidate_scores",
+            "raw_only_timeline",
+            "raw_only_daily_log",
+            "raw_only_cluster",
+            "definitions",
+        }
+        if not expected_sheets.issubset(set(detailed_book.sheetnames)):
+            raise SystemExit(f"detailed report sheets mismatch: {detailed_book.sheetnames}")
+        detailed_book.close()
 
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
         if summary.get("status_ko") != "completed":
@@ -344,6 +364,44 @@ def main() -> None:
         ]:
             if not raw_only_published.get(name):
                 raise SystemExit(f"packaged raw-only chain summary must record published output: {name}")
+        root_raw_only_fault_df = pd.read_csv(root_raw_only_fault_path, encoding="utf-8-sig")
+        candidate_raw_only_fault_df = pd.read_csv(raw_only_fault_path, encoding="utf-8-sig")
+        for df, name in [
+            (pd.read_csv(root_live_preview_path, encoding="utf-8-sig"), root_live_preview_path.name),
+            (pd.read_csv(root_raw_only_preview_path, encoding="utf-8-sig"), root_raw_only_preview_path.name),
+        ]:
+            for column in ["전조날짜", "고장 기준일"]:
+                if column not in df.columns:
+                    raise SystemExit(f"{name} must include date column: {column}")
+        for column in ["전조날짜", "고장날짜"]:
+            if column not in root_raw_only_fault_df.columns:
+                raise SystemExit(f"{root_raw_only_fault_path.name} must include date column: {column}")
+        if len(root_raw_only_fault_df) > len(candidate_raw_only_fault_df):
+            raise SystemExit("strict raw-only current output must not exceed candidate raw-only row count")
+        publish_meta = raw_only_summary.get("publish_meta", {})
+        if publish_meta.get("publish_policy_ko") != "raw_only current는 운영해석등급_ko=확정 strict subset만 노출":
+            raise SystemExit("raw-only summary must document the strict current publish policy")
+        if publish_meta.get("published_current_row_count") != len(root_raw_only_fault_df):
+            raise SystemExit("raw-only summary published_current_row_count must match root current rows")
+        precursor_report_df = pd.read_csv(root_precursor_report_path, encoding="utf-8-sig")
+        for column in [
+            "site",
+            "panel_id",
+            "운영 판정",
+            "판정 근거",
+            "전조날짜",
+            "신호 기준일",
+            "상위 해석 후보",
+            "기존 알고리즘 source",
+            "패턴 설명",
+            "대표 전조 신호",
+            "전조 축",
+            "전조 요약",
+        ]:
+            if column not in precursor_report_df.columns:
+                raise SystemExit(f"precursor report must include column: {column}")
+        if precursor_report_df.empty:
+            raise SystemExit("precursor report should not be empty on baseline reuse run")
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         output_root = Path(tmp_dir) / "auto_reuse_run"
@@ -380,6 +438,10 @@ def main() -> None:
             raise SystemExit("auto-reuse run must publish current root report")
         if not (output_root / "result" / "fault_panel_result_master_report_v1.md").exists():
             raise SystemExit("auto-reuse run must publish master root report")
+        if not (output_root / "result" / "fault_panel_result_detailed_report_v1.xlsx").exists():
+            raise SystemExit("auto-reuse run must publish detailed xlsx report")
+        if not (output_root / "result" / "fault_panel_result_precursor_report_v1.csv").exists():
+            raise SystemExit("auto-reuse run must publish precursor report")
 
     fault_df = pd.read_csv(FAULT6_TABLE, encoding="utf-8-sig")
     if fault_df.columns.tolist() != EXPECTED_FAULT6_COLS:
@@ -425,14 +487,17 @@ def main() -> None:
         raise SystemExit(f"preview artifact schema mismatch: {preview_df.columns.tolist()}")
     if len(preview_df) != 6:
         raise SystemExit(f"preview artifact must have 6 rows, found {len(preview_df)}")
-    if "불충분" in preview_df["라벨된 fault"].astype(str).tolist():
-        raise SystemExit("preview artifact should be fault-only and must not include non-fault placeholder rows")
-    preview_map = {
-        (str(row.site), str(row.panel_id)): str(row.커널로그_기존_알고리즘)
-        for row in preview_df.rename(columns={"커널로그 기존 알고리즘": "커널로그_기존_알고리즘"}).itertuples(index=False)
+    if set(preview_df["운영 판정"].astype(str)) != {"확정"}:
+        raise SystemExit("preview artifact should mark all fixed fault6 rows as 확정")
+    preview_date_map = {
+        (str(row["site"]), str(row["panel_id"])): (str(row["전조날짜"]), str(row["고장 기준일"]))
+        for row in preview_df.to_dict(orient="records")
     }
-    if preview_map != EXPECTED_PREVIEW_ALGORITHM:
-        raise SystemExit(f"preview artifact algorithm labels mismatch: {preview_map}")
+    for key, expected_dates in EXPECTED_PREVIEW_DATE_ROWS.items():
+        if preview_date_map.get(key) != expected_dates:
+            raise SystemExit(
+                f"preview artifact date labels mismatch for {key}: expected={expected_dates} actual={preview_date_map.get(key)}"
+            )
     provenance = json.loads(FAULT6_PROVENANCE.read_text(encoding="utf-8"))
     if provenance.get("legacy_integrated_exact_match") is not True:
         raise SystemExit("fault6 provenance must confirm exact match to legacy integrated 6-row slice")
@@ -463,6 +528,8 @@ def main() -> None:
         raise SystemExit(f"unexpected portable runtime python version: {runtime_manifest.get('python_version')}")
     if "torch==2.9.1" not in runtime_manifest.get("primary_packages", []):
         raise SystemExit("portable runtime manifest must include torch==2.9.1")
+    if "openpyxl==3.1.5" not in runtime_manifest.get("primary_packages", []):
+        raise SystemExit("portable runtime manifest must include openpyxl==3.1.5")
     if runtime_manifest.get("wheel_count", 0) < 4:
         raise SystemExit("portable runtime manifest must report downloaded wheels")
 
@@ -491,6 +558,8 @@ def main() -> None:
         raise SystemExit("incremental_run.bat must invoke import_any_csv_root.py then run_full_algorithm_pack.py")
     if "--stable-minutes" not in incremental_text:
         raise SystemExit("incremental_run.bat must pass stable-minutes to import_any_csv_root.py")
+    if "[040%%] 학습/추론 및 결과표 생성을 시작합니다." not in incremental_text:
+        raise SystemExit("incremental_run.bat must show a visible stage progress message before runner execution")
     if "resolve_python.bat" not in incremental_text:
         raise SystemExit("incremental_run.bat must resolve embedded/system python through resolve_python.bat")
     if "fault_panel_result_master_report_v1.md" not in incremental_text:
@@ -500,6 +569,8 @@ def main() -> None:
         raise SystemExit("run_real.bat must use folder picker and invoke run_full_algorithm_pack.py")
     if "import_any_csv_root.py" not in run_real_text:
         raise SystemExit("run_real.bat must fallback to import_any_csv_root.py for arbitrary folder structures")
+    if "[040%%] 학습/추론 및 결과표 생성을 시작합니다." not in run_real_text:
+        raise SystemExit("run_real.bat must show a visible stage progress message before runner execution")
     if "resolve_python.bat" not in run_real_text:
         raise SystemExit("run_real.bat must resolve embedded/system python through resolve_python.bat")
     if "run_oneclick.py" in run_real_text or "run_realtime.py" in run_real_text:
@@ -509,11 +580,24 @@ def main() -> None:
     imported_real_text = RUN_IMPORTED_REAL_BAT.read_text(encoding="utf-8", errors="ignore")
     if "import_any_csv_root.py" not in imported_real_text or "run_full_algorithm_pack.py" not in imported_real_text:
         raise SystemExit("run_imported_real.bat must import arbitrary folder roots then invoke run_full_algorithm_pack.py")
+    if "[040%%] 학습/추론 및 결과표 생성을 시작합니다." not in imported_real_text:
+        raise SystemExit("run_imported_real.bat must show a visible stage progress message before runner execution")
     run_demo_text = RUN_DEMO_BAT.read_text(encoding="utf-8", errors="ignore")
     if "fault6_label_and_algorithm_preview_v1.csv" not in run_demo_text:
         raise SystemExit("run_demo.bat must open the packaged fault preview artifact")
     if "integrated_result_table_fixed_v1.csv" in run_demo_text:
         raise SystemExit("run_demo.bat must no longer reference integrated result table snapshot")
+    guided_real_text = RUN_GUIDED_REAL_BAT.read_text(encoding="utf-8", errors="ignore")
+    for phrase in [
+        "showcase_runs",
+        "import_any_csv_root.py",
+        "run_full_algorithm_pack.py",
+        "fault_panel_result_master_report_v1.md",
+        "[040%%] 학습/추론 및 결과표 생성을 시작합니다.",
+        "pause",
+    ]:
+        if phrase not in guided_real_text:
+            raise SystemExit(f"run_guided_real.bat missing phrase: {phrase}")
     resolve_python_text = RESOLVE_PYTHON_BAT.read_text(encoding="utf-8", errors="ignore")
     if "runtime\\windows_x64\\python\\python.exe" not in resolve_python_text:
         raise SystemExit("resolve_python.bat must prefer the packaged embedded python runtime")
@@ -521,8 +605,14 @@ def main() -> None:
     readme_text = README_PATH.read_text(encoding="utf-8", errors="ignore")
     for phrase in [
         "최근 120일",
-        "라벨된 fault",
-        "커널로그 기존 알고리즘",
+        "상위 해석 후보",
+        "운영 판정",
+        "판정 근거",
+        "고장 기준일",
+        "기존 알고리즘 source",
+        "패턴 설명",
+        "fault_panel_result_detailed_report_v1.xlsx",
+        "openpyxl",
         "legacy integrated 6행과 exact match",
         "shadow compare",
         "runtime_chain_dependency_audit_v1",
@@ -534,10 +624,12 @@ def main() -> None:
         "snapshot_copy.ps1",
         "incremental_run.bat",
         "run_imported_real.bat",
+        "run_guided_real.bat",
         "import_any_csv_root.py",
         "embedded Python 3.11.9",
         "runtime\\windows_x64\\python\\python.exe",
         "StableMinutes",
+        "showcase_runs",
         "fault_panel_result_current_v1.csv",
         "fault_panel_result_current_preview_v1.csv",
         "fault_panel_result_current_report_v1.md",

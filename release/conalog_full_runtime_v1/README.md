@@ -24,6 +24,7 @@
 - `package/research/prognostics/build_panel_day_engine_runtime_heuristic_v1.py`
 - `package/_share/...`
 - `package/bin/run_demo.bat`
+- `package/bin/run_guided_real.bat`
 - `package/bin/run_real.bat`
 - `package/bin/run_imported_real.bat`
 - `package/bin/stage_recent_120d.ps1`
@@ -56,16 +57,21 @@
 
 `fault6_label_and_algorithm_preview_v1.csv`는 위 고정 6개 fault 결과표를 그대로 유지하면서, 아래 두 축을 분리해서 보여주는 preview artifact임.
 
-- `라벨된 fault` : 현재 라벨링된 fault family
-- `커널로그 기존 알고리즘` : 커널로그 설명문 기준 detector rule 이름 (`panel-bypass`, `disconnection` 등)
+- `전조날짜` : 전조형 고장으로 해석된 경우의 대표 onset 날짜
+- 급작 고장처럼 전조가 채택되지 않은 경우는 `전조없음`으로 표시
+- `고장 기준일` : 최종 fault 기준일 또는 runtime trigger 기준일
+- `최종고장양상` : 진행성 악화 / 급격 종료 / 급작 발생
+- `운영 판정` : 이 row가 확정인지, 고위험 관찰인지, 관찰 단계인지를 구분하는 값
+- `상위 해석 후보` : 현재 알고리즘이 가장 가깝다고 본 원인 후보 1순위
+- `기존 알고리즘 source` : legacy source 태그가 있으면 그대로, 없으면 `미검출`
 
-즉, 이 preview는 frozen schema를 깨지 않고도 라벨 family와 기존 알고리즘 근거를 한 번에 비교해 보는 용도임.
+즉, 이 preview는 전조/고장 시점, 운영 판정, 상위 후보, legacy source를 한 번에 비교해 보는 용도임.
 
 추가로 이제 package는 Windows portable runtime도 같이 포함함.
 
 - embedded Python 3.11.9
 - `runtime\windows_x64\python\python.exe`
-- win_amd64 wheel이 미리 포함된 `numpy`, `pandas`, `torch`, `tqdm`
+- win_amd64 wheel이 미리 포함된 `numpy`, `pandas`, `torch`, `tqdm`, `openpyxl`
 
 즉, 현장 Windows PC에서는 wrapper가 위 embedded Python 3.11.9를 먼저 찾고, 없을 때만 시스템 Python을 fallback으로 사용함.
 
@@ -82,29 +88,42 @@
 USB 시연 동선은 아래처럼 단순하게 가져가면 됨.
 
 1. `package\\bin\\run_demo.bat`
-   - 현재까지 고정해 둔 fault 예시 결과표를 바로 엶
+   - 현재까지 고정해 둔 fault 예시 결과표 중 최종 preview만 바로 엶
    - `fault6_label_and_algorithm_preview_v1.csv`
-   - `fault6_fixed_result_table_v1.csv`
 
-2. `package\\bin\\run_real.bat`
+2. `package\\bin\\run_demo_ktc_fault2.bat`
+   - `ktc_ess`의 고정 2건만 바로 엶
+   - `ktc_fault2_label_and_algorithm_preview_v1.csv`
+
+3. `package\\bin\\run_guided_real.bat`
+   - 시연용 권장 wrapper임
+   - CSV가 들어 있는 상위 폴더만 고르면 됨
+   - 출력 폴더는 `package\\showcase_runs\\run_YYYYMMDD_HHMMSS` 형태로 자동 생성함
+   - 콘솔에 `[005%]`, `[020%]`, `[040%]`, `[100%]` 식 진행률 문구를 보여줌
+   - 실행이 끝나면 `fault_panel_result_current_preview_v1.csv`를 우선해서 엶
+   - 시연 중 콘솔 창이 바로 닫히지 않도록 마지막에 `pause`를 둠
+
+3. `package\\bin\\run_real.bat`
    - 콘솔에 경로를 직접 치지 않아도 됨
    - Windows 폴더 선택창으로 `data 루트`를 고르면 됨
    - `conalog/raw`, `gangui/raw`, `ktc_ess/raw` 또는 `data/conalog/raw` 구조면 바로 실행함
    - 그 구조가 아니어도 `import_any_csv_root.py`로 CSV를 재귀 수집해 자동 staging 후 실행함
    - 출력 폴더도 선택 가능하며, 취소하면 기본값 `package\\real_output`을 사용함
+   - 실행 중 콘솔에 단계별 진행률 문구를 보여줌
    - 실행이 끝나면 `result` 폴더를 자동으로 엶
    - 실행 후 `shadow_compare_v1.json`도 함께 남음
 
-3. `package\\bin\\run_imported_real.bat`
+4. `package\\bin\\run_imported_real.bat`
    - 표준 site/raw 구조를 기대하지 않고, 임의 CSV 루트 폴더를 바로 선택하는 wrapper임
    - 선택한 폴더 아래 CSV를 재귀 수집한 뒤 `imported_data/<site>/raw`로 staging 하고 실행함
+   - 실행 중 콘솔에 단계별 진행률 문구를 보여줌
 
 실행 전 준비는 아래와 같음.
 
 1. 가장 쉬운 경로는 package에 이미 포함된 embedded Python 3.11.9를 그대로 쓰는 것임
 2. 시스템 Python이 없어도 wrapper가 `runtime\windows_x64\python\python.exe`를 먼저 사용함
 3. 상대방 데이터가 표준 `conalog/raw`, `gangui/raw`, `ktc_ess/raw` 구조면 그대로 연결하면 됨
-4. 폴더 구조가 제각각이어도 CSV schema만 같으면 `run_real.bat` 또는 `run_imported_real.bat`가 `import_any_csv_root.py`로 자동 staging 함
+4. 폴더 구조가 제각각이어도 CSV schema만 같으면 `run_guided_real.bat`, `run_real.bat`, `run_imported_real.bat`가 `import_any_csv_root.py`로 자동 staging 함
 
 직접 CLI로 실행할 때는 아래 명령을 사용하면 됨.
 
@@ -150,6 +169,8 @@ python package/app/run_full_algorithm_pack.py \
 - `result/fault_panel_result_current_preview_v1.csv`
 - `result/fault_panel_result_current_report_v1.md`
 - `result/fault_panel_result_master_report_v1.md`
+- `result/fault_panel_result_detailed_report_v1.xlsx`
+- `result/fault_panel_result_precursor_report_v1.csv`
 - `result/fault_panel_result_raw_only_current_v1.csv`
 - `result/fault_panel_result_raw_only_current_preview_v1.csv`
 - `result/fault_panel_result_raw_only_current_report_v1.md`
@@ -169,6 +190,12 @@ python package/app/run_full_algorithm_pack.py \
 - `result/raw_only_chain/raw_only_chain_summary_v1.json`
 - `run_plan_v1.json` 또는 `run_metadata_v1.json`
 - `shadow_compare_v1.json`
+
+`fault_panel_result_current_preview_v1.csv`, `fault_panel_result_raw_only_current_preview_v1.csv`, `fault6_label_and_algorithm_preview_v1.csv`는 모두 `site, panel_id, 전조날짜, 고장 기준일, 최종고장양상, 운영 판정, 상위 해석 후보, 기존 알고리즘 source` 형식의 단순 preview 표를 제공함.
+즉 운영자는 preview 시트만 열어도 전조 onset, 기준일, 운영 판정, 원인 후보, legacy source를 바로 확인할 수 있음.
+
+`fault_panel_result_precursor_report_v1.csv`는 위 preview와 달리 `신호 기준일` 컬럼을 사용함.
+이 값은 사람이 확정한 고장일이 아니라, runtime signal 기준으로 이상/고장 신호가 기준선을 넘은 날짜를 뜻함.
 
 운영 방식은 아래처럼 잡는 것이 권장됨.
 
@@ -228,15 +255,42 @@ powershell -ExecutionPolicy Bypass -File package\bin\snapshot_copy.ps1 `
 package\bin\incremental_run.bat
 ```
 
+이 wrapper도 실행 중 콘솔에 단계별 진행률 문구를 보여주고, 끝나면 master report를 우선해서 엶.
+
 즉 운영자 기준으로는 아래 순서만 기억하면 됨.
 
 - 예시 시연: `run_demo.bat`
+- 원클릭 시연: `run_guided_real.bat`
 - 실제 실행: `run_real.bat`
 - 임의 폴더 실행: `run_imported_real.bat`
 - 반복 운영: `daily_run.bat`
 - MLPE 실증 incremental 실행: `incremental_run.bat`
 
-`run_real.bat`, `daily_run.bat`, `incremental_run.bat`는 실행이 끝나면 `result/fault_panel_result_master_report_v1.md`를 가장 먼저 열고, 없으면 current report, 그 다음 preview CSV, 마지막으로 `result` 폴더를 엶.
+`run_guided_real.bat`, `run_real.bat`, `daily_run.bat`, `incremental_run.bat`는 실행이 끝나면 `result/fault_panel_result_current_preview_v1.csv`를 가장 먼저 열고, 없으면 `raw_only current preview`, 그 다음 current report, 마지막으로 master report 또는 `result` 폴더를 엶.
+
+`result/fault_panel_result_detailed_report_v1.xlsx`는 실행이 끝날 때 자동으로 생성되는 상세 리포트임.
+이 파일에는 아래 시트가 포함됨.
+
+- `overview`
+- `current_preview`
+- `raw_only_preview`
+- `raw_only_evidence`
+- `precursor_report`
+- `raw_only_candidate_scores`
+- `raw_only_timeline`
+- `raw_only_daily_log`
+- `raw_only_cluster`
+- `definitions`
+
+즉, 단일 CSV만 보는 것이 아니라 메인표와 함께 전조 있는 패널 전용 precursor report, 패널별 근거요약, 9개 후보 전수 점수표, 날짜별 전체 로그, 신호가 있는 날짜 타임라인, base 군집 흔들림까지 한 번에 확인할 수 있음.
+
+주의:
+- `result/fault_panel_result_raw_only_current_*`는 raw-only candidate 전체를 그대로 노출하지 않음.
+- 이 current 표는 `운영해석등급_ko=확정`인 strict subset만 보여줌.
+- 전체 candidate universe는 `result/raw_only_chain/*`와 상세 리포트의 `raw_only_*` 시트에서 계속 확인 가능함.
+- preview 표의 `운영 판정`은 신호 단계이고, `상위 해석 후보`는 원인 후보임. 둘은 같은 의미가 아님.
+- precursor report의 `판정 근거`와 `패턴 설명`을 함께 보면 왜 그렇게 판단했는지 더 직접적으로 읽을 수 있음.
+- precursor report의 `신호 기준일`은 라벨 고장일이 아니라 signal trigger 기준일임.
 
 주의사항은 분명함.
 

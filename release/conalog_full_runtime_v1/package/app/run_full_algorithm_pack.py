@@ -34,7 +34,7 @@ DISPLAY_HEURISTIC_NAME_MAP = {
     "전력변환부형": "전력변환부 이상형",
     "외부계통교란형": "외부 전원 흔들림형",
 }
-LIVE_FAULT_OUTPUT_COLS = [
+LIVE_FAULT_COMPARE_COLS = [
     "site",
     "panel_id",
     "패널고장여부_ko",
@@ -45,17 +45,64 @@ LIVE_FAULT_OUTPUT_COLS = [
     "2순위_의심원인_ko",
     "3순위_의심원인_ko",
 ]
+LIVE_FAULT_OUTPUT_COLS = [
+    *LIVE_FAULT_COMPARE_COLS,
+    "전조날짜",
+    "고장날짜",
+]
 LIVE_PREVIEW_OUTPUT_COLS = [
     "site",
     "panel_id",
     "패널고장여부_ko",
     "사건유형_ko",
     "최종고장양상_ko",
+    "전조날짜",
+    "고장날짜",
     "라벨된 fault",
     "1순위_의심원인_ko",
     "2순위_의심원인_ko",
     "3순위_의심원인_ko",
     "커널로그 기존 알고리즘",
+]
+USER_PREVIEW_OUTPUT_COLS = [
+    "site",
+    "panel_id",
+    "전조날짜",
+    "고장 기준일",
+    "최종고장양상",
+    "운영 판정",
+    "상위 해석 후보",
+    "기존 알고리즘 source",
+]
+SIGNAL_PREVIEW_OUTPUT_COLS = [
+    "site",
+    "panel_id",
+    "전조날짜",
+    "신호 기준일",
+    "최종고장양상",
+    "운영 판정",
+    "상위 해석 후보",
+    "기존 알고리즘 source",
+]
+PRECURSOR_REPORT_OUTPUT_COLS = [
+    "site",
+    "panel_id",
+    "운영 판정",
+    "판정 근거",
+    "전조날짜",
+    "신호 기준일",
+    "최종고장양상",
+    "상위 해석 후보",
+    "기존 알고리즘 source",
+    "패턴 설명",
+    "대표 전조 신호",
+    "전조 축",
+    "EWS 전조 일수",
+    "pre_alarm 일수",
+    "pre_ews 일수",
+    "AE 전조 조건 일수",
+    "DTW 전조 조건 일수",
+    "전조 요약",
 ]
 ROOT_LIVE_FAULT_NAME = "fault_panel_result_current_v1.csv"
 ROOT_LIVE_PREVIEW_NAME = "fault_panel_result_current_preview_v1.csv"
@@ -66,6 +113,9 @@ ROOT_RAWONLY_PREVIEW_NAME = "fault_panel_result_raw_only_current_preview_v1.csv"
 ROOT_RAWONLY_SUMMARY_NAME = "raw_only_chain_summary_v1.json"
 ROOT_RAWONLY_REPORT_NAME = "fault_panel_result_raw_only_current_report_v1.md"
 ROOT_MASTER_REPORT_NAME = "fault_panel_result_master_report_v1.md"
+ROOT_DETAILED_REPORT_NAME = "fault_panel_result_detailed_report_v1.xlsx"
+ROOT_PRECURSOR_REPORT_NAME = "fault_panel_result_precursor_report_v1.csv"
+RAW_ONLY_STRICT_CURRENT_GRADES = {"확정"}
 MAIL_BUCKET_ALGORITHM_MAP = {
     ("conalog", "7f7dd654-2760-4eb2-a197-3ebb72b85cda.2.0"): "panel-bypass",
     ("conalog", "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"): "disconnection",
@@ -319,6 +369,11 @@ def write_text(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def emit_progress(percent: int, message: str) -> None:
+    safe_percent = max(0, min(100, int(percent)))
+    print(f"[{safe_percent:03d}%] {message}", flush=True)
+
+
 def load_baseline_manifest() -> dict[str, object]:
     path = baseline_manifest_path()
     if not path.exists():
@@ -362,7 +417,8 @@ def copy_fixed_results(output_root: Path) -> dict[str, str]:
     preview_dest = output_dir / "fault6_label_and_algorithm_preview_v1.csv"
     shutil.copy2(fixed_fault6_table_path(), fault6_dest)
     if fixed_fault6_preview_path().exists():
-        shutil.copy2(fixed_fault6_preview_path(), preview_dest)
+        preview_df = pd.read_csv(fixed_fault6_preview_path(), encoding="utf-8-sig", low_memory=False)
+        to_user_preview_schema(preview_df).to_csv(preview_dest, index=False, encoding="utf-8-sig")
     return {
         "fault6_fixed_result_table_v1": str(fault6_dest),
         "fault6_label_and_algorithm_preview_v1": str(preview_dest),
@@ -486,6 +542,288 @@ def display_heuristic_name(raw_label: object) -> str:
     return DISPLAY_HEURISTIC_NAME_MAP.get(normalized, normalized)
 
 
+def choose_display_precursor_date(
+    event_type_ko: object,
+    interpreted_onset_date: object,
+    first_warning_date: object,
+) -> str:
+    if normalize_text(event_type_ko) != "전조형 고장":
+        return ""
+    onset_date = normalize_text(interpreted_onset_date)
+    if onset_date:
+        return onset_date
+    return normalize_text(first_warning_date)
+
+
+def choose_display_fault_date(
+    fault_date: object,
+    strict_trigger_date: object,
+    first_final_fault_date: object,
+) -> str:
+    for candidate in [fault_date, strict_trigger_date, first_final_fault_date]:
+        text = normalize_text(candidate)
+        if text:
+            return text
+    return ""
+
+
+def display_preview_precursor_date(value: object) -> str:
+    text = normalize_text(value)
+    return text if text else "전조없음"
+
+
+def display_signal_grade(row: pd.Series) -> str:
+    grade = normalize_text(row.get("운영해석등급_ko"))
+    if not grade:
+        grade = normalize_text(row.get("운영 판정"))
+    if not grade:
+        grade = normalize_text(row.get("현재상태"))
+    if grade:
+        if grade in {"고장 신호 포착", "고장 확정"}:
+            return "확정"
+        if grade == "강한 이상징후":
+            return "고위험 관찰"
+        if grade == "이상징후":
+            return "관찰"
+        return grade
+    if normalize_text(row.get("패널고장여부_ko")) == "고장":
+        return "확정"
+    return ""
+
+
+def display_existing_algorithm_source(value: object) -> str:
+    text = normalize_text(value)
+    if not text:
+        return "미검출"
+    if text.lower() == "none":
+        return "미검출"
+    if text == "기존 알고리즘 미검출":
+        return "미검출"
+    return text
+
+
+def as_float(value: object) -> float | None:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if pd.isna(parsed):
+        return None
+    return parsed
+
+
+def format_ratio(value: object, digits: int = 2) -> str:
+    parsed = as_float(value)
+    if parsed is None:
+        return ""
+    return f"{parsed:.{digits}f}"
+
+
+def representative_signal_row(panel_core: pd.DataFrame) -> pd.Series:
+    panel_df = panel_core.sort_values("date").copy()
+    if panel_df.empty:
+        return pd.Series(dtype=object)
+    subtype_mask = panel_df.get("anom_subtype", pd.Series(dtype=object)).astype(str).str.contains(
+        "degradation|fault_like|shadow_like|critical|confirmed_fault",
+        case=False,
+        na=False,
+    )
+    signal_mask = (
+        truthy_mask(panel_df["final_fault"])
+        | truthy_mask(panel_df["critical_fault"])
+        | truthy_mask(panel_df["fault_like_day"])
+        | truthy_mask(panel_df.get("event_A", pd.Series(False, index=panel_df.index)))
+        | subtype_mask
+    )
+    focus_df = panel_df.loc[signal_mask].copy()
+    if focus_df.empty:
+        focus_df = panel_df.copy()
+    if "mid_ratio" in focus_df.columns and focus_df["mid_ratio"].notna().any():
+        return focus_df.sort_values(["mid_ratio", "date"], ascending=[True, True]).iloc[0]
+    if "dtw_dist" in focus_df.columns and focus_df["dtw_dist"].notna().any():
+        return focus_df.sort_values(["dtw_dist", "date"], ascending=[False, True]).iloc[0]
+    return focus_df.iloc[0]
+
+
+def signal_grade_explainer(evidence_row: dict[str, object]) -> str:
+    text = normalize_text(evidence_row.get("운영해석등급_ko"))
+    final_days = int(evidence_row.get("final_days", 0) or 0)
+    critical_days = int(evidence_row.get("critical_days", 0) or 0)
+    ews_warning_days = int(evidence_row.get("ews_warning_days", 0) or 0)
+    pre_alarm_days = int(evidence_row.get("pre_alarm_days", 0) or 0)
+    pre_ews_days = int(evidence_row.get("pre_ews_days", 0) or 0)
+    prefault_cond_ae_days = int(evidence_row.get("prefault_cond_ae_days", 0) or 0)
+    prefault_cond_dtw_days = int(evidence_row.get("prefault_cond_dtw_days", 0) or 0)
+    critical_sources = normalize_text(evidence_row.get("critical_sources_csv"))
+    if text == "확정":
+        if "vdrop" in critical_sources:
+            return f"final/critical 신호로 확정({final_days + critical_days}일, vdrop 포함). 원인명은 후보 단계"
+        return f"final/critical 신호로 확정({final_days + critical_days}일). 원인명은 후보 단계"
+    if text == "고위험 관찰":
+        return (
+            f"EWS({ews_warning_days}일)·pre_alarm({pre_alarm_days}일)·pre_ews({pre_ews_days}일)"
+            f"와 AE/DTW 전조 조건(ae={prefault_cond_ae_days}, dtw={prefault_cond_dtw_days})이 누적돼 강한 이상징후로 분류"
+        )
+    if text == "관찰":
+        return "약한 전조 신호만 보여 계속 관찰이 필요한 상태로 분류"
+    if normalize_text(evidence_row.get("패널고장여부_ko")) == "고장":
+        return "고정 결과표 기준 fault. 원인명은 후보 단계"
+    return ""
+
+
+def pattern_explainer(evidence_row: dict[str, object]) -> str:
+    mid_v_ratio = as_float(evidence_row.get("대표mid_v_ratio"))
+    mid_i_ratio = as_float(evidence_row.get("대표mid_i_ratio"))
+    mid_ratio = as_float(evidence_row.get("대표mid_ratio"))
+    recon_error = as_float(evidence_row.get("대표recon_error"))
+    dtw_dist = as_float(evidence_row.get("대표dtw_dist"))
+    hs_score = as_float(evidence_row.get("대표hs_score"))
+    critical_source = normalize_text(evidence_row.get("대표critical_source"))
+    anom_subtype = normalize_text(evidence_row.get("대표anom_subtype"))
+    final_flag = normalize_text(evidence_row.get("대표final_fault")) == "True"
+    critical_flag = normalize_text(evidence_row.get("대표critical_fault")) == "True"
+    event_flag = normalize_text(evidence_row.get("대표event_A")) == "True"
+
+    reasons: list[str] = []
+    if "vdrop" in critical_source:
+        reasons.append("전압강하형 전기 신호가 직접 관측됨")
+    if mid_v_ratio is not None and mid_i_ratio is not None:
+        if mid_v_ratio >= 0.9 and mid_i_ratio <= 0.4:
+            reasons.append(
+                f"전압은 비교적 유지되지만 전류가 크게 낮아짐(mid_v={mid_v_ratio:.2f}, mid_i={mid_i_ratio:.2f})"
+            )
+        elif mid_v_ratio <= 0.8 and mid_i_ratio <= 0.8:
+            reasons.append(
+                f"전압과 전류가 함께 낮아짐(mid_v={mid_v_ratio:.2f}, mid_i={mid_i_ratio:.2f})"
+            )
+        elif mid_i_ratio <= 0.4:
+            reasons.append(f"전류가 크게 낮아진 패턴(mid_i={mid_i_ratio:.2f})")
+    if mid_ratio is not None:
+        if mid_ratio <= 0.1:
+            reasons.append(f"중간 출력이 거의 0에 가까움(mid_ratio={mid_ratio:.2f})")
+        elif mid_ratio <= 0.5:
+            reasons.append(f"중간 출력이 뚜렷하게 낮아짐(mid_ratio={mid_ratio:.2f})")
+    if final_flag:
+        reasons.append("최종 fault로 닫히는 급격 종료 패턴이 보임")
+    elif critical_flag:
+        reasons.append("critical fault 신호가 직접 나타남")
+    elif event_flag:
+        reasons.append("이상 이벤트(event_A)가 반복적으로 나타남")
+    if "degradation" in anom_subtype:
+        reasons.append("degradation subtype이 반복돼 점진적 저하 경향이 보임")
+    if recon_error is not None and recon_error >= 0.05:
+        reasons.append(f"정상 곡선 대비 복원 오차가 큼(recon={recon_error:.3f})")
+    if dtw_dist is not None and dtw_dist >= 20:
+        reasons.append(f"기준 곡선과 형태 차이가 큼(dtw={dtw_dist:.1f})")
+    if hs_score is not None and hs_score >= 0.3:
+        reasons.append(f"시계열 흔들림이 큼(hs={hs_score:.3f})")
+    if not reasons:
+        reasons.append("대표 관측일의 곡선/출력 변화가 정상 패턴과 다르게 나타남")
+    return " / ".join(reasons[:3])
+
+
+def to_user_preview_schema(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame(columns=USER_PREVIEW_OUTPUT_COLS)
+
+    def pick_text(row: pd.Series, *columns: str) -> str:
+        for column in columns:
+            if column in row.index:
+                text = normalize_text(row.get(column))
+                if text:
+                    return text
+        return ""
+
+    def pick_algorithm_source(row: pd.Series) -> str:
+        source = pick_text(
+            row,
+            "기존 알고리즘 source",
+            "커널로그 기존 알고리즘 판정",
+            "커널로그 기존 알고리즘",
+            "critical_source",
+        )
+        if not source:
+            source = MAIL_BUCKET_ALGORITHM_MAP.get(
+                (normalize_text(row.get("site")), normalize_text(row.get("panel_id"))),
+                "",
+            )
+        return display_existing_algorithm_source(source)
+
+    rows: list[dict[str, str]] = []
+    for _, row in df.fillna("").iterrows():
+        rows.append(
+            {
+                "site": normalize_text(row.get("site")),
+                "panel_id": normalize_text(row.get("panel_id")),
+                "전조날짜": display_preview_precursor_date(row.get("전조날짜")),
+                "고장 기준일": pick_text(row, "고장 기준일", "고장날짜", "신호 기준일"),
+                "최종고장양상": pick_text(row, "최종고장양상", "최종고장양상_ko"),
+                "운영 판정": display_signal_grade(row),
+                "상위 해석 후보": pick_text(
+                    row,
+                    "상위 해석 후보",
+                    "원인 추정",
+                    "알고리즘 해석 원인",
+                    "원인",
+                    "1순위_의심원인_ko",
+                ),
+                "기존 알고리즘 source": pick_algorithm_source(row),
+            }
+        )
+    return pd.DataFrame(rows).reindex(columns=USER_PREVIEW_OUTPUT_COLS)
+
+
+def to_signal_preview_schema(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame(columns=SIGNAL_PREVIEW_OUTPUT_COLS)
+
+    def pick_text(row: pd.Series, *columns: str) -> str:
+        for column in columns:
+            if column in row.index:
+                text = normalize_text(row.get(column))
+                if text:
+                    return text
+        return ""
+
+    def pick_algorithm_source(row: pd.Series) -> str:
+        source = pick_text(
+            row,
+            "기존 알고리즘 source",
+            "커널로그 기존 알고리즘 판정",
+            "커널로그 기존 알고리즘",
+            "critical_source",
+        )
+        if not source:
+            source = MAIL_BUCKET_ALGORITHM_MAP.get(
+                (normalize_text(row.get("site")), normalize_text(row.get("panel_id"))),
+                "",
+            )
+        return display_existing_algorithm_source(source)
+
+    rows: list[dict[str, str]] = []
+    for _, row in df.fillna("").iterrows():
+        rows.append(
+            {
+                "site": normalize_text(row.get("site")),
+                "panel_id": normalize_text(row.get("panel_id")),
+                "전조날짜": display_preview_precursor_date(row.get("전조날짜")),
+                "신호 기준일": pick_text(row, "신호 기준일", "고장날짜", "고장 기준일"),
+                "최종고장양상": pick_text(row, "최종고장양상", "최종고장양상_ko"),
+                "운영 판정": display_signal_grade(row),
+                "상위 해석 후보": pick_text(
+                    row,
+                    "상위 해석 후보",
+                    "원인 추정",
+                    "알고리즘 해석 원인",
+                    "원인",
+                    "1순위_의심원인_ko",
+                ),
+                "기존 알고리즘 source": pick_algorithm_source(row),
+            }
+        )
+    return pd.DataFrame(rows).reindex(columns=SIGNAL_PREVIEW_OUTPUT_COLS)
+
+
 def load_raw_only_common_module():
     package = package_root()
     if str(package) not in sys.path:
@@ -493,6 +831,17 @@ def load_raw_only_common_module():
     from research.prognostics import runtime_rawonly_chain_common_v1 as raw_only_common_mod
 
     return raw_only_common_mod
+
+
+def load_runtime_heuristic_module():
+    package = package_root()
+    if str(package) not in sys.path:
+        sys.path.insert(0, str(package))
+    from research.prognostics import (
+        build_panel_day_engine_runtime_heuristic_v1 as runtime_heuristic_mod,
+    )
+
+    return runtime_heuristic_mod
 
 
 def packaged_live_chain_support() -> dict[str, object]:
@@ -674,8 +1023,10 @@ def representative_algorithm_fields(site: str, core_df: pd.DataFrame, panel_id: 
 def build_live_fault_table(workspace_root: Path) -> pd.DataFrame:
     verdict_path = workspace_root / "_share" / "panel_day_engine_panel_multiaxis_verdict_v1.csv"
     heuristic_path = workspace_root / "_share" / "panel_day_engine_cause_candidate_heuristics_v1.csv"
+    audit_path = workspace_root / "_share" / "panel_day_engine_fault_panel_event_audit_v1.csv"
     verdict_df = pd.read_csv(verdict_path, encoding="utf-8-sig", low_memory=False)
     heuristic_df = pd.read_csv(heuristic_path, encoding="utf-8-sig", low_memory=False)
+    audit_df = pd.read_csv(audit_path, encoding="utf-8-sig", low_memory=False)
     ensure_columns(
         verdict_df,
         ["site", "panel_id", "패널고장여부_ko", "사건유형_ko", "최종고장양상_ko", "커널로그_원인군_ko"],
@@ -686,10 +1037,25 @@ def build_live_fault_table(workspace_root: Path) -> pd.DataFrame:
         ["site", "panel_id", "원인후보_top1_ko", "원인후보_top2_ko", "원인후보_top3_ko"],
         heuristic_path.name,
     )
+    ensure_columns(
+        audit_df,
+        [
+            "site",
+            "panel_id",
+            "earliest_warning_date",
+            "strict_trigger_date",
+            "first_final_fault_date",
+        ],
+        audit_path.name,
+    )
 
     heuristic_lookup = {
         row_key(row["site"], row["panel_id"]): row
         for row in heuristic_df.to_dict(orient="records")
+    }
+    audit_lookup = {
+        row_key(row["site"], row["panel_id"]): row
+        for row in audit_df.to_dict(orient="records")
     }
     rows: list[dict[str, str]] = []
     for row in verdict_df.loc[verdict_df["패널고장여부_ko"].map(normalize_text).eq("고장")].to_dict(orient="records"):
@@ -697,6 +1063,7 @@ def build_live_fault_table(workspace_root: Path) -> pd.DataFrame:
         heuristic_row = heuristic_lookup.get(key)
         if heuristic_row is None:
             raise SystemExit(f"missing heuristic row for fault panel: {key}")
+        audit_row = audit_lookup.get(key, {})
         rows.append(
             {
                 "site": normalize_text(row["site"]),
@@ -708,6 +1075,16 @@ def build_live_fault_table(workspace_root: Path) -> pd.DataFrame:
                 "1순위_의심원인_ko": display_heuristic_name(heuristic_row["원인후보_top1_ko"]),
                 "2순위_의심원인_ko": display_heuristic_name(heuristic_row["원인후보_top2_ko"]),
                 "3순위_의심원인_ko": display_heuristic_name(heuristic_row["원인후보_top3_ko"]),
+                "전조날짜": choose_display_precursor_date(
+                    event_type_ko=row.get("사건유형_ko"),
+                    interpreted_onset_date=row.get("사건해석상전조시작일"),
+                    first_warning_date=audit_row.get("earliest_warning_date"),
+                ),
+                "고장날짜": choose_display_fault_date(
+                    fault_date=row.get("세부fault_기준일"),
+                    strict_trigger_date=audit_row.get("strict_trigger_date"),
+                    first_final_fault_date=audit_row.get("first_final_fault_date"),
+                ),
             }
         )
     return (
@@ -734,6 +1111,8 @@ def build_live_fault_preview(workspace_root: Path, fault_df: pd.DataFrame) -> pd
                 "패널고장여부_ko": normalize_text(row["패널고장여부_ko"]),
                 "사건유형_ko": normalize_text(row["사건유형_ko"]),
                 "최종고장양상_ko": normalize_text(row["최종고장양상_ko"]),
+                "전조날짜": normalize_text(row.get("전조날짜")),
+                "고장날짜": normalize_text(row.get("고장날짜")),
                 "라벨된 fault": normalize_text(row["커널로그_원인군_ko"]),
                 "1순위_의심원인_ko": normalize_text(row["1순위_의심원인_ko"]),
                 "2순위_의심원인_ko": normalize_text(row["2순위_의심원인_ko"]),
@@ -759,6 +1138,8 @@ def compare_live_fault_to_fixed(live_fault_df: pd.DataFrame) -> dict[str, object
         diff_columns.append("__row_count__")
     else:
         for column in LIVE_FAULT_OUTPUT_COLS:
+            if column not in LIVE_FAULT_COMPARE_COLS:
+                continue
             left = fixed_df[column].fillna("").astype(str)
             right = live_df[column].fillna("").astype(str)
             if not left.equals(right):
@@ -803,6 +1184,92 @@ def publish_raw_only_chain_outputs(output_root: Path, result_dir: Path) -> dict[
         shutil.copy2(source, target)
         published[target.name] = str(target)
     return published
+
+
+def build_strict_raw_only_current_outputs(
+    raw_only_chain_result: dict[str, object],
+    evidence_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, object]]:
+    candidate_fault_path = Path(
+        str(raw_only_chain_result.get("generated_outputs", {}).get("fault_panel_result_raw_only_v1", ""))
+    )
+    candidate_preview_path = Path(
+        str(raw_only_chain_result.get("generated_outputs", {}).get("fault_panel_result_raw_only_preview_v1", ""))
+    )
+    if not candidate_fault_path.exists() or not candidate_preview_path.exists():
+        raise SystemExit("missing candidate raw-only outputs for strict current publish")
+
+    candidate_fault_df = pd.read_csv(candidate_fault_path, encoding="utf-8-sig", low_memory=False)
+    candidate_preview_df = pd.read_csv(candidate_preview_path, encoding="utf-8-sig", low_memory=False)
+    strict_keys = {
+        row_key(row["site"], row["panel_id"])
+        for row in evidence_df.to_dict(orient="records")
+        if normalize_text(row.get("운영해석등급_ko")) in RAW_ONLY_STRICT_CURRENT_GRADES
+    }
+    if strict_keys:
+        strict_fault_df = candidate_fault_df.loc[
+            candidate_fault_df.apply(lambda row: row_key(row["site"], row["panel_id"]) in strict_keys, axis=1)
+        ].copy()
+        strict_preview_df = candidate_preview_df.loc[
+            candidate_preview_df.apply(lambda row: row_key(row["site"], row["panel_id"]) in strict_keys, axis=1)
+        ].copy()
+    else:
+        strict_fault_df = candidate_fault_df.iloc[0:0].copy()
+        strict_preview_df = candidate_preview_df.iloc[0:0].copy()
+
+    strict_fault_df = strict_fault_df.sort_values(["site", "panel_id"]).reset_index(drop=True)
+    strict_preview_df = strict_preview_df.sort_values(["site", "panel_id"]).reset_index(drop=True)
+    date_lookup = {
+        row_key(row["site"], row["panel_id"]): {
+            "전조날짜": normalize_text(row.get("전조날짜")),
+            "고장날짜": normalize_text(row.get("고장날짜")),
+        }
+        for row in evidence_df.to_dict(orient="records")
+    }
+    for df in [strict_fault_df, strict_preview_df]:
+        if df.empty:
+            continue
+        df["전조날짜"] = df.apply(
+            lambda row: date_lookup.get(row_key(row["site"], row["panel_id"]), {}).get("전조날짜", ""),
+            axis=1,
+        )
+        df["고장날짜"] = df.apply(
+            lambda row: date_lookup.get(row_key(row["site"], row["panel_id"]), {}).get("고장날짜", ""),
+            axis=1,
+        )
+        ordered_cols = [column for column in df.columns if column not in {"전조날짜", "고장날짜"}]
+        insert_at = ordered_cols.index("최종고장양상_ko") + 1 if "최종고장양상_ko" in ordered_cols else len(ordered_cols)
+        ordered_cols[insert_at:insert_at] = ["전조날짜", "고장날짜"]
+        df = df.reindex(columns=ordered_cols)
+        if df is strict_fault_df:
+            strict_fault_df = df
+        else:
+            strict_preview_df = df
+    meta = {
+        "publish_policy_ko": "raw_only current는 운영해석등급_ko=확정 strict subset만 노출",
+        "strict_grade_csv": ",".join(sorted(RAW_ONLY_STRICT_CURRENT_GRADES)),
+        "candidate_row_count": int(len(candidate_fault_df)),
+        "published_current_row_count": int(len(strict_fault_df)),
+        "dropped_candidate_row_count": int(len(candidate_fault_df) - len(strict_fault_df)),
+    }
+    return strict_fault_df, strict_preview_df, meta
+
+
+def publish_raw_only_current_outputs(
+    output_root: Path,
+    strict_fault_df: pd.DataFrame,
+    strict_preview_df: pd.DataFrame,
+) -> dict[str, str]:
+    root_result_dir = output_root / "result"
+    root_result_dir.mkdir(parents=True, exist_ok=True)
+    fault_path = root_result_dir / ROOT_RAWONLY_FAULT_NAME
+    preview_path = root_result_dir / ROOT_RAWONLY_PREVIEW_NAME
+    strict_fault_df.to_csv(fault_path, index=False, encoding="utf-8-sig")
+    strict_preview_df.to_csv(preview_path, index=False, encoding="utf-8-sig")
+    return {
+        ROOT_RAWONLY_FAULT_NAME: str(fault_path),
+        ROOT_RAWONLY_PREVIEW_NAME: str(preview_path),
+    }
 
 
 def markdown_table_from_df(df: pd.DataFrame) -> str:
@@ -868,15 +1335,17 @@ def build_raw_only_report_markdown(
     compare: dict[str, object],
     published_outputs: dict[str, str],
     live_preview_df: pd.DataFrame,
+    publish_meta: dict[str, object] | None = None,
 ) -> str:
     site_lines = "\n".join(f"- `{site}`" for site in sites)
     output_lines = "\n".join(
         f"- `{name}`: `{path}`" for name, path in sorted(published_outputs.items())
     )
+    publish_meta = publish_meta or {}
     return (
         "# fault_panel_result_raw_only_current_report_v1\n\n"
         "## 목적\n"
-        "raw-only algorithm candidate chain으로 계산한 현재 결과를 한 번에 확인한다.\n\n"
+        "raw-only algorithm candidate chain 중 운영 strict current로 승격된 현재 결과를 한 번에 확인한다.\n\n"
         "## 실행 대상 site\n"
         f"{site_lines}\n\n"
         "## raw-only vs fixed reference 비교\n"
@@ -891,10 +1360,16 @@ def build_raw_only_report_markdown(
         f"- `matched_row_key_count`: `{compare.get('matched_row_key_count')}`\n"
         f"- `diff_columns`: `{compare.get('diff_columns', [])}`\n\n"
         f"- `overlap_diff_columns`: `{compare.get('overlap_diff_columns', [])}`\n\n"
+        "## current 출력 정책\n"
+        f"- `publish_policy_ko`: `{publish_meta.get('publish_policy_ko', '')}`\n"
+        f"- `strict_grade_csv`: `{publish_meta.get('strict_grade_csv', '')}`\n"
+        f"- `published_current_row_count`: `{publish_meta.get('published_current_row_count', '')}`\n"
+        f"- `candidate_row_count`: `{publish_meta.get('candidate_row_count', '')}`\n"
+        f"- `dropped_candidate_row_count`: `{publish_meta.get('dropped_candidate_row_count', '')}`\n\n"
         "## 주의\n"
         "- `커널로그_원인군_ko` 컬럼명은 유지하지만, 이 report에서는 raw-only algorithm-derived family 의미다.\n"
         "- 이 chain은 frozen truth/support asset을 참조하지 않는다.\n\n"
-        "- 후보 row 수가 fixed fault6보다 커질 수 있으며, 이 출력은 다른 점수/운영 신호와 함께 보는 algorithm candidate chain으로 해석한다.\n\n"
+        "- `result/raw_only_chain/*`에는 전체 candidate가 남고, `result/fault_panel_result_raw_only_current_*`는 strict current subset만 노출한다.\n\n"
         "## 주요 산출물\n"
         f"{output_lines}\n\n"
         "## 현재 preview 표\n"
@@ -909,6 +1384,8 @@ def build_master_report_markdown(
     raw_only_chain_result: dict[str, object],
     live_preview_df: pd.DataFrame,
     raw_only_preview_df: pd.DataFrame,
+    detailed_report_path: Path | None = None,
+    precursor_report_path: Path | None = None,
 ) -> str:
     site_lines = "\n".join(f"- `{site}`" for site in sites)
     baseline_site_lines = []
@@ -924,6 +1401,16 @@ def build_master_report_markdown(
     for name, path in sorted(raw_only_chain_result.get("published_outputs", {}).items()):
         output_lines.append(f"- `raw_only::{name}`: `{path}`")
     output_block = "\n".join(output_lines) if output_lines else "_none_"
+    detailed_report_block = (
+        f"- `fault_panel_result_detailed_report_v1.xlsx`: `{detailed_report_path}`\n\n"
+        if detailed_report_path is not None
+        else ""
+    )
+    precursor_report_block = (
+        f"- `fault_panel_result_precursor_report_v1.csv`: `{precursor_report_path}`\n\n"
+        if precursor_report_path is not None
+        else ""
+    )
     return (
         "# fault_panel_result_master_report_v1\n\n"
         "## 목적\n"
@@ -944,20 +1431,797 @@ def build_master_report_markdown(
         f"- `overlap_decision_columns_match`: `{raw_only_compare.get('overlap_decision_columns_match')}`\n"
         f"- `reference_row_count`: `{raw_only_compare.get('reference_row_count')}`\n"
         f"- `candidate_row_count`: `{raw_only_compare.get('candidate_row_count')}`\n"
+        f"- `published_current_row_count`: `{raw_only_chain_result.get('publish_meta', {}).get('published_current_row_count', '')}`\n"
         f"- `matched_row_key_count`: `{raw_only_compare.get('matched_row_key_count')}`\n"
         f"- `overlap_diff_columns`: `{raw_only_compare.get('overlap_diff_columns', [])}`\n\n"
         "## 해석 가이드\n"
         "- `fault_panel_result_current_*`는 frozen-support live chain 기준 결과다.\n"
-        "- `fault_panel_result_raw_only_current_*`는 raw-only algorithm candidate chain 기준 결과다.\n"
+        "- `fault_panel_result_raw_only_current_*`는 raw-only candidate 중 strict current subset만 보여준다.\n"
         "- raw-only chain의 `커널로그_원인군_ko`는 기존 라벨 family가 아니라 algorithm-derived family 의미다.\n"
-        "- raw-only 후보 수가 더 많을 수 있으며, 이는 다른 점수/운영 신호와 함께 보는 candidate universe로 해석한다.\n\n"
+        "- preview 표의 `운영 판정`은 신호 단계, `상위 해석 후보`는 가장 가까운 원인 후보를 뜻한다.\n"
+        "- `고장 기준일`은 확정 고장일만 뜻하는 칼럼이 아니라 판단 기준으로 삼은 날짜다.\n"
+        "- `기존 알고리즘 source`의 `미검출`은 legacy source 태그가 없다는 뜻이다.\n"
+        "- precursor report의 `판정 근거`와 `패턴 설명`을 함께 보면 왜 그렇게 봤는지 물리적/시간적 근거를 더 쉽게 읽을 수 있다.\n"
+        "- 전체 candidate universe는 `result/raw_only_chain/*`와 detailed report 안에 그대로 남는다.\n\n"
         "## 주요 산출물\n"
         f"{output_block}\n\n"
+        "## 상세 리포트\n"
+        f"{detailed_report_block}"
+        "## 전조 리포트\n"
+        f"{precursor_report_block}"
         "## current preview 표\n"
         f"{markdown_table_from_df(truncate_report_df(live_preview_df))}\n\n"
         "## raw-only preview 표 (앞 20행)\n"
         f"{markdown_table_from_df(truncate_report_df(raw_only_preview_df, limit=20))}\n"
     )
+
+
+def panel_base(panel_id: object) -> str:
+    text = normalize_text(panel_id)
+    tokens = text.split(".")
+    if len(tokens) >= 3:
+        return ".".join(tokens[:-2])
+    return text
+
+
+def bool_count(df: pd.DataFrame, column: str) -> int:
+    if column not in df.columns or df.empty:
+        return 0
+    return int(truthy_mask(df[column]).sum())
+
+
+def unique_csv(series: pd.Series) -> str:
+    values = sorted({normalize_text(value) for value in series if normalize_text(value)})
+    return ",".join(values)
+
+
+def load_gate_from_workspace(workspace_root: Path, site: str) -> pd.DataFrame:
+    path = workspace_root / "data" / site / "out" / "ae_simple_local_precursor_gate_daily.csv"
+    if not path.exists():
+        raise SystemExit(f"missing workspace precursor gate output: {path}")
+    df = pd.read_csv(path, low_memory=False)
+    ensure_columns(df, ["panel_id", "date"], path.name)
+    df["panel_id"] = df["panel_id"].astype(str)
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    return df
+
+
+def report_attention_grade(evidence_row: dict[str, object]) -> str:
+    final_days = int(evidence_row.get("final_days", 0) or 0)
+    critical_days = int(evidence_row.get("critical_days", 0) or 0)
+    fault_like_days = int(evidence_row.get("fault_like_days", 0) or 0)
+    ews_warning_days = int(evidence_row.get("ews_warning_days", 0) or 0)
+    pre_alarm_days = int(evidence_row.get("pre_alarm_days", 0) or 0)
+    pre_ews_days = int(evidence_row.get("pre_ews_days", 0) or 0)
+    prefault_cond_ae_days = int(evidence_row.get("prefault_cond_ae_days", 0) or 0)
+    prefault_cond_dtw_days = int(evidence_row.get("prefault_cond_dtw_days", 0) or 0)
+    critical_sources = normalize_text(evidence_row.get("critical_sources_csv"))
+
+    if final_days > 0 or critical_days > 0:
+        return "확정"
+    if (
+        "vdrop" in critical_sources
+        or ews_warning_days >= 15
+        or pre_alarm_days >= 10
+        or pre_ews_days >= 50
+        or prefault_cond_ae_days >= 120
+        or prefault_cond_dtw_days >= 120
+        or fault_like_days >= 2
+    ):
+        return "고위험 관찰"
+    return "관찰"
+
+
+def report_reason_text(evidence_row: dict[str, object]) -> str:
+    grade = normalize_text(evidence_row.get("운영해석등급_ko"))
+    top1 = normalize_text(evidence_row.get("1순위_의심원인_ko"))
+    final_days = int(evidence_row.get("final_days", 0) or 0)
+    critical_days = int(evidence_row.get("critical_days", 0) or 0)
+    ews_warning_days = int(evidence_row.get("ews_warning_days", 0) or 0)
+    pre_ews_days = int(evidence_row.get("pre_ews_days", 0) or 0)
+    prefault_cond_ae_days = int(evidence_row.get("prefault_cond_ae_days", 0) or 0)
+    prefault_cond_dtw_days = int(evidence_row.get("prefault_cond_dtw_days", 0) or 0)
+    critical_sources = normalize_text(evidence_row.get("critical_sources_csv"))
+    subtypes = normalize_text(evidence_row.get("anom_subtypes_csv"))
+    base_candidate_count = int(evidence_row.get("base_candidate_panel_count", 0) or 0)
+
+    if grade == "확정":
+        if "vdrop" in critical_sources:
+            return "vdrop/critical/final 신호가 함께 나타나 고장 신호가 뚜렷하게 포착됨"
+        return "critical/final 신호가 나타나 고장 신호가 뚜렷하게 포착됨"
+
+    reasons: list[str] = []
+    if "degradation" in subtypes:
+        reasons.append("degradation subtype 반복")
+    if ews_warning_days > 0 or pre_ews_days > 0:
+        reasons.append(f"EWS 전조 누적(ews={ews_warning_days}, pre_ews={pre_ews_days})")
+    if prefault_cond_ae_days > 0 or prefault_cond_dtw_days > 0:
+        reasons.append(
+            f"AE/DTW 전조 조건 누적(ae={prefault_cond_ae_days}, dtw={prefault_cond_dtw_days})"
+        )
+    if base_candidate_count >= 3:
+        reasons.append(f"동일 base 군집 흔들림({base_candidate_count} panels)")
+    if top1:
+        reasons.append(f"가장 가까운 후보는 {top1}")
+    if not reasons:
+        reasons.append("약한 이상 신호만 있어 관찰 대상으로 해석")
+    return " / ".join(reasons)
+
+
+def report_precursor_axes_text(evidence_row: dict[str, object]) -> str:
+    axes: list[str] = []
+    ews_warning_days = int(evidence_row.get("ews_warning_days", 0) or 0)
+    pre_alarm_days = int(evidence_row.get("pre_alarm_days", 0) or 0)
+    pre_ews_days = int(evidence_row.get("pre_ews_days", 0) or 0)
+    prefault_cond_ae_days = int(evidence_row.get("prefault_cond_ae_days", 0) or 0)
+    prefault_cond_dtw_days = int(evidence_row.get("prefault_cond_dtw_days", 0) or 0)
+    event_A_days = int(evidence_row.get("event_A_days", 0) or 0)
+    fault_like_days = int(evidence_row.get("fault_like_days", 0) or 0)
+    final_days = int(evidence_row.get("final_days", 0) or 0)
+    critical_days = int(evidence_row.get("critical_days", 0) or 0)
+    critical_sources = normalize_text(evidence_row.get("critical_sources_csv"))
+    subtypes = normalize_text(evidence_row.get("anom_subtypes_csv"))
+
+    if ews_warning_days > 0 or pre_ews_days > 0:
+        axes.append("EWS")
+    if prefault_cond_ae_days > 0 or event_A_days > 0 or "degradation" in subtypes:
+        axes.append("AE")
+    if prefault_cond_dtw_days > 0:
+        axes.append("DTW")
+    if (
+        pre_alarm_days > 0
+        or fault_like_days > 0
+        or final_days > 0
+        or critical_days > 0
+        or "vdrop" in critical_sources
+    ):
+        axes.append("Rule")
+    return "+".join(axes)
+
+
+def report_precursor_signal_text(evidence_row: dict[str, object]) -> str:
+    signals: list[str] = []
+    ews_warning_days = int(evidence_row.get("ews_warning_days", 0) or 0)
+    pre_alarm_days = int(evidence_row.get("pre_alarm_days", 0) or 0)
+    pre_ews_days = int(evidence_row.get("pre_ews_days", 0) or 0)
+    prefault_cond_ae_days = int(evidence_row.get("prefault_cond_ae_days", 0) or 0)
+    prefault_cond_dtw_days = int(evidence_row.get("prefault_cond_dtw_days", 0) or 0)
+    critical_sources = normalize_text(evidence_row.get("critical_sources_csv"))
+    subtypes = normalize_text(evidence_row.get("anom_subtypes_csv"))
+
+    if ews_warning_days > 0 or pre_ews_days > 0:
+        signals.append(f"EWS 전조 누적(ews={ews_warning_days}, pre_ews={pre_ews_days})")
+    if prefault_cond_ae_days > 0:
+        signals.append(f"AE 전조 조건 누적({prefault_cond_ae_days}일)")
+    if prefault_cond_dtw_days > 0:
+        signals.append(f"DTW 전조 조건 누적({prefault_cond_dtw_days}일)")
+    if pre_alarm_days > 0:
+        signals.append(f"pre_alarm 누적({pre_alarm_days}일)")
+    if "vdrop" in critical_sources:
+        signals.append("vdrop 전기 신호")
+    if "degradation" in subtypes:
+        signals.append("degradation subtype 반복")
+    return " / ".join(signals)
+
+
+def build_precursor_report_df(evidence_df: pd.DataFrame) -> pd.DataFrame:
+    if evidence_df is None or evidence_df.empty:
+        return pd.DataFrame(columns=PRECURSOR_REPORT_OUTPUT_COLS)
+
+    rows: list[dict[str, object]] = []
+    for _, row in evidence_df.fillna("").iterrows():
+        precursor_date = normalize_text(row.get("전조날짜"))
+        if not precursor_date:
+            continue
+        evidence_row = row.to_dict()
+        rows.append(
+            {
+                "site": normalize_text(row.get("site")),
+                "panel_id": normalize_text(row.get("panel_id")),
+                "운영 판정": display_signal_grade(row),
+                "판정 근거": signal_grade_explainer(evidence_row),
+                "전조날짜": precursor_date,
+                "신호 기준일": normalize_text(row.get("고장날짜")),
+                "최종고장양상": normalize_text(row.get("최종고장양상_ko")),
+                "상위 해석 후보": normalize_text(row.get("1순위_의심원인_ko")),
+                "기존 알고리즘 source": display_existing_algorithm_source(
+                    row.get("커널로그 기존 알고리즘")
+                ),
+                "패턴 설명": pattern_explainer(evidence_row),
+                "대표 전조 신호": report_precursor_signal_text(evidence_row),
+                "전조 축": report_precursor_axes_text(evidence_row),
+                "EWS 전조 일수": int(row.get("ews_warning_days", 0) or 0),
+                "pre_alarm 일수": int(row.get("pre_alarm_days", 0) or 0),
+                "pre_ews 일수": int(row.get("pre_ews_days", 0) or 0),
+                "AE 전조 조건 일수": int(row.get("prefault_cond_ae_days", 0) or 0),
+                "DTW 전조 조건 일수": int(row.get("prefault_cond_dtw_days", 0) or 0),
+                "전조 요약": normalize_text(row.get("근거요약_ko")),
+            }
+        )
+    return (
+        pd.DataFrame(rows)
+        .reindex(columns=PRECURSOR_REPORT_OUTPUT_COLS)
+        .sort_values(["site", "panel_id"], ascending=[True, True])
+        .reset_index(drop=True)
+    )
+
+
+def nonempty_sheet_df(df: pd.DataFrame, note: str) -> pd.DataFrame:
+    if not df.empty:
+        return df
+    return pd.DataFrame([{"note": note}])
+
+
+def signal_label_text(record: dict[str, object]) -> str:
+    labels: list[str] = []
+    if bool(record.get("event_A")):
+        labels.append("event_A")
+    if bool(record.get("v_drop")):
+        labels.append("v_drop")
+    if bool(record.get("critical_fault")):
+        labels.append("critical_fault")
+    if bool(record.get("critical_suspect")):
+        labels.append("critical_suspect")
+    if bool(record.get("critical_confirmed")):
+        labels.append("critical_confirmed")
+    if bool(record.get("fault_like_day")):
+        labels.append("fault_like")
+    if bool(record.get("final_fault")):
+        labels.append("final_fault")
+    if bool(record.get("ews_warning")):
+        labels.append("ews_warning")
+    if bool(record.get("pre_alarm")):
+        labels.append("pre_alarm")
+    if bool(record.get("pre_ews")):
+        labels.append("pre_ews")
+    if bool(record.get("site_event_soft")):
+        labels.append("site_event_soft")
+    if bool(record.get("site_event_hard")):
+        labels.append("site_event_hard")
+    if bool(record.get("group_off_date")):
+        labels.append("group_off")
+    if bool(record.get("prefault_B")):
+        labels.append("prefault_B")
+    if bool(record.get("prefault_cond_mid")):
+        labels.append("prefault_mid")
+    if bool(record.get("prefault_cond_ae")):
+        labels.append("prefault_ae")
+    if bool(record.get("prefault_cond_dtw")):
+        labels.append("prefault_dtw")
+    if bool(record.get("prefault_cond_ews")):
+        labels.append("prefault_ews")
+    subtype = normalize_text(record.get("anom_subtype"))
+    if subtype:
+        labels.append(f"subtype:{subtype}")
+    return ",".join(labels)
+
+
+def auto_fit_workbook_columns(path: Path) -> None:
+    try:
+        from openpyxl import load_workbook
+        from openpyxl.utils import get_column_letter
+    except ModuleNotFoundError as exc:
+        raise SystemExit(
+            "openpyxl is required to generate fault_panel_result_detailed_report_v1.xlsx"
+        ) from exc
+
+    workbook = load_workbook(path)
+    for worksheet in workbook.worksheets:
+        if worksheet.max_row >= 2:
+            worksheet.freeze_panes = "A2"
+            worksheet.auto_filter.ref = worksheet.dimensions
+        for column_cells in worksheet.columns:
+            column_letter = get_column_letter(column_cells[0].column)
+            max_len = max(
+                len(str(cell.value)) if cell.value is not None else 0
+                for cell in column_cells
+            )
+            worksheet.column_dimensions[column_letter].width = min(max(max_len + 2, 10), 60)
+    workbook.save(path)
+
+
+def build_detailed_report_frames(
+    output_root: Path,
+    sites: list[str],
+    baseline_comparison: dict[str, object],
+    live_chain_result: dict[str, object],
+    raw_only_chain_result: dict[str, object],
+    live_preview_df: pd.DataFrame,
+    raw_only_preview_df: pd.DataFrame,
+) -> dict[str, pd.DataFrame]:
+    overview_df = pd.DataFrame(
+        [
+            {"section": "sites", "key": "sites_csv", "value": ",".join(sites)},
+            {
+                "section": "baseline",
+                "key": "all_sites_match",
+                "value": str(baseline_comparison.get("all_sites_match")),
+            },
+            {
+                "section": "live_chain",
+                "key": "status_ko",
+                "value": normalize_text(live_chain_result.get("status_ko")),
+            },
+            {
+                "section": "live_chain",
+                "key": "fixed_fault_reference_exact_match",
+                "value": str(
+                    live_chain_result.get("fixed_fault_reference_compare", {}).get("exact_match")
+                ),
+            },
+            {
+                "section": "raw_only_chain",
+                "key": "status_ko",
+                "value": normalize_text(raw_only_chain_result.get("status_ko")),
+            },
+            {
+                "section": "raw_only_chain",
+                "key": "compare_status_ko",
+                "value": normalize_text(
+                    raw_only_chain_result.get("fixed_fault_reference_compare", {}).get("status_ko")
+                ),
+            },
+            {
+                "section": "raw_only_chain",
+                "key": "candidate_row_count",
+                "value": str(
+                    raw_only_chain_result.get("fixed_fault_reference_compare", {}).get(
+                        "candidate_row_count"
+                    )
+                ),
+            },
+            {
+                "section": "raw_only_chain",
+                "key": "reference_row_count",
+                "value": str(
+                    raw_only_chain_result.get("fixed_fault_reference_compare", {}).get(
+                        "reference_row_count"
+                    )
+                ),
+            },
+            {
+                "section": "notes",
+                "key": "attention_grade_note_ko",
+                "value": (
+                    "운영해석등급_ko는 상세 리포트용 보조 등급이다. core verdict를 바꾸지 않고 "
+                    "확정/고위험 관찰/관찰을 사람이 읽기 쉽게 정리한다."
+                ),
+            },
+        ]
+    )
+
+    frames: dict[str, pd.DataFrame] = {
+        "overview": overview_df,
+        "current_preview": nonempty_sheet_df(
+            live_preview_df.copy(),
+            "live current preview not available",
+        ),
+        "raw_only_preview": nonempty_sheet_df(
+            raw_only_preview_df.copy(),
+            "raw-only preview not available",
+        ),
+    }
+
+    if not raw_only_chain_result.get("requested") or normalize_text(raw_only_chain_result.get("status_ko")) != "completed":
+        frames["raw_only_evidence"] = pd.DataFrame(
+            [{"note": "raw-only chain not completed; detailed evidence unavailable"}]
+        )
+        frames["raw_only_candidate_scores"] = pd.DataFrame(
+            [{"note": "raw-only chain not completed; candidate score matrix unavailable"}]
+        )
+        frames["raw_only_timeline"] = pd.DataFrame(
+            [{"note": "raw-only chain not completed; timeline unavailable"}]
+        )
+        frames["raw_only_daily_log"] = pd.DataFrame(
+            [{"note": "raw-only chain not completed; all-date log unavailable"}]
+        )
+        frames["raw_only_cluster"] = pd.DataFrame(
+            [{"note": "raw-only chain not completed; cluster summary unavailable"}]
+        )
+        frames["precursor_report"] = pd.DataFrame(columns=PRECURSOR_REPORT_OUTPUT_COLS)
+        frames["definitions"] = pd.DataFrame(
+            [
+                {"항목": "확정", "설명": "final/critical hard signal이 존재"},
+                {"항목": "고위험 관찰", "설명": "hard signal은 없지만 EWS/AE/DTW 전조가 강하게 누적"},
+                {"항목": "관찰", "설명": "약한 이상 또는 간헐 이상으로 계속 관찰 필요"},
+            ]
+        )
+        return frames
+
+    workspace_root = Path(str(raw_only_chain_result["workspace_root"]))
+    raw_only_common = load_raw_only_common_module()
+    runtime_heuristic = load_runtime_heuristic_module()
+    audit_path = workspace_root / "_share" / raw_only_common.RUNTIME_AUDIT_OUTPUT_NAME
+    heuristic_path = workspace_root / "_share" / raw_only_common.RUNTIME_HEURISTIC_OUTPUT_NAME
+    verdict_path = workspace_root / "_share" / raw_only_common.RUNTIME_VERDICT_OUTPUT_NAME
+    audit_df = pd.read_csv(audit_path, encoding="utf-8-sig", low_memory=False)
+    heuristic_df = pd.read_csv(heuristic_path, encoding="utf-8-sig", low_memory=False)
+    verdict_df = pd.read_csv(verdict_path, encoding="utf-8-sig", low_memory=False)
+    audit_df["site"] = audit_df["site"].astype(str)
+    audit_df["panel_id"] = audit_df["panel_id"].astype(str)
+    heuristic_df["site"] = heuristic_df["site"].astype(str)
+    heuristic_df["panel_id"] = heuristic_df["panel_id"].astype(str)
+    verdict_df["site"] = verdict_df["site"].astype(str)
+    verdict_df["panel_id"] = verdict_df["panel_id"].astype(str)
+
+    audit_lookup = {
+        row_key(row["site"], row["panel_id"]): row for row in audit_df.to_dict(orient="records")
+    }
+    heuristic_lookup = {
+        row_key(row["site"], row["panel_id"]): row for row in heuristic_df.to_dict(orient="records")
+    }
+    verdict_lookup = {
+        row_key(row["site"], row["panel_id"]): row for row in verdict_df.to_dict(orient="records")
+    }
+
+    per_site_core = {site: load_panel_day_core_from_workspace(workspace_root, site) for site in sites}
+    per_site_gate = {site: load_gate_from_workspace(workspace_root, site) for site in sites}
+    preview_with_base = raw_only_preview_df.copy()
+    if not preview_with_base.empty:
+        preview_with_base["base"] = preview_with_base["panel_id"].map(panel_base)
+    base_counts = (
+        preview_with_base.groupby(["site", "base"]).size().to_dict()
+        if not preview_with_base.empty
+        else {}
+    )
+
+    evidence_rows: list[dict[str, object]] = []
+    candidate_score_rows: list[dict[str, object]] = []
+    timeline_rows: list[dict[str, object]] = []
+    all_date_rows: list[dict[str, object]] = []
+    for _, preview_row in raw_only_preview_df.iterrows():
+        site = normalize_text(preview_row.get("site"))
+        panel_id = normalize_text(preview_row.get("panel_id"))
+        base = panel_base(panel_id)
+        key = row_key(site, panel_id)
+        audit_row = audit_lookup.get(key, {})
+        heuristic_row = heuristic_lookup.get(key, {})
+        verdict_row = verdict_lookup.get(key, {})
+        merged_for_scores = dict(verdict_row)
+        merged_for_scores.update(audit_row)
+        score_map, score_notes = runtime_heuristic.score_row(merged_for_scores)
+        ranked_candidates = runtime_heuristic.choose_ranked_candidates(score_map)
+        top_score = ranked_candidates[0][1] if ranked_candidates else 0
+        panel_core = per_site_core[site].loc[per_site_core[site]["panel_id"].eq(panel_id)].copy()
+        panel_gate = per_site_gate[site].loc[per_site_gate[site]["panel_id"].eq(panel_id)].copy()
+        representative = representative_signal_row(panel_core)
+
+        evidence_row: dict[str, object] = {
+            "site": site,
+            "panel_id": panel_id,
+            "base": base,
+            "base_candidate_panel_count": int(base_counts.get((site, base), 0)),
+            "패널고장여부_ko": normalize_text(preview_row.get("패널고장여부_ko")),
+            "사건유형_ko": normalize_text(preview_row.get("사건유형_ko")),
+            "최종고장양상_ko": normalize_text(preview_row.get("최종고장양상_ko")),
+            "라벨된 fault": normalize_text(preview_row.get("라벨된 fault")),
+            "1순위_의심원인_ko": normalize_text(preview_row.get("1순위_의심원인_ko")),
+            "2순위_의심원인_ko": normalize_text(preview_row.get("2순위_의심원인_ko")),
+            "3순위_의심원인_ko": normalize_text(preview_row.get("3순위_의심원인_ko")),
+            "커널로그 기존 알고리즘": normalize_text(preview_row.get("커널로그 기존 알고리즘")),
+            "final_days": bool_count(panel_core, "final_fault"),
+            "critical_days": bool_count(panel_core, "critical_fault"),
+            "fault_like_days": bool_count(panel_core, "fault_like_day"),
+            "event_A_days": bool_count(panel_core, "event_A"),
+            "ews_warning_days": bool_count(panel_gate, "ews_warning"),
+            "pre_alarm_days": bool_count(panel_gate, "pre_alarm"),
+            "pre_ews_days": bool_count(panel_gate, "pre_ews"),
+            "prefault_B_days": bool_count(panel_gate, "prefault_B"),
+            "prefault_cond_mid_days": bool_count(panel_gate, "prefault_cond_mid"),
+            "prefault_cond_ae_days": bool_count(panel_gate, "prefault_cond_ae"),
+            "prefault_cond_dtw_days": bool_count(panel_gate, "prefault_cond_dtw"),
+            "prefault_cond_ews_days": bool_count(panel_gate, "prefault_cond_ews"),
+            "critical_sources_csv": unique_csv(panel_core.get("critical_source", pd.Series(dtype=object))),
+            "anom_subtypes_csv": unique_csv(panel_core.get("anom_subtype", pd.Series(dtype=object))),
+            "원인후보_top1_score": heuristic_row.get("원인후보_top1_score", ""),
+            "원인후보_top2_score": heuristic_row.get("원인후보_top2_score", ""),
+            "원인후보_top3_score": heuristic_row.get("원인후보_top3_score", ""),
+            "원인후보_경합상태_ko": normalize_text(heuristic_row.get("원인후보_경합상태_ko")),
+            "원인후보_공동상위후보_csv": normalize_text(heuristic_row.get("원인후보_공동상위후보_csv")),
+            "원인후보_실증우선확인_ko": normalize_text(heuristic_row.get("원인후보_실증우선확인_ko")),
+            "원인후보_신뢰도_ko": normalize_text(heuristic_row.get("원인후보_신뢰도_ko")),
+            "원인후보_해석메모_ko": normalize_text(heuristic_row.get("원인후보_해석메모_ko")),
+            "사건이력_ko": normalize_text(verdict_row.get("사건이력_ko")),
+            "대표판정_ko": normalize_text(verdict_row.get("대표판정_ko")),
+            "운영최초전조발견일": normalize_text(verdict_row.get("운영최초전조발견일")),
+            "사건해석상전조시작일": normalize_text(verdict_row.get("사건해석상전조시작일")),
+            "세부fault_기준일": normalize_text(verdict_row.get("세부fault_기준일")),
+            "판정주의_ko": normalize_text(verdict_row.get("판정주의_ko")),
+            "대표critical_source": normalize_text(representative.get("critical_source")),
+            "대표anom_subtype": normalize_text(representative.get("anom_subtype")),
+            "대표mid_ratio": representative.get("mid_ratio", ""),
+            "대표mid_v_ratio": representative.get("mid_v_ratio", ""),
+            "대표mid_i_ratio": representative.get("mid_i_ratio", ""),
+            "대표recon_error": representative.get("recon_error", ""),
+            "대표dtw_dist": representative.get("dtw_dist", ""),
+            "대표hs_score": representative.get("hs_score", ""),
+            "대표event_A": normalize_text(representative.get("event_A")),
+            "대표critical_fault": normalize_text(representative.get("critical_fault")),
+            "대표final_fault": normalize_text(representative.get("final_fault")),
+        }
+        evidence_row["전조날짜"] = choose_display_precursor_date(
+            event_type_ko=preview_row.get("사건유형_ko"),
+            interpreted_onset_date=verdict_row.get("사건해석상전조시작일"),
+            first_warning_date=audit_row.get("earliest_warning_date"),
+        )
+        evidence_row["고장날짜"] = choose_display_fault_date(
+            fault_date=verdict_row.get("세부fault_기준일"),
+            strict_trigger_date=audit_row.get("strict_trigger_date"),
+            first_final_fault_date=audit_row.get("first_final_fault_date"),
+        )
+        evidence_row["운영해석등급_ko"] = report_attention_grade(evidence_row)
+        evidence_row["근거요약_ko"] = report_reason_text(evidence_row)
+        evidence_rows.append(evidence_row)
+        for rank_idx, (candidate, score) in enumerate(ranked_candidates, start=1):
+            candidate_score_rows.append(
+                {
+                    "site": site,
+                    "panel_id": panel_id,
+                    "base": base,
+                    "운영해석등급_ko": evidence_row["운영해석등급_ko"],
+                    "패널고장여부_ko": evidence_row["패널고장여부_ko"],
+                    "사건유형_ko": evidence_row["사건유형_ko"],
+                    "최종고장양상_ko": evidence_row["최종고장양상_ko"],
+                    "라벨된 fault": evidence_row["라벨된 fault"],
+                    "후보순위": rank_idx,
+                    "후보canonical_ko": candidate,
+                    "후보표시명_ko": display_heuristic_name(candidate),
+                    "후보점수": score,
+                    "top1_flag": rank_idx == 1,
+                    "공동상위_flag": bool(score == top_score and top_score > 0),
+                    "원인후보_경합상태_ko": normalize_text(heuristic_row.get("원인후보_경합상태_ko")),
+                    "원인후보_신뢰도_ko": normalize_text(heuristic_row.get("원인후보_신뢰도_ko")),
+                    "커널로그 기존 알고리즘": evidence_row["커널로그 기존 알고리즘"],
+                    "critical_sources_csv": evidence_row["critical_sources_csv"],
+                    "anom_subtypes_csv": evidence_row["anom_subtypes_csv"],
+                    "점수근거메모_ko": ", ".join(score_notes),
+                    "후보해석메모_ko": normalize_text(heuristic_row.get("원인후보_해석메모_ko")),
+                }
+            )
+
+        core_cols = [
+            "date",
+            "recon_error",
+            "dtw_dist",
+            "hs_score",
+            "mid_ratio",
+            "mid_peer",
+            "mid_v_ratio",
+            "mid_i_ratio",
+            "last_ratio",
+            "last_peer",
+            "event_A",
+            "v_drop",
+            "critical_fault",
+            "critical_suspect",
+            "critical_confirmed",
+            "group_off_like",
+            "fault_like_day",
+            "final_fault",
+            "critical_source",
+            "anom_level",
+            "anom_subtype",
+        ]
+        gate_cols = [
+            "date",
+            "ews_warning",
+            "pre_alarm",
+            "pre_ews",
+            "site_event_soft",
+            "site_event_hard",
+            "group_off_date",
+            "prefault_B",
+            "prefault_cond_mid",
+            "prefault_cond_ae",
+            "prefault_cond_dtw",
+            "prefault_cond_ews",
+        ]
+        merged = panel_core.loc[:, [c for c in core_cols if c in panel_core.columns]].merge(
+            panel_gate.loc[:, [c for c in gate_cols if c in panel_gate.columns]],
+            on="date",
+            how="outer",
+        )
+        signal_cols = [
+            "event_A",
+            "critical_fault",
+            "critical_suspect",
+            "critical_confirmed",
+            "group_off_like",
+            "fault_like_day",
+            "final_fault",
+            "ews_warning",
+            "pre_alarm",
+            "pre_ews",
+            "site_event_soft",
+            "site_event_hard",
+            "group_off_date",
+            "prefault_B",
+            "prefault_cond_mid",
+            "prefault_cond_ae",
+            "prefault_cond_dtw",
+            "prefault_cond_ews",
+        ]
+        available_signal_cols = [column for column in signal_cols if column in merged.columns]
+        signal_mask = merged[available_signal_cols].fillna(False).astype(bool).any(axis=1)
+        subtype_mask = merged.get("anom_subtype", pd.Series(dtype=object)).astype(str).str.contains(
+            "degradation|fault_like|shadow_like|critical",
+            case=False,
+            na=False,
+        )
+        merged = merged.sort_values("date").reset_index(drop=True)
+        merged["신호있는날_flag"] = (signal_mask | subtype_mask).reset_index(drop=True)
+        for record in merged.to_dict(orient="records"):
+            all_date_rows.append(
+                {
+                    "site": site,
+                    "panel_id": panel_id,
+                    "base": base,
+                    "운영해석등급_ko": evidence_row["운영해석등급_ko"],
+                    "1순위_의심원인_ko": evidence_row["1순위_의심원인_ko"],
+                    "date": pd.to_datetime(record.get("date"), errors="coerce"),
+                    "신호있는날_flag": bool(record.get("신호있는날_flag")),
+                    "관찰포인트_csv": signal_label_text(record),
+                    "recon_error": record.get("recon_error"),
+                    "dtw_dist": record.get("dtw_dist"),
+                    "hs_score": record.get("hs_score"),
+                    "mid_ratio": record.get("mid_ratio"),
+                    "mid_peer": record.get("mid_peer"),
+                    "mid_v_ratio": record.get("mid_v_ratio"),
+                    "mid_i_ratio": record.get("mid_i_ratio"),
+                    "last_ratio": record.get("last_ratio"),
+                    "last_peer": record.get("last_peer"),
+                    "event_A": record.get("event_A"),
+                    "v_drop": record.get("v_drop"),
+                    "critical_fault": record.get("critical_fault"),
+                    "critical_suspect": record.get("critical_suspect"),
+                    "critical_confirmed": record.get("critical_confirmed"),
+                    "fault_like_day": record.get("fault_like_day"),
+                    "final_fault": record.get("final_fault"),
+                    "ews_warning": record.get("ews_warning"),
+                    "pre_alarm": record.get("pre_alarm"),
+                    "pre_ews": record.get("pre_ews"),
+                    "site_event_soft": record.get("site_event_soft"),
+                    "site_event_hard": record.get("site_event_hard"),
+                    "group_off_date": record.get("group_off_date"),
+                    "prefault_B": record.get("prefault_B"),
+                    "prefault_cond_mid": record.get("prefault_cond_mid"),
+                    "prefault_cond_ae": record.get("prefault_cond_ae"),
+                    "prefault_cond_dtw": record.get("prefault_cond_dtw"),
+                    "prefault_cond_ews": record.get("prefault_cond_ews"),
+                    "critical_source": normalize_text(record.get("critical_source")),
+                    "anom_level": normalize_text(record.get("anom_level")),
+                    "anom_subtype": normalize_text(record.get("anom_subtype")),
+                }
+            )
+        for record in merged.loc[merged["신호있는날_flag"]].to_dict(orient="records"):
+            timeline_rows.append(
+                {
+                    "site": site,
+                    "panel_id": panel_id,
+                    "base": base,
+                    "운영해석등급_ko": evidence_row["운영해석등급_ko"],
+                    "1순위_의심원인_ko": evidence_row["1순위_의심원인_ko"],
+                    "date": pd.to_datetime(record.get("date"), errors="coerce"),
+                    "recon_error": record.get("recon_error"),
+                    "dtw_dist": record.get("dtw_dist"),
+                    "hs_score": record.get("hs_score"),
+                    "mid_ratio": record.get("mid_ratio"),
+                    "mid_peer": record.get("mid_peer"),
+                    "mid_v_ratio": record.get("mid_v_ratio"),
+                    "mid_i_ratio": record.get("mid_i_ratio"),
+                    "last_ratio": record.get("last_ratio"),
+                    "last_peer": record.get("last_peer"),
+                    "event_A": record.get("event_A"),
+                    "v_drop": record.get("v_drop"),
+                    "critical_fault": record.get("critical_fault"),
+                    "critical_suspect": record.get("critical_suspect"),
+                    "critical_confirmed": record.get("critical_confirmed"),
+                    "fault_like_day": record.get("fault_like_day"),
+                    "final_fault": record.get("final_fault"),
+                    "ews_warning": record.get("ews_warning"),
+                    "pre_alarm": record.get("pre_alarm"),
+                    "pre_ews": record.get("pre_ews"),
+                    "site_event_soft": record.get("site_event_soft"),
+                    "site_event_hard": record.get("site_event_hard"),
+                    "group_off_date": record.get("group_off_date"),
+                    "prefault_B": record.get("prefault_B"),
+                    "prefault_cond_mid": record.get("prefault_cond_mid"),
+                    "prefault_cond_ae": record.get("prefault_cond_ae"),
+                    "prefault_cond_dtw": record.get("prefault_cond_dtw"),
+                    "prefault_cond_ews": record.get("prefault_cond_ews"),
+                    "critical_source": normalize_text(record.get("critical_source")),
+                    "anom_level": normalize_text(record.get("anom_level")),
+                    "anom_subtype": normalize_text(record.get("anom_subtype")),
+                }
+            )
+
+    evidence_df = pd.DataFrame(evidence_rows).sort_values(["site", "base", "panel_id"]).reset_index(drop=True)
+    cluster_df = (
+        evidence_df.groupby(["site", "base"], dropna=False)
+        .agg(
+            candidate_panels=("panel_id", "nunique"),
+            확정_panel_count=("운영해석등급_ko", lambda s: int((s == "확정").sum())),
+            고위험관찰_panel_count=("운영해석등급_ko", lambda s: int((s == "고위험 관찰").sum())),
+            관찰_panel_count=("운영해석등급_ko", lambda s: int((s == "관찰").sum())),
+            final_days_total=("final_days", "sum"),
+            critical_days_total=("critical_days", "sum"),
+            fault_like_days_total=("fault_like_days", "sum"),
+            event_A_days_total=("event_A_days", "sum"),
+            ews_warning_total=("ews_warning_days", "sum"),
+            pre_ews_total=("pre_ews_days", "sum"),
+            top1_candidates_csv=("1순위_의심원인_ko", lambda s: ",".join(sorted({normalize_text(v) for v in s if normalize_text(v)}))),
+            labeled_fault_csv=("라벨된 fault", lambda s: ",".join(sorted({normalize_text(v) for v in s if normalize_text(v)}))),
+        )
+        .reset_index()
+    )
+    if not cluster_df.empty:
+        cluster_df["군집해석_ko"] = cluster_df.apply(
+            lambda row: (
+                "군집 내 hard fault 포함"
+                if int(row["확정_panel_count"]) > 0
+                else "여러 패널이 함께 흔들려 공통 원인 가능성"
+                if int(row["candidate_panels"]) >= 3
+                else "소수 패널 관찰"
+            ),
+            axis=1,
+        )
+
+    definitions_df = pd.DataFrame(
+        [
+            {
+                "항목": "운영해석등급_ko",
+                "설명": "상세 리포트용 보조 등급으로 core verdict를 바꾸지 않고 사람이 읽기 쉽게 정리한 값",
+            },
+            {
+                "항목": "확정",
+                "설명": "final_fault 또는 critical_fault hard signal이 존재하는 패널",
+            },
+            {
+                "항목": "고위험 관찰",
+                "설명": "hard signal은 없지만 EWS, prefault_cond_ae/dtw/ews, fault_like 누적이 강한 패널",
+            },
+            {
+                "항목": "관찰",
+                "설명": "약한 이상 또는 간헐 이상으로 추가 추적이 필요한 패널",
+            },
+            {
+                "항목": "raw_only_chain 주의",
+                "설명": "raw-only candidate chain은 current/frozen 공식 결과보다 넓은 후보 우주를 보여준다",
+            },
+        ]
+    )
+
+    frames["raw_only_evidence"] = nonempty_sheet_df(
+        evidence_df,
+        "raw-only evidence rows unavailable",
+    )
+    frames["raw_only_candidate_scores"] = nonempty_sheet_df(
+        pd.DataFrame(candidate_score_rows).sort_values(["site", "base", "panel_id", "후보순위"]).reset_index(drop=True),
+        "raw-only candidate score matrix unavailable",
+    )
+    frames["raw_only_timeline"] = nonempty_sheet_df(
+        pd.DataFrame(timeline_rows).sort_values(["site", "panel_id", "date"]).reset_index(drop=True),
+        "raw-only timeline rows unavailable",
+    )
+    frames["raw_only_daily_log"] = nonempty_sheet_df(
+        pd.DataFrame(all_date_rows).sort_values(["site", "panel_id", "date"]).reset_index(drop=True),
+        "raw-only all-date log unavailable",
+    )
+    frames["raw_only_cluster"] = nonempty_sheet_df(
+        cluster_df,
+        "raw-only cluster summary unavailable",
+    )
+    frames["precursor_report"] = build_precursor_report_df(evidence_df)
+    frames["definitions"] = definitions_df
+    return frames
+
+
+def write_detailed_report_xlsx(path: Path, frames: dict[str, pd.DataFrame]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with pd.ExcelWriter(path, engine="openpyxl") as writer:
+        for sheet_name, df in frames.items():
+            df.to_excel(writer, index=False, sheet_name=sheet_name[:31])
+    auto_fit_workbook_columns(path)
 
 
 def stage_live_chain_workspace(output_root: Path, sites: list[str]) -> Path:
@@ -1140,23 +2404,6 @@ def run_raw_only_chain(output_root: Path, sites: list[str]) -> dict[str, object]
     summary_path = result_dir / "raw_only_chain_summary_v1.json"
     write_json(summary_path, payload)
     payload["summary_path"] = str(summary_path)
-    payload["published_outputs"] = publish_raw_only_chain_outputs(output_root, result_dir)
-    root_summary_path = output_root / "result" / ROOT_RAWONLY_SUMMARY_NAME
-    shutil.copy2(summary_path, root_summary_path)
-    payload["published_outputs"][ROOT_RAWONLY_SUMMARY_NAME] = str(root_summary_path)
-    root_report_path = output_root / "result" / ROOT_RAWONLY_REPORT_NAME
-    write_text(
-        root_report_path,
-        build_raw_only_report_markdown(
-            sites=sites,
-            compare=compare,
-            published_outputs=payload["published_outputs"],
-            live_preview_df=raw_only_preview_df,
-        ),
-    )
-    payload["published_outputs"][ROOT_RAWONLY_REPORT_NAME] = str(root_report_path)
-    write_json(summary_path, payload)
-    shutil.copy2(summary_path, root_summary_path)
     return payload
 
 
@@ -1239,6 +2486,7 @@ def main() -> None:
     if not engine_path().exists():
         raise SystemExit(f"missing packaged engine: {engine_path()}")
 
+    emit_progress(1, "실행 준비를 시작합니다.")
     data_root = args.data_root.expanduser().resolve()
     output_root = args.output_root.expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
@@ -1262,6 +2510,7 @@ def main() -> None:
         site_plans.append(plan)
         commands.append(cmd)
 
+    emit_progress(8, "입력 CSV 구조와 실행 계획을 점검했습니다.")
     fixed_outputs = copy_fixed_results(output_root)
     baseline_comparison = compare_to_baseline(site_plans)
     live_chain_support = packaged_live_chain_support()
@@ -1345,30 +2594,106 @@ def main() -> None:
 
     if args.dry_run:
         write_json(output_root / "run_plan_v1.json", plan)
+        emit_progress(100, "dry-run 계획 파일 생성을 완료했습니다.")
         print(f"[OK] dry-run plan written: {output_root / 'run_plan_v1.json'}")
         return
 
     reused_site_outs: dict[str, str] = {}
     if effective_reuse_existing_site_outs_root is not None:
+        emit_progress(15, "기존 site out 산출물을 재사용합니다.")
         reused_site_outs = copy_existing_site_outs(effective_reuse_existing_site_outs_root, output_root, sites)
     else:
-        for cmd in commands:
+        site_count = max(1, len(commands))
+        for idx, cmd in enumerate(commands, start=1):
+            site_name = str(site_plans[idx - 1]["site"])
+            start_pct = 15 + int((idx - 1) * 45 / site_count)
+            done_pct = 15 + int(idx * 45 / site_count)
+            emit_progress(start_pct, f"메인 엔진 실행 시작: {site_name}")
             subprocess.run(cmd, check=True)
+            emit_progress(done_pct, f"메인 엔진 실행 완료: {site_name}")
 
+    emit_progress(65, "engine core 결과를 shadow compare 기준으로 점검합니다.")
     shadow_compare = build_shadow_compare_report(output_root, site_plans, baseline_comparison)
     write_json(output_root / "shadow_compare_v1.json", shadow_compare)
     live_chain_result = {"requested": False, "status_ko": "not requested"}
     if args.run_live_chain == "on":
+        emit_progress(75, "live chain 결과표를 생성합니다.")
         live_chain_result = run_live_chain(output_root, sites, baseline_comparison)
     raw_only_chain_result = {"requested": False, "status_ko": "not requested"}
     if args.run_raw_only_chain == "on":
+        emit_progress(88, "raw-only candidate chain 결과를 생성합니다.")
         raw_only_chain_result = run_raw_only_chain(output_root, sites)
 
     master_report_path = output_root / "result" / ROOT_MASTER_REPORT_NAME
+    detailed_report_path = output_root / "result" / ROOT_DETAILED_REPORT_NAME
+    precursor_report_path = output_root / "result" / ROOT_PRECURSOR_REPORT_NAME
     live_preview_path = output_root / "result" / ROOT_LIVE_PREVIEW_NAME
-    raw_only_preview_path = output_root / "result" / ROOT_RAWONLY_PREVIEW_NAME
     live_preview_df = pd.read_csv(live_preview_path, encoding="utf-8-sig", low_memory=False) if live_preview_path.exists() else pd.DataFrame()
-    raw_only_preview_df = pd.read_csv(raw_only_preview_path, encoding="utf-8-sig", low_memory=False) if raw_only_preview_path.exists() else pd.DataFrame()
+    raw_only_candidate_preview_path = output_root / "result" / "raw_only_chain" / "fault_panel_result_raw_only_preview_v1.csv"
+    raw_only_candidate_preview_df = (
+        pd.read_csv(raw_only_candidate_preview_path, encoding="utf-8-sig", low_memory=False)
+        if raw_only_candidate_preview_path.exists()
+        else pd.DataFrame()
+    )
+    detailed_frames = build_detailed_report_frames(
+        output_root=output_root,
+        sites=sites,
+        baseline_comparison=baseline_comparison,
+        live_chain_result=live_chain_result,
+        raw_only_chain_result=raw_only_chain_result,
+        live_preview_df=live_preview_df,
+        raw_only_preview_df=raw_only_candidate_preview_df,
+    )
+    raw_only_current_preview_df = raw_only_candidate_preview_df.copy()
+    if raw_only_chain_result.get("requested") and normalize_text(raw_only_chain_result.get("status_ko")) == "completed":
+        strict_fault_df, strict_preview_df, publish_meta = build_strict_raw_only_current_outputs(
+            raw_only_chain_result=raw_only_chain_result,
+            evidence_df=detailed_frames["raw_only_evidence"],
+        )
+        raw_only_chain_result["publish_meta"] = publish_meta
+        raw_only_chain_result["published_outputs"] = publish_raw_only_current_outputs(
+            output_root,
+            strict_fault_df,
+            strict_preview_df,
+        )
+        root_summary_path = output_root / "result" / ROOT_RAWONLY_SUMMARY_NAME
+        raw_only_chain_result["published_outputs"][ROOT_RAWONLY_SUMMARY_NAME] = str(root_summary_path)
+        root_report_path = output_root / "result" / ROOT_RAWONLY_REPORT_NAME
+        write_text(
+            root_report_path,
+            build_raw_only_report_markdown(
+                sites=sites,
+                compare=raw_only_chain_result.get("fixed_fault_reference_compare", {}),
+                published_outputs=raw_only_chain_result["published_outputs"],
+                live_preview_df=strict_preview_df,
+                publish_meta=publish_meta,
+            ),
+        )
+        raw_only_chain_result["published_outputs"][ROOT_RAWONLY_REPORT_NAME] = str(root_report_path)
+        raw_only_current_preview_df = strict_preview_df.copy()
+        summary_path = Path(str(raw_only_chain_result.get("summary_path", "")))
+        if summary_path.exists():
+            write_json(summary_path, raw_only_chain_result)
+            shutil.copy2(summary_path, root_summary_path)
+    live_preview_display_df = to_user_preview_schema(live_preview_df)
+    raw_only_current_preview_display_df = to_user_preview_schema(raw_only_current_preview_df)
+    detailed_frames["current_preview"] = nonempty_sheet_df(
+        live_preview_display_df.copy(),
+        "live current preview not available",
+    )
+    detailed_frames["raw_only_preview"] = nonempty_sheet_df(
+        raw_only_current_preview_display_df.copy(),
+        "raw-only preview not available",
+    )
+    precursor_report_df = detailed_frames.get(
+        "precursor_report",
+        pd.DataFrame(columns=PRECURSOR_REPORT_OUTPUT_COLS),
+    )
+    precursor_report_df.to_csv(precursor_report_path, index=False, encoding="utf-8-sig")
+    write_detailed_report_xlsx(
+        detailed_report_path,
+        detailed_frames,
+    )
     write_text(
         master_report_path,
         build_master_report_markdown(
@@ -1376,10 +2701,21 @@ def main() -> None:
             baseline_comparison=baseline_comparison,
             live_chain_result=live_chain_result,
             raw_only_chain_result=raw_only_chain_result,
-            live_preview_df=live_preview_df,
-            raw_only_preview_df=raw_only_preview_df,
+            live_preview_df=live_preview_display_df,
+            raw_only_preview_df=raw_only_current_preview_display_df,
+            detailed_report_path=detailed_report_path,
+            precursor_report_path=precursor_report_path,
         ),
     )
+    if live_preview_path.exists():
+        live_preview_display_df.to_csv(live_preview_path, index=False, encoding="utf-8-sig")
+    raw_only_current_preview_path = output_root / "result" / ROOT_RAWONLY_PREVIEW_NAME
+    if raw_only_current_preview_path.exists():
+        raw_only_current_preview_display_df.to_csv(
+            raw_only_current_preview_path,
+            index=False,
+            encoding="utf-8-sig",
+        )
 
     metadata = {
         **plan,
@@ -1388,11 +2724,16 @@ def main() -> None:
         "shadow_compare": shadow_compare,
         "live_chain": live_chain_result,
         "raw_only_chain": raw_only_chain_result,
+        "detailed_report_path": str(detailed_report_path),
+        "precursor_report_path": str(precursor_report_path),
         "master_report_path": str(master_report_path),
     }
     write_json(output_root / "run_metadata_v1.json", metadata)
+    emit_progress(100, "실행 완료. 결과 리포트를 열 수 있습니다.")
     print(f"[OK] result dir: {output_root / 'result'}")
     print(f"[OK] shadow compare: {output_root / 'shadow_compare_v1.json'}")
+    print(f"[OK] detailed report: {detailed_report_path}")
+    print(f"[OK] precursor report: {precursor_report_path}")
     print(f"[OK] master report: {master_report_path}")
     if live_chain_result.get("requested"):
         print(f"[OK] live chain status: {live_chain_result.get('status_ko')}")

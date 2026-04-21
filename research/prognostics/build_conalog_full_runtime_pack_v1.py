@@ -28,6 +28,7 @@ HEURISTIC_PATH = REPO_ROOT / "_share" / "panel_day_engine_cause_candidate_heuris
 LEGACY_INTEGRATED_TABLE_PATH = REPO_ROOT / "_share" / "panel_day_engine_integrated_result_table_v1.csv"
 FAULT6_ARTIFACT_PATH = PACKAGE_ROOT / "artifacts" / "fault6_fixed_result_table_v1.csv"
 FAULT6_PREVIEW_ARTIFACT_PATH = PACKAGE_ROOT / "artifacts" / "fault6_label_and_algorithm_preview_v1.csv"
+KTC_FAULT2_PREVIEW_ARTIFACT_PATH = PACKAGE_ROOT / "artifacts" / "ktc_fault2_label_and_algorithm_preview_v1.csv"
 FAULT6_PROVENANCE_PATH = PACKAGE_ROOT / "artifacts" / "fault6_fixed_result_provenance_v1.json"
 BASELINE_MANIFEST_PATH = PACKAGE_ROOT / "artifacts" / "input_baseline_manifest_v1.json"
 CORE_BASELINE_DIGEST_PATH = PACKAGE_ROOT / "artifacts" / "panel_day_core_baseline_digest_v1.json"
@@ -39,6 +40,8 @@ SNAPSHOT_COPY_PS1_PATH = PACKAGE_ROOT / "bin" / "snapshot_copy.ps1"
 DAILY_RUN_BAT_PATH = PACKAGE_ROOT / "bin" / "daily_run.bat"
 INCREMENTAL_RUN_BAT_PATH = PACKAGE_ROOT / "bin" / "incremental_run.bat"
 RUN_DEMO_BAT_PATH = PACKAGE_ROOT / "bin" / "run_demo.bat"
+RUN_DEMO_KTC_FAULT2_BAT_PATH = PACKAGE_ROOT / "bin" / "run_demo_ktc_fault2.bat"
+RUN_GUIDED_REAL_BAT_PATH = PACKAGE_ROOT / "bin" / "run_guided_real.bat"
 RUN_IMPORTED_REAL_BAT_PATH = PACKAGE_ROOT / "bin" / "run_imported_real.bat"
 RESOLVE_PYTHON_BAT_PATH = PACKAGE_ROOT / "bin" / "resolve_python.bat"
 PACKAGE_RESEARCH_ROOT = PACKAGE_ROOT / "research" / "prognostics"
@@ -60,6 +63,7 @@ WINDOWS_RUNTIME_PRIMARY_PACKAGES = [
     "pandas==2.3.3",
     "tqdm==4.67.1",
     "torch==2.9.1",
+    "openpyxl==3.1.5",
 ]
 
 FAULT6_REQUIRED_COLS = [
@@ -101,22 +105,18 @@ BASELINE_SITES = ["conalog", "gangui", "ktc_ess"]
 PREVIEW_OUTPUT_COLS = [
     "site",
     "panel_id",
-    "패널고장여부_ko",
-    "사건유형_ko",
-    "최종고장양상_ko",
-    "라벨된 fault",
-    "1순위_의심원인_ko",
-    "2순위_의심원인_ko",
-    "3순위_의심원인_ko",
-    "커널로그 기존 알고리즘",
+    "전조날짜",
+    "고장 기준일",
+    "최종고장양상",
+    "운영 판정",
+    "상위 해석 후보",
+    "기존 알고리즘 source",
 ]
 MAIL_BUCKET_ALGORITHM_MAP = {
     ("conalog", "7f7dd654-2760-4eb2-a197-3ebb72b85cda.2.0"): "panel-bypass",
     ("conalog", "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"): "disconnection",
     ("gangui", "bf1a912f-6cf0-4f12-8e97-9d9d86576511.0.7"): "panel-bypass",
     ("gangui", "bf1a912f-6cf0-4f12-8e97-9d9d86576511.2.16"): "panel-bypass",
-    ("ktc_ess", "10305b40-b67e-40d1-9cd1-271b6642a3d9.2.12"): "panel-bypass",
-    ("ktc_ess", "70ad2d87-cdb6-4842-81b7-71c7599bbf05.1.4"): "panel-bypass",
 }
 CORE_DIGEST_COLUMNS = [
     "date",
@@ -234,6 +234,53 @@ def display_heuristic_name(raw_label: object) -> str:
     return DISPLAY_HEURISTIC_NAME_MAP.get(normalized, normalized)
 
 
+def choose_display_precursor_date(
+    event_type_ko: object,
+    interpreted_onset_date: object,
+    first_warning_date: object,
+) -> str:
+    if normalize_text(event_type_ko) != "전조형 고장":
+        return ""
+    onset_date = normalize_text(interpreted_onset_date)
+    if onset_date:
+        return onset_date
+    return normalize_text(first_warning_date)
+
+
+def choose_display_fault_date(
+    fault_date: object,
+    strict_trigger_date: object,
+    first_final_fault_date: object,
+) -> str:
+    for candidate in [fault_date, strict_trigger_date, first_final_fault_date]:
+        text = normalize_text(candidate)
+        if text:
+            return text
+    return ""
+
+
+def display_preview_precursor_date(value: object) -> str:
+    text = normalize_text(value)
+    return text if text else "전조없음"
+
+
+def display_signal_grade(row: pd.Series) -> str:
+    if normalize_text(row.get("패널고장여부_ko")) == "고장":
+        return "확정"
+    return ""
+
+
+def display_existing_algorithm_source(value: object) -> str:
+    text = normalize_text(value)
+    if not text:
+        return "미검출"
+    if text.lower() == "none":
+        return "미검출"
+    if text == "기존 알고리즘 미검출":
+        return "미검출"
+    return text
+
+
 def build_fault6_artifact() -> pd.DataFrame:
     if not VERDICT_PATH.exists():
         raise SystemExit(f"missing verdict output: {VERDICT_PATH}")
@@ -340,59 +387,80 @@ def load_panel_day_core(site: str) -> pd.DataFrame:
     return df
 
 
-def representative_algorithm_fields(site: str, core_df: pd.DataFrame, panel_id: str) -> dict[str, str]:
-    mapped = MAIL_BUCKET_ALGORITHM_MAP.get((normalize_text(site), normalize_text(panel_id)), "")
-    if mapped:
-        return {"커널로그 기존 알고리즘": mapped}
-    panel_df = core_df.loc[core_df["panel_id"].eq(str(panel_id))].copy().sort_values("date")
-    if panel_df.empty:
-        return {
-            "커널로그 기존 알고리즘": "",
-        }
-
-    final_days = panel_df.loc[truthy_mask(panel_df["final_fault"])]
-    critical_days = panel_df.loc[truthy_mask(panel_df["critical_fault"])]
-    fault_like_days = panel_df.loc[truthy_mask(panel_df["fault_like_day"])]
-
-    if not final_days.empty:
-        representative = final_days.iloc[0]
-    elif not critical_days.empty:
-        representative = critical_days.iloc[0]
-    elif not fault_like_days.empty:
-        representative = fault_like_days.iloc[0]
-    else:
-        representative = panel_df.iloc[-1]
-
-    return {
-        "커널로그 기존 알고리즘": normalize_text(representative.get("critical_source")),
-    }
-
-
 def build_fault6_preview_artifact(fault_df: pd.DataFrame) -> pd.DataFrame:
-    per_site_core = {site: load_panel_day_core(site) for site in sorted(fault_df["site"].astype(str).unique())}
+    audit_path = REPO_ROOT / "_share" / "panel_day_engine_fault_panel_event_audit_v1.csv"
+    verdict_df = pd.read_csv(VERDICT_PATH, encoding="utf-8-sig", low_memory=False)
+    audit_df = pd.read_csv(audit_path, encoding="utf-8-sig", low_memory=False)
+    ensure_columns(
+        verdict_df,
+        ["site", "panel_id", "사건유형_ko", "운영최초전조발견일", "사건해석상전조시작일", "세부fault_기준일"],
+        VERDICT_PATH.name,
+    )
+    ensure_columns(
+        audit_df,
+        [
+            "site",
+            "panel_id",
+            "earliest_warning_date",
+            "retrospective_onset_date",
+            "strict_trigger_date",
+            "first_final_fault_date",
+        ],
+        audit_path.name,
+    )
+    verdict_lookup = {
+        row_key(row["site"], row["panel_id"]): row
+        for row in verdict_df.to_dict(orient="records")
+    }
+    audit_lookup = {
+        row_key(row["site"], row["panel_id"]): row
+        for row in audit_df.to_dict(orient="records")
+    }
     preview_rows: list[dict[str, str]] = []
     for _, row in fault_df.iterrows():
         site = normalize_text(row["site"])
         panel_id = normalize_text(row["panel_id"])
-        algorithm_fields = representative_algorithm_fields(site, per_site_core[site], panel_id)
+        verdict_row = verdict_lookup.get(row_key(site, panel_id), {})
+        audit_row = audit_lookup.get(row_key(site, panel_id), {})
         preview_rows.append(
             {
                 "site": site,
                 "panel_id": panel_id,
-                "패널고장여부_ko": normalize_text(row["패널고장여부_ko"]),
-                "사건유형_ko": normalize_text(row["사건유형_ko"]),
-                "최종고장양상_ko": normalize_text(row["최종고장양상_ko"]),
-                "라벨된 fault": normalize_text(row["커널로그_원인군_ko"]),
-                "1순위_의심원인_ko": normalize_text(row["1순위_의심원인_ko"]),
-                "2순위_의심원인_ko": normalize_text(row["2순위_의심원인_ko"]),
-                "3순위_의심원인_ko": normalize_text(row["3순위_의심원인_ko"]),
-                **algorithm_fields,
+                "전조날짜": display_preview_precursor_date(
+                    choose_display_precursor_date(
+                        event_type_ko=verdict_row.get("사건유형_ko", row.get("사건유형_ko")),
+                        interpreted_onset_date=verdict_row.get("사건해석상전조시작일"),
+                        first_warning_date=audit_row.get("earliest_warning_date"),
+                    )
+                ),
+                "고장 기준일": choose_display_fault_date(
+                    fault_date=verdict_row.get("세부fault_기준일"),
+                    strict_trigger_date=audit_row.get("strict_trigger_date"),
+                    first_final_fault_date=audit_row.get("first_final_fault_date"),
+                ),
+                "최종고장양상": normalize_text(row["최종고장양상_ko"]),
+                "운영 판정": display_signal_grade(row),
+                "상위 해석 후보": normalize_text(row["1순위_의심원인_ko"]),
+                "기존 알고리즘 source": display_existing_algorithm_source(
+                    MAIL_BUCKET_ALGORITHM_MAP.get((site, panel_id), "")
+                ),
             }
         )
     preview_df = pd.DataFrame(preview_rows).reindex(columns=PREVIEW_OUTPUT_COLS)
     if len(preview_df) != 6:
         raise SystemExit(f"expected 6 preview rows, found {len(preview_df)}")
     return preview_df
+
+
+def build_ktc_fault2_preview_artifact(preview_df: pd.DataFrame) -> pd.DataFrame:
+    ktc_df = (
+        preview_df.loc[preview_df["site"].astype(str).eq("ktc_ess")]
+        .sort_values(["site", "panel_id"], ascending=[True, True])
+        .reset_index(drop=True)
+    )
+    if len(ktc_df) != 2:
+        raise SystemExit(f"expected 2 ktc fault rows in preview artifact, found {len(ktc_df)}")
+    return ktc_df.reindex(columns=PREVIEW_OUTPUT_COLS)
 
 
 def build_fault6_provenance_payload(fault_df: pd.DataFrame) -> dict[str, object]:
@@ -591,6 +659,10 @@ def build_dependency_audit_markdown(payload: dict[str, object]) -> str:
 
 def write_text_file(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.suffix.lower() in {".bat", ".cmd"}:
+        normalized = text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n")
+        path.write_text(normalized, encoding="utf-8-sig")
+        return
     path.write_text(text, encoding="utf-8")
 
 
@@ -638,7 +710,14 @@ def bundled_runtime_ready() -> bool:
     manifest_exists = WINDOWS_RUNTIME_MANIFEST_PATH.exists()
     python_exists = (WINDOWS_RUNTIME_PYTHON_ROOT / "python.exe").exists()
     import_helper_exists = IMPORT_ANY_CSV_DST.exists()
-    return manifest_exists and python_exists and import_helper_exists
+    if not (manifest_exists and python_exists and import_helper_exists):
+        return False
+    try:
+        manifest = json.loads(WINDOWS_RUNTIME_MANIFEST_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    primary_packages = set(manifest.get("primary_packages", []))
+    return set(WINDOWS_RUNTIME_PRIMARY_PACKAGES).issubset(primary_packages)
 
 
 def materialize_windows_portable_runtime() -> dict[str, object]:
@@ -749,21 +828,139 @@ def materialize_ops_scripts() -> None:
     write_text_file(
         RUN_DEMO_BAT_PATH,
         """@echo off
+chcp 65001 >nul
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
 for %%I in ("%SCRIPT_DIR%..") do set "PACKAGE_ROOT=%%~fI"
 
 if exist "%PACKAGE_ROOT%\\artifacts\\fault6_label_and_algorithm_preview_v1.csv" start "" "%PACKAGE_ROOT%\\artifacts\\fault6_label_and_algorithm_preview_v1.csv"
-if exist "%PACKAGE_ROOT%\\artifacts\\fault6_fixed_result_table_v1.csv" start "" "%PACKAGE_ROOT%\\artifacts\\fault6_fixed_result_table_v1.csv"
-if exist "%PACKAGE_ROOT%\\..\\README.md" start "" "%PACKAGE_ROOT%\\..\\README.md"
+if not exist "%PACKAGE_ROOT%\\artifacts\\fault6_label_and_algorithm_preview_v1.csv" (
+  echo fault6_label_and_algorithm_preview_v1.csv를 찾지 못했습니다.
+  if "%PVDIAG_NO_PAUSE%"=="" pause
+  exit /b 1
+)
 
+exit /b 0
+""",
+    )
+    write_text_file(
+        RUN_DEMO_KTC_FAULT2_BAT_PATH,
+        """@echo off
+chcp 65001 >nul
+setlocal
+
+set "SCRIPT_DIR=%~dp0"
+for %%I in ("%SCRIPT_DIR%..") do set "PACKAGE_ROOT=%%~fI"
+
+if exist "%PACKAGE_ROOT%\\artifacts\\ktc_fault2_label_and_algorithm_preview_v1.csv" start "" "%PACKAGE_ROOT%\\artifacts\\ktc_fault2_label_and_algorithm_preview_v1.csv"
+if not exist "%PACKAGE_ROOT%\\artifacts\\ktc_fault2_label_and_algorithm_preview_v1.csv" (
+  echo ktc_fault2_label_and_algorithm_preview_v1.csv를 찾지 못했습니다.
+  if "%PVDIAG_NO_PAUSE%"=="" pause
+  exit /b 1
+)
+
+exit /b 0
+""",
+    )
+    write_text_file(
+        RUN_GUIDED_REAL_BAT_PATH,
+        """@echo off
+chcp 65001 >nul
+setlocal
+
+set "SCRIPT_DIR=%~dp0"
+for %%I in ("%SCRIPT_DIR%..") do set "PACKAGE_ROOT=%%~fI"
+set "APP_PATH=%PACKAGE_ROOT%\\app\\run_full_algorithm_pack.py"
+set "IMPORT_APP=%PACKAGE_ROOT%\\app\\import_any_csv_root.py"
+call "%PACKAGE_ROOT%\\bin\\resolve_python.bat"
+if errorlevel 1 goto FAIL
+
+where powershell >nul 2>nul
+if errorlevel 1 (
+  echo Windows PowerShell을 찾을 수 없습니다.
+  goto FAIL
+)
+
+set "DATA_ROOT="
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; $dialog.Description='CSV 파일이 들어 있는 상위 폴더를 선택하십시오'; if ($dialog.ShowDialog() -eq 'OK') { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Output $dialog.SelectedPath }"`) do set "DATA_ROOT=%%I"
+
+if "%DATA_ROOT%"=="" (
+  echo 입력 폴더 경로를 다시 확인하십시오.
+  goto CANCEL
+)
+
+set "RUN_TS="
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Get-Date -Format yyyyMMdd_HHmmss"`) do set "RUN_TS=%%I"
+if "%RUN_TS%"=="" set "RUN_TS=manual"
+
+set "OUTPUT_ROOT=%PACKAGE_ROOT%\\showcase_runs\\run_%RUN_TS%"
+echo [005%%] 입력 폴더 선택 완료
+echo [010%%] 결과 폴더 자동 생성: %OUTPUT_ROOT%
+
+set "EFFECTIVE_DATA_ROOT=%DATA_ROOT%"
+set "EFFECTIVE_SITES=conalog,gangui,ktc_ess"
+
+if exist "%DATA_ROOT%\\conalog\\raw" if exist "%DATA_ROOT%\\gangui\\raw" if exist "%DATA_ROOT%\\ktc_ess\\raw" goto RUN_ENGINE
+if exist "%DATA_ROOT%\\data\\conalog\\raw" if exist "%DATA_ROOT%\\data\\gangui\\raw" if exist "%DATA_ROOT%\\data\\ktc_ess\\raw" (
+  set "EFFECTIVE_DATA_ROOT=%DATA_ROOT%\\data"
+  goto RUN_ENGINE
+)
+
+echo [020%%] CSV 구조를 점검하고 자동 staging을 준비합니다.
+set "IMPORT_STAGE_ROOT=%OUTPUT_ROOT%\\imported_data"
+set "IMPORT_ENV=%IMPORT_STAGE_ROOT%\\import_env.bat"
+set "IMPORT_MANIFEST=%IMPORT_STAGE_ROOT%\\import_any_csv_manifest_v1.json"
+
+%PYTHON_CMD% "%IMPORT_APP%" --input-root "%DATA_ROOT%" --output-root "%IMPORT_STAGE_ROOT%" --clear-output --manifest-path "%IMPORT_MANIFEST%" --env-bat-path "%IMPORT_ENV%"
+if errorlevel 1 goto FAIL
+
+call "%IMPORT_ENV%"
+if errorlevel 1 goto FAIL
+set "EFFECTIVE_DATA_ROOT=%IMPORTED_DATA_ROOT%"
+set "EFFECTIVE_SITES=%IMPORTED_SITES%"
+
+:RUN_ENGINE
+echo [040%%] 학습/추론 및 결과표 생성을 시작합니다.
+%PYTHON_CMD% "%APP_PATH%" --data-root "%EFFECTIVE_DATA_ROOT%" --output-root "%OUTPUT_ROOT%" --sites "%EFFECTIVE_SITES%"
+if errorlevel 1 goto FAIL
+
+echo [100%%] 실행 완료. 결과 리포트를 엽니다.
+if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
+) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
+) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
+) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md"
+) else if exist "%OUTPUT_ROOT%\\result" (
+  start "" "%OUTPUT_ROOT%\\result"
+)
+echo 결과 폴더: %OUTPUT_ROOT%
+goto SUCCESS
+
+:CANCEL
+echo 작업이 취소되었습니다.
+if "%PVDIAG_NO_PAUSE%"=="" pause
+exit /b 0
+
+:FAIL
+set "EXIT_CODE=%ERRORLEVEL%"
+if "%EXIT_CODE%"=="" set "EXIT_CODE=1"
+echo 실행이 중단되었습니다. 위 메시지를 확인하십시오.
+if "%PVDIAG_NO_PAUSE%"=="" pause
+exit /b %EXIT_CODE%
+
+:SUCCESS
+if "%PVDIAG_NO_PAUSE%"=="" pause
 exit /b 0
 """,
     )
     write_text_file(
         RESOLVE_PYTHON_BAT_PATH,
         """@echo off
+chcp 65001 >nul
 if "%PACKAGE_ROOT%"=="" (
   echo PACKAGE_ROOT 환경변수가 비어 있습니다.
   exit /b 1
@@ -901,6 +1098,7 @@ Write-Host "[OK] snapshot_root=$SnapshotRoot"
     write_text_file(
         DAILY_RUN_BAT_PATH,
         """@echo off
+chcp 65001 >nul
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
@@ -926,18 +1124,26 @@ if "%RUNTIME_ROOT%"=="" set "RUNTIME_ROOT=%PACKAGE_ROOT%\\..\\runtime_data"
 set /p OUTPUT_ROOT=출력 폴더 경로를 입력하십시오 [기본값: %PACKAGE_ROOT%\\..\\runtime_output\\daily_run]: 
 if "%OUTPUT_ROOT%"=="" set "OUTPUT_ROOT=%PACKAGE_ROOT%\\..\\runtime_output\\daily_run"
 
+echo [010%%] 최근 120일 raw staging 경로를 준비했습니다.
+
 powershell -ExecutionPolicy Bypass -File "%STAGING_PS1%" -ArchiveRoot "%ARCHIVE_ROOT%" -RuntimeRoot "%RUNTIME_ROOT%" -WindowDays 120
 if errorlevel 1 exit /b %errorlevel%
+
+echo [040%%] 학습/추론 및 결과표 생성을 시작합니다.
 
 %PYTHON_CMD% "%APP_PATH%" --data-root "%RUNTIME_ROOT%" --output-root "%OUTPUT_ROOT%"
 if errorlevel 1 exit /b %errorlevel%
 
-if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md"
+echo [100%%] 실행 완료. 결과 리포트를 엽니다.
+
+if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
+) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
+) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result" (
   start "" "%OUTPUT_ROOT%\\result"
 )
@@ -947,6 +1153,7 @@ exit /b 0
     write_text_file(
         INCREMENTAL_RUN_BAT_PATH,
         """@echo off
+chcp 65001 >nul
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
@@ -957,12 +1164,12 @@ set "DEFAULT_SNAPSHOT_ROOT=%PACKAGE_ROOT%\\..\\runtime_snapshot_data"
 set "DEFAULT_OUTPUT=%PACKAGE_ROOT%\\..\\runtime_output\\incremental_run"
 
 call "%PACKAGE_ROOT%\\bin\\resolve_python.bat"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
 
 where powershell >nul 2>nul
 if errorlevel 1 (
   echo Windows PowerShell을 찾을 수 없습니다.
-  exit /b 0
+  goto FAIL
 )
 
 set "INGEST_ROOT="
@@ -970,7 +1177,7 @@ for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Add-Type -Ass
 
 if "%INGEST_ROOT%"=="" (
   echo 입력 폴더 경로를 다시 확인하십시오.
-  exit /b 0
+  goto CANCEL
 )
 
 set "SNAPSHOT_ROOT="
@@ -987,30 +1194,56 @@ if "%STABLE_MINUTES%"=="" set "STABLE_MINUTES=10"
 set "IMPORT_ENV=%SNAPSHOT_ROOT%\\import_env.bat"
 set "IMPORT_MANIFEST=%SNAPSHOT_ROOT%\\import_any_csv_manifest_v1.json"
 
+echo [010%%] snapshot 경로와 출력 경로를 준비했습니다.
+echo [020%%] 안정화된 CSV만 snapshot으로 가져옵니다.
+
 %PYTHON_CMD% "%IMPORT_APP%" --input-root "%INGEST_ROOT%" --output-root "%SNAPSHOT_ROOT%" --clear-output --stable-minutes %STABLE_MINUTES% --manifest-path "%IMPORT_MANIFEST%" --env-bat-path "%IMPORT_ENV%"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
 
 call "%IMPORT_ENV%"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
+
+echo [040%%] 학습/추론 및 결과표 생성을 시작합니다.
 
 %PYTHON_CMD% "%APP_PATH%" --data-root "%IMPORTED_DATA_ROOT%" --output-root "%OUTPUT_ROOT%" --sites "%IMPORTED_SITES%"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
 
-if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md"
+echo [100%%] 실행 완료. 결과 리포트를 엽니다.
+
+if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
+) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
+) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result" (
   start "" "%OUTPUT_ROOT%\\result"
 )
+goto SUCCESS
+
+:CANCEL
+echo 작업이 취소되었습니다.
+if "%PVDIAG_NO_PAUSE%"=="" pause
+exit /b 0
+
+:FAIL
+set "EXIT_CODE=%ERRORLEVEL%"
+if "%EXIT_CODE%"=="" set "EXIT_CODE=1"
+echo 실행이 중단되었습니다. 위 메시지를 확인하십시오.
+if "%PVDIAG_NO_PAUSE%"=="" pause
+exit /b %EXIT_CODE%
+
+:SUCCESS
+if "%PVDIAG_NO_PAUSE%"=="" pause
 exit /b 0
 """,
     )
     write_text_file(
         PACKAGE_ROOT / "bin" / "run_real.bat",
         """@echo off
+chcp 65001 >nul
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
@@ -1019,12 +1252,12 @@ set "APP_PATH=%PACKAGE_ROOT%\\app\\run_full_algorithm_pack.py"
 set "IMPORT_APP=%PACKAGE_ROOT%\\app\\import_any_csv_root.py"
 set "DEFAULT_OUTPUT=%PACKAGE_ROOT%\\real_output"
 call "%PACKAGE_ROOT%\\bin\\resolve_python.bat"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
 
 where powershell >nul 2>nul
 if errorlevel 1 (
   echo Windows PowerShell을 찾을 수 없습니다.
-  exit /b 0
+  goto FAIL
 )
 
 set "DATA_ROOT="
@@ -1032,12 +1265,16 @@ for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Add-Type -Ass
 
 if "%DATA_ROOT%"=="" (
   echo 입력 폴더 경로를 다시 확인하십시오.
-  exit /b 0
+  goto CANCEL
 )
+
+echo [005%%] 입력 폴더 선택 완료: %DATA_ROOT%
 
 set "OUTPUT_ROOT="
 for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; $dialog.Description='출력 폴더를 선택하십시오 (취소 시 기본값 사용)'; if ($dialog.ShowDialog() -eq 'OK') { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Output $dialog.SelectedPath }"`) do set "OUTPUT_ROOT=%%I"
 if "%OUTPUT_ROOT%"=="" set "OUTPUT_ROOT=%DEFAULT_OUTPUT%"
+
+echo [010%%] 결과 폴더 준비 완료: %OUTPUT_ROOT%
 
 set "EFFECTIVE_DATA_ROOT=%DATA_ROOT%"
 set "EFFECTIVE_SITES=conalog,gangui,ktc_ess"
@@ -1052,33 +1289,58 @@ set "IMPORT_STAGE_ROOT=%OUTPUT_ROOT%\\imported_data"
 set "IMPORT_ENV=%IMPORT_STAGE_ROOT%\\import_env.bat"
 set "IMPORT_MANIFEST=%IMPORT_STAGE_ROOT%\\import_any_csv_manifest_v1.json"
 
+echo [020%%] CSV 구조를 점검하고 자동 staging 여부를 결정합니다.
+
 %PYTHON_CMD% "%IMPORT_APP%" --input-root "%DATA_ROOT%" --output-root "%IMPORT_STAGE_ROOT%" --clear-output --manifest-path "%IMPORT_MANIFEST%" --env-bat-path "%IMPORT_ENV%"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
 
 call "%IMPORT_ENV%"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
 set "EFFECTIVE_DATA_ROOT=%IMPORTED_DATA_ROOT%"
 set "EFFECTIVE_SITES=%IMPORTED_SITES%"
 
 :RUN_ENGINE
-%PYTHON_CMD% "%APP_PATH%" --data-root "%EFFECTIVE_DATA_ROOT%" --output-root "%OUTPUT_ROOT%" --sites "%EFFECTIVE_SITES%"
-if errorlevel 1 exit /b %errorlevel%
+echo [040%%] 학습/추론 및 결과표 생성을 시작합니다.
 
-if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md"
+%PYTHON_CMD% "%APP_PATH%" --data-root "%EFFECTIVE_DATA_ROOT%" --output-root "%OUTPUT_ROOT%" --sites "%EFFECTIVE_SITES%"
+if errorlevel 1 goto FAIL
+
+echo [100%%] 실행 완료. 결과 리포트를 엽니다.
+
+if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
+) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
+) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result" (
   start "" "%OUTPUT_ROOT%\\result"
 )
+goto SUCCESS
+
+:CANCEL
+echo 작업이 취소되었습니다.
+if "%PVDIAG_NO_PAUSE%"=="" pause
+exit /b 0
+
+:FAIL
+set "EXIT_CODE=%ERRORLEVEL%"
+if "%EXIT_CODE%"=="" set "EXIT_CODE=1"
+echo 실행이 중단되었습니다. 위 메시지를 확인하십시오.
+if "%PVDIAG_NO_PAUSE%"=="" pause
+exit /b %EXIT_CODE%
+
+:SUCCESS
+if "%PVDIAG_NO_PAUSE%"=="" pause
 exit /b 0
 """,
     )
     write_text_file(
         RUN_IMPORTED_REAL_BAT_PATH,
         """@echo off
+chcp 65001 >nul
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
@@ -1088,12 +1350,12 @@ set "IMPORT_APP=%PACKAGE_ROOT%\\app\\import_any_csv_root.py"
 set "DEFAULT_OUTPUT=%PACKAGE_ROOT%\\real_output_imported"
 
 call "%PACKAGE_ROOT%\\bin\\resolve_python.bat"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
 
 where powershell >nul 2>nul
 if errorlevel 1 (
   echo Windows PowerShell을 찾을 수 없습니다.
-  exit /b 0
+  goto FAIL
 )
 
 set "DATA_ROOT="
@@ -1101,8 +1363,10 @@ for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Add-Type -Ass
 
 if "%DATA_ROOT%"=="" (
   echo 입력 폴더 경로를 다시 확인하십시오.
-  exit /b 0
+  goto CANCEL
 )
+
+echo [005%%] 입력 폴더 선택 완료: %DATA_ROOT%
 
 set "OUTPUT_ROOT="
 for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; $dialog.Description='출력 폴더를 선택하십시오 (취소 시 기본값 사용)'; if ($dialog.ShowDialog() -eq 'OK') { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Output $dialog.SelectedPath }"`) do set "OUTPUT_ROOT=%%I"
@@ -1112,24 +1376,49 @@ set "IMPORT_STAGE_ROOT=%OUTPUT_ROOT%\\imported_data"
 set "IMPORT_ENV=%IMPORT_STAGE_ROOT%\\import_env.bat"
 set "IMPORT_MANIFEST=%IMPORT_STAGE_ROOT%\\import_any_csv_manifest_v1.json"
 
+echo [010%%] 결과 폴더 준비 완료: %OUTPUT_ROOT%
+echo [020%%] CSV 파일을 재귀 수집해 실행 구조로 staging합니다.
+
 %PYTHON_CMD% "%IMPORT_APP%" --input-root "%DATA_ROOT%" --output-root "%IMPORT_STAGE_ROOT%" --clear-output --manifest-path "%IMPORT_MANIFEST%" --env-bat-path "%IMPORT_ENV%"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
 
 call "%IMPORT_ENV%"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
+
+echo [040%%] 학습/추론 및 결과표 생성을 시작합니다.
 
 %PYTHON_CMD% "%APP_PATH%" --data-root "%IMPORTED_DATA_ROOT%" --output-root "%OUTPUT_ROOT%" --sites "%IMPORTED_SITES%"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
 
-if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md"
+echo [100%%] 실행 완료. 결과 리포트를 엽니다.
+
+if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
+) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
+) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
+  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result" (
   start "" "%OUTPUT_ROOT%\\result"
 )
+goto SUCCESS
+
+:CANCEL
+echo 작업이 취소되었습니다.
+if "%PVDIAG_NO_PAUSE%"=="" pause
+exit /b 0
+
+:FAIL
+set "EXIT_CODE=%ERRORLEVEL%"
+if "%EXIT_CODE%"=="" set "EXIT_CODE=1"
+echo 실행이 중단되었습니다. 위 메시지를 확인하십시오.
+if "%PVDIAG_NO_PAUSE%"=="" pause
+exit /b %EXIT_CODE%
+
+:SUCCESS
+if "%PVDIAG_NO_PAUSE%"=="" pause
 exit /b 0
 """,
     )
@@ -1159,6 +1448,8 @@ def main() -> None:
     fault_df.to_csv(FAULT6_ARTIFACT_PATH, index=False, encoding="utf-8-sig")
     preview_df = build_fault6_preview_artifact(fault_df)
     preview_df.to_csv(FAULT6_PREVIEW_ARTIFACT_PATH, index=False, encoding="utf-8-sig")
+    ktc_fault2_preview_df = build_ktc_fault2_preview_artifact(preview_df)
+    ktc_fault2_preview_df.to_csv(KTC_FAULT2_PREVIEW_ARTIFACT_PATH, index=False, encoding="utf-8-sig")
     FAULT6_PROVENANCE_PATH.write_text(
         json.dumps(build_fault6_provenance_payload(fault_df), ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -1203,6 +1494,7 @@ def main() -> None:
         "windows_runtime_primary_packages": runtime_manifest.get("primary_packages", []),
         "fault6_artifact_path": str(FAULT6_ARTIFACT_PATH),
         "fault6_preview_artifact_path": str(FAULT6_PREVIEW_ARTIFACT_PATH),
+        "ktc_fault2_preview_artifact_path": str(KTC_FAULT2_PREVIEW_ARTIFACT_PATH),
         "fault6_provenance_path": str(FAULT6_PROVENANCE_PATH),
         "baseline_manifest_path": str(BASELINE_MANIFEST_PATH),
         "core_baseline_digest_path": str(CORE_BASELINE_DIGEST_PATH),
@@ -1212,12 +1504,17 @@ def main() -> None:
         "packaged_runtime_chain_share_input_count": len(PACKAGED_RUNTIME_CHAIN_SHARE_INPUTS),
         "fault6_row_count": int(len(fault_df)),
         "fault6_preview_row_count": int(len(preview_df)),
+        "ktc_fault2_preview_row_count": int(len(ktc_fault2_preview_df)),
+        "run_demo_bat_path": str(RUN_DEMO_BAT_PATH),
+        "run_demo_ktc_fault2_bat_path": str(RUN_DEMO_KTC_FAULT2_BAT_PATH),
+        "run_guided_real_bat_path": str(RUN_GUIDED_REAL_BAT_PATH),
         "run_imported_real_bat_path": str(RUN_IMPORTED_REAL_BAT_PATH),
         "resolve_python_bat_path": str(RESOLVE_PYTHON_BAT_PATH),
         "root_live_fault_output_name": "fault_panel_result_current_v1.csv",
         "root_live_preview_output_name": "fault_panel_result_current_preview_v1.csv",
         "root_live_report_output_name": "fault_panel_result_current_report_v1.md",
         "root_master_report_output_name": "fault_panel_result_master_report_v1.md",
+        "root_detailed_report_output_name": "fault_panel_result_detailed_report_v1.xlsx",
         "root_raw_only_fault_output_name": "fault_panel_result_raw_only_current_v1.csv",
         "root_raw_only_preview_output_name": "fault_panel_result_raw_only_current_preview_v1.csv",
         "root_raw_only_report_output_name": "fault_panel_result_raw_only_current_report_v1.md",
@@ -1231,6 +1528,7 @@ def main() -> None:
             "data 폴더 연결 후 live chain 실험을 package 안에서 직접 돌릴 수 있게 준비한다. "
             "동시에 raw-only strict chain도 별도로 포함해, panel_day_core와 precursor gate만으로 계산한 verdict/heuristic 결과를 "
             "current report와 별도 raw-only report로 함께 확인할 수 있게 한다. "
+            "추가로 fault_panel_result_detailed_report_v1.xlsx를 자동 생성해, 메인표/근거요약/타임라인/군집요약을 한 파일로 확인할 수 있게 한다. "
             "추가로 baseline core output shadow compare reference와 full-chain dependency audit를 함께 넣어 "
             "현재 pack이 어디까지 live이고 어디서 blocker가 남는지 스스로 설명한다."
         ),
