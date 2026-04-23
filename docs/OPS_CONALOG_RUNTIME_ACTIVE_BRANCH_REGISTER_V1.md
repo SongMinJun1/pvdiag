@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260423-014` | `semantic_preview_generated` | preview-only operator-facing diff for G1 shadow rows | decide whether to approve a semantic patch, possibly strict-proximal 6 first |
+| `BR-20260423-015` | `apply_ready_sidecar_generated` | strict-proximal-supported G1 semantic sidecar for 6 rows, 1 row held | decide whether to approve a separate 6-row semantic patch branch |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -26,6 +26,7 @@
 | `BR-20260423-012` | `shadow_simulation_generated` | G1 suppression simulation maps ktc_ess 7 rows from current 전조형 고장 to shadow 급작 고장 with no code change | no |
 | `BR-20260423-013` | `shadow_audit_implemented` | audit adds 10 G1 suppressed-event shadow columns; final verdict remains byte-equivalent by table value | no |
 | `BR-20260423-014` | `semantic_preview_generated` | preview shows 7 ktc_ess rows would change 13 operator-facing columns and 91 cells; no production output written | no |
+| `BR-20260423-015` | `apply_ready_sidecar_generated` | strict-proximal support splits G1 preview into 6 apply-ready rows and 1 hold-review row | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -39,9 +40,10 @@
 - BR-012 keeps `backdate_suppression_candidate=7` as shadow-only: if G1 is applied, all 7 become `전조형 고장 -> 급작 고장` simulation rows, but production semantics stay unchanged.
 - BR-013 implements the same G1 result as audit shadow columns only: audit common columns equal `true`, final verdict full table equal `true`, G1 shadow rows `7`.
 - BR-014 previews operator-facing impact only: 7 ktc_ess rows, 13 columns, 91 cells, production output written `0`; 1 row lacks strict-proximal common-cause support.
+- BR-015 reduces first-patch scope to strict-proximal-supported rows only: apply-ready `6`, hold-review `1`, production output written `0`.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
 - use bucket-specific review packets before proposing any operator-facing event semantic change.
-- next branch may implement an explicit semantic patch only after approval; the conservative path is strict-proximal-supported 6 rows first, with 1 row held for review.
+- next branch may implement an explicit semantic patch for the 6 apply-ready rows only after approval; the hold-review row remains excluded.
 - only after reviewer confirmation consider a separate operator-facing rule proposal.
