@@ -41,9 +41,7 @@ METRIC_REQUIRED_COLS = [
 WATCH_OUTPUTS = [
     REPO_ROOT / "_share/panel_day_engine_panel_multiaxis_verdict_v1.csv",
     REPO_ROOT / "_share/panel_day_engine_gpvs_evidence_pack_v1.csv",
-    REPO_ROOT / "_share/panel_day_engine_integrated_result_table_v1.csv",
     REPO_ROOT / "_share/panel_day_engine_cause_candidate_heuristics_v1.csv",
-    REPO_ROOT / "_share/panel_day_engine_integrated_result_summary_v1.csv",
     REPO_ROOT / "_share/panel_day_engine_gpvs_evidence_summary_v1.csv",
     REPO_ROOT / "_share/panel_day_engine_cause_candidate_summary_v1.csv",
 ]

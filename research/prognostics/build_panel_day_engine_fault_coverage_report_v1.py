@@ -11,7 +11,7 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-INTEGRATED_SUMMARY_NAME = "panel_day_engine_integrated_result_summary_v1.csv"
+VERDICT_NAME = "panel_day_engine_panel_multiaxis_verdict_v1.csv"
 EVIDENCE_SUMMARY_NAME = "panel_day_engine_gpvs_evidence_summary_v1.csv"
 CAUSE_SUMMARY_NAME = "panel_day_engine_cause_candidate_summary_v1.csv"
 FINAL_DECISION_PACK_NAME = "panel_day_engine_project_final_decision_pack_v1.csv"
@@ -49,14 +49,13 @@ METRIC_COLS = [
     "note_ko",
 ]
 
-INTEGRATED_SUMMARY_REQUIRED_COLS = [
-    "total_panel_count",
-    "fault_panel_count",
-    "non_fault_or_unresolved_count",
-    "gpvs_core_reference_count",
-    "gpvs_auxiliary_reference_count",
-    "gpvs_not_used_count",
-    "note_ko",
+VERDICT_REQUIRED_COLS = [
+    "site",
+    "panel_id",
+    "패널고장여부_ko",
+    "사건유형_ko",
+    "최종고장양상_ko",
+    "커널로그_원인군_ko",
 ]
 
 EVIDENCE_SUMMARY_REQUIRED_COLS = [
@@ -146,6 +145,26 @@ def first_row(df: pd.DataFrame, name: str) -> pd.Series:
     if len(df) != 1:
         raise SystemExit(f"{name} must contain exactly one row, found {len(df)}")
     return df.iloc[0]
+
+
+def build_stack_summary_row(verdict_df: pd.DataFrame, evidence_summary_row: pd.Series) -> pd.Series:
+    total_panels = int(len(verdict_df))
+    fault_panels = int(verdict_df["패널고장여부_ko"].map(normalize_text).eq("고장").sum())
+    non_fault_or_unresolved = total_panels - fault_panels
+    core_reference = int(pd.to_numeric(evidence_summary_row["core_reference_count"], errors="coerce"))
+    auxiliary_reference = int(pd.to_numeric(evidence_summary_row["auxiliary_reference_count"], errors="coerce"))
+    not_used = int(pd.to_numeric(evidence_summary_row["not_recommended_count"], errors="coerce"))
+    return pd.Series(
+        {
+            "total_panel_count": total_panels,
+            "fault_panel_count": fault_panels,
+            "non_fault_or_unresolved_count": non_fault_or_unresolved,
+            "gpvs_core_reference_count": core_reference,
+            "gpvs_auxiliary_reference_count": auxiliary_reference,
+            "gpvs_not_used_count": not_used,
+            "note_ko": "panel multiaxis verdict row count와 GPVS evidence summary count를 결합한 derived stack summary 임",
+        }
+    )
 
 
 def find_metric_row(
@@ -526,7 +545,7 @@ def build_doc_text(
         f"- cause candidate heuristic은 current frozen 6 fault sample 기준 unique_top1_candidate_count={heuristic_unique} 의 triage-only suspected-cause ranking 층임.",
         "",
         "## 3. 입력 데이터와 학습/참조 자산",
-        "- panel multiaxis verdict, integrated table, GPVS evidence pack, cause candidate heuristic summary를 현재 frozen front-facing stack의 직접 입력 자산으로 사용하였음.",
+        "- panel multiaxis verdict, GPVS evidence pack, cause candidate heuristic summary를 현재 frozen front-facing stack의 직접 입력 자산으로 사용하였음.",
         "- recovered GPVS by-type artifact와 GPVS evidence pack은 reference attach provenance와 usage rule 설명에 사용하였음.",
         "- outputs/validation/fault_validation_report_v1.csv 는 current framework validation support count를 보조적으로 인용하였음.",
         "- full_algorithm_f1_summary_v3.csv, critical_actionability_f1_summary.csv, gpvs_fault_family_f1_summary.csv, panel_day_engine_project_final_decision_pack_v1.csv 를 current frozen metric artifact로 사용하였음.",
@@ -543,7 +562,7 @@ def build_doc_text(
         "- cause candidate heuristic은 triage-only layer이므로 ranking ground truth가 없으면 support count와 validation support count만 사용하고 과장된 ranking metric을 만들지 않음.",
         "",
         "## 6. 현재 확보된 지표와 해석",
-        f"- current frozen integrated summary 기준 total_panel_count={total_panels}, fault_panel_count={fault_panels} 임.",
+        f"- current frozen verdict/evidence derived summary 기준 total_panel_count={total_panels}, fault_panel_count={fault_panels} 임.",
         "- full_algorithm_f1_summary_v3 에는 strict/operational overall precision, recall, f1 이 존재하였음. 다만 broader frozen algorithm scope 수치이므로 25 panel / 6 fault 설명용 sample과 동일시하면 안 됨.",
         "- panel_day_engine_project_final_decision_pack_v1 에는 step3 precursor performance 와 step4 abrupt no-precursor scope의 current_best_f1 이 존재하였음. 다만 support가 작고 final_usage_decision이 exploratory_only 로 표시된 scope임.",
         "- GPVS evidence summary 에는 external evidence available count, core reference count, auxiliary reference count가 존재하였음. 이는 reference-only support metric 임.",
@@ -563,7 +582,7 @@ def main(argv: list[str] | None = None) -> int:
     root = args.root.resolve()
     share_dir = root / "_share"
 
-    integrated_summary_df = read_csv(share_dir / INTEGRATED_SUMMARY_NAME)
+    verdict_df = read_csv(share_dir / VERDICT_NAME)
     evidence_summary_df = read_csv(share_dir / EVIDENCE_SUMMARY_NAME)
     cause_summary_df = read_csv(share_dir / CAUSE_SUMMARY_NAME)
     final_decision_pack_df = read_optional_csv(share_dir / FINAL_DECISION_PACK_NAME)
@@ -573,7 +592,7 @@ def main(argv: list[str] | None = None) -> int:
     field_validation_df = read_optional_csv(share_dir / FIELD_VALIDATION_SUMMARY_NAME)
     validation_report_df = ensure_validation_report(root)
 
-    ensure_columns(integrated_summary_df, INTEGRATED_SUMMARY_REQUIRED_COLS, INTEGRATED_SUMMARY_NAME)
+    ensure_columns(verdict_df, VERDICT_REQUIRED_COLS, VERDICT_NAME)
     ensure_columns(evidence_summary_df, EVIDENCE_SUMMARY_REQUIRED_COLS, EVIDENCE_SUMMARY_NAME)
     ensure_columns(cause_summary_df, CAUSE_SUMMARY_REQUIRED_COLS, CAUSE_SUMMARY_NAME)
     if not final_decision_pack_df.empty:
@@ -589,9 +608,9 @@ def main(argv: list[str] | None = None) -> int:
             FINAL_DECISION_PACK_NAME,
         )
 
-    integrated_summary_row = first_row(integrated_summary_df, INTEGRATED_SUMMARY_NAME)
     evidence_summary_row = first_row(evidence_summary_df, EVIDENCE_SUMMARY_NAME)
     cause_summary_row = first_row(cause_summary_df, CAUSE_SUMMARY_NAME)
+    integrated_summary_row = build_stack_summary_row(verdict_df, evidence_summary_row)
 
     coverage_df = pd.DataFrame(
         coverage_rows(integrated_summary_row, evidence_summary_row, cause_summary_row)
