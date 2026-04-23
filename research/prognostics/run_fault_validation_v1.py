@@ -28,6 +28,7 @@ HEURISTIC_NAME = "panel_day_engine_cause_candidate_heuristics_v1.csv"
 OUTPUT_DIR_DEFAULT = REPO_ROOT / "outputs" / "validation"
 OUTPUT_CSV_NAME = "fault_validation_report_v1.csv"
 OUTPUT_MD_NAME = "fault_validation_report_v1.md"
+BACKFILL_RUNNER_PATH = REPO_ROOT / "app" / "run_backfill.py"
 
 CSV_COLS = [
     "case_id",
@@ -361,8 +362,8 @@ def build_surrogate_rows(
         tmp_root = Path(tmp_dir)
         on_result = run(
             [
-                "python",
-                "app/run_backfill.py",
+                sys.executable,
+                str(BACKFILL_RUNNER_PATH),
                 "--dry-run",
                 "--site",
                 "conalog",
@@ -371,7 +372,7 @@ def build_surrogate_rows(
                 "--end-date",
                 "2024-01-07",
                 "--input-root",
-                ".",
+                str(root),
                 "--output-root",
                 str(tmp_root / "on"),
                 "--gpvs-attach",
@@ -381,12 +382,12 @@ def build_surrogate_rows(
                 "--mode",
                 "operational",
             ],
-            cwd=root,
+            cwd=REPO_ROOT,
         )
         off_result = run(
             [
-                "python",
-                "app/run_backfill.py",
+                sys.executable,
+                str(BACKFILL_RUNNER_PATH),
                 "--dry-run",
                 "--site",
                 "conalog",
@@ -395,7 +396,7 @@ def build_surrogate_rows(
                 "--end-date",
                 "2024-01-07",
                 "--input-root",
-                ".",
+                str(root),
                 "--output-root",
                 str(tmp_root / "off"),
                 "--gpvs-attach",
@@ -405,7 +406,7 @@ def build_surrogate_rows(
                 "--mode",
                 "operational",
             ],
-            cwd=root,
+            cwd=REPO_ROOT,
         )
         if on_result.returncode != 0 or off_result.returncode != 0:
             raise SystemExit("backfill gpvs attach on/off dry-run fallback check failed")
