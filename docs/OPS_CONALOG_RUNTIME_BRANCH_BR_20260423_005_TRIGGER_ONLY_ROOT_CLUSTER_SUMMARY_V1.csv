@@ -1,0 +1,4 @@
+site,panel_root,panel_count,onset_min,onset_max,strict_min,strict_max,avg_qualified_secondary_count,review_tiers
+gangui,bf1a912f-6cf0-4f12-8e97-9d9d86576511,20,2025-06-29,2025-07-21,2025-10-27,2025-11-13,94.3,"review_persistent_secondary_only,review_supported_context"
+gangui,4fd0c566-e25e-4d51-96ca-57cc46940593,7,2025-07-14,2025-07-20,2025-11-11,2025-11-17,100.0,review_persistent_secondary_only
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9,3,2025-04-20,2025-07-07,2025-08-16,2025-10-26,60.3,review_supported_context
