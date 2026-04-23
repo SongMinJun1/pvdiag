@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260423-023` | `blocker_detail_review_packet_generated` | review packet generated for group_off and strict-trigger-proximal blocker details; no code or semantics change | adjudicate group_off cluster boundary and strict-proximal secondary-window evidence |
+| `BR-20260423-024` | `patch_gap_review_complete` | BR-023 packet ID order fixed and patch-chain gaps documented; no code or semantics change | choose tracked packet generator vs site_event review packet |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -35,6 +35,7 @@
 | `BR-20260423-021` | `shape_confidence_blocker_split_validated` | adds 3 shadow columns; old audit common columns, final verdict, and heuristic remain equal to BR-019; shape medium 136, low 9, blocker common_cause 138, backdating_risk 7 | no |
 | `BR-20260423-022` | `common_cause_blocker_detail_validated` | adds `group_off_history_flag` and blocker detail; BR-021 common columns/final verdict/heuristic remain equal; site_event 60, strict_trigger_proximal 49, group_off 28, subgroup_common_cause 1, backdating_risk 7 | no |
 | `BR-20260423-023` | `blocker_detail_review_packet_generated` | packet rows 77: group_off 28, strict_trigger_proximal 49; priority split P1 cluster false-positive 26, P1 strict-vs-secondary 43, P2 group 2, P2 strict 6 | no |
+| `BR-20260423-024` | `patch_gap_review_complete` | fixes BR-023 packet id order to `BR023-001..077`; records remaining gaps: tracked generator missing, site_event 60 not packeted, review priority is triage-only | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -66,10 +67,12 @@
 - BR-021 confirms no semantic drift: BR-019 old audit common columns equal `true`, raw-only final verdict equal `true`, raw-only heuristic equal `true`.
 - BR-022 keeps BR-021 old audit common columns equal `true` while splitting blocker details: `site_event=60`, `strict_trigger_proximal=49`, `group_off=28`, `subgroup_common_cause=1`, `backdating_risk=7`.
 - BR-023 is packet-only: `group_off=28` and `strict_trigger_proximal=49` are review rows, `subtype_production_write_allowed_sum=0`, and no runtime code changed.
+- BR-024 confirms BR-023 packet IDs are review handles only, not semantic ranks; after cleanup the packet opens at `BR023-001` and remains `subtype_production_write_allowed_sum=0`.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
 - use bucket-specific review packets before proposing any operator-facing event semantic change.
 - before any new production semantic patch, keep duration/gap/continuity/spatiality separated by fault-family threshold candidates.
 - adjudicate BR-023 `group_off` cluster boundaries and `strict_trigger_proximal` vs secondary-window evidence before any subtype promotion discussion.
+- before generating more packet branches, prefer a tracked packet generator or an exact one-shot reproduction script.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
