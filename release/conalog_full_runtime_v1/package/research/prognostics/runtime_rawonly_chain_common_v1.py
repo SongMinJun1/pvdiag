@@ -66,6 +66,9 @@ ALL_WARNING_COLS = PRIMARY_WARNING_COLS + SECONDARY_WARNING_COLS
 PRIMARY_WARNING_MAX_GAP_DAYS = 120
 SECONDARY_WARNING_MIN_GAP_DAYS = 7
 SECONDARY_WARNING_MAX_GAP_DAYS = 120
+DEGRADATION_ONSET_BACKDATE_GUARD_NAME = "G1_extreme_longgap_one_day"
+DEGRADATION_ONSET_BACKDATE_GUARD_MIN_GAP_DAYS = 30
+DEGRADATION_ONSET_BACKDATE_GUARD_MAX_DEGRADE_DAYS = 1
 
 
 @dataclass(frozen=True)
@@ -97,6 +100,10 @@ class PanelRuntimeMetrics:
     detailed_fault_code: str
     detailed_fault_label_ko: str
     gap_days: int
+    degradation_onset_backdate_guard_flag: bool
+    degradation_onset_backdate_guard_name: str
+    degradation_onset_backdate_guard_reason: str
+    degradation_onset_backdate_guard_degrade_days: int
     has_final_fault: bool
     has_critical_fault: bool
     has_fault_like: bool
@@ -238,6 +245,30 @@ def representative_row(panel_core: pd.DataFrame) -> pd.Series:
     return panel_core.sort_values("date").iloc[-1]
 
 
+def count_degradation_days_between(
+    panel_core: pd.DataFrame,
+    onset: pd.Timestamp | None,
+    strict_trigger: pd.Timestamp | None,
+) -> int:
+    if onset is None or strict_trigger is None or panel_core.empty or "date" not in panel_core.columns:
+        return 0
+
+    dates = pd.to_datetime(panel_core["date"], errors="coerce")
+    window_mask = dates.notna() & dates.ge(onset) & dates.le(strict_trigger)
+    if not window_mask.any():
+        return 0
+
+    degrade_mask = pd.Series(False, index=panel_core.index)
+    if "degraded_candidate" in panel_core.columns:
+        degrade_mask = truthy_mask(panel_core["degraded_candidate"])
+    subtype_mask = pd.Series(False, index=panel_core.index)
+    if "anom_subtype" in panel_core.columns:
+        subtype_mask = panel_core["anom_subtype"].astype(str).str.contains("degradation", case=False, na=False)
+
+    matched_dates = dates.loc[window_mask & (degrade_mask | subtype_mask)].dt.normalize().dropna()
+    return int(matched_dates.nunique())
+
+
 def choose_algorithm_family(
     representative_source: str,
     representative_subtype: str,
@@ -342,6 +373,26 @@ def compute_panel_metrics(
     if retrospective_onset is not None and strict_trigger is not None:
         gap_days = max(int((strict_trigger - retrospective_onset).days), 0)
 
+    degradation_guard_degrade_days = count_degradation_days_between(
+        panel_core,
+        retrospective_onset,
+        strict_trigger,
+    )
+    degradation_guard_flag = (
+        earliest_marker == "anom_subtype:degradation"
+        and gap_days >= DEGRADATION_ONSET_BACKDATE_GUARD_MIN_GAP_DAYS
+        and degradation_guard_degrade_days <= DEGRADATION_ONSET_BACKDATE_GUARD_MAX_DEGRADE_DAYS
+    )
+    degradation_guard_reason = ""
+    if degradation_guard_flag:
+        degradation_guard_reason = (
+            f"{DEGRADATION_ONSET_BACKDATE_GUARD_NAME}: "
+            f"onset_method=anom_subtype:degradation, gap_days>="
+            f"{DEGRADATION_ONSET_BACKDATE_GUARD_MIN_GAP_DAYS}, "
+            f"degrade_days_between_onset_and_strict<="
+            f"{DEGRADATION_ONSET_BACKDATE_GUARD_MAX_DEGRADE_DAYS}"
+        )
+
     precursor_flag = int(fault_status == "고장" and retrospective_onset is not None)
     abrupt_flag = int(fault_status == "고장" and not precursor_flag)
     precursor_eval_flag = precursor_flag
@@ -424,6 +475,12 @@ def compute_panel_metrics(
         detailed_fault_code=detailed_code,
         detailed_fault_label_ko=detailed_label,
         gap_days=gap_days,
+        degradation_onset_backdate_guard_flag=degradation_guard_flag,
+        degradation_onset_backdate_guard_name=(
+            DEGRADATION_ONSET_BACKDATE_GUARD_NAME if degradation_guard_flag else ""
+        ),
+        degradation_onset_backdate_guard_reason=degradation_guard_reason,
+        degradation_onset_backdate_guard_degrade_days=degradation_guard_degrade_days,
         has_final_fault=has_final,
         has_critical_fault=has_critical,
         has_fault_like=has_fault_like,
