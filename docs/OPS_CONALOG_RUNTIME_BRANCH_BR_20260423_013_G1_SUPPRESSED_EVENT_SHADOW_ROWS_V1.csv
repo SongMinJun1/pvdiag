@@ -1,0 +1,8 @@
+site,panel_id,retrospective_onset_date,strict_trigger_date,gap_days,사건유형_재판정_ko,최종고장양상_재판정_ko,g1_suppressed_event_shadow_event_type_if_applied_ko,g1_suppressed_event_shadow_final_pattern_if_applied_ko,g1_suppressed_event_shadow_transition_class,promotion_decision_bucket,strict_trigger_proximal_common_cause_flag,site_event_history_flag,subgroup_common_cause_history_flag
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,2025-01-29,2025-10-26,270,전조형 고장,진행성 악화,급작 고장,급작 발생,전조형 고장 -> 급작 고장,backdate_suppression_candidate,1,1,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,2025-01-29,2025-10-26,270,전조형 고장,진행성 악화,급작 고장,급작 발생,전조형 고장 -> 급작 고장,backdate_suppression_candidate,1,1,0
+ktc_ess,e089076c-92c1-4365-8641-2182b4f274e6.1.9,2024-11-29,2025-02-12,75,전조형 고장,진행성 악화,급작 고장,급작 발생,전조형 고장 -> 급작 고장,backdate_suppression_candidate,0,1,1
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,2025-01-29,2025-10-26,270,전조형 고장,진행성 악화,급작 고장,급작 발생,전조형 고장 -> 급작 고장,backdate_suppression_candidate,1,1,1
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,2025-01-29,2025-10-26,270,전조형 고장,진행성 악화,급작 고장,급작 발생,전조형 고장 -> 급작 고장,backdate_suppression_candidate,1,1,1
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,2025-01-29,2025-10-26,270,전조형 고장,진행성 악화,급작 고장,급작 발생,전조형 고장 -> 급작 고장,backdate_suppression_candidate,1,1,1
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,2025-01-29,2025-10-26,270,전조형 고장,진행성 악화,급작 고장,급작 발생,전조형 고장 -> 급작 고장,backdate_suppression_candidate,1,1,1
