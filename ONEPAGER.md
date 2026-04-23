@@ -11,6 +11,9 @@
   - 예: onset 기준 리드타임, alert concentration(집중도), list diversity(다양성)
   - 목적: 모델 비교 및 보고
 
+### degradation onset fallback guard
+- `degradation onset fallback`은 아직 판정 규칙을 바꾸지 않고, `G1_extreme_longgap_one_day` 조건을 raw-only audit shadow flag로만 기록한다. 목적은 long-gap one-day degradation backdating 후보를 추적하되 `전조형/급작` 사건유형을 즉시 흔들지 않기 위함이다.
+
 ### 순위 비교 지표 공통 적용 원칙
 - leadtime, 경보 집중도(alert concentration), 리스트 다양성(list diversity)은 **순위 비교 지표**다.
 - 이 지표들은 특정 랭킹 하나에만 종속되지 않으며 `risk_day`, `level_drop`, `ae_rank`, `transition_rank_day` 등 어떤 순위에도 동일하게 적용한다.
