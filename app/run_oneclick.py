@@ -16,10 +16,6 @@ DAILY_REPORT_BUILDER = REPO_ROOT / "research/prognostics/build_daily_report_v1.p
 LATEST_DIRNAME = "latest"
 RUNTIME_LOG_NAME = "runtime_log_v1.jsonl"
 FAILURE_LOG_NAME = "failure_log_v1.jsonl"
-FROZEN_EXPORTS = {
-    "integrated_result_table_v1.csv": REPO_ROOT / "_share/panel_day_engine_integrated_result_table_v1.csv",
-    "integrated_result_summary_v1.csv": REPO_ROOT / "_share/panel_day_engine_integrated_result_summary_v1.csv",
-}
 EXPERIMENTAL_EXPORTS = {
     "gpvs_evidence_pack_v1.csv": REPO_ROOT / "_share/panel_day_engine_gpvs_evidence_pack_v1.csv",
     "cause_candidate_heuristics_v1.csv": REPO_ROOT / "_share/panel_day_engine_cause_candidate_heuristics_v1.csv",
@@ -121,16 +117,13 @@ def validate_foundations(input_root: Path, output_root: Path, config_path: Path)
         raise FileNotFoundError(f"missing config: {config_path}")
     parse_simple_yaml(config_path)
     output_root.mkdir(parents=True, exist_ok=True)
-    for path in FROZEN_EXPORTS.values():
-        if not path.exists():
-            raise FileNotFoundError(f"missing frozen export dependency: {path}")
 
 
 def build_plan(args: argparse.Namespace) -> dict[str, object]:
     latest_output_dir = latest_dir(args.output_root.expanduser())
     steps = [
         "stable conalog runtime wrapper 실행",
-        "frozen integrated result snapshot export 복사",
+        "stable latest output 구조 유지",
     ]
     if args.include_experimental == "on":
         steps.append("experimental/reference snapshot export 복사")
@@ -212,13 +205,16 @@ def record_failure(
         write_json(paths["plan"], failed_plan)
 
 
-def copy_exports(target_latest_dir: Path, include_experimental: str) -> None:
+def copy_exports(target_latest_dir: Path, include_experimental: str) -> list[str]:
     target_latest_dir.mkdir(parents=True, exist_ok=True)
-    for target_name, source_path in FROZEN_EXPORTS.items():
-        shutil.copy2(source_path, target_latest_dir / target_name)
+    optional_missing: list[str] = []
     if include_experimental == "on":
         for target_name, source_path in EXPERIMENTAL_EXPORTS.items():
-            shutil.copy2(source_path, target_latest_dir / target_name)
+            if source_path.exists():
+                shutil.copy2(source_path, target_latest_dir / target_name)
+                continue
+            optional_missing.append(target_name)
+    return optional_missing
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -320,7 +316,8 @@ def main(argv: list[str] | None = None) -> int:
         print(operator_message, file=sys.stderr)
         return 1
 
-    copy_exports(latest_output_dir, args.include_experimental)
+    optional_missing = copy_exports(latest_output_dir, args.include_experimental)
+    plan["optional_missing_exports"] = optional_missing
 
     if args.report == "on":
         report_result = run(
@@ -348,7 +345,11 @@ def main(argv: list[str] | None = None) -> int:
         level="info",
         status="completed",
         message_ko="one-click orchestration 완료",
-        extra={"include_experimental": args.include_experimental, "report": args.report},
+        extra={
+            "include_experimental": args.include_experimental,
+            "report": args.report,
+            "optional_missing_exports": optional_missing,
+        },
     )
     write_json(paths["plan"], plan)
     print(
@@ -358,6 +359,7 @@ def main(argv: list[str] | None = None) -> int:
                 "latest_dir": str(latest_output_dir),
                 "include_experimental": args.include_experimental,
                 "report": args.report,
+                "optional_missing_exports": optional_missing,
             },
             ensure_ascii=False,
         )

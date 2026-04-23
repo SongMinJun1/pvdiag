@@ -20,16 +20,12 @@ LATEST_FILES = {
     "runtime_log": "runtime_log_v1.jsonl",
     "failure_log": "failure_log_v1.jsonl",
     "reference_sidecar": "conalog_reference_sidecar_v1.csv",
-    "integrated_table": "integrated_result_table_v1.csv",
-    "integrated_summary": "integrated_result_summary_v1.csv",
     "gpvs_evidence_pack": "gpvs_evidence_pack_v1.csv",
     "cause_candidate_heuristics": "cause_candidate_heuristics_v1.csv",
     "daily_report": "daily_report_v1.md",
 }
 
 FALLBACK_FILES = {
-    "integrated_table": REPO_ROOT / "_share/panel_day_engine_integrated_result_table_v1.csv",
-    "integrated_summary": REPO_ROOT / "_share/panel_day_engine_integrated_result_summary_v1.csv",
     "gpvs_evidence_pack": REPO_ROOT / "_share/panel_day_engine_gpvs_evidence_pack_v1.csv",
     "gpvs_evidence_summary": REPO_ROOT / "_share/panel_day_engine_gpvs_evidence_summary_v1.csv",
     "cause_candidate_heuristics": REPO_ROOT / "_share/panel_day_engine_cause_candidate_heuristics_v1.csv",
@@ -120,11 +116,11 @@ def site_summary_text(site_summary_df: pd.DataFrame | None, source_label: str) -
 
 
 def count_summary(
-    integrated_summary_df: pd.DataFrame | None,
+    site_summary_df: pd.DataFrame | None,
     panel_result_df: pd.DataFrame | None,
 ) -> tuple[str, str, str]:
-    if integrated_summary_df is not None and not integrated_summary_df.empty:
-        row = integrated_summary_df.iloc[0]
+    if site_summary_df is not None and not site_summary_df.empty:
+        row = site_summary_df.iloc[0]
         return (
             normalize_text(row.get("total_panel_count", "")),
             normalize_text(row.get("fault_panel_count", "")),
@@ -137,12 +133,9 @@ def count_summary(
     return "미확인", "미확인", "미확인"
 
 
-def conalog_distribution_text(panel_result_df: pd.DataFrame | None, integrated_table_df: pd.DataFrame | None, source_label: str) -> str:
+def conalog_distribution_text(panel_result_df: pd.DataFrame | None, source_label: str) -> str:
     source_df = panel_result_df
     family_col = "conalog_원인군_ko"
-    if source_df is None or source_df.empty:
-        source_df = integrated_table_df
-        family_col = "커널로그_원인군_ko"
     if source_df is None or source_df.empty or family_col not in source_df.columns:
         return "- conalog fault-family distribution 입력이 없어 section을 placeholder로 둠"
     counts = source_df[family_col].map(normalize_text).replace("", "미기재").value_counts().to_dict()
@@ -151,17 +144,7 @@ def conalog_distribution_text(panel_result_df: pd.DataFrame | None, integrated_t
     return format_bullets(rows, "conalog family 분포 없음")
 
 
-def gpvs_usage_text(integrated_summary_df: pd.DataFrame | None, gpvs_summary_df: pd.DataFrame | None) -> str:
-    if integrated_summary_df is not None and not integrated_summary_df.empty:
-        row = integrated_summary_df.iloc[0]
-        return format_bullets(
-            [
-                f"core reference={normalize_text(row.get('gpvs_core_reference_count', ''))}",
-                f"auxiliary reference={normalize_text(row.get('gpvs_auxiliary_reference_count', ''))}",
-                f"not used={normalize_text(row.get('gpvs_not_used_count', ''))}",
-            ],
-            "GPVS usage summary 없음",
-        )
+def gpvs_usage_text(gpvs_summary_df: pd.DataFrame | None) -> str:
     if gpvs_summary_df is not None and not gpvs_summary_df.empty:
         row = gpvs_summary_df.iloc[0]
         return format_bullets(
@@ -176,10 +159,10 @@ def gpvs_usage_text(integrated_summary_df: pd.DataFrame | None, gpvs_summary_df:
     return "- GPVS usage summary 입력이 없어 section을 placeholder로 둠"
 
 
-def suspected_cause_text(integrated_table_df: pd.DataFrame | None, cause_summary_df: pd.DataFrame | None) -> str:
-    if integrated_table_df is not None and not integrated_table_df.empty and "1순위_의심원인_ko" in integrated_table_df.columns:
+def suspected_cause_text(heuristic_df: pd.DataFrame | None, cause_summary_df: pd.DataFrame | None) -> str:
+    if heuristic_df is not None and not heuristic_df.empty and "원인후보_top1_ko" in heuristic_df.columns:
         counts = (
-            integrated_table_df["1순위_의심원인_ko"]
+            heuristic_df["원인후보_top1_ko"]
             .map(normalize_text)
             .loc[lambda s: s.ne("")]
             .value_counts()
@@ -202,10 +185,8 @@ def suspected_cause_text(integrated_table_df: pd.DataFrame | None, cause_summary
     return "- suspected-cause distribution 입력이 없어 section을 placeholder로 둠"
 
 
-def new_fault_panels_text(panel_result_df: pd.DataFrame | None, integrated_table_df: pd.DataFrame | None) -> str:
+def new_fault_panels_text(panel_result_df: pd.DataFrame | None) -> str:
     source_df = panel_result_df
-    if source_df is None or source_df.empty:
-        source_df = integrated_table_df
     if source_df is None or source_df.empty:
         return "- 신규 fault panel 입력이 없어 placeholder 로 둠"
     if "패널고장여부_ko" not in source_df.columns:
@@ -219,7 +200,7 @@ def new_fault_panels_text(panel_result_df: pd.DataFrame | None, integrated_table
         panel_id = normalize_text(row.get("panel_id"))
         event_type = normalize_text(row.get("사건유형_ko"))
         terminal = normalize_text(row.get("최종고장양상_ko"))
-        family = normalize_text(row.get("conalog_원인군_ko") or row.get("커널로그_원인군_ko"))
+        family = normalize_text(row.get("conalog_원인군_ko"))
         rows.append(f"{site}/{panel_id}: {event_type} / {terminal} / {family}")
     return format_bullets(rows, "신규 fault panel 없음")
 
@@ -227,7 +208,7 @@ def new_fault_panels_text(panel_result_df: pd.DataFrame | None, integrated_table
 def interpretation_notes(
     metadata: dict[str, object] | None,
     has_reference_sidecar: bool,
-    integrated_source: str,
+    panel_source: str,
 ) -> str:
     rows = [
         "panel multiaxis verdict 를 primary 로 읽어야 함",
@@ -242,7 +223,7 @@ def interpretation_notes(
             rows.append(f"runtime mode={runtime_mode}")
         if run_status:
             rows.append(f"runtime status={run_status}")
-    rows.append(f"integrated result source={integrated_source}")
+    rows.append(f"panel result source={panel_source}")
     rows.append(
         "reference sidecar 사용 가능"
         if has_reference_sidecar
@@ -270,13 +251,9 @@ def main(argv: list[str] | None = None) -> None:
 
     panel_result_df, panel_source = choose_frame(latest_root / LATEST_FILES["panel_result"])
     site_summary_df, site_summary_source = choose_frame(latest_root / LATEST_FILES["site_summary"])
-    integrated_table_df, integrated_source = choose_frame(
-        latest_root / LATEST_FILES["integrated_table"],
-        FALLBACK_FILES["integrated_table"],
-    )
-    integrated_summary_df, _ = choose_frame(
-        latest_root / LATEST_FILES["integrated_summary"],
-        FALLBACK_FILES["integrated_summary"],
+    heuristic_df, heuristic_source = choose_frame(
+        latest_root / LATEST_FILES["cause_candidate_heuristics"],
+        FALLBACK_FILES["cause_candidate_heuristics"],
     )
     gpvs_summary_df = read_optional_csv(FALLBACK_FILES["gpvs_evidence_summary"])
     cause_summary_df = read_optional_csv(FALLBACK_FILES["cause_candidate_summary"])
@@ -285,7 +262,7 @@ def main(argv: list[str] | None = None) -> None:
     has_reference_sidecar = (latest_root / LATEST_FILES["reference_sidecar"]).exists()
 
     total_panel_count, fault_panel_count, non_fault_or_unresolved_count = count_summary(
-        integrated_summary_df,
+        site_summary_df,
         panel_result_df,
     )
 
@@ -295,16 +272,12 @@ def main(argv: list[str] | None = None) -> None:
         "total_panel_count": total_panel_count,
         "fault_panel_count": fault_panel_count,
         "non_fault_or_unresolved_count": non_fault_or_unresolved_count,
-        "conalog_fault_family_distribution": conalog_distribution_text(
-            panel_result_df,
-            integrated_table_df,
-            panel_source if panel_source == "latest" else integrated_source,
-        ),
-        "gpvs_usage_summary": gpvs_usage_text(integrated_summary_df, gpvs_summary_df),
-        "suspected_cause_distribution": suspected_cause_text(integrated_table_df, cause_summary_df),
-        "new_fault_panel_list": new_fault_panels_text(panel_result_df, integrated_table_df),
+        "conalog_fault_family_distribution": conalog_distribution_text(panel_result_df, panel_source),
+        "gpvs_usage_summary": gpvs_usage_text(gpvs_summary_df),
+        "suspected_cause_distribution": suspected_cause_text(heuristic_df, cause_summary_df),
+        "new_fault_panel_list": new_fault_panels_text(panel_result_df),
         "day_over_day_changes": "- 전일 baseline 비교 입력이 현재 foundation 경로에는 없어 placeholder 로 둠",
-        "interpretation_notes": interpretation_notes(metadata, has_reference_sidecar, integrated_source),
+        "interpretation_notes": interpretation_notes(metadata, has_reference_sidecar, panel_source if panel_source else heuristic_source),
         "error_summary": error_summary_text(failure_rows),
     }
 
