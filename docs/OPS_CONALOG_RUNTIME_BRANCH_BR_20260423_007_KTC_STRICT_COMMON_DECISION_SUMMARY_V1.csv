@@ -1,0 +1,7 @@
+metric,value,note
+ktc_strict_common_candidate_panels,2,BR-006 supported-context subset with strict_common_cause
+auto_promotion_panels,0,no operator-facing promotion from BR-007
+hold_shadow_only_panels,2,all retained as shadow/manual review
+panels_with_zero_signal_count_sum,2,retained daily slice signal_count is zero
+panels_with_selected_marker_dtw,2,selected onset marker is DTW prealarm
+panels_with_fault_like_terminal_evidence,2,terminal fault-like evidence before strict trigger
