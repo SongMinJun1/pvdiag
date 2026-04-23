@@ -1,0 +1,10 @@
+metric,value,note
+preview_panel_rows,7,G1 shadow rows with preview-only operator-facing semantic changes
+site_ktc_ess_rows,7,all preview rows are ktc_ess
+semantic_transition_precursor_to_sudden_rows,7,all preview rows move from precursor to sudden if approved
+strict_trigger_proximal_common_cause_rows,6,strict trigger context overlap
+site_event_history_rows,7,site event context overlap
+subgroup_common_cause_history_rows,5,subgroup context overlap
+changed_output_cells,91,long-form diff cells that would change in the preview
+changed_output_columns,13,distinct final-verdict output columns touched by preview
+production_output_written,0,preview only; no runtime/final verdict file is modified
