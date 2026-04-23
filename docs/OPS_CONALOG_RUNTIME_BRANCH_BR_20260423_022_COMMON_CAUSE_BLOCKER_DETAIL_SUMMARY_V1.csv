@@ -1,0 +1,18 @@
+﻿site,subtype_promotion_blocker_shadow,subtype_promotion_blocker_detail_shadow,fault_family_hypothesis_shadow_ko,fault_subtype_hypothesis_shadow_ko,subtype_shape_confidence_shadow,panel_count,site_event_count,group_off_count,subgroup_common_cause_count,strict_trigger_proximal_count,warning_proximal_count,trigger_proximal_count
+ktc_ess,backdating_risk,backdating_risk,열화·오염·음영 계열,장기 gap 단일 저하 보류형,low,7,7,0,5,6,1,7
+gangui,common_cause,group_off,다이오드·서브스트링 계열,bypass diode 동작·고장 의심형,medium,7,0,7,0,0,0,0
+gangui,common_cause,group_off,열화·오염·음영 계열,일시 환경 episode형,low,1,0,1,0,0,0,0
+gangui,common_cause,group_off,접속 불량·부분 개방 계열,간헐 접촉저항형,medium,20,0,20,0,0,7,7
+conalog,common_cause,site_event,다이오드·서브스트링 계열,bypass diode 동작·고장 의심형,medium,6,6,0,0,0,0,0
+conalog,common_cause,site_event,접속 불량·부분 개방 계열,간헐 접촉저항형,medium,28,28,0,26,26,0,26
+gangui,common_cause,site_event,다이오드·서브스트링 계열,bypass diode 동작·고장 의심형,medium,4,4,4,0,0,1,1
+gangui,common_cause,site_event,접속 불량·부분 개방 계열,부분 개방 진행형,medium,1,1,0,0,0,0,0
+ktc_ess,common_cause,site_event,다이오드·서브스트링 계열,bypass diode 동작·고장 의심형,medium,2,2,0,0,0,0,0
+ktc_ess,common_cause,site_event,열화·오염·음영 계열,누적 오염·열화형,medium,8,8,0,8,5,3,8
+ktc_ess,common_cause,site_event,외부계통·공통원인 계열,site-wide grid/inverter 교란형,medium,11,11,0,5,5,2,6
+conalog,common_cause,strict_trigger_proximal,접속 불량·부분 개방 계열,간헐 접촉저항형,medium,38,0,0,38,38,0,38
+gangui,common_cause,strict_trigger_proximal,다이오드·서브스트링 계열,bypass diode 동작·고장 의심형,medium,6,0,6,6,6,2,6
+gangui,common_cause,strict_trigger_proximal,열화·오염·음영 계열,누적 오염·열화형,medium,2,0,2,1,2,0,2
+gangui,common_cause,strict_trigger_proximal,열화·오염·음영 계열,일시 환경 episode형,low,1,0,1,1,1,0,1
+gangui,common_cause,strict_trigger_proximal,접속 불량·부분 개방 계열,간헐 접촉저항형,medium,2,0,2,1,2,0,2
+gangui,common_cause,subgroup_common_cause,접속 불량·부분 개방 계열,부분 개방 진행형,medium,1,0,1,1,0,0,0

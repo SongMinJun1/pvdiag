@@ -1,0 +1,38 @@
+{
+  "branch": "BR-20260423-022",
+  "scope": "audit/shadow only common-cause blocker detail split",
+  "fresh_tri_site_output_root": "/private/tmp/br022_tri_site_v1",
+  "br021_reference_output_root": "/private/tmp/br021_tri_site_v1",
+  "audit_rows": 766,
+  "audit_columns": 74,
+  "subtype_shadow_populated_rows": 145,
+  "subtype_production_write_allowed_sum": 0,
+  "shape_confidence_counts": {
+    "low": 9,
+    "medium": 136
+  },
+  "promotion_blocker_counts": {
+    "backdating_risk": 7,
+    "common_cause": 138
+  },
+  "promotion_blocker_detail_counts": {
+    "backdating_risk": 7,
+    "group_off": 28,
+    "site_event": 60,
+    "strict_trigger_proximal": 49,
+    "subgroup_common_cause": 1
+  },
+  "legacy_confidence_counts": {
+    "hold": 145
+  },
+  "audit_old_common_columns_count": 72,
+  "audit_old_common_columns_equal_to_br021": true,
+  "new_audit_columns": [
+    "group_off_history_flag",
+    "subtype_promotion_blocker_detail_shadow"
+  ],
+  "raw_only_final_verdict_equal_to_br021": true,
+  "raw_only_heuristic_equal_to_br021": true,
+  "engine_core_shadow_compare_all_match": true,
+  "decision": "safe to merge as evidence-layer blocker-detail refinement; no production semantics changed"
+}
