@@ -1,0 +1,7 @@
+﻿axis,feature,promote_candidate,hold_or_block,reason_ko
+duration,episode_signal_days,">=2 for degradation/diode, >=2 recurrences for open-connection",1 day only,하루짜리 이상은 전조 시작일로 쓰기엔 방어가 약함
+gap,gap_days_to_strict,7<=gap<=120,">120 for onset promotion, especially one-day degradation",long-gap은 연결성 검증 없이는 backdating 과대평가 위험
+continuity,mid_ratio_normal_between_share,intermediate abnormal recurrence exists,median mid_ratio near 1.0 and no recurrence,중간 대부분 정상이면 전조 흐름이 끊긴 것으로 봄
+severity,low_mid_ratio_days,mid_ratio<0.6 repeated >=2 or fault_like proximity,single low day followed by recovery,심각도는 반복/연결성과 같이 봐야 함
+spatiality,same_day_site_event_count,low site/root simultaneity,site event_A>=20 or subgroup_common_cause=1 or group_event_fraction>=0.3,동시 다발은 개별 패널 전조 승격 전에 공통원인 episode로 분리
+family_specific,vi_ratio_shape,diode: mid_v>=0.85 & mid_i<=0.65 repeated; degradation: repeated low mid; open: recurrent abrupt drop,family pattern mismatch or single isolated event,고장 family마다 전조다운 모양이 다름

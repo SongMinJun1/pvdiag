@@ -1,0 +1,9 @@
+﻿episode_class_shadow,precursor_promotion_shadow_decision,fault_family_hypothesis_shadow_ko,panel_count
+manual_review_episode,manual_review,개방/장치이상형,65
+common_cause_episode_hold,block_individual_precursor,외부계통·공통원인 계열,42
+manual_review_episode,manual_review,모듈손상형,14
+intermittent_precursor_candidate,manual_review_candidate,접속 불량·부분 개방 계열,9
+long_gap_one_day_episode_hold,block_precursor_backdating,열화·오염·음영 계열 후보 보류,6
+sudden_fault_strict_anchor,no_precursor_promotion,strict trigger anchored sudden fault,5
+manual_review_episode,manual_review,불충분,3
+measurement_or_transient_episode,hold_episode_only,센서·계측 피드백 계열 후보,1
