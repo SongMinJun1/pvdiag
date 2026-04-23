@@ -1,0 +1,25 @@
+{
+  "branch_id": "BR-20260423-019",
+  "run_root": "/private/tmp/br019_tri_site_v3",
+  "raw_only_status": "completed",
+  "audit_rows": 766,
+  "audit_columns": 69,
+  "subtype_shadow_columns": [
+    "fault_family_hypothesis_shadow_ko",
+    "fault_subtype_hypothesis_shadow_ko",
+    "subtype_evidence_tags",
+    "subtype_confidence_shadow",
+    "subtype_hold_reason_ko",
+    "subtype_production_write_allowed"
+  ],
+  "subtype_shadow_populated_rows": 145,
+  "subtype_production_write_allowed_sum": 0,
+  "subtype_confidence_counts": {
+    "hold": 145
+  },
+  "old_audit_common_columns_equal_to_br017": true,
+  "raw_only_final_verdict_equal_to_br017": true,
+  "raw_only_heuristic_equal_to_br017": true,
+  "engine_core_compare_all_match": true,
+  "note": "BR-019 adds subtype hypothesis shadow columns only; production verdict semantics remain unchanged."
+}
