@@ -1,0 +1,9 @@
+review_priority,promotion_decision_bucket,site,panel_count,root_cluster_count,avg_current_gap_days,max_current_gap_days,avg_secondary_selected_gap_days,max_secondary_selected_gap_days,avg_secondary_qualified_count,strict_common_count,site_event_count,recommended_action
+1,hold_shadow_only,ktc_ess,2,1,0.0,0,115.5,120,66.0,2,2,keep_shadow_until_raw_support
+2,manual_review,gangui,1,1,0.0,0,120.0,120,648.0,0,1,raw_audit_trace_review
+2,manual_review,ktc_ess,1,1,0.0,0,118.0,118,43.0,0,1,raw_audit_trace_review
+3,backdate_suppression_candidate,ktc_ess,7,3,242.1,270,119.1,120,169.0,6,7,suppression_guard_review
+4,blocked_cluster_risk,gangui,26,2,0.0,0,118.4,120,73.0,0,0,counterexample_cluster_review
+5,audit_provenance_only,conalog,58,5,30.6,75,30.6,75,30.2,55,23,provenance_note_no_action
+5,audit_provenance_only,gangui,10,2,2.1,7,117.7,120,69.4,8,0,provenance_note_no_action
+5,audit_provenance_only,ktc_ess,7,4,54.1,109,94.6,118,123.9,1,7,provenance_note_no_action
