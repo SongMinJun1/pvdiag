@@ -1,0 +1,13 @@
+﻿table_name,site,panel_id,output_column,before_value,after_value
+raw_only_chain_fault_result,ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,사건유형_ko,전조형 고장,급작 고장
+raw_only_chain_fault_result,ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,사건유형_ko,전조형 고장,급작 고장
+raw_only_chain_fault_result,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,사건유형_ko,전조형 고장,급작 고장
+raw_only_chain_fault_result,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,사건유형_ko,전조형 고장,급작 고장
+raw_only_chain_fault_result,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,사건유형_ko,전조형 고장,급작 고장
+raw_only_chain_fault_result,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,사건유형_ko,전조형 고장,급작 고장
+raw_only_chain_fault_result,ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,최종고장양상_ko,진행성 악화,급작 발생
+raw_only_chain_fault_result,ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,최종고장양상_ko,진행성 악화,급작 발생
+raw_only_chain_fault_result,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,최종고장양상_ko,진행성 악화,급작 발생
+raw_only_chain_fault_result,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,최종고장양상_ko,진행성 악화,급작 발생
+raw_only_chain_fault_result,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,최종고장양상_ko,진행성 악화,급작 발생
+raw_only_chain_fault_result,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,최종고장양상_ko,진행성 악화,급작 발생

@@ -139,6 +139,17 @@ def score_row(row: dict[str, object]) -> tuple[dict[str, int], list[str]]:
     family = common.normalize_text(row.get("커널로그_원인군_ko"))
     event_type = common.normalize_text(row.get("사건유형_ko"))
     terminal = common.normalize_text(row.get("최종고장양상_ko"))
+    temporal_event_type = event_type
+    temporal_terminal = terminal
+    if int(row.get("g1_suppressed_event_guard_applied_flag") or 0):
+        temporal_event_type = (
+            common.normalize_text(row.get("g1_suppressed_event_shadow_current_event_type_ko"))
+            or event_type
+        )
+        temporal_terminal = (
+            common.normalize_text(row.get("g1_suppressed_event_shadow_current_final_pattern_ko"))
+            or terminal
+        )
     source = common.normalize_text(row.get("대표critical_source"))
     subtype = common.normalize_text(row.get("대표anom_subtype"))
 
@@ -146,10 +157,12 @@ def score_row(row: dict[str, object]) -> tuple[dict[str, int], list[str]]:
         scores[candidate] += weight
     notes.append(f"family={family or 'blank'}")
 
-    for candidate, weight in TEMPORAL_RULES.get((event_type, terminal), {}).items():
+    for candidate, weight in TEMPORAL_RULES.get((temporal_event_type, temporal_terminal), {}).items():
         scores[candidate] += weight
-    if event_type or terminal:
-        notes.append(f"temporal={event_type}/{terminal}")
+    if temporal_event_type or temporal_terminal:
+        notes.append(f"temporal={temporal_event_type}/{temporal_terminal}")
+    if int(row.get("g1_suppressed_event_guard_applied_flag") or 0):
+        notes.append("g1_guard_temporal_basis=pre_guard")
 
     for candidate, weight in SOURCE_RULES.get(source, {}).items():
         scores[candidate] += weight

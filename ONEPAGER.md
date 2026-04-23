@@ -12,7 +12,10 @@
   - 목적: 모델 비교 및 보고
 
 ### degradation onset fallback guard
-- `degradation onset fallback`은 아직 판정 규칙을 바꾸지 않고, `G1_extreme_longgap_one_day` 조건을 raw-only audit shadow flag로만 기록한다. 목적은 long-gap one-day degradation backdating 후보를 추적하되 `전조형/급작` 사건유형을 즉시 흔들지 않기 위함이다.
+- `degradation onset fallback`은 `G1_extreme_longgap_one_day` 조건으로 long-gap one-day degradation backdating 후보를 추적한다.
+- BR-016부터는 `g1_suppressed_event_shadow_flag=1`이면서 `strict_trigger_proximal_common_cause_flag=1`인 6건에 한해 raw-only runtime final verdict의 사건 semantics를 `전조형 고장 -> 급작 고장`으로 적용한다.
+- strict-trigger 근접 common-cause support가 없는 1건은 hold-review로 남겨 첫 semantic patch에서 제외한다.
+- 이 guard는 전조 승격 규칙이 아니라, 과도한 retrospective degradation onset backdating을 억제하는 규칙이다.
 
 ### 순위 비교 지표 공통 적용 원칙
 - leadtime, 경보 집중도(alert concentration), 리스트 다양성(list diversity)은 **순위 비교 지표**다.

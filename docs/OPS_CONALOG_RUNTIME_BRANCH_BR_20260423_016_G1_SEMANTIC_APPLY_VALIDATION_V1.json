@@ -1,0 +1,44 @@
+{
+  "branch_id": "BR-20260423-016",
+  "baseline_output_root": "/private/tmp/br016_baseline_tri_site_v1",
+  "after_output_root": "/private/tmp/br016_after3_tri_site_v1",
+  "g1_shadow_rows": 7,
+  "g1_guard_applied_rows": 6,
+  "g1_hold_review_rows": 1,
+  "hold_panel_ids": [
+    "e089076c-92c1-4365-8641-2182b4f274e6.1.9"
+  ],
+  "runtime_final_changed_rows": 6,
+  "runtime_final_changed_columns": [
+    "급작고장이력_flag",
+    "급작평가셋편입_flag",
+    "대표판정_ko",
+    "사건유형_ko",
+    "사건유형_해석_ko",
+    "사건이력_ko",
+    "사건해석상전조시작일",
+    "순수급작_flag",
+    "운영최초전조마커",
+    "운영최초전조발견일",
+    "전조평가셋편입_flag",
+    "전조형이력_flag",
+    "전조흔적_flag",
+    "최종고장양상_ko"
+  ],
+  "runtime_final_changed_cells": 84,
+  "runtime_final_expected_columns_match": true,
+  "raw_only_chain_fault_changed_rows": 6,
+  "raw_only_chain_fault_changed_columns": [
+    "사건유형_ko",
+    "최종고장양상_ko"
+  ],
+  "heuristic_changed_rows": 6,
+  "heuristic_changed_columns": [
+    "사건유형_ko",
+    "원인후보_해석메모_ko",
+    "최종고장양상_ko"
+  ],
+  "heuristic_top_candidate_rank_drift_rows": 0,
+  "published_raw_only_current_changed_rows": 0,
+  "production_strict_current_changed_rows": 0
+}
