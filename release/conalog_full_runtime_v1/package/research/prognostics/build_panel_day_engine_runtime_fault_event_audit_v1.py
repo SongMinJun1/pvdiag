@@ -83,6 +83,9 @@ AUDIT_COLS = [
     "fault_subtype_hypothesis_shadow_ko",
     "subtype_evidence_tags",
     "subtype_confidence_shadow",
+    "subtype_shape_confidence_shadow",
+    "subtype_promotion_blocker_shadow",
+    "subtype_promotion_blocker_reason_ko",
     "subtype_hold_reason_ko",
     "subtype_production_write_allowed",
 ]
@@ -117,6 +120,16 @@ SUMMARY_COLS = [
     "subtype_confidence_medium_패널수",
     "subtype_confidence_low_패널수",
     "subtype_confidence_hold_패널수",
+    "subtype_shape_confidence_high_패널수",
+    "subtype_shape_confidence_medium_패널수",
+    "subtype_shape_confidence_low_패널수",
+    "subtype_shape_confidence_hold_패널수",
+    "subtype_promotion_blocker_common_cause_패널수",
+    "subtype_promotion_blocker_insufficient_recurrence_패널수",
+    "subtype_promotion_blocker_backdating_risk_패널수",
+    "subtype_promotion_blocker_measurement_quality_패널수",
+    "subtype_promotion_blocker_insufficient_evidence_패널수",
+    "subtype_promotion_blocker_none_패널수",
     "subtype_production_write_allowed_sum",
     "note_ko",
 ]
@@ -152,19 +165,41 @@ def subtype_shadow_row(metrics: common.PanelRuntimeMetrics) -> dict[str, object]
         confidence: str,
         hold_reason: str,
         tags: list[str],
+        shape_confidence: str | None = None,
+        promotion_blocker: str = "none",
+        promotion_blocker_reason: str = "",
     ) -> dict[str, object]:
         compact_tags = list(dict.fromkeys(tag for tag in tags if tag))
+        family_text = common.normalize_text(family)
+        subtype_text = common.normalize_text(subtype)
+        blocker = common.normalize_text(promotion_blocker)
+        if not family_text and not subtype_text:
+            blocker = ""
+        elif not blocker:
+            blocker = "none"
+        shape_confidence_text = common.normalize_text(shape_confidence)
+        if not shape_confidence_text:
+            shape_confidence_text = common.normalize_text(confidence)
+        blocker_reason = promotion_blocker_reason
+        if blocker == "none" and not blocker_reason and (family_text or subtype_text):
+            blocker_reason = (
+                "no subtype-specific promotion blocker classified; production write remains "
+                "disabled by shadow-only branch policy"
+            )
         return {
             "fault_family_hypothesis_shadow_ko": family,
             "fault_subtype_hypothesis_shadow_ko": subtype,
             "subtype_evidence_tags": ",".join(compact_tags),
             "subtype_confidence_shadow": confidence,
+            "subtype_shape_confidence_shadow": shape_confidence_text,
+            "subtype_promotion_blocker_shadow": blocker,
+            "subtype_promotion_blocker_reason_ko": blocker_reason,
             "subtype_hold_reason_ko": hold_reason,
             "subtype_production_write_allowed": 0,
         }
 
     def empty(reason: str = "") -> dict[str, object]:
-        return pack("", "", "", reason, [])
+        return pack("", "", "", reason, [], shape_confidence="", promotion_blocker="")
 
     if fault_status != "고장" and not event_type:
         return empty("no runtime fault event; subtype hypothesis not assigned")
@@ -178,21 +213,25 @@ def subtype_shadow_row(metrics: common.PanelRuntimeMetrics) -> dict[str, object]
         f"onset_method={metrics.onset_method}" if metrics.onset_method else "",
     ]
     common_cause_tags: list[str] = []
+    common_cause_blocker = ""
     common_cause_hold_reason = ""
     if metrics.has_site_event or metrics.has_strict_trigger_proximal_common_cause:
         common_cause_tags.append("site_or_strict_proximal_common_cause")
+        common_cause_blocker = "common_cause"
         common_cause_hold_reason = (
             "candidate subtype is held because site/strict-proximal common-cause evidence "
             "blocks individual panel precursor promotion"
         )
     elif metrics.has_subgroup_common_cause or metrics.has_group_off:
         common_cause_tags.append("root_or_group_common_cause")
+        common_cause_blocker = "common_cause"
         common_cause_hold_reason = (
             "candidate subtype is held because root/group common-cause evidence must be "
             "separated before individual panel promotion"
         )
     elif metrics.has_common_cause_history:
         common_cause_tags.append("common_cause_history")
+        common_cause_blocker = "common_cause"
         common_cause_hold_reason = (
             "candidate subtype is held because broad common-cause history is episode evidence"
         )
@@ -211,6 +250,12 @@ def subtype_shadow_row(metrics: common.PanelRuntimeMetrics) -> dict[str, object]
             "hold",
             "BR-018 subtype hypothesis: one-day long-gap degradation is backdating-risk evidence, not a confirmed precursor",
             tags,
+            shape_confidence="low",
+            promotion_blocker="backdating_risk",
+            promotion_blocker_reason=(
+                "one-day degradation marker is too far from the strict trigger to promote as "
+                "a confirmed precursor"
+            ),
         )
 
     source_text = f"{representative_source} {representative_subtype} {detailed_code}".lower()
@@ -228,6 +273,11 @@ def subtype_shadow_row(metrics: common.PanelRuntimeMetrics) -> dict[str, object]
             "hold",
             "measurement-feedback subtype is data-quality evidence and is not promoted as panel fault",
             tags,
+            shape_confidence="low",
+            promotion_blocker="measurement_quality",
+            promotion_blocker_reason=(
+                "measurement-feedback signatures must be separated from physical panel faults"
+            ),
         )
 
     if algorithm_family == "다이오드형" or metrics.has_vdrop:
@@ -236,7 +286,8 @@ def subtype_shadow_row(metrics: common.PanelRuntimeMetrics) -> dict[str, object]
             subtype = "서브스트링 전류 제한형"
         else:
             subtype = "bypass diode 동작·고장 의심형"
-        confidence = "hold" if common_cause_hold_reason else ("medium" if fault_status == "고장" else "low")
+        shape_confidence = "medium" if fault_status == "고장" else "low"
+        confidence = "hold" if common_cause_hold_reason else shape_confidence
         return pack(
             "다이오드·서브스트링 계열",
             subtype,
@@ -244,6 +295,9 @@ def subtype_shadow_row(metrics: common.PanelRuntimeMetrics) -> dict[str, object]
             common_cause_hold_reason
             or "shadow-only subtype; requires VI curve review before operator-facing label use",
             tags,
+            shape_confidence=shape_confidence,
+            promotion_blocker=common_cause_blocker or "none",
+            promotion_blocker_reason=common_cause_hold_reason,
         )
 
     if algorithm_family == "모듈손상형" or (
@@ -255,26 +309,40 @@ def subtype_shadow_row(metrics: common.PanelRuntimeMetrics) -> dict[str, object]
             subtype = "국소 음영 패턴형"
             tags.append("shadow_pattern")
             confidence = "low"
+            shape_confidence = "low"
+            promotion_blocker = "insufficient_recurrence"
+            promotion_blocker_reason = "shading-like hypothesis requires repeated time-of-day shape evidence"
             hold_reason = "shading-like hypothesis requires repeated time-of-day shape evidence"
         elif event_type == "전조형 고장" and metrics.gap_days >= 7:
             subtype = "누적 오염·열화형"
             tags.extend(["duration_or_gap_support", "precursor_event"])
             confidence = "medium"
+            shape_confidence = "medium"
+            promotion_blocker = "none"
+            promotion_blocker_reason = ""
             hold_reason = "shadow-only subtype; keep production label unchanged until recurrence/continuity is reviewed"
         else:
             subtype = "일시 환경 episode형"
             tags.append("transient_or_sparse_degradation")
             confidence = "hold"
+            shape_confidence = "low"
+            promotion_blocker = "insufficient_recurrence"
+            promotion_blocker_reason = "sparse degradation/shadow evidence lacks recurrence or continuity support"
             hold_reason = "sparse degradation/shadow evidence is held as an episode, not confirmed precursor"
         if common_cause_hold_reason:
             confidence = "hold"
             hold_reason = common_cause_hold_reason
+            promotion_blocker = common_cause_blocker
+            promotion_blocker_reason = common_cause_hold_reason
         return pack(
             "열화·오염·음영 계열",
             subtype,
             confidence,
             hold_reason,
             tags,
+            shape_confidence=shape_confidence,
+            promotion_blocker=promotion_blocker,
+            promotion_blocker_reason=promotion_blocker_reason,
         )
 
     if algorithm_family == "개방/장치이상형":
@@ -283,16 +351,27 @@ def subtype_shadow_row(metrics: common.PanelRuntimeMetrics) -> dict[str, object]
             subtype = "간헐 접촉저항형"
             tags.append("recurrence_or_secondary_window")
             confidence = "low"
+            shape_confidence = "medium"
+            promotion_blocker = "none"
+            promotion_blocker_reason = ""
         elif metrics.has_final_fault or metrics.has_fault_like:
             subtype = "부분 개방 진행형"
             tags.append("strict_or_final_fault_anchor")
             confidence = "medium"
+            shape_confidence = "medium"
+            promotion_blocker = "none"
+            promotion_blocker_reason = ""
         else:
             subtype = "커넥터·단자·퓨즈 계열 의심형"
             tags.append("open_connection_proxy")
             confidence = "low"
+            shape_confidence = "low"
+            promotion_blocker = "insufficient_recurrence"
+            promotion_blocker_reason = "open-connection proxy lacks recurrence or shape-similarity support"
         if common_cause_hold_reason:
             confidence = "hold"
+            promotion_blocker = common_cause_blocker
+            promotion_blocker_reason = common_cause_hold_reason
         return pack(
             "접속 불량·부분 개방 계열",
             subtype,
@@ -300,6 +379,9 @@ def subtype_shadow_row(metrics: common.PanelRuntimeMetrics) -> dict[str, object]
             common_cause_hold_reason
             or "manual-review subtype hypothesis; recurrence and shape similarity are required before promotion",
             tags,
+            shape_confidence=shape_confidence,
+            promotion_blocker=promotion_blocker,
+            promotion_blocker_reason=promotion_blocker_reason,
         )
 
     if common_cause_hold_reason:
@@ -316,6 +398,9 @@ def subtype_shadow_row(metrics: common.PanelRuntimeMetrics) -> dict[str, object]
             "hold",
             common_cause_hold_reason,
             tags,
+            shape_confidence="medium",
+            promotion_blocker=common_cause_blocker,
+            promotion_blocker_reason=common_cause_hold_reason,
         )
 
     if event_type == "급작 고장":
@@ -326,6 +411,8 @@ def subtype_shadow_row(metrics: common.PanelRuntimeMetrics) -> dict[str, object]
             "medium",
             "no confirmed precursor recurrence before strict trigger",
             tags,
+            shape_confidence="medium",
+            promotion_blocker="none",
         )
 
     return pack(
@@ -334,6 +421,9 @@ def subtype_shadow_row(metrics: common.PanelRuntimeMetrics) -> dict[str, object]
         "hold",
         "available runtime evidence is insufficient for subtype hypothesis assignment",
         base_tags + ["family=insufficient"],
+        shape_confidence="hold",
+        promotion_blocker="insufficient_evidence",
+        promotion_blocker_reason="available runtime evidence is insufficient for subtype hypothesis assignment",
     )
 
 
@@ -465,6 +555,8 @@ def build_summary(df: pd.DataFrame) -> pd.DataFrame:
         df["g1_suppressed_event_guard_applied_flag"], errors="coerce"
     ).fillna(0)
     subtype_confidence = df["subtype_confidence_shadow"].map(common.normalize_text)
+    subtype_shape_confidence = df["subtype_shape_confidence_shadow"].map(common.normalize_text)
+    subtype_promotion_blocker = df["subtype_promotion_blocker_shadow"].map(common.normalize_text)
     subtype_production_write_allowed = pd.to_numeric(
         df["subtype_production_write_allowed"], errors="coerce"
     ).fillna(0)
@@ -525,11 +617,32 @@ def build_summary(df: pd.DataFrame) -> pd.DataFrame:
         "subtype_confidence_medium_패널수": int(subtype_confidence.eq("medium").sum()),
         "subtype_confidence_low_패널수": int(subtype_confidence.eq("low").sum()),
         "subtype_confidence_hold_패널수": int(subtype_confidence.eq("hold").sum()),
+        "subtype_shape_confidence_high_패널수": int(subtype_shape_confidence.eq("high").sum()),
+        "subtype_shape_confidence_medium_패널수": int(subtype_shape_confidence.eq("medium").sum()),
+        "subtype_shape_confidence_low_패널수": int(subtype_shape_confidence.eq("low").sum()),
+        "subtype_shape_confidence_hold_패널수": int(subtype_shape_confidence.eq("hold").sum()),
+        "subtype_promotion_blocker_common_cause_패널수": int(
+            subtype_promotion_blocker.eq("common_cause").sum()
+        ),
+        "subtype_promotion_blocker_insufficient_recurrence_패널수": int(
+            subtype_promotion_blocker.eq("insufficient_recurrence").sum()
+        ),
+        "subtype_promotion_blocker_backdating_risk_패널수": int(
+            subtype_promotion_blocker.eq("backdating_risk").sum()
+        ),
+        "subtype_promotion_blocker_measurement_quality_패널수": int(
+            subtype_promotion_blocker.eq("measurement_quality").sum()
+        ),
+        "subtype_promotion_blocker_insufficient_evidence_패널수": int(
+            subtype_promotion_blocker.eq("insufficient_evidence").sum()
+        ),
+        "subtype_promotion_blocker_none_패널수": int(subtype_promotion_blocker.eq("none").sum()),
         "subtype_production_write_allowed_sum": int(subtype_production_write_allowed.sum()),
         "note_ko": (
             "이 runtime audit는 raw-only 경로다. panel_day_core와 precursor gate만 사용하며, "
             "수동 truth/adjudication/frozen audit snapshot은 참조하지 않는다. "
-            "BR-019 subtype columns are shadow-only and do not change production verdict semantics."
+            "BR-021 subtype shape confidence and promotion blocker columns are shadow-only and "
+            "do not change production verdict semantics."
         ),
     }
     return pd.DataFrame([row]).reindex(columns=SUMMARY_COLS)

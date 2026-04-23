@@ -1,0 +1,12 @@
+﻿site,fault_family_hypothesis_shadow_ko,fault_subtype_hypothesis_shadow_ko,subtype_confidence_shadow,subtype_shape_confidence_shadow,subtype_promotion_blocker_shadow,panel_count
+conalog,다이오드·서브스트링 계열,bypass diode 동작·고장 의심형,hold,medium,common_cause,6
+conalog,접속 불량·부분 개방 계열,간헐 접촉저항형,hold,medium,common_cause,66
+gangui,다이오드·서브스트링 계열,bypass diode 동작·고장 의심형,hold,medium,common_cause,17
+gangui,열화·오염·음영 계열,누적 오염·열화형,hold,medium,common_cause,2
+gangui,열화·오염·음영 계열,일시 환경 episode형,hold,low,common_cause,2
+gangui,접속 불량·부분 개방 계열,간헐 접촉저항형,hold,medium,common_cause,22
+gangui,접속 불량·부분 개방 계열,부분 개방 진행형,hold,medium,common_cause,2
+ktc_ess,다이오드·서브스트링 계열,bypass diode 동작·고장 의심형,hold,medium,common_cause,2
+ktc_ess,열화·오염·음영 계열,누적 오염·열화형,hold,medium,common_cause,8
+ktc_ess,열화·오염·음영 계열,장기 gap 단일 저하 보류형,hold,low,backdating_risk,7
+ktc_ess,외부계통·공통원인 계열,site-wide grid/inverter 교란형,hold,medium,common_cause,11

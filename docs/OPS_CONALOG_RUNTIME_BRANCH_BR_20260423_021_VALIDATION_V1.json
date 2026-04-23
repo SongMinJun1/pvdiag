@@ -1,0 +1,32 @@
+{
+  "branch": "BR-20260423-021",
+  "scope": "audit/shadow only subtype shape confidence and promotion blocker split",
+  "fresh_tri_site_output_root": "/private/tmp/br021_tri_site_v1",
+  "br019_reference_output_root": "/private/tmp/br019_tri_site_v3",
+  "audit_rows": 766,
+  "audit_columns": 72,
+  "subtype_shadow_populated_rows": 145,
+  "subtype_production_write_allowed_sum": 0,
+  "shape_confidence_counts": {
+    "low": 9,
+    "medium": 136
+  },
+  "promotion_blocker_counts": {
+    "backdating_risk": 7,
+    "common_cause": 138
+  },
+  "legacy_confidence_counts": {
+    "hold": 145
+  },
+  "audit_old_common_columns_count": 69,
+  "audit_old_common_columns_equal_to_br019": true,
+  "new_audit_columns": [
+    "subtype_shape_confidence_shadow",
+    "subtype_promotion_blocker_shadow",
+    "subtype_promotion_blocker_reason_ko"
+  ],
+  "raw_only_final_verdict_equal_to_br019": true,
+  "raw_only_heuristic_equal_to_br019": true,
+  "engine_core_shadow_compare_all_match": true,
+  "decision": "safe to merge as evidence-layer schema refinement; no production semantics changed"
+}
