@@ -44,6 +44,10 @@ AUDIT_COLS = [
     "detailed_fault_code",
     "detailed_fault_label_ko",
     "gap_days",
+    "degradation_onset_backdate_guard_flag",
+    "degradation_onset_backdate_guard_name",
+    "degradation_onset_backdate_guard_reason",
+    "degradation_onset_backdate_guard_degrade_days",
 ]
 SUMMARY_COLS = [
     "전체_패널수",
@@ -114,6 +118,18 @@ def build_rows(root: Path) -> pd.DataFrame:
                     "detailed_fault_code": metrics.detailed_fault_code,
                     "detailed_fault_label_ko": metrics.detailed_fault_label_ko,
                     "gap_days": metrics.gap_days,
+                    "degradation_onset_backdate_guard_flag": int(
+                        metrics.degradation_onset_backdate_guard_flag
+                    ),
+                    "degradation_onset_backdate_guard_name": (
+                        metrics.degradation_onset_backdate_guard_name
+                    ),
+                    "degradation_onset_backdate_guard_reason": (
+                        metrics.degradation_onset_backdate_guard_reason
+                    ),
+                    "degradation_onset_backdate_guard_degrade_days": (
+                        metrics.degradation_onset_backdate_guard_degrade_days
+                    ),
                 }
             )
     if not rows:
