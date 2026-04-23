@@ -128,8 +128,15 @@ def ensure_validation_report(root: Path) -> pd.DataFrame:
     report_path = root / "outputs/validation/fault_validation_report_v1.csv"
     if not report_path.exists():
         result = subprocess.run(
-            [sys.executable, str(root / "research/prognostics/run_fault_validation_v1.py")],
-            cwd=root,
+            [
+                sys.executable,
+                str(VALIDATION_RUNNER_PATH),
+                "--root",
+                str(root),
+                "--output-dir",
+                str(root / "outputs/validation"),
+            ],
+            cwd=REPO_ROOT,
             text=True,
             capture_output=True,
         )
