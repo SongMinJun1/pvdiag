@@ -1,0 +1,9 @@
+metric,value,note
+total_trigger_only_to_precursor_candidates,30,BR-004 class that would flip current abrupt/trigger-only interpretation into precursor if promoted
+gangui:review_persistent_secondary_only:panel_count,26,review tier distribution by site
+gangui:review_supported_context:panel_count,1,review tier distribution by site
+ktc_ess:review_supported_context:panel_count,3,review tier distribution by site
+strict_trigger_proximal_common_cause_true,2,harder common-cause support near strict trigger
+site_event_history_true,4,site event history context
+subgroup_common_cause_history_true,0,subgroup common-cause history context
+root_cluster_count,3,distinct site/root clusters among candidates

@@ -1,0 +1,4 @@
+site,review_tier,panel_count,avg_gap_days,avg_qualified_secondary_count,avg_warning_days_between,strict_common,site_event,subgroup_common,root_clusters
+gangui,review_persistent_secondary_only,26,118.4,73.0,51.0,0,0,0,2
+gangui,review_supported_context,1,120.0,688.0,120.0,0,1,0,1
+ktc_ess,review_supported_context,3,116.3,60.3,45.0,2,3,0,1
