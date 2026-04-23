@@ -1,0 +1,11 @@
+metric,value,note
+candidate_rows,7,backdate_suppression_candidate rows from BR-010 panel packet
+site_ktc_ess_rows,7,all candidates are ktc_ess
+current_precursor_rows,7,current operator-facing event type before any G1 implementation
+shadow_precursor_removed_rows,7,assumed rows whose backdated retrospective onset would be suppressed by G1
+shadow_precursor_to_sudden_rows,7,simulation only; no production verdict change in this branch
+strict_trigger_proximal_common_cause_rows,6,strict trigger has proximal common-cause context for 6 of 7 rows
+site_event_history_rows,7,site event history exists for all 7 rows
+subgroup_common_cause_history_rows,5,subgroup context exists for 5 of 7 rows
+operator_facing_change_allowed_rows,0,BR-012 is audit/shadow only
+code_change_allowed_rows,0,BR-012 does not patch runtime logic
