@@ -20,5 +20,9 @@
   "subtype_production_write_allowed_sum": 0,
   "operator_facing_change": false,
   "code_change": false,
-  "decision": "review packet generated; no production semantics or audit builder changed"
+  "decision": "review packet generated; no production semantics or audit builder changed",
+  "packet_id_sequence_fixed_by_br024": true,
+  "packet_id_sequence_first": "BR023-001",
+  "packet_id_sequence_last": "BR023-077",
+  "packet_id_sequence_monotonic_in_file_order": true
 }

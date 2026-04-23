@@ -1,0 +1,23 @@
+{
+  "branch": "BR-20260423-024",
+  "scope": "patch-chain gap review and BR-023 packet ID usability fix",
+  "fixed_issue": "BR-023 review_packet_id was assigned before final packet sorting, so the merged packet opened with BR023-042; IDs now follow file order.",
+  "packet_rows": 77,
+  "group_off_rows": 28,
+  "strict_trigger_proximal_rows": 49,
+  "review_packet_id_first": "BR023-001",
+  "review_packet_id_last": "BR023-077",
+  "review_packet_id_unique_count": 77,
+  "review_packet_id_expected_count": 77,
+  "summary_rows": 16,
+  "summary_panel_count_sum": 77,
+  "subtype_production_write_allowed_sum": 0,
+  "operator_facing_change": false,
+  "code_change": false,
+  "remaining_review_gaps": [
+    "BR-022 site_event=60 still needs a separate packet; BR-023 intentionally scoped only group_off and strict_trigger_proximal.",
+    "BR-023 generation used an inline Python one-off; future packet branches should either track a generator script or include the exact one-shot command.",
+    "review_priority is a triage convenience only; it must not be interpreted as promotion confidence."
+  ],
+  "decision": "safe docs/artifact cleanup; no runtime code or production semantics changed"
+}
