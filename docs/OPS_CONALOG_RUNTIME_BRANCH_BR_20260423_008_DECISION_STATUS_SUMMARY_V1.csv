@@ -1,0 +1,8 @@
+"source_branch","evidence_set","panel_count","decision_bucket","operator_facing_change","rationale"
+"BR-002","G1_extreme_longgap_one_day","7","backdate_suppression_candidate","none","ktc_ess extreme long-gap degradation fallback cases are suppression candidates not promotion candidates"
+"BR-004","method_provenance_and_no_event_flip_shadow","82","audit_provenance_only","none","secondary-window audit can clarify provenance without changing final verdict or event semantics"
+"BR-005","trigger_only_to_precursor_review_supported_context","4","manual_review","none","context exists but BR-006 shows no automatic promotion candidate"
+"BR-005","trigger_only_to_precursor_persistent_secondary_only","26","blocked_cluster_risk","none","gangui cluster has persistent secondary warnings without strict common-cause site-event or subgroup support"
+"BR-006","supported_context_daily_slice","4","manual_review","none","daily slice retained enough context for review but auto_promotion_panels remains zero"
+"BR-007","ktc_strict_common_dtw_zero_signal","2","hold_shadow_only","none","strict-common context exists but selected onset is DTW prealarm and retained daily signal is zero"
+"BR-008","promotion_contract_current_result","0","promote_candidate","none","no current panel satisfies all hard promotion gates"
