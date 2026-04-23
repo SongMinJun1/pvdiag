@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260423-017` | `morphology_atlas_shadow_generated` | fault-family morphology atlas + threshold candidate shadow over 145 raw-only fault panels | review thresholds before any code rule |
+| `BR-20260423-018` | `subtype_hypothesis_roadmap_locked` | fault-family 내부 세부 고장 hypothesis map locked as shadow-only roadmap | implement subtype shadow columns before any operator-facing label change |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -29,6 +29,7 @@
 | `BR-20260423-015` | `apply_ready_sidecar_generated` | strict-proximal support splits G1 preview into 6 apply-ready rows and 1 hold-review row | no |
 | `BR-20260423-016` | `semantic_patch_validated` | applies G1 semantics to 6 strict-proximal rows; runtime final verdict changes 6 rows/14 columns/84 cells; cause top ranks unchanged | yes, raw-only candidate runtime semantics only |
 | `BR-20260423-017` | `morphology_atlas_shadow_generated` | atlas 6 families, threshold candidates 6 axes, shadow rows 145; G1 6 rows blocked as long-gap one-day episodes | no |
+| `BR-20260423-018` | `subtype_hypothesis_roadmap_locked` | locks 17 subtype hypotheses under 6 family buckets; next implementation must be shadow-only subtype evidence columns | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -48,9 +49,13 @@
 - BR-017 is atlas/shadow only: `production_write_allowed_sum = 0`.
 - BR-017 G1 episode basis uses `g1_suppressed_event_shadow_current_onset_date`, because BR-016-applied rows no longer carry current `retrospective_onset_date`.
 - BR-017 v1 thresholds produce confirmed precursor candidates `0`; this is a conservative starting point, not a final rule.
+- BR-018 locks subtype names as `hypothesis`, not operator-facing final labels.
+- BR-018 requires subtype evidence to be defended by at least two axes before any promotion discussion: examples are duration+continuity, recurrence+VI-shape, or spatiality+fast-recovery.
+- BR-018 keeps sensor/measurement and external/common-cause subtype paths out of individual panel precursor promotion.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
 - use bucket-specific review packets before proposing any operator-facing event semantic change.
 - before any new production semantic patch, keep duration/gap/continuity/spatiality separated by fault-family threshold candidates.
-- consider adding family episode scores as shadow columns only, then rerun fresh tri-site evidence.
+- add `fault_subtype_hypothesis_shadow_ko`, `subtype_evidence_tags`, `subtype_confidence_shadow`, and `subtype_hold_reason_ko` as shadow-only evidence columns.
+- keep `subtype_production_write_allowed = 0` until fresh tri-site evidence is reviewed.
