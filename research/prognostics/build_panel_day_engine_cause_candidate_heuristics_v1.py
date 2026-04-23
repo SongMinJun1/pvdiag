@@ -9,7 +9,6 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-INTEGRATED_TABLE_NAME = "panel_day_engine_integrated_result_table_v1.csv"
 EVIDENCE_PACK_NAME = "panel_day_engine_gpvs_evidence_pack_v1.csv"
 VERDICT_NAME = "panel_day_engine_panel_multiaxis_verdict_v1.csv"
 DETAILED_AUDIT_NAME = "panel_day_engine_gpvs_detailed_type_inference_audit_v1.csv"
@@ -43,18 +42,6 @@ TIE_PRIORITY = {
     "전력변환부형": 8,
     "원인미확정": 9,
 }
-
-INTEGRATED_REQUIRED_COLS = [
-    "site",
-    "panel_id",
-    "패널고장여부_ko",
-    "사건유형_ko",
-    "최종고장양상_ko",
-    "커널로그_원인군_ko",
-    "GPVS_내부참고유형_ko",
-    "GPVS_외부참조패턴_ko",
-    "GPVS_최종사용권고_ko",
-]
 
 EVIDENCE_REQUIRED_COLS = [
     "site",
@@ -395,31 +382,23 @@ def interpretive_note(
 
 
 def build_outputs(
-    integrated_df: pd.DataFrame,
     evidence_df: pd.DataFrame,
     verdict_df: pd.DataFrame,
     detailed_df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    fault_integrated_df = integrated_df.loc[integrated_df["패널고장여부_ko"].map(normalize_text).eq("고장")].copy()
-    if len(fault_integrated_df) != 6:
-        raise SystemExit(f"{INTEGRATED_TABLE_NAME} current fault panel count must be 6, found {len(fault_integrated_df)}")
-
     fault_verdict_df = verdict_df.loc[verdict_df["패널고장여부_ko"].map(normalize_text).eq("고장")].copy()
     if len(fault_verdict_df) != 6:
         raise SystemExit(f"{VERDICT_NAME} current fault panel count must be 6, found {len(fault_verdict_df)}")
     if len(evidence_df) != 6:
         raise SystemExit(f"{EVIDENCE_PACK_NAME} current fault panel count must be 6, found {len(evidence_df)}")
 
-    integrated_lookup = lookup_map(fault_integrated_df)
     evidence_lookup = lookup_map(evidence_df)
     verdict_lookup = lookup_map(fault_verdict_df)
     detailed_lookup = lookup_map(detailed_df) if not detailed_df.empty else {}
 
-    fault_keys = set(integrated_lookup)
+    fault_keys = set(verdict_lookup)
     if set(evidence_lookup) != fault_keys:
-        raise SystemExit("integrated table and evidence pack fault key universe must match exactly")
-    if set(verdict_lookup) != fault_keys:
-        raise SystemExit("integrated table and verdict fault key universe must match exactly")
+        raise SystemExit("verdict and evidence pack fault key universe must match exactly")
     if not detailed_df.empty and set(detailed_lookup) != fault_keys:
         raise SystemExit("optional detailed audit fault key universe must match current fault panels when present")
 
@@ -427,24 +406,23 @@ def build_outputs(
     breakdown_rows: list[dict[str, object]] = []
 
     for site, panel_id in sorted(fault_keys):
-        integrated_row = integrated_lookup[(site, panel_id)]
         evidence_row = evidence_lookup[(site, panel_id)]
         verdict_row = verdict_lookup[(site, panel_id)]
         detailed_row = detailed_lookup.get((site, panel_id))
 
-        event_type = normalize_text(integrated_row["사건유형_ko"])
-        terminal_pattern = normalize_text(integrated_row["최종고장양상_ko"])
-        kernel_family = normalize_text(integrated_row["커널로그_원인군_ko"])
-        internal_family = normalize_text(integrated_row["GPVS_내부참고유형_ko"]) or normalize_text(evidence_row["GPVS_내부판정_ko"])
-        external_pattern = normalize_text(integrated_row["GPVS_외부참조패턴_ko"]) or normalize_text(evidence_row["GPVS_외부참조패턴_ko"])
-        usage_level = normalize_text(integrated_row["GPVS_최종사용권고_ko"]) or normalize_text(evidence_row["GPVS_최종사용권고_ko"])
+        event_type = normalize_text(verdict_row["사건유형_ko"])
+        terminal_pattern = normalize_text(verdict_row["최종고장양상_ko"])
+        kernel_family = normalize_text(verdict_row["커널로그_원인군_ko"])
+        internal_family = normalize_text(verdict_row["GPVS_내부참고유형_ko"]) or normalize_text(evidence_row["GPVS_내부판정_ko"])
+        external_pattern = normalize_text(verdict_row["GPVS_외부참조패턴_ko"]) or normalize_text(evidence_row["GPVS_외부참조패턴_ko"])
+        usage_level = normalize_text(evidence_row["GPVS_최종사용권고_ko"])
 
-        if event_type != normalize_text(evidence_row["사건유형_ko"]) or event_type != normalize_text(verdict_row["사건유형_ko"]):
-            raise SystemExit(f"fault event type mismatch across inputs for {site}/{panel_id}")
-        if terminal_pattern != normalize_text(evidence_row["최종고장양상_ko"]) or terminal_pattern != normalize_text(verdict_row["최종고장양상_ko"]):
-            raise SystemExit(f"fault terminal pattern mismatch across inputs for {site}/{panel_id}")
-        if kernel_family != normalize_text(evidence_row["커널로그_원인군_ko"]) or kernel_family != normalize_text(verdict_row["커널로그_원인군_ko"]):
-            raise SystemExit(f"kernel family mismatch across inputs for {site}/{panel_id}")
+        if event_type != normalize_text(evidence_row["사건유형_ko"]):
+            raise SystemExit(f"fault event type mismatch across verdict/evidence for {site}/{panel_id}")
+        if terminal_pattern != normalize_text(evidence_row["최종고장양상_ko"]):
+            raise SystemExit(f"fault terminal pattern mismatch across verdict/evidence for {site}/{panel_id}")
+        if kernel_family != normalize_text(evidence_row["커널로그_원인군_ko"]):
+            raise SystemExit(f"kernel family mismatch across verdict/evidence for {site}/{panel_id}")
 
         scores = {candidate: 0 for candidate in CANDIDATES}
         signals = {candidate: [] for candidate in CANDIDATES}
@@ -472,7 +450,11 @@ def build_outputs(
         action_text = action_note(top1_name, competition_ranked, competition_state)
         confidence = confidence_label(top1_score, competition_state)
         memo = interpretive_note(
-            integrated_row,
+            {
+                **verdict_row,
+                "GPVS_내부참고유형_ko": internal_family,
+                "GPVS_외부참조패턴_ko": external_pattern,
+            },
             ranked,
             competition_ranked,
             competition_state,
@@ -560,24 +542,21 @@ def main() -> None:
     args = parse_args()
     share_dir = args.root.resolve() / "_share"
 
-    integrated_df = read_csv(share_dir / INTEGRATED_TABLE_NAME)
     evidence_df = read_csv(share_dir / EVIDENCE_PACK_NAME)
     verdict_df = read_csv(share_dir / VERDICT_NAME)
     detailed_df = read_optional_csv(share_dir / DETAILED_AUDIT_NAME)
 
-    ensure_columns(integrated_df, INTEGRATED_REQUIRED_COLS, INTEGRATED_TABLE_NAME)
     ensure_columns(evidence_df, EVIDENCE_REQUIRED_COLS, EVIDENCE_PACK_NAME)
     ensure_columns(verdict_df, VERDICT_REQUIRED_COLS, VERDICT_NAME)
     if not detailed_df.empty:
         ensure_columns(detailed_df, DETAILED_REQUIRED_COLS, DETAILED_AUDIT_NAME)
 
-    validate_unique_keys(integrated_df, INTEGRATED_TABLE_NAME)
     validate_unique_keys(evidence_df, EVIDENCE_PACK_NAME)
     validate_unique_keys(verdict_df, VERDICT_NAME)
     if not detailed_df.empty:
         validate_unique_keys(detailed_df, DETAILED_AUDIT_NAME)
 
-    main_df, breakdown_df, summary_df = build_outputs(integrated_df, evidence_df, verdict_df, detailed_df)
+    main_df, breakdown_df, summary_df = build_outputs(evidence_df, verdict_df, detailed_df)
     write_outputs(args.root.resolve(), main_df, breakdown_df, summary_df)
 
 
