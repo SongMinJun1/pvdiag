@@ -1,0 +1,18 @@
+{
+  "branch_id": "BR-20260423-017",
+  "run_root": "/private/tmp/br017_tri_site_v1",
+  "raw_only_status": "completed",
+  "atlas_rows": 6,
+  "threshold_candidate_rows": 6,
+  "shadow_panel_rows": 145,
+  "summary_rows": 8,
+  "production_write_allowed_sum": 0,
+  "g1_shadow_rows": 7,
+  "g1_applied_rows_after_br016": 6,
+  "g1_hold_rows_after_br016": 1,
+  "g1_original_episode_basis_rows": 7,
+  "g1_longgap_one_day_hold_rows_by_threshold_candidate": 6,
+  "confirmed_precursor_candidate_rows": 0,
+  "common_cause_or_longgap_block_rows": 48,
+  "note": "BR-017 is atlas/shadow only; no production verdict or engine code change."
+}

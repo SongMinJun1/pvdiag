@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260423-016` | `semantic_patch_validated` | strict-proximal-supported G1 semantic patch applied to 6 rows; 1 row remains held | decide whether to PR/merge, then monitor downstream current-output boundary |
+| `BR-20260423-017` | `morphology_atlas_shadow_generated` | fault-family morphology atlas + threshold candidate shadow over 145 raw-only fault panels | review thresholds before any code rule |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -28,6 +28,7 @@
 | `BR-20260423-014` | `semantic_preview_generated` | preview shows 7 ktc_ess rows would change 13 operator-facing columns and 91 cells; no production output written | no |
 | `BR-20260423-015` | `apply_ready_sidecar_generated` | strict-proximal support splits G1 preview into 6 apply-ready rows and 1 hold-review row | no |
 | `BR-20260423-016` | `semantic_patch_validated` | applies G1 semantics to 6 strict-proximal rows; runtime final verdict changes 6 rows/14 columns/84 cells; cause top ranks unchanged | yes, raw-only candidate runtime semantics only |
+| `BR-20260423-017` | `morphology_atlas_shadow_generated` | atlas 6 families, threshold candidates 6 axes, shadow rows 145; G1 6 rows blocked as long-gap one-day episodes | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -44,9 +45,12 @@
 - BR-015 reduces first-patch scope to strict-proximal-supported rows only: apply-ready `6`, hold-review `1`, production output written `0`.
 - BR-016 applies only those 6 rows and keeps the hold row excluded. Runtime final verdict changes `6` rows, `14` columns, `84` cells; the extra column beyond BR-015 is derived `대표판정_ko`.
 - BR-016 blocks unintended cause-candidate rank drift: top1/top2/top3 cause rank drift rows `0`; published strict current output changed rows `0`.
+- BR-017 is atlas/shadow only: `production_write_allowed_sum = 0`.
+- BR-017 G1 episode basis uses `g1_suppressed_event_shadow_current_onset_date`, because BR-016-applied rows no longer carry current `retrospective_onset_date`.
+- BR-017 v1 thresholds produce confirmed precursor candidates `0`; this is a conservative starting point, not a final rule.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
 - use bucket-specific review packets before proposing any operator-facing event semantic change.
-- after BR-016 merge, rerun a fresh tri-site pack from the merged base and compare raw-only candidate vs published strict-current boundaries.
-- only after reviewer confirmation consider the excluded hold-review row.
+- before any new production semantic patch, keep duration/gap/continuity/spatiality separated by fault-family threshold candidates.
+- consider adding family episode scores as shadow columns only, then rerun fresh tri-site evidence.
