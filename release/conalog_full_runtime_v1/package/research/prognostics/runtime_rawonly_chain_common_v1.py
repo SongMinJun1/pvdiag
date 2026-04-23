@@ -66,6 +66,8 @@ ALL_WARNING_COLS = PRIMARY_WARNING_COLS + SECONDARY_WARNING_COLS
 PRIMARY_WARNING_MAX_GAP_DAYS = 120
 SECONDARY_WARNING_MIN_GAP_DAYS = 7
 SECONDARY_WARNING_MAX_GAP_DAYS = 120
+PREFERRED_PREFAULT_B_WARNING_COLS = ["prefault_B_effective", "prefault_B"]
+PROXIMAL_COMMON_CAUSE_WINDOW_DAYS = 3
 DEGRADATION_ONSET_BACKDATE_GUARD_NAME = "G1_extreme_longgap_one_day"
 DEGRADATION_ONSET_BACKDATE_GUARD_MIN_GAP_DAYS = 30
 DEGRADATION_ONSET_BACKDATE_GUARD_MAX_DEGRADE_DAYS = 1
@@ -104,13 +106,30 @@ class PanelRuntimeMetrics:
     degradation_onset_backdate_guard_name: str
     degradation_onset_backdate_guard_reason: str
     degradation_onset_backdate_guard_degrade_days: int
+    secondary_window_candidate_flag: bool
+    secondary_window_selected_onset_date: str
+    secondary_window_selected_marker: str
+    secondary_window_selected_gap_days: int
+    secondary_window_qualified_count: int
+    secondary_window_too_early_count: int
+    secondary_window_change_class: str
+    secondary_window_review_tier: str
+    secondary_window_reason: str
+    common_cause_anchor_date: str
+    common_cause_anchor_kind: str
     has_final_fault: bool
     has_critical_fault: bool
     has_fault_like: bool
     has_degradation: bool
     has_shadow: bool
     has_vdrop: bool
+    has_site_event: bool
     has_group_off: bool
+    has_subgroup_common_cause: bool
+    has_common_cause_history: bool
+    has_strict_trigger_proximal_common_cause: bool
+    has_warning_proximal_common_cause: bool
+    has_trigger_proximal_common_cause: bool
 
 
 def normalize_text(value: object) -> str:
@@ -170,6 +189,18 @@ def first_true_date(df: pd.DataFrame, column: str) -> pd.Timestamp | None:
     return None if ts.empty else ts.min().normalize()
 
 
+def true_date_set(df: pd.DataFrame, columns: list[str]) -> set[pd.Timestamp]:
+    if df.empty or "date" not in df.columns:
+        return set()
+    dates: set[pd.Timestamp] = set()
+    for column in columns:
+        if column not in df.columns:
+            continue
+        working = pd.to_datetime(df.loc[truthy_mask(df[column]), "date"], errors="coerce").dropna()
+        dates.update(pd.Timestamp(ts).normalize() for ts in working.tolist())
+    return dates
+
+
 def first_true_marker(df: pd.DataFrame, columns: list[str]) -> tuple[pd.Timestamp | None, str]:
     candidates: list[tuple[pd.Timestamp, str]] = []
     for column in columns:
@@ -180,6 +211,56 @@ def first_true_marker(df: pd.DataFrame, columns: list[str]) -> tuple[pd.Timestam
         return None, ""
     candidates.sort(key=lambda item: (item[0], item[1]))
     return candidates[0]
+
+
+def true_marker_candidates(df: pd.DataFrame, columns: list[str]) -> list[tuple[pd.Timestamp, str]]:
+    candidates: list[tuple[pd.Timestamp, str]] = []
+    if df.empty or "date" not in df.columns:
+        return candidates
+    for column in dict.fromkeys(columns):
+        if column not in df.columns:
+            continue
+        dates = pd.to_datetime(df.loc[truthy_mask(df[column]), "date"], errors="coerce").dropna()
+        candidates.extend((pd.Timestamp(ts).normalize(), column) for ts in dates.tolist())
+    candidates.sort(key=lambda item: (item[0], item[1]))
+    return candidates
+
+
+def first_true_marker_in_gap_window(
+    df: pd.DataFrame,
+    columns: list[str],
+    strict_trigger: pd.Timestamp | None,
+    min_gap_days: int,
+    max_gap_days: int,
+) -> tuple[pd.Timestamp | None, str, int, int, int]:
+    if strict_trigger is None:
+        return None, "", 0, 0, 0
+
+    qualified: list[tuple[pd.Timestamp, str, int]] = []
+    too_early_count = 0
+    for ts, marker in true_marker_candidates(df, columns):
+        if ts >= strict_trigger:
+            continue
+        gap_days = int((strict_trigger - ts).days)
+        if min_gap_days <= gap_days <= max_gap_days:
+            qualified.append((ts, marker, gap_days))
+        elif gap_days > max_gap_days:
+            too_early_count += 1
+
+    if not qualified:
+        return None, "", 0, 0, too_early_count
+    qualified.sort(key=lambda item: (item[0], item[1]))
+    selected_ts, selected_marker, selected_gap = qualified[0]
+    return selected_ts, selected_marker, selected_gap, len(qualified), too_early_count
+
+
+def resolve_secondary_window_warning_cols(df: pd.DataFrame) -> list[str]:
+    prefault_col = next(
+        (column for column in PREFERRED_PREFAULT_B_WARNING_COLS if column in df.columns),
+        "prefault_B",
+    )
+    secondary_cols = [column for column in SECONDARY_WARNING_COLS if column != "prefault_B"]
+    return list(dict.fromkeys(["pre_ews", prefault_col, *secondary_cols]))
 
 
 def discover_sites(root: Path) -> list[str]:
@@ -245,6 +326,39 @@ def representative_row(panel_core: pd.DataFrame) -> pd.Series:
     return panel_core.sort_values("date").iloc[-1]
 
 
+def subgroup_common_cause_date_set(panel_core: pd.DataFrame, panel_gate: pd.DataFrame) -> set[pd.Timestamp]:
+    return true_date_set(panel_core, ["subgroup_common_cause_candidate"]) | true_date_set(
+        panel_gate,
+        ["subgroup_common_cause_candidate"],
+    )
+
+
+def panel_abnormal_date_set(panel_core: pd.DataFrame, panel_gate: pd.DataFrame) -> set[pd.Timestamp]:
+    core_dates = true_date_set(
+        panel_core,
+        [
+            "degraded_candidate",
+            "fault_like_day",
+            "critical_fault",
+            "final_fault",
+            "shadow_like",
+            "group_off_like",
+        ],
+    )
+    gate_dates = true_date_set(
+        panel_gate,
+        [
+            "ews_warning",
+            "pre_alarm",
+            "pre_ews",
+            "prefault_B",
+            "prefault_B_effective",
+            "prefault_B_common_cause_overlap",
+        ],
+    )
+    return core_dates | gate_dates
+
+
 def count_degradation_days_between(
     panel_core: pd.DataFrame,
     onset: pd.Timestamp | None,
@@ -267,6 +381,20 @@ def count_degradation_days_between(
 
     matched_dates = dates.loc[window_mask & (degrade_mask | subtype_mask)].dt.normalize().dropna()
     return int(matched_dates.nunique())
+
+
+def first_available_anchor(
+    strict_trigger: pd.Timestamp | None,
+    earliest_warning: pd.Timestamp | None,
+    retrospective_onset: pd.Timestamp | None,
+) -> tuple[pd.Timestamp | None, str]:
+    if strict_trigger is not None:
+        return strict_trigger, "strict_trigger"
+    if earliest_warning is not None:
+        return earliest_warning, "earliest_warning"
+    if retrospective_onset is not None:
+        return retrospective_onset, "retrospective_onset"
+    return None, ""
 
 
 def choose_algorithm_family(
@@ -311,6 +439,19 @@ def compute_panel_metrics(
     strict_trigger = min_ts([first_critical_fault, first_final_fault, first_fault_like])
     first_primary_warning, first_primary_marker = first_true_marker(panel_gate, PRIMARY_WARNING_COLS)
     first_secondary_warning, first_secondary_marker = first_true_marker(panel_gate, SECONDARY_WARNING_COLS)
+    (
+        secondary_window_onset,
+        secondary_window_marker,
+        secondary_window_gap_days,
+        secondary_window_qualified_count,
+        secondary_window_too_early_count,
+    ) = first_true_marker_in_gap_window(
+        panel_gate,
+        resolve_secondary_window_warning_cols(panel_gate),
+        strict_trigger,
+        SECONDARY_WARNING_MIN_GAP_DAYS,
+        SECONDARY_WARNING_MAX_GAP_DAYS,
+    )
 
     has_degradation = panel_core["anom_subtype"].astype(str).str.contains("degradation", case=False, na=False).any()
     has_shadow = panel_core["anom_subtype"].astype(str).str.contains("shadow", case=False, na=False).any()
@@ -319,10 +460,22 @@ def compute_panel_metrics(
     representative_level = normalize_text(representative.get("anom_level"))
     representative_subtype = normalize_text(representative.get("anom_subtype"))
     has_vdrop = representative_source in {"vdrop", "vdrop_suspect"} or "vdrop" in representative_subtype
+    abnormal_dates = panel_abnormal_date_set(panel_core, panel_gate)
+    site_event_dates = true_date_set(panel_gate, ["site_event_soft", "site_event_hard"])
+    site_event_overlap_dates = abnormal_dates & site_event_dates
+    group_off_overlap_dates = abnormal_dates & (
+        true_date_set(panel_core, ["group_off_date", "group_off_like"])
+        | true_date_set(panel_gate, ["group_off_date", "group_off_like"])
+    )
     has_group_off = (
         (not panel_gate.empty and first_true_date(panel_gate, "group_off_date") is not None)
         or panel_core["anom_level"].astype(str).str.contains("group_off", case=False, na=False).any()
     )
+    subgroup_common_cause_dates = subgroup_common_cause_date_set(panel_core, panel_gate)
+    has_site_event = bool(site_event_overlap_dates)
+    has_subgroup_common_cause = bool(subgroup_common_cause_dates)
+    common_cause_dates = site_event_overlap_dates | group_off_overlap_dates | subgroup_common_cause_dates
+    has_common_cause_history = bool(common_cause_dates)
 
     earliest_warning = first_primary_warning
     earliest_marker = first_primary_marker
@@ -331,15 +484,25 @@ def compute_panel_metrics(
         earliest_marker = first_secondary_marker
 
     retrospective_onset = None
+    primary_gap_days = (
+        (strict_trigger - first_primary_warning).days
+        if strict_trigger is not None and first_primary_warning is not None
+        else None
+    )
+    secondary_gap_days = (
+        (strict_trigger - first_secondary_warning).days
+        if strict_trigger is not None and first_secondary_warning is not None
+        else None
+    )
+    primary_warning_accepted = (
+        first_primary_warning is not None
+        and strict_trigger is not None
+        and first_primary_warning < strict_trigger
+        and primary_gap_days is not None
+        and primary_gap_days <= PRIMARY_WARNING_MAX_GAP_DAYS
+    )
     if strict_trigger is not None:
-        primary_gap_days = (strict_trigger - first_primary_warning).days if first_primary_warning is not None else None
-        secondary_gap_days = (strict_trigger - first_secondary_warning).days if first_secondary_warning is not None else None
-        if (
-            first_primary_warning is not None
-            and first_primary_warning < strict_trigger
-            and primary_gap_days is not None
-            and primary_gap_days <= PRIMARY_WARNING_MAX_GAP_DAYS
-        ):
+        if primary_warning_accepted:
             retrospective_onset = first_primary_warning
         elif (
             first_secondary_warning is not None
@@ -393,6 +556,36 @@ def compute_panel_metrics(
             f"{DEGRADATION_ONSET_BACKDATE_GUARD_MAX_DEGRADE_DAYS}"
         )
 
+    common_cause_anchor_ts, common_cause_anchor_kind = first_available_anchor(
+        strict_trigger,
+        earliest_warning,
+        retrospective_onset,
+    )
+    has_strict_trigger_proximal_common_cause = False
+    has_warning_proximal_common_cause = False
+    has_trigger_proximal_common_cause = False
+    if common_cause_dates:
+        if strict_trigger is not None:
+            has_strict_trigger_proximal_common_cause = any(
+                abs(int((date - strict_trigger).days)) <= PROXIMAL_COMMON_CAUSE_WINDOW_DAYS
+                for date in common_cause_dates
+            )
+        if earliest_warning is not None:
+            has_warning_proximal_common_cause = any(
+                abs(int((date - earliest_warning).days)) <= PROXIMAL_COMMON_CAUSE_WINDOW_DAYS
+                for date in common_cause_dates
+            )
+        if common_cause_anchor_ts is not None:
+            has_trigger_proximal_common_cause = any(
+                abs(int((date - common_cause_anchor_ts).days)) <= PROXIMAL_COMMON_CAUSE_WINDOW_DAYS
+                for date in common_cause_dates
+            )
+    has_trigger_proximal_common_cause = (
+        has_trigger_proximal_common_cause
+        or has_strict_trigger_proximal_common_cause
+        or has_warning_proximal_common_cause
+    )
+
     precursor_flag = int(fault_status == "고장" and retrospective_onset is not None)
     abrupt_flag = int(fault_status == "고장" and not precursor_flag)
     precursor_eval_flag = precursor_flag
@@ -424,6 +617,64 @@ def compute_panel_metrics(
         onset_confidence = "low"
         onset_method = "runtime_trigger_only"
         current_needs_correction = 0
+
+    secondary_window_candidate_flag = (
+        strict_trigger is not None
+        and not primary_warning_accepted
+        and secondary_window_onset is not None
+        and (
+            format_date(secondary_window_onset) != format_date(retrospective_onset)
+            or secondary_window_marker != onset_method
+            or onset_method == "runtime_trigger_only"
+        )
+    )
+    secondary_window_change_class = ""
+    if secondary_window_candidate_flag:
+        selected_onset_date = format_date(secondary_window_onset)
+        current_onset_date = format_date(retrospective_onset)
+        if (
+            event_type == "전조형 고장"
+            and selected_onset_date == current_onset_date
+            and secondary_window_marker != onset_method
+        ):
+            secondary_window_change_class = "method_provenance_only_primary_marker_mismatch"
+        elif onset_method == "anom_subtype:degradation":
+            secondary_window_change_class = (
+                "g1_degradation_fallback_replaced_by_secondary"
+                if degradation_guard_flag
+                else "degradation_fallback_replaced_by_secondary"
+            )
+        elif onset_method == "runtime_trigger_only" and fault_status == "고장":
+            secondary_window_change_class = "trigger_only_to_precursor"
+        elif event_type == "전조형 고장" and selected_onset_date != current_onset_date:
+            secondary_window_change_class = "onset_date_shift_without_event_flip"
+        else:
+            secondary_window_change_class = "secondary_window_candidate"
+
+    secondary_window_review_tier = ""
+    if secondary_window_change_class == "trigger_only_to_precursor":
+        if has_strict_trigger_proximal_common_cause or has_site_event or has_subgroup_common_cause:
+            secondary_window_review_tier = "review_supported_context"
+        elif secondary_window_qualified_count >= 30:
+            secondary_window_review_tier = "review_persistent_secondary_only"
+        else:
+            secondary_window_review_tier = "review_sparse_secondary_only"
+    elif secondary_window_change_class == "method_provenance_only_primary_marker_mismatch":
+        secondary_window_review_tier = "audit_provenance_only"
+    elif secondary_window_change_class:
+        secondary_window_review_tier = "audit_no_event_flip"
+
+    secondary_window_reason = ""
+    if secondary_window_candidate_flag:
+        secondary_window_reason = (
+            "BR004_secondary_warning_window_shadow: "
+            f"first_secondary_gap_days={secondary_gap_days if secondary_gap_days is not None else ''}, "
+            f"selected_gap_days={secondary_window_gap_days}, "
+            f"qualified_secondary_count={secondary_window_qualified_count}, "
+            f"too_early_secondary_count={secondary_window_too_early_count}, "
+            f"change_class={secondary_window_change_class}, "
+            f"review_tier={secondary_window_review_tier}"
+        )
 
     algorithm_family, algorithm_symptom, detailed_code, detailed_label = choose_algorithm_family(
         representative_source=representative_source,
@@ -481,13 +732,34 @@ def compute_panel_metrics(
         ),
         degradation_onset_backdate_guard_reason=degradation_guard_reason,
         degradation_onset_backdate_guard_degrade_days=degradation_guard_degrade_days,
+        secondary_window_candidate_flag=secondary_window_candidate_flag,
+        secondary_window_selected_onset_date=(
+            format_date(secondary_window_onset) if secondary_window_candidate_flag else ""
+        ),
+        secondary_window_selected_marker=secondary_window_marker if secondary_window_candidate_flag else "",
+        secondary_window_selected_gap_days=(
+            secondary_window_gap_days if secondary_window_candidate_flag else 0
+        ),
+        secondary_window_qualified_count=secondary_window_qualified_count,
+        secondary_window_too_early_count=secondary_window_too_early_count,
+        secondary_window_change_class=secondary_window_change_class,
+        secondary_window_review_tier=secondary_window_review_tier,
+        secondary_window_reason=secondary_window_reason,
+        common_cause_anchor_date=format_date(common_cause_anchor_ts),
+        common_cause_anchor_kind=common_cause_anchor_kind,
         has_final_fault=has_final,
         has_critical_fault=has_critical,
         has_fault_like=has_fault_like,
         has_degradation=has_degradation,
         has_shadow=has_shadow,
         has_vdrop=has_vdrop,
+        has_site_event=has_site_event,
         has_group_off=has_group_off,
+        has_subgroup_common_cause=has_subgroup_common_cause,
+        has_common_cause_history=has_common_cause_history,
+        has_strict_trigger_proximal_common_cause=has_strict_trigger_proximal_common_cause,
+        has_warning_proximal_common_cause=has_warning_proximal_common_cause,
+        has_trigger_proximal_common_cause=has_trigger_proximal_common_cause,
     )
 
 

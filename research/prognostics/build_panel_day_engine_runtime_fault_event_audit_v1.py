@@ -48,6 +48,23 @@ AUDIT_COLS = [
     "degradation_onset_backdate_guard_name",
     "degradation_onset_backdate_guard_reason",
     "degradation_onset_backdate_guard_degrade_days",
+    "secondary_window_candidate_flag",
+    "secondary_window_selected_onset_date",
+    "secondary_window_selected_marker",
+    "secondary_window_selected_gap_days",
+    "secondary_window_qualified_count",
+    "secondary_window_too_early_count",
+    "secondary_window_change_class",
+    "secondary_window_review_tier",
+    "secondary_window_reason",
+    "common_cause_anchor_date",
+    "common_cause_anchor_kind",
+    "site_event_history_flag",
+    "subgroup_common_cause_history_flag",
+    "common_cause_history_flag",
+    "strict_trigger_proximal_common_cause_flag",
+    "warning_proximal_common_cause_flag",
+    "trigger_proximal_common_cause_flag",
 ]
 SUMMARY_COLS = [
     "전체_패널수",
@@ -62,6 +79,9 @@ SUMMARY_COLS = [
     "algorithm_family_개방장치이상형_패널수",
     "algorithm_family_모듈손상형_패널수",
     "algorithm_family_불충분_패널수",
+    "secondary_window_candidate_패널수",
+    "secondary_window_trigger_only_to_precursor_패널수",
+    "secondary_window_review_required_패널수",
     "note_ko",
 ]
 
@@ -130,6 +150,29 @@ def build_rows(root: Path) -> pd.DataFrame:
                     "degradation_onset_backdate_guard_degrade_days": (
                         metrics.degradation_onset_backdate_guard_degrade_days
                     ),
+                    "secondary_window_candidate_flag": int(metrics.secondary_window_candidate_flag),
+                    "secondary_window_selected_onset_date": (
+                        metrics.secondary_window_selected_onset_date
+                    ),
+                    "secondary_window_selected_marker": metrics.secondary_window_selected_marker,
+                    "secondary_window_selected_gap_days": metrics.secondary_window_selected_gap_days,
+                    "secondary_window_qualified_count": metrics.secondary_window_qualified_count,
+                    "secondary_window_too_early_count": metrics.secondary_window_too_early_count,
+                    "secondary_window_change_class": metrics.secondary_window_change_class,
+                    "secondary_window_review_tier": metrics.secondary_window_review_tier,
+                    "secondary_window_reason": metrics.secondary_window_reason,
+                    "common_cause_anchor_date": metrics.common_cause_anchor_date,
+                    "common_cause_anchor_kind": metrics.common_cause_anchor_kind,
+                    "site_event_history_flag": int(metrics.has_site_event),
+                    "subgroup_common_cause_history_flag": int(metrics.has_subgroup_common_cause),
+                    "common_cause_history_flag": int(metrics.has_common_cause_history),
+                    "strict_trigger_proximal_common_cause_flag": int(
+                        metrics.has_strict_trigger_proximal_common_cause
+                    ),
+                    "warning_proximal_common_cause_flag": int(
+                        metrics.has_warning_proximal_common_cause
+                    ),
+                    "trigger_proximal_common_cause_flag": int(metrics.has_trigger_proximal_common_cause),
                 }
             )
     if not rows:
@@ -151,6 +194,21 @@ def build_summary(df: pd.DataFrame) -> pd.DataFrame:
         "algorithm_family_개방장치이상형_패널수": int(df["algorithm_family_ko"].map(common.normalize_text).eq("개방/장치이상형").sum()),
         "algorithm_family_모듈손상형_패널수": int(df["algorithm_family_ko"].map(common.normalize_text).eq("모듈손상형").sum()),
         "algorithm_family_불충분_패널수": int(df["algorithm_family_ko"].map(common.normalize_text).eq("불충분").sum()),
+        "secondary_window_candidate_패널수": int(
+            pd.to_numeric(df["secondary_window_candidate_flag"], errors="coerce").fillna(0).sum()
+        ),
+        "secondary_window_trigger_only_to_precursor_패널수": int(
+            df["secondary_window_change_class"]
+            .map(common.normalize_text)
+            .eq("trigger_only_to_precursor")
+            .sum()
+        ),
+        "secondary_window_review_required_패널수": int(
+            df["secondary_window_review_tier"]
+            .map(common.normalize_text)
+            .str.startswith("review_")
+            .sum()
+        ),
         "note_ko": (
             "이 runtime audit는 raw-only 경로다. panel_day_core와 precursor gate만 사용하며, "
             "수동 truth/adjudication/frozen audit snapshot은 참조하지 않는다."
