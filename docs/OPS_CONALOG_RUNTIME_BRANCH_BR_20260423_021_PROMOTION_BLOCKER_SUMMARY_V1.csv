@@ -1,0 +1,5 @@
+﻿subtype_promotion_blocker_shadow,site,panel_count,strict_trigger_proximal_common_cause_count,subgroup_common_cause_history_count,site_event_history_count,g1_shadow_count
+backdating_risk,ktc_ess,7,6,5,7,7
+common_cause,conalog,72,64,64,34,0
+common_cause,gangui,45,11,10,5,0
+common_cause,ktc_ess,21,10,13,21,0
