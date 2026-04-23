@@ -57,6 +57,8 @@ AUDIT_COLS = [
     "secondary_window_change_class",
     "secondary_window_review_tier",
     "secondary_window_reason",
+    "promotion_decision_bucket",
+    "promotion_decision_reason",
     "common_cause_anchor_date",
     "common_cause_anchor_kind",
     "site_event_history_flag",
@@ -82,6 +84,12 @@ SUMMARY_COLS = [
     "secondary_window_candidate_패널수",
     "secondary_window_trigger_only_to_precursor_패널수",
     "secondary_window_review_required_패널수",
+    "promotion_decision_promote_candidate_패널수",
+    "promotion_decision_manual_review_패널수",
+    "promotion_decision_blocked_cluster_risk_패널수",
+    "promotion_decision_hold_shadow_only_패널수",
+    "promotion_decision_backdate_suppression_candidate_패널수",
+    "promotion_decision_audit_provenance_only_패널수",
     "note_ko",
 ]
 
@@ -161,6 +169,8 @@ def build_rows(root: Path) -> pd.DataFrame:
                     "secondary_window_change_class": metrics.secondary_window_change_class,
                     "secondary_window_review_tier": metrics.secondary_window_review_tier,
                     "secondary_window_reason": metrics.secondary_window_reason,
+                    "promotion_decision_bucket": metrics.promotion_decision_bucket,
+                    "promotion_decision_reason": metrics.promotion_decision_reason,
                     "common_cause_anchor_date": metrics.common_cause_anchor_date,
                     "common_cause_anchor_kind": metrics.common_cause_anchor_kind,
                     "site_event_history_flag": int(metrics.has_site_event),
@@ -181,6 +191,7 @@ def build_rows(root: Path) -> pd.DataFrame:
 
 
 def build_summary(df: pd.DataFrame) -> pd.DataFrame:
+    promotion_bucket = df["promotion_decision_bucket"].map(common.normalize_text)
     row = {
         "전체_패널수": int(len(df)),
         "고장_패널수": int(df["패널고장여부_ko"].map(common.normalize_text).eq("고장").sum()),
@@ -208,6 +219,18 @@ def build_summary(df: pd.DataFrame) -> pd.DataFrame:
             .map(common.normalize_text)
             .str.startswith("review_")
             .sum()
+        ),
+        "promotion_decision_promote_candidate_패널수": int(promotion_bucket.eq("promote_candidate").sum()),
+        "promotion_decision_manual_review_패널수": int(promotion_bucket.eq("manual_review").sum()),
+        "promotion_decision_blocked_cluster_risk_패널수": int(
+            promotion_bucket.eq("blocked_cluster_risk").sum()
+        ),
+        "promotion_decision_hold_shadow_only_패널수": int(promotion_bucket.eq("hold_shadow_only").sum()),
+        "promotion_decision_backdate_suppression_candidate_패널수": int(
+            promotion_bucket.eq("backdate_suppression_candidate").sum()
+        ),
+        "promotion_decision_audit_provenance_only_패널수": int(
+            promotion_bucket.eq("audit_provenance_only").sum()
         ),
         "note_ko": (
             "이 runtime audit는 raw-only 경로다. panel_day_core와 precursor gate만 사용하며, "
