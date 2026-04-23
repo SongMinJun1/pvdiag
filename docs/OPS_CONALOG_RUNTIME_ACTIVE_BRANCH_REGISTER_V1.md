@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260423-013` | `shadow_audit_implemented` | G1 suppressed-event shadow columns in runtime audit only | decide whether reviewer approves a separate operator-facing semantic diff preview |
+| `BR-20260423-014` | `semantic_preview_generated` | preview-only operator-facing diff for G1 shadow rows | decide whether to approve a semantic patch, possibly strict-proximal 6 first |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -25,6 +25,7 @@
 | `BR-20260423-011` | `deep_packet_generated` | gangui blocked_cluster_risk 26 rows collapse to 2 roots with no site/subgroup/strict-proximal support | no |
 | `BR-20260423-012` | `shadow_simulation_generated` | G1 suppression simulation maps ktc_ess 7 rows from current 전조형 고장 to shadow 급작 고장 with no code change | no |
 | `BR-20260423-013` | `shadow_audit_implemented` | audit adds 10 G1 suppressed-event shadow columns; final verdict remains byte-equivalent by table value | no |
+| `BR-20260423-014` | `semantic_preview_generated` | preview shows 7 ktc_ess rows would change 13 operator-facing columns and 91 cells; no production output written | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -37,9 +38,10 @@
 - BR-011 closes `blocked_cluster_risk=26` as `blocked_counterexample_hold`: all rows are `gangui`, 2 roots, selected gaps 115-120 days, site/subgroup/strict-proximal support 0.
 - BR-012 keeps `backdate_suppression_candidate=7` as shadow-only: if G1 is applied, all 7 become `전조형 고장 -> 급작 고장` simulation rows, but production semantics stay unchanged.
 - BR-013 implements the same G1 result as audit shadow columns only: audit common columns equal `true`, final verdict full table equal `true`, G1 shadow rows `7`.
+- BR-014 previews operator-facing impact only: 7 ktc_ess rows, 13 columns, 91 cells, production output written `0`; 1 row lacks strict-proximal common-cause support.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
 - use bucket-specific review packets before proposing any operator-facing event semantic change.
-- next branch may generate an operator-facing semantic diff preview, but must not change production output without explicit reviewer approval.
+- next branch may implement an explicit semantic patch only after approval; the conservative path is strict-proximal-supported 6 rows first, with 1 row held for review.
 - only after reviewer confirmation consider a separate operator-facing rule proposal.
