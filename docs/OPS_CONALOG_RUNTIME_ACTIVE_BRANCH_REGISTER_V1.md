@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260423-019` | `subtype_shadow_columns_validated` | runtime fault-event audit emits subtype hypothesis shadow columns for 145 raw-only fault panels | review shape confidence vs promotion blocker separation |
+| `BR-20260423-020` | `retrospective_subtype_consistency_audit_complete` | subtype goal retrospectively checked against prior BR decision groups; semantic reopen 0, shadow follow-up 3 | split shape confidence from promotion blocker |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -31,6 +31,7 @@
 | `BR-20260423-017` | `morphology_atlas_shadow_generated` | atlas 6 families, threshold candidates 6 axes, shadow rows 145; G1 6 rows blocked as long-gap one-day episodes | no |
 | `BR-20260423-018` | `subtype_hypothesis_roadmap_locked` | locks 17 subtype hypotheses under 6 family buckets; next implementation must be shadow-only subtype evidence columns | no |
 | `BR-20260423-019` | `subtype_shadow_columns_validated` | adds 6 subtype hypothesis shadow columns to runtime fault-event audit; 145 populated, production write sum 0, final verdict/heuristic unchanged | no |
+| `BR-20260423-020` | `retrospective_subtype_consistency_audit_complete` | reviews prior decision groups under subtype goal; semantic reopen 0, operator-facing rollback 0, shadow follow-up groups 3 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -56,6 +57,8 @@
 - BR-019 appends subtype hypothesis columns to the audit/evidence layer only; `subtype_production_write_allowed_sum = 0`.
 - BR-019 keeps old audit common columns, raw-only final verdict, and raw-only heuristic equal to BR-017.
 - BR-019 records subtype shape first and common-cause as a hold reason/tag, so subtype review can proceed without operator-facing promotion.
+- BR-020 confirms the subtype goal does not require reopening prior semantic decisions: `semantic_reopen_required_sum = 0`.
+- BR-020 marks exactly 3 shadow follow-up groups: secondary-window chain, promotion decision contract extension, and BR-019 confidence/blocker decomposition.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
