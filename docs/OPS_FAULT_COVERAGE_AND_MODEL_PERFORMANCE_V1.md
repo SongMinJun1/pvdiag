@@ -13,7 +13,7 @@
 - cause candidate heuristic은 current frozen 6 fault sample 기준 unique_top1_candidate_count=3 의 triage-only suspected-cause ranking 층임.
 
 ## 3. 입력 데이터와 학습/참조 자산
-- panel multiaxis verdict, integrated table, GPVS evidence pack, cause candidate heuristic summary를 현재 frozen front-facing stack의 직접 입력 자산으로 사용하였음.
+- panel multiaxis verdict, GPVS evidence pack, cause candidate heuristic summary를 현재 frozen front-facing stack의 직접 입력 자산으로 사용하였음.
 - recovered GPVS by-type artifact와 GPVS evidence pack은 reference attach provenance와 usage rule 설명에 사용하였음.
 - outputs/validation/fault_validation_report_v1.csv 는 current framework validation support count를 보조적으로 인용하였음.
 - full_algorithm_f1_summary_v3.csv, critical_actionability_f1_summary.csv, gpvs_fault_family_f1_summary.csv, panel_day_engine_project_final_decision_pack_v1.csv 를 current frozen metric artifact로 사용하였음.
@@ -30,7 +30,7 @@
 - cause candidate heuristic은 triage-only layer이므로 ranking ground truth가 없으면 support count와 validation support count만 사용하고 과장된 ranking metric을 만들지 않음.
 
 ## 6. 현재 확보된 지표와 해석
-- current frozen integrated summary 기준 total_panel_count=25, fault_panel_count=6 임.
+- current frozen verdict/evidence derived summary 기준 total_panel_count=25, fault_panel_count=6 임.
 - full_algorithm_f1_summary_v3 에는 strict/operational overall precision, recall, f1 이 존재하였음. 다만 broader frozen algorithm scope 수치이므로 25 panel / 6 fault 설명용 sample과 동일시하면 안 됨.
 - panel_day_engine_project_final_decision_pack_v1 에는 step3 precursor performance 와 step4 abrupt no-precursor scope의 current_best_f1 이 존재하였음. 다만 support가 작고 final_usage_decision이 exploratory_only 로 표시된 scope임.
 - GPVS evidence summary 에는 external evidence available count, core reference count, auxiliary reference count가 존재하였음. 이는 reference-only support metric 임.
