@@ -1,0 +1,9 @@
+metric,value,note
+supported_context_panel_count,4,BR-005 review_supported_context subset
+supported_context_daily_slice_rows,53,daily rows retained for the supported subset
+priority_manual_review_panels,4,"still manual review, not automatic promotion"
+auto_promotion_panels,0,no panel is promoted from this packet alone
+panels_with_site_event_history_reason,4,case-level site-event support from BR-005 reasons
+panels_with_strict_common_reason,2,strict common-cause support in review reasons
+panels_with_terminal_evidence_reason,2,terminal evidence support in review reasons
+panels_with_nonzero_daily_slice_signal,1,daily slice has nonzero signal_count rows
