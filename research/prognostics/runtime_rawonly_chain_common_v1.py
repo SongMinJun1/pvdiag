@@ -71,6 +71,13 @@ PROXIMAL_COMMON_CAUSE_WINDOW_DAYS = 3
 DEGRADATION_ONSET_BACKDATE_GUARD_NAME = "G1_extreme_longgap_one_day"
 DEGRADATION_ONSET_BACKDATE_GUARD_MIN_GAP_DAYS = 30
 DEGRADATION_ONSET_BACKDATE_GUARD_MAX_DEGRADE_DAYS = 1
+PROMOTION_DECISION_ONSET_SIGNAL_COLS = [
+    "signal_count",
+    "pre_ews",
+    "ews_warning",
+    "pre_alarm",
+]
+PROMOTION_DECISION_ONSET_SIGNAL_LOOKAHEAD_DAYS = 10
 
 
 @dataclass(frozen=True)
@@ -115,6 +122,8 @@ class PanelRuntimeMetrics:
     secondary_window_change_class: str
     secondary_window_review_tier: str
     secondary_window_reason: str
+    promotion_decision_bucket: str
+    promotion_decision_reason: str
     common_cause_anchor_date: str
     common_cause_anchor_kind: str
     has_final_fault: bool
@@ -381,6 +390,82 @@ def count_degradation_days_between(
 
     matched_dates = dates.loc[window_mask & (degrade_mask | subtype_mask)].dt.normalize().dropna()
     return int(matched_dates.nunique())
+
+
+def count_onset_window_signal_days(
+    panel_gate: pd.DataFrame,
+    onset: pd.Timestamp | None,
+    strict_trigger: pd.Timestamp | None,
+) -> int:
+    if onset is None or strict_trigger is None or panel_gate.empty or "date" not in panel_gate.columns:
+        return 0
+
+    dates = pd.to_datetime(panel_gate["date"], errors="coerce")
+    window_end = min(strict_trigger, onset + pd.Timedelta(days=PROMOTION_DECISION_ONSET_SIGNAL_LOOKAHEAD_DAYS))
+    window_mask = dates.notna() & dates.ge(onset) & dates.le(window_end)
+    if not window_mask.any():
+        return 0
+
+    matched_dates: set[pd.Timestamp] = set()
+    for column in PROMOTION_DECISION_ONSET_SIGNAL_COLS:
+        if column not in panel_gate.columns:
+            continue
+        if column == "signal_count":
+            signal_mask = pd.to_numeric(panel_gate[column], errors="coerce").fillna(0).gt(0)
+        else:
+            signal_mask = truthy_mask(panel_gate[column])
+        signal_dates = dates.loc[window_mask & signal_mask].dt.normalize().dropna()
+        matched_dates.update(pd.Timestamp(ts).normalize() for ts in signal_dates.tolist())
+    return len(matched_dates)
+
+
+def classify_promotion_decision_bucket(
+    *,
+    degradation_guard_flag: bool,
+    secondary_window_change_class: str,
+    secondary_window_review_tier: str,
+    secondary_window_selected_marker: str,
+    onset_window_signal_days: int,
+) -> tuple[str, str]:
+    if degradation_guard_flag:
+        return (
+            "backdate_suppression_candidate",
+            "BR008: G1 degradation backdate guard candidate; shadow suppression review only",
+        )
+
+    if secondary_window_review_tier in {"audit_provenance_only", "audit_no_event_flip"}:
+        return (
+            "audit_provenance_only",
+            f"BR008: {secondary_window_review_tier}; audit/provenance only and no event flip",
+        )
+
+    if secondary_window_change_class != "trigger_only_to_precursor":
+        return "", ""
+
+    if secondary_window_review_tier == "review_persistent_secondary_only":
+        return (
+            "blocked_cluster_risk",
+            "BR008: persistent secondary-only candidate; blocked from promotion by cluster false-positive risk",
+        )
+
+    if secondary_window_review_tier == "review_supported_context":
+        if secondary_window_selected_marker == "prealarm_cond_dtw_mid_or_hi" and onset_window_signal_days == 0:
+            return (
+                "hold_shadow_only",
+                "BR008: supported context exists, but selected onset is DTW prealarm with zero independent onset-window signal",
+            )
+        return (
+            "manual_review",
+            "BR008: supported context requires raw/audit review before any operator-facing promotion",
+        )
+
+    if secondary_window_review_tier.startswith("review_"):
+        return (
+            "manual_review",
+            "BR008: trigger-only precursor candidate lacks hard promotion support",
+        )
+
+    return "", ""
 
 
 def first_available_anchor(
@@ -676,6 +761,19 @@ def compute_panel_metrics(
             f"review_tier={secondary_window_review_tier}"
         )
 
+    onset_window_signal_days = count_onset_window_signal_days(
+        panel_gate,
+        secondary_window_onset,
+        strict_trigger,
+    )
+    promotion_decision_bucket, promotion_decision_reason = classify_promotion_decision_bucket(
+        degradation_guard_flag=degradation_guard_flag,
+        secondary_window_change_class=secondary_window_change_class,
+        secondary_window_review_tier=secondary_window_review_tier,
+        secondary_window_selected_marker=secondary_window_marker,
+        onset_window_signal_days=onset_window_signal_days,
+    )
+
     algorithm_family, algorithm_symptom, detailed_code, detailed_label = choose_algorithm_family(
         representative_source=representative_source,
         representative_subtype=representative_subtype,
@@ -745,6 +843,8 @@ def compute_panel_metrics(
         secondary_window_change_class=secondary_window_change_class,
         secondary_window_review_tier=secondary_window_review_tier,
         secondary_window_reason=secondary_window_reason,
+        promotion_decision_bucket=promotion_decision_bucket,
+        promotion_decision_reason=promotion_decision_reason,
         common_cause_anchor_date=format_date(common_cause_anchor_ts),
         common_cause_anchor_kind=common_cause_anchor_kind,
         has_final_fault=has_final,
