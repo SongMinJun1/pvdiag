@@ -2827,6 +2827,7 @@ def main():
         "critical_diag_on_day", "critical_diag_date", "diagnosis_date_online",
         "critical_confirmed", "critical_suspect", "final_fault",
         "group_off_date", "group_off_like", "group_off_group",
+        "base_day_panel_count", "base_day_degraded_panel_count", "subgroup_common_cause_candidate",
         "fault_like_day", "degraded_candidate", "shadow_like_basic", "shadow_like",
         "anom_level", "recon_rank_day", "ae_strength", "anom_subtype",
         "ews_mid_var_7d", "ews_eventA_freq_7d", "ews_dtw_mean_7d", "ews_hs_mean_7d"
@@ -2978,6 +2979,34 @@ def main():
         (~out["data_bad"]) & (~out["final_fault"]) &
         out["prefault_cond_mid"] & out["prefault_cond_ae"] & out["prefault_cond_dtw"] & out["prefault_cond_ews"]
     )
+    out["base_day_panel_count"] = (
+        out.groupby(["date", "group_key_base"])["panel_id"].transform("nunique").fillna(0).astype(int)
+    )
+    out["base_day_degraded_panel_count"] = (
+        out.groupby(["date", "group_key_base"])["degraded_candidate"]
+        .transform(lambda s: s.astype(bool).sum())
+        .fillna(0)
+        .astype(int)
+    )
+    out["subgroup_common_cause_candidate"] = (
+        out["degraded_candidate"].astype(bool)
+        & (~out["site_event_soft"].astype(bool))
+        & (~out["site_event_hard"].astype(bool))
+        & (~out["group_off_date"].astype(bool))
+        & (~out["group_off_like"].astype(bool))
+        & out["base_day_degraded_panel_count"].ge(3)
+    )
+    prefault_common_cause_overlap = (
+        out["prefault_B"].astype(bool)
+        & (
+            out["site_event_soft"].astype(bool)
+            | out["site_event_hard"].astype(bool)
+            | out["group_off_date"].astype(bool)
+            | out["group_off_like"].astype(bool)
+        )
+    )
+    out["prefault_B_common_cause_overlap"] = prefault_common_cause_overlap
+    out["prefault_B_effective"] = out["prefault_B"].astype(bool) & (~prefault_common_cause_overlap)
 
     # ===== Helper reports: daily summaries & candidate lists =====
     # 1) 날짜별 anom_level 요약 테이블
@@ -3060,18 +3089,28 @@ def main():
         print("[WARN] failed to write EWS warning list:", e)
 
     # 5) 전조 엔진(Option B) 알람 리스트 – 날짜·패널 단위
+    # canonical 이름은 option_b를 명시해 의미를 드러내고,
+    # 기존 template-B 파일명은 backward-compatible alias로 유지한다.
     try:
         prefault_list = out[out["prefault_B"].astype(bool)].copy()
-        pf_path = out_dir / "ae_simple_prefault_B_daily.csv"
+        pf_path = out_dir / "ae_simple_prefault_option_b_daily.csv"
+        pf_legacy_path = out_dir / "ae_simple_prefault_B_daily.csv"
         _safe_report_write(
             prefault_list,
             pf_path,
-            "pre-fault template-B list",
+            "pre-fault option-b list",
+            index=False,
+            encoding="utf-8-sig",
+        )
+        _safe_report_write(
+            prefault_list,
+            pf_legacy_path,
+            "legacy pre-fault template-B alias",
             index=False,
             encoding="utf-8-sig",
         )
     except Exception as e:
-        print("[WARN] failed to write pre-fault template-B list:", e)
+        print("[WARN] failed to write pre-fault option-b list:", e)
 
     # B안 pre-alarm 플래그: 이미 고장 확정된 날은 제외하고,
     # EWS 경고 + (AE/DTW/HS 중 하나 이상 mid 이상) 인 날만 전조 후보로 간주
@@ -3107,7 +3146,12 @@ def main():
                 "site_event_soft",
                 "site_event_hard",
                 "group_off_date",
+                "base_day_panel_count",
+                "base_day_degraded_panel_count",
+                "subgroup_common_cause_candidate",
                 "prefault_B",
+                "prefault_B_common_cause_overlap",
+                "prefault_B_effective",
                 "pre_alarm",
                 "prefault_cond_mid",
                 "prefault_cond_ae",

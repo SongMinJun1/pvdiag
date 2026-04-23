@@ -6,6 +6,26 @@ from pathlib import Path
 
 import pandas as pd
 
+if __package__ in {None, ""}:
+    import sys
+
+    REPO_ROOT = Path(__file__).resolve().parents[2]
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from research.prognostics.heuristic_display_registry_v1 import (
+        DISPLAY_HEURISTIC_NAME_MAP,
+        HEURISTIC_DISPLAY_NOTE_MAP,
+        display_heuristic_name as shared_display_heuristic_name,
+        display_heuristic_note as shared_display_heuristic_note,
+    )
+else:
+    from .heuristic_display_registry_v1 import (
+        DISPLAY_HEURISTIC_NAME_MAP,
+        HEURISTIC_DISPLAY_NOTE_MAP,
+        display_heuristic_name as shared_display_heuristic_name,
+        display_heuristic_note as shared_display_heuristic_note,
+    )
+
 
 RUNTIME_AUDIT_OUTPUT_NAME = "panel_day_engine_runtime_fault_event_audit_v1.csv"
 RUNTIME_AUDIT_SUMMARY_NAME = "panel_day_engine_runtime_fault_event_audit_summary_v1.csv"
@@ -14,7 +34,7 @@ RUNTIME_VERDICT_SUMMARY_NAME = "panel_day_engine_runtime_final_verdict_summary_v
 RUNTIME_HEURISTIC_OUTPUT_NAME = "panel_day_engine_runtime_cause_candidate_heuristics_v1.csv"
 RUNTIME_HEURISTIC_SUMMARY_NAME = "panel_day_engine_runtime_cause_candidate_summary_v1.csv"
 
-RUNTIME_FAULT_OUTPUT_COLS = [
+RUNTIME_DECISION_COMPARE_COLS = [
     "site",
     "panel_id",
     "패널고장여부_ko",
@@ -24,6 +44,11 @@ RUNTIME_FAULT_OUTPUT_COLS = [
     "1순위_의심원인_ko",
     "2순위_의심원인_ko",
     "3순위_의심원인_ko",
+]
+RUNTIME_FAULT_OUTPUT_COLS = [
+    *RUNTIME_DECISION_COMPARE_COLS,
+    "전조날짜",
+    "고장날짜",
 ]
 RUNTIME_PREVIEW_OUTPUT_COLS = [
     "site",
@@ -31,6 +56,8 @@ RUNTIME_PREVIEW_OUTPUT_COLS = [
     "패널고장여부_ko",
     "사건유형_ko",
     "최종고장양상_ko",
+    "전조날짜",
+    "고장날짜",
     "커널로그_원인군_ko",
     "1순위_의심원인_ko",
     "2순위_의심원인_ko",
@@ -38,22 +65,12 @@ RUNTIME_PREVIEW_OUTPUT_COLS = [
     "커널로그 기존 알고리즘",
 ]
 
-DISPLAY_HEURISTIC_NAME_MAP = {
-    "다이오드·서브스트링형": "다이오드·국소 회로 이상형",
-    "접속·부분개방형": "접촉 끊김 형",
-    "센서·피드백형": "장치 측정 이상형",
-    "제어응답형": "장치 응답 이상형",
-    "전력변환부형": "전력변환부 이상형",
-    "외부계통교란형": "외부 전원 흔들림형",
-}
-
 PRIMARY_WARNING_COLS = [
     "ews_warning",
     "pre_alarm",
 ]
 SECONDARY_WARNING_COLS = [
     "pre_ews",
-    "prefault_B",
     "prefault_cond_mid",
     "prefault_cond_ae",
     "prefault_cond_dtw",
@@ -842,6 +859,8 @@ def compute_panel_metrics(
         evidence_bits.append(f"g1_suppressed_backdate_gap_days={gap_days}")
     elif gap_days:
         evidence_bits.append(f"precursor_gap_days={gap_days}")
+    if has_site_event:
+        evidence_bits.append("site_event_signal=1")
     if has_group_off:
         evidence_bits.append("group_off_signal=1")
     if g1_guard_applied_flag:
@@ -935,8 +954,43 @@ def compute_panel_metrics(
 
 
 def display_heuristic_name(value: object) -> str:
+    return shared_display_heuristic_name(value)
+
+
+def display_heuristic_note(value: object) -> str:
+    return shared_display_heuristic_note(value)
+
+
+def display_family_name(value: object) -> str:
     text = normalize_text(value)
-    return DISPLAY_HEURISTIC_NAME_MAP.get(text, text)
+    if text == "불충분":
+        return ""
+    return text
+
+
+def choose_display_precursor_date(
+    event_type_ko: object,
+    interpreted_onset_date: object,
+    first_warning_date: object,
+) -> str:
+    if normalize_text(event_type_ko) != "전조형 고장":
+        return ""
+    onset_date = normalize_text(interpreted_onset_date)
+    if onset_date:
+        return onset_date
+    return normalize_text(first_warning_date)
+
+
+def choose_display_fault_date(
+    fault_date: object,
+    strict_trigger_date: object,
+    first_final_fault_date: object,
+) -> str:
+    for candidate in [fault_date, strict_trigger_date, first_final_fault_date]:
+        text = normalize_text(candidate)
+        if text:
+            return text
+    return ""
 
 
 def load_runtime_core_from_workspace(workspace_root: Path, site: str) -> pd.DataFrame:
@@ -967,8 +1021,10 @@ def build_fault_table_from_outputs(
 ) -> pd.DataFrame:
     verdict_path = workspace_root / "_share" / verdict_name
     heuristic_path = workspace_root / "_share" / heuristic_name
+    audit_path = workspace_root / "_share" / RUNTIME_AUDIT_OUTPUT_NAME
     verdict_df = read_csv(verdict_path)
     heuristic_df = read_csv(heuristic_path)
+    audit_df = read_csv(audit_path)
     ensure_columns(
         verdict_df,
         ["site", "panel_id", "패널고장여부_ko", "사건유형_ko", "최종고장양상_ko", "커널로그_원인군_ko"],
@@ -979,9 +1035,18 @@ def build_fault_table_from_outputs(
         ["site", "panel_id", "원인후보_top1_ko", "원인후보_top2_ko", "원인후보_top3_ko"],
         heuristic_path.name,
     )
+    ensure_columns(
+        audit_df,
+        ["site", "panel_id", "earliest_warning_date", "strict_trigger_date", "first_final_fault_date"],
+        audit_path.name,
+    )
     heuristic_lookup = {
         (normalize_text(row["site"]), normalize_text(row["panel_id"])): row
         for row in heuristic_df.to_dict(orient="records")
+    }
+    audit_lookup = {
+        (normalize_text(row["site"]), normalize_text(row["panel_id"])): row
+        for row in audit_df.to_dict(orient="records")
     }
     rows: list[dict[str, str]] = []
     fault_rows = verdict_df.loc[verdict_df["패널고장여부_ko"].map(normalize_text).eq("고장")].copy()
@@ -990,6 +1055,7 @@ def build_fault_table_from_outputs(
         heuristic_row = heuristic_lookup.get(key)
         if heuristic_row is None:
             raise SystemExit(f"missing heuristic row for runtime fault panel: {key}")
+        audit_row = audit_lookup.get(key, {})
         rows.append(
             {
                 "site": key[0],
@@ -997,10 +1063,20 @@ def build_fault_table_from_outputs(
                 "패널고장여부_ko": normalize_text(row["패널고장여부_ko"]),
                 "사건유형_ko": normalize_text(row["사건유형_ko"]),
                 "최종고장양상_ko": normalize_text(row["최종고장양상_ko"]),
-                "커널로그_원인군_ko": normalize_text(row["커널로그_원인군_ko"]),
+                "커널로그_원인군_ko": display_family_name(row["커널로그_원인군_ko"]),
                 "1순위_의심원인_ko": display_heuristic_name(heuristic_row["원인후보_top1_ko"]),
                 "2순위_의심원인_ko": display_heuristic_name(heuristic_row["원인후보_top2_ko"]),
                 "3순위_의심원인_ko": display_heuristic_name(heuristic_row["원인후보_top3_ko"]),
+                "전조날짜": choose_display_precursor_date(
+                    event_type_ko=row.get("사건유형_ko"),
+                    interpreted_onset_date=row.get("사건해석상전조시작일"),
+                    first_warning_date=audit_row.get("earliest_warning_date"),
+                ),
+                "고장날짜": choose_display_fault_date(
+                    fault_date=row.get("세부fault_기준일"),
+                    strict_trigger_date=audit_row.get("strict_trigger_date"),
+                    first_final_fault_date=audit_row.get("first_final_fault_date"),
+                ),
             }
         )
     return pd.DataFrame(rows).reindex(columns=RUNTIME_FAULT_OUTPUT_COLS).sort_values(["site", "panel_id"]).reset_index(drop=True)
@@ -1022,7 +1098,9 @@ def build_fault_preview(workspace_root: Path, fault_df: pd.DataFrame) -> pd.Data
                 "패널고장여부_ko": normalize_text(row["패널고장여부_ko"]),
                 "사건유형_ko": normalize_text(row["사건유형_ko"]),
                 "최종고장양상_ko": normalize_text(row["최종고장양상_ko"]),
-                "커널로그_원인군_ko": normalize_text(row["커널로그_원인군_ko"]),
+                "전조날짜": normalize_text(row.get("전조날짜")),
+                "고장날짜": normalize_text(row.get("고장날짜")),
+                "커널로그_원인군_ko": display_family_name(row["커널로그_원인군_ko"]),
                 "1순위_의심원인_ko": normalize_text(row["1순위_의심원인_ko"]),
                 "2순위_의심원인_ko": normalize_text(row["2순위_의심원인_ko"]),
                 "3순위_의심원인_ko": normalize_text(row["3순위_의심원인_ko"]),
@@ -1061,7 +1139,7 @@ def compare_fault_table_to_reference(fault_df: pd.DataFrame, reference_path: Pat
     if len(reference_df) != len(candidate_df):
         diff_columns.append("__row_count__")
     else:
-        for column in RUNTIME_FAULT_OUTPUT_COLS:
+        for column in RUNTIME_DECISION_COMPARE_COLS:
             if column not in reference_df.columns:
                 diff_columns.append(f"missing_reference:{column}")
                 continue
@@ -1078,7 +1156,7 @@ def compare_fault_table_to_reference(fault_df: pd.DataFrame, reference_path: Pat
     overlap = reference_df.merge(candidate_df, on=["site", "panel_id"], how="inner", suffixes=("_reference", "_candidate"))
     overlap_diff_columns: list[str] = []
     if not overlap.empty:
-        for column in RUNTIME_FAULT_OUTPUT_COLS[2:]:
+        for column in RUNTIME_DECISION_COMPARE_COLS[2:]:
             left = overlap[f"{column}_reference"].fillna("").astype(str)
             right = overlap[f"{column}_candidate"].fillna("").astype(str)
             if not left.equals(right):
