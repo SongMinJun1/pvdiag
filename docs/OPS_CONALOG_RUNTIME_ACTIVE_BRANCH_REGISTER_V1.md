@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260423-021` | `shape_confidence_blocker_split_validated` | subtype shape confidence and promotion blocker split into separate shadow audit columns; production write sum 0 | decompose common_cause blocker into site/strict/subgroup causes |
+| `BR-20260423-022` | `common_cause_blocker_detail_validated` | common_cause blocker split into detail buckets without changing BR-021 common audit columns | build review packet for group_off and strict-proximal blocker details |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -33,6 +33,7 @@
 | `BR-20260423-019` | `subtype_shadow_columns_validated` | adds 6 subtype hypothesis shadow columns to runtime fault-event audit; 145 populated, production write sum 0, final verdict/heuristic unchanged | no |
 | `BR-20260423-020` | `retrospective_subtype_consistency_audit_complete` | reviews prior decision groups under subtype goal; semantic reopen 0, operator-facing rollback 0, shadow follow-up groups 3 | no |
 | `BR-20260423-021` | `shape_confidence_blocker_split_validated` | adds 3 shadow columns; old audit common columns, final verdict, and heuristic remain equal to BR-019; shape medium 136, low 9, blocker common_cause 138, backdating_risk 7 | no |
+| `BR-20260423-022` | `common_cause_blocker_detail_validated` | adds `group_off_history_flag` and blocker detail; BR-021 common columns/final verdict/heuristic remain equal; site_event 60, strict_trigger_proximal 49, group_off 28, subgroup_common_cause 1, backdating_risk 7 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -62,10 +63,11 @@
 - BR-020 marks exactly 3 shadow follow-up groups: secondary-window chain, promotion decision contract extension, and BR-019 confidence/blocker decomposition.
 - BR-021 keeps legacy `subtype_confidence_shadow=hold` for 145 subtype rows, while separating shape confidence from blockers: `medium=136`, `low=9`, `common_cause=138`, `backdating_risk=7`.
 - BR-021 confirms no semantic drift: BR-019 old audit common columns equal `true`, raw-only final verdict equal `true`, raw-only heuristic equal `true`.
+- BR-022 keeps BR-021 old audit common columns equal `true` while splitting blocker details: `site_event=60`, `strict_trigger_proximal=49`, `group_off=28`, `subgroup_common_cause=1`, `backdating_risk=7`.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
 - use bucket-specific review packets before proposing any operator-facing event semantic change.
 - before any new production semantic patch, keep duration/gap/continuity/spatiality separated by fault-family threshold candidates.
-- decompose BR-021 `common_cause` blocker into site-wide, strict-proximal, subgroup/root, and history-only sub-blockers before any subtype promotion discussion.
+- generate a review packet for BR-022 `group_off` and `strict_trigger_proximal` blocker details before any subtype promotion discussion.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.

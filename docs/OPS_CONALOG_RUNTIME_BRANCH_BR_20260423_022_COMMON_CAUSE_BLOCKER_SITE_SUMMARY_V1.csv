@@ -1,0 +1,9 @@
+﻿subtype_promotion_blocker_detail_shadow,site,panel_count,site_event_count,group_off_count,subgroup_common_cause_count,common_cause_history_count,strict_trigger_proximal_count,warning_proximal_count,trigger_proximal_count
+backdating_risk,ktc_ess,7,7,0,5,7,6,1,7
+group_off,gangui,28,0,28,0,27,0,7,7
+site_event,conalog,34,34,0,26,34,26,0,26
+site_event,gangui,5,5,4,0,5,0,1,1
+site_event,ktc_ess,21,21,0,13,21,10,5,14
+strict_trigger_proximal,conalog,38,0,0,38,38,38,0,38
+strict_trigger_proximal,gangui,11,0,11,9,11,11,2,11
+subgroup_common_cause,gangui,1,0,1,1,1,0,0,0
