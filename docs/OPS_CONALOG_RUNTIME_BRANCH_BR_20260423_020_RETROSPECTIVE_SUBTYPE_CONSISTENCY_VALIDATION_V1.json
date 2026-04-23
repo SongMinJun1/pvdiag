@@ -1,0 +1,19 @@
+{
+  "branch_id": "BR-20260423-020",
+  "review_group_rows": 7,
+  "semantic_reopen_required_sum": 0,
+  "shadow_followup_required_sum": 3,
+  "operator_facing_rollback_required": 0,
+  "production_verdict_patch_required": 0,
+  "status_counts": {
+    "keep": 4,
+    "keep_with_shadow_followup": 2,
+    "keep_with_schema_extension": 1
+  },
+  "next_required_actions": [
+    "add_shape_confidence_vs_promotion_blocker_review",
+    "split_shape_confidence_from_promotion_bucket",
+    "add_shape_confidence_and_promotion_blocker_columns"
+  ],
+  "note": "BR-020 is retrospective audit only; no code or production semantics changed."
+}
