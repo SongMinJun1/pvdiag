@@ -1,0 +1,24 @@
+{
+  "branch": "BR-20260423-023",
+  "scope": "review packet only for BR-022 group_off and strict_trigger_proximal blocker details",
+  "source_audit_path": "/private/tmp/br022_tri_site_v1/raw_only_chain_workspace/_share/panel_day_engine_runtime_fault_event_audit_v1.csv",
+  "packet_rows": 77,
+  "group_off_rows": 28,
+  "strict_trigger_proximal_rows": 49,
+  "detail_site_counts": {
+    "group_off|gangui": 28,
+    "strict_trigger_proximal|conalog": 38,
+    "strict_trigger_proximal|gangui": 11
+  },
+  "review_priority_counts": {
+    "P1_cluster_false_positive_check": 26,
+    "P1_strict_proximal_vs_secondary_window_check": 43,
+    "P2_group_episode_boundary_check": 2,
+    "P2_strict_proximal_anchor_check": 6
+  },
+  "summary_rows": 16,
+  "subtype_production_write_allowed_sum": 0,
+  "operator_facing_change": false,
+  "code_change": false,
+  "decision": "review packet generated; no production semantics or audit builder changed"
+}
