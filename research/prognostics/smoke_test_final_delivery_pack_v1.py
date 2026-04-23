@@ -63,8 +63,6 @@ def assert_exists(path: Path) -> None:
 
 def main() -> None:
     run([sys.executable, "-m", "py_compile", "pv_ae/panel_day_engine.py"])
-    run([sys.executable, "-m", "py_compile", str(REPO_ROOT / "app/run_realtime.py")])
-    run([sys.executable, "-m", "py_compile", str(REPO_ROOT / "app/run_oneclick.py")])
     run([sys.executable, "-m", "py_compile", str(BUILD_SCRIPT)])
     run([sys.executable, "-m", "py_compile", str(Path(__file__))])
 
@@ -169,14 +167,39 @@ def main() -> None:
         "run_demo.bat",
         "run_real.bat",
         "package/app/run_conalog_infer.py",
-        "git metadata",
-        "Python 3",
-        "git executable",
+        "stable CLI",
+        "thin wrapper",
+        "final front-facing integrated table schema",
     ]
     combined_text = "\n".join([readme_text, known_limits_text, delivery_manifest_text])
     missing_phrases = [phrase for phrase in required_phrases if phrase not in combined_text]
     if missing_phrases:
         raise SystemExit(f"delivery docs missing boundary/executable phrases: {missing_phrases}")
+
+    run_demo_text = (PACKAGE_ROOT / "bin/run_demo.bat").read_text(encoding="utf-8")
+    run_real_text = (PACKAGE_ROOT / "bin/run_real.bat").read_text(encoding="utf-8")
+    stable_handoff_config_path = PACKAGE_ROOT / "stable_handoff/config/default.yaml"
+    assert_exists(stable_handoff_config_path)
+    if "run_conalog_infer.py" not in run_demo_text or "run_oneclick.py" in run_demo_text:
+        raise SystemExit("run_demo.bat must call package/app/run_conalog_infer.py directly")
+    if "run_realtime.py" in run_demo_text:
+        raise SystemExit("run_demo.bat must not reference run_realtime.py")
+    if "stable_handoff\\config\\default.yaml" not in run_demo_text:
+        raise SystemExit("run_demo.bat must use package/stable_handoff/config/default.yaml")
+    if "run_conalog_infer.py" not in run_real_text or "run_oneclick.py" in run_real_text:
+        raise SystemExit("run_real.bat must call package/app/run_conalog_infer.py directly")
+    if "run_realtime.py" in run_real_text:
+        raise SystemExit("run_real.bat must not reference run_realtime.py")
+    if "stable_handoff\\config\\default.yaml" not in run_real_text:
+        raise SystemExit("run_real.bat must default to package/stable_handoff/config/default.yaml")
+    if "run_oneclick.py" in run_demo_text or "run_oneclick.py" in run_real_text:
+        raise SystemExit("batch wrappers must not reference run_oneclick.py")
+    if "settings.json" in run_real_text or "ConvertFrom-Json" in run_real_text:
+        raise SystemExit("run_real.bat must not parse settings.json in this hotfix")
+    if "set /p INPUT_ROOT=" not in run_real_text or "set /p OUTPUT_ROOT=" not in run_real_text:
+        raise SystemExit("run_real.bat must prompt interactively for input_root and output_root")
+    if "입력 폴더 경로를 다시 확인하십시오." not in run_real_text:
+        raise SystemExit("run_real.bat must keep invalid input guidance text")
 
     package_config = PACKAGE_ROOT / "stable_handoff/config/default.yaml"
     package_input_root = PACKAGE_ROOT / "stable_handoff/examples"
@@ -213,48 +236,6 @@ def main() -> None:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         if metadata.get("git_branch") != "git_unavailable" or metadata.get("git_head") != "git_unavailable":
             raise SystemExit(f"gitless dry-run metadata must mark git_unavailable, got: {metadata}")
-
-    package_runtime_config = PACKAGE_ROOT / "config/runtime.yaml"
-    with tempfile.TemporaryDirectory(prefix="final_delivery_oneclick_gitless_") as tmp_dir:
-        oneclick_output_root = Path(tmp_dir)
-        env = dict(os.environ)
-        env["PATH"] = ""
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(PACKAGE_ROOT / "app/run_oneclick.py"),
-                "--dry-run",
-                "--input-root",
-                str(package_input_root),
-                "--output-root",
-                str(oneclick_output_root),
-                "--config",
-                str(package_runtime_config),
-                "--include-experimental",
-                "off",
-                "--report",
-                "on",
-            ],
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-            env=env,
-        )
-        if result.returncode != 0:
-            raise SystemExit(result.stderr or result.stdout or "gitless one-click dry-run failed")
-        latest_dir = oneclick_output_root / "latest"
-        plan_path = latest_dir / "oneclick_plan_v1.json"
-        runtime_log_path = latest_dir / "runtime_log_v1.jsonl"
-        failure_log_path = latest_dir / "failure_log_v1.jsonl"
-        runtime_metadata_path = latest_dir / "conalog_run_metadata_v1.json"
-        assert_exists(plan_path)
-        assert_exists(runtime_log_path)
-        assert_exists(failure_log_path)
-        assert_exists(runtime_metadata_path)
-        runtime_metadata = json.loads(runtime_metadata_path.read_text(encoding="utf-8"))
-        if runtime_metadata.get("git_branch") != "git_unavailable" or runtime_metadata.get("git_head") != "git_unavailable":
-            raise SystemExit(f"gitless one-click dry-run metadata must mark git_unavailable, got: {runtime_metadata}")
 
     after_hashes = {path: sha256(path) for path in WATCHED_FROZEN_OUTPUTS}
     if before_hashes != after_hashes:

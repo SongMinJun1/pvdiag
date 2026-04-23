@@ -1,4 +1,5 @@
-@echo off
+﻿@echo off
+chcp 65001 >nul
 if "%PACKAGE_ROOT%"=="" (
   echo PACKAGE_ROOT 환경변수가 비어 있습니다.
   exit /b 1

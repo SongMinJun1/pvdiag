@@ -60,8 +60,8 @@ TOP_LEVEL_DOCS = {
 - `package/config/runtime.yaml`
 - stable handoff pack
 - stable output 계약과 integrated result schema
-- stable CLI 는 현재 delivery pack 기준으로 검증된 진입점임
-- demo/one-click foundation 도 최소 setup 기준으로 바로 시연 가능하도록 정리하였음
+- stable CLI 는 현재 delivery pack 기준으로 검증된 기본 진입점임
+- demo/real batch wrapper 는 현재 `package/app/run_conalog_infer.py` 위의 thin wrapper 임
 - Python 3 설치는 여전히 필요함
 - git executable 이 없어도 stable dry-run/demo flow 는 계속 수행 가능함
 - git metadata 가 대상 장비에서 unavailable 일 수 있으나, 이는 stable dry-run 또는 stable output generation 을 막지 않음
@@ -79,34 +79,33 @@ TOP_LEVEL_DOCS = {
 ## 권장 사용 순서
 1. `package/bin/run_demo.bat`
 2. `package/bin/run_real.bat`
-3. 필요 시 `package/app/app_streamlit.py`
-4. dashboard / system integration 은 `package/app/run_conalog_infer.py` 또는 `package/app/run_oneclick.py` 를 직접 호출해야 하며, 문서를 scraping 하면 안 됨
+3. dashboard / system integration 은 우선 `package/app/run_conalog_infer.py` 를 직접 호출해야 함
+4. one-click / Streamlit 은 optional foundation utility 이며 이번 hotfix scope 에 포함되지 않음
 """,
     "QUICKSTART.md": """# Quickstart
 
 ## 1. demonstration
 - `package/bin/run_demo.bat`
-- packaged example input 으로 one-click foundation 을 실행함
+- packaged example input 으로 `package/app/run_conalog_infer.py` 를 직접 실행하는 thin wrapper 임
 - Python 3 설치는 필요하지만, git 설치는 dry-run/demo 흐름에 필수 아님
 
 ## 2. actual input folder 실행
 - `package/bin/run_real.bat`
-- `package/bin/settings.template.json` 또는 `settings.json` 을 이용하여 input-root, output-root, config 를 지정함
+- 실행 시 input_root 를 직접 입력받고, output_root 는 비우면 `package/real_output` 을 기본값으로 사용함
+- 내부적으로 `package/app/run_conalog_infer.py` 를 직접 실행하는 thin wrapper 임
 
-## 3. optional GUI
-- `package/app/app_streamlit.py`
-- foundation GUI 이며 stable output 과 optional experimental output 을 분리해서 보여줌
-
-## 4. system / dashboard integration
+## 3. system / dashboard integration
 - stable direct CLI 는 `package/app/run_conalog_infer.py`
-- one-click orchestration 은 `package/app/run_oneclick.py`
+- demo/real batch wrapper 는 stable CLI 위의 thin wrapper 임
 - 문서를 scraping 하지 말고 executable entrypoint 를 직접 호출해야 함
 - git executable 이 대상 장비 PATH 에 없어도 stable dry-run 은 계속 수행 가능함
 
 ## 운영 원칙
 - stable output 을 먼저 읽어야 함
 - reference_only 와 triage_only 는 stable default output 과 혼동하면 안 됨
-- demo/one-click 은 현재 minimal setup 기준으로 지원하지만, Python 설치 자체는 필요함
+- final front-facing integrated table schema 는 그대로 유지됨
+- one-click 과 Streamlit 은 optional foundation utility 이며 이번 hotfix scope 에 포함되지 않음
+- demo/real wrapper 는 현재 minimal setup 기준으로 지원하지만, Python 설치 자체는 필요함
 """,
     "RELEASE_NOTES.md": """# Release Notes
 
@@ -138,12 +137,14 @@ TOP_LEVEL_DOCS = {
 - GPVS 는 reference-only 임
 - heuristic 은 triage-only 임
 - runtime 은 feasibility/readiness 이며 production SLA 가 아님
-- one-click 은 foundation 이며 full production scheduler 가 아님
+- one-click 과 Streamlit 은 optional foundation utility 이며 full production scheduler 가 아님
 - stable output 과 experimental/reference output 은 혼동하면 안 됨
 - dashboard 또는 외부 시스템은 문서를 scraping 하지 말고 `package/app/` entrypoint 를 직접 호출해야 함
 - Python 3 설치는 여전히 필요함
 - git executable 이 대상 장비에 없어도 demo/dry-run 흐름은 계속 수행 가능함
 - git metadata 는 원본 저장소 밖에서 unavailable 일 수 있으나, 이는 stable dry-run 또는 stable output generation 을 막지 않음
+- final front-facing integrated table schema 는 unchanged 상태로 유지됨
+- demo/real batch wrapper 는 stable CLI thin wrapper 이며, one-click 과 Streamlit 은 이번 hotfix scope 에 포함되지 않음
 """,
     "DELIVERY_MANIFEST.md": """# Delivery Manifest
 
@@ -1319,58 +1320,66 @@ setlocal
 set PACKAGE_ROOT=%~dp0..
 set INPUT_ROOT=%PACKAGE_ROOT%\\stable_handoff\\examples
 set OUTPUT_ROOT=%PACKAGE_ROOT%\\demo_output
-set CONFIG_PATH=%PACKAGE_ROOT%\\config\\runtime.yaml
-set "PYTHON_CMD="
+set OUTPUT_DIR=%OUTPUT_ROOT%\\output
+set CONFIG_PATH=%PACKAGE_ROOT%\\stable_handoff\\config\\default.yaml
 
 where py >nul 2>nul
-if %errorlevel%==0 (
-  set "PYTHON_CMD=py -3"
-) else (
-  where python >nul 2>nul
-  if %errorlevel%==0 (
-    set "PYTHON_CMD=python"
-  ) else (
-    echo Python 3가 필요합니다. Python을 설치한 뒤 다시 실행하십시오.
-    exit /b 1
-  )
-)
+if %errorlevel%==0 goto use_py
+where python >nul 2>nul
+if %errorlevel%==0 goto use_python
+echo Python 3가 필요합니다. Python을 설치한 뒤 다시 실행하십시오.
+exit /b 1
 
-call %PYTHON_CMD% "%PACKAGE_ROOT%\\app\\run_oneclick.py" ^
-  --input-root "%INPUT_ROOT%" ^
-  --output-root "%OUTPUT_ROOT%" ^
-  --config "%CONFIG_PATH%" ^
-  --include-experimental off ^
-  --report on
-
+:use_py
+py -3 "%PACKAGE_ROOT%\\app\\run_conalog_infer.py" --input-root "%INPUT_ROOT%" --output-root "%OUTPUT_ROOT%" --config "%CONFIG_PATH%"
 if errorlevel 1 exit /b %errorlevel%
-echo.
-echo [OK] results written under %OUTPUT_ROOT%\\latest
+if exist "%OUTPUT_DIR%" start "" "%OUTPUT_DIR%"
+exit /b 0
+
+:use_python
+python "%PACKAGE_ROOT%\\app\\run_conalog_infer.py" --input-root "%INPUT_ROOT%" --output-root "%OUTPUT_ROOT%" --config "%CONFIG_PATH%"
+if errorlevel 1 exit /b %errorlevel%
+if exist "%OUTPUT_DIR%" start "" "%OUTPUT_DIR%"
+exit /b 0
 """
 
 RUN_REAL_BAT_TEXT = """@echo off
 setlocal
 set PACKAGE_ROOT=%~dp0..
-set TEMPLATE_FILE=%PACKAGE_ROOT%\\bin\\settings.template.json
-set SETTINGS_FILE=%PACKAGE_ROOT%\\bin\\settings.json
-set "PYTHON_CMD="
+set CONFIG_PATH=%PACKAGE_ROOT%\\stable_handoff\\config\\default.yaml
+set DEFAULT_OUTPUT_ROOT=%PACKAGE_ROOT%\\real_output
 
 where py >nul 2>nul
-if %errorlevel%==0 (
-  set "PYTHON_CMD=py -3"
-) else (
-  where python >nul 2>nul
-  if %errorlevel%==0 (
-    set "PYTHON_CMD=python"
-  ) else (
-    echo Python 3가 필요합니다. Python을 설치한 뒤 다시 실행하십시오.
-    exit /b 1
-  )
-)
+if %errorlevel%==0 goto have_python
+where python >nul 2>nul
+if %errorlevel%==0 goto have_python
+echo Python 3가 필요합니다. Python을 설치한 뒤 다시 실행하십시오.
+exit /b 1
 
-if not exist "%SETTINGS_FILE%" copy "%TEMPLATE_FILE%" "%SETTINGS_FILE%" >nul
+:have_python
+set /p INPUT_ROOT=입력 폴더 경로를 입력하십시오: 
+if "%INPUT_ROOT%"=="" goto invalid_input
+if not exist "%INPUT_ROOT%" goto invalid_input
 
-call %PYTHON_CMD% -c "import json, pathlib, subprocess, sys; root = pathlib.Path(r'%PACKAGE_ROOT%'); settings_path = pathlib.Path(r'%SETTINGS_FILE%'); settings = json.loads(settings_path.read_text(encoding='utf-8')); input_root = str(settings.get('input_root', '')).strip(); output_root = str(settings.get('output_root', '')).strip(); config_path = str(settings.get('config', str(root / 'config' / 'runtime.yaml'))).strip(); placeholder_input = input_root in {'', 'C:/conalog/input'}; placeholder_output = output_root in {'', 'C:/conalog/output'}; missing_input = (not placeholder_input) and (not pathlib.Path(input_root).exists()); invalid = placeholder_input or placeholder_output or missing_input; print('먼저 settings.json의 input_root/output_root를 실제 경로로 수정하십시오.') if invalid else None; subprocess.Popen(['notepad', str(settings_path)]) if invalid else None; cmd = [sys.executable, str(root / 'app' / 'run_oneclick.py'), '--input-root', input_root, '--output-root', output_root, '--config', config_path, '--include-experimental', str(settings.get('include_experimental', 'off')), '--report', str(settings.get('report', 'on'))]; raise SystemExit(0 if invalid else subprocess.call(cmd))"
+set /p OUTPUT_ROOT=출력 폴더 경로를 입력하십시오(빈칸이면 기본값 사용): 
+if "%OUTPUT_ROOT%"=="" set OUTPUT_ROOT=%DEFAULT_OUTPUT_ROOT%
+
+where py >nul 2>nul
+if %errorlevel%==0 goto run_with_py
+python "%PACKAGE_ROOT%\\app\\run_conalog_infer.py" --input-root "%INPUT_ROOT%" --output-root "%OUTPUT_ROOT%" --config "%CONFIG_PATH%"
 if errorlevel 1 exit /b %errorlevel%
+if exist "%OUTPUT_ROOT%\\output" start "" "%OUTPUT_ROOT%\\output"
+exit /b 0
+
+:run_with_py
+py -3 "%PACKAGE_ROOT%\\app\\run_conalog_infer.py" --input-root "%INPUT_ROOT%" --output-root "%OUTPUT_ROOT%" --config "%CONFIG_PATH%"
+if errorlevel 1 exit /b %errorlevel%
+if exist "%OUTPUT_ROOT%\\output" start "" "%OUTPUT_ROOT%\\output"
+exit /b 0
+
+:invalid_input
+echo 입력 폴더 경로를 다시 확인하십시오.
+exit /b 0
 """
 
 OPEN_RESULTS_BAT_TEXT = """@echo off
