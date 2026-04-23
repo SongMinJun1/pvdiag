@@ -1,0 +1,79 @@
+site,panel_id,approval_status,output_column,current_value,proposed_value,semantic_transition_class,production_write_allowed
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,pending_user_approval,사건유형_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,pending_user_approval,사건유형_해석_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,pending_user_approval,최종고장양상_ko,진행성 악화,급작 발생,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,pending_user_approval,사건이력_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,pending_user_approval,전조흔적_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,pending_user_approval,순수급작_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,pending_user_approval,전조평가셋편입_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,pending_user_approval,급작평가셋편입_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,pending_user_approval,운영최초전조발견일,2025-03-22,,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,pending_user_approval,운영최초전조마커,anom_subtype:degradation,,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,pending_user_approval,사건해석상전조시작일,2025-01-29,,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,pending_user_approval,전조형이력_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,pending_user_approval,급작고장이력_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,pending_user_approval,사건유형_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,pending_user_approval,사건유형_해석_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,pending_user_approval,최종고장양상_ko,진행성 악화,급작 발생,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,pending_user_approval,사건이력_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,pending_user_approval,전조흔적_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,pending_user_approval,순수급작_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,pending_user_approval,전조평가셋편입_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,pending_user_approval,급작평가셋편입_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,pending_user_approval,운영최초전조발견일,2024-12-12,,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,pending_user_approval,운영최초전조마커,anom_subtype:degradation,,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,pending_user_approval,사건해석상전조시작일,2025-01-29,,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,pending_user_approval,전조형이력_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,pending_user_approval,급작고장이력_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,pending_user_approval,사건유형_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,pending_user_approval,사건유형_해석_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,pending_user_approval,최종고장양상_ko,진행성 악화,급작 발생,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,pending_user_approval,사건이력_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,pending_user_approval,전조흔적_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,pending_user_approval,순수급작_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,pending_user_approval,전조평가셋편입_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,pending_user_approval,급작평가셋편입_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,pending_user_approval,운영최초전조발견일,2024-12-11,,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,pending_user_approval,운영최초전조마커,anom_subtype:degradation,,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,pending_user_approval,사건해석상전조시작일,2025-01-29,,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,pending_user_approval,전조형이력_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,pending_user_approval,급작고장이력_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,pending_user_approval,사건유형_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,pending_user_approval,사건유형_해석_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,pending_user_approval,최종고장양상_ko,진행성 악화,급작 발생,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,pending_user_approval,사건이력_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,pending_user_approval,전조흔적_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,pending_user_approval,순수급작_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,pending_user_approval,전조평가셋편입_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,pending_user_approval,급작평가셋편입_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,pending_user_approval,운영최초전조발견일,2024-10-24,,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,pending_user_approval,운영최초전조마커,anom_subtype:degradation,,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,pending_user_approval,사건해석상전조시작일,2025-01-29,,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,pending_user_approval,전조형이력_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,pending_user_approval,급작고장이력_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,pending_user_approval,사건유형_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,pending_user_approval,사건유형_해석_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,pending_user_approval,최종고장양상_ko,진행성 악화,급작 발생,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,pending_user_approval,사건이력_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,pending_user_approval,전조흔적_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,pending_user_approval,순수급작_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,pending_user_approval,전조평가셋편입_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,pending_user_approval,급작평가셋편입_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,pending_user_approval,운영최초전조발견일,2024-12-11,,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,pending_user_approval,운영최초전조마커,anom_subtype:degradation,,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,pending_user_approval,사건해석상전조시작일,2025-01-29,,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,pending_user_approval,전조형이력_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,pending_user_approval,급작고장이력_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,pending_user_approval,사건유형_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,pending_user_approval,사건유형_해석_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,pending_user_approval,최종고장양상_ko,진행성 악화,급작 발생,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,pending_user_approval,사건이력_ko,전조형 고장,급작 고장,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,pending_user_approval,전조흔적_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,pending_user_approval,순수급작_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,pending_user_approval,전조평가셋편입_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,pending_user_approval,급작평가셋편입_flag,0,1,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,pending_user_approval,운영최초전조발견일,2024-12-11,,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,pending_user_approval,운영최초전조마커,anom_subtype:degradation,,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,pending_user_approval,사건해석상전조시작일,2025-01-29,,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,pending_user_approval,전조형이력_flag,1,0,전조형 고장 -> 급작 고장,0
+ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,pending_user_approval,급작고장이력_flag,0,1,전조형 고장 -> 급작 고장,0

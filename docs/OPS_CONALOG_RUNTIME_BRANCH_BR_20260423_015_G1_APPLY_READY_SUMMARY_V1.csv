@@ -1,0 +1,10 @@
+metric,value,note
+g1_shadow_total_rows,7,all G1 shadow semantic candidates
+apply_ready_rows,6,strict-proximal supported rows only
+hold_review_rows,1,strict-proximal missing rows held for manual review
+apply_ready_site_ktc_ess_rows,6,all apply-ready rows are ktc_ess
+apply_ready_transition_precursor_to_sudden_rows,6,apply-ready semantic transition
+hold_transition_precursor_to_sudden_rows,1,held row transition if later approved
+apply_ready_changed_output_columns,13,distinct output columns touched by apply-ready sidecar
+apply_ready_changed_output_cells,78,long-form cells touched by apply-ready sidecar
+production_output_written,0,sidecar only; no runtime/final verdict file is modified
