@@ -1,0 +1,5 @@
+secondary_window_selected_marker,panel_count,root_count,selected_gap_min,selected_gap_mean,selected_gap_max,site_event_history_count,subgroup_common_cause_history_count,strict_trigger_proximal_common_cause_count,cluster_review_decision
+prealarm_cond_hs_mid_or_hi,12,2,115,117.833,120,0,0,0,blocked_counterexample_hold
+prealarm_cond_ae_mid_or_hi,10,2,116,118.7,120,0,0,0,blocked_counterexample_hold
+prealarm_cond_dtw_mid_or_hi,3,1,119,119.333,120,0,0,0,blocked_counterexample_hold
+prefault_cond_ae,1,1,120,120.0,120,0,0,0,blocked_counterexample_hold

@@ -1,0 +1,13 @@
+secondary_window_selected_onset_date,strict_trigger_date,panel_count,root_count,selected_gap_min,selected_gap_max,selected_marker_mix
+2025-07-14,2025-11-11,6,2,120,120,prealarm_cond_ae_mid_or_hi:2; prealarm_cond_dtw_mid_or_hi:1; prealarm_cond_hs_mid_or_hi:2; prefault_cond_ae:1
+2025-07-15,2025-11-11,4,2,119,119,prealarm_cond_ae_mid_or_hi:1; prealarm_cond_dtw_mid_or_hi:1; prealarm_cond_hs_mid_or_hi:2
+2025-07-15,2025-11-12,1,1,120,120,prealarm_cond_ae_mid_or_hi:1
+2025-07-16,2025-11-11,4,1,118,118,prealarm_cond_ae_mid_or_hi:2; prealarm_cond_hs_mid_or_hi:2
+2025-07-16,2025-11-13,1,1,120,120,prealarm_cond_ae_mid_or_hi:1
+2025-07-17,2025-11-11,2,2,117,117,prealarm_cond_ae_mid_or_hi:1; prealarm_cond_hs_mid_or_hi:1
+2025-07-17,2025-11-13,2,2,119,119,prealarm_cond_ae_mid_or_hi:1; prealarm_cond_dtw_mid_or_hi:1
+2025-07-18,2025-11-11,1,1,116,116,prealarm_cond_ae_mid_or_hi:1
+2025-07-19,2025-11-12,1,1,116,116,prealarm_cond_hs_mid_or_hi:1
+2025-07-20,2025-11-13,2,1,116,116,prealarm_cond_hs_mid_or_hi:2
+2025-07-20,2025-11-17,1,1,120,120,prealarm_cond_hs_mid_or_hi:1
+2025-07-21,2025-11-13,1,1,115,115,prealarm_cond_hs_mid_or_hi:1
