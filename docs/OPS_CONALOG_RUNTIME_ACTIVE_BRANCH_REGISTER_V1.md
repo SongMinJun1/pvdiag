@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260423-015` | `apply_ready_sidecar_generated` | strict-proximal-supported G1 semantic sidecar for 6 rows, 1 row held | decide whether to approve a separate 6-row semantic patch branch |
+| `BR-20260423-016` | `semantic_patch_validated` | strict-proximal-supported G1 semantic patch applied to 6 rows; 1 row remains held | decide whether to PR/merge, then monitor downstream current-output boundary |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -27,6 +27,7 @@
 | `BR-20260423-013` | `shadow_audit_implemented` | audit adds 10 G1 suppressed-event shadow columns; final verdict remains byte-equivalent by table value | no |
 | `BR-20260423-014` | `semantic_preview_generated` | preview shows 7 ktc_ess rows would change 13 operator-facing columns and 91 cells; no production output written | no |
 | `BR-20260423-015` | `apply_ready_sidecar_generated` | strict-proximal support splits G1 preview into 6 apply-ready rows and 1 hold-review row | no |
+| `BR-20260423-016` | `semantic_patch_validated` | applies G1 semantics to 6 strict-proximal rows; runtime final verdict changes 6 rows/14 columns/84 cells; cause top ranks unchanged | yes, raw-only candidate runtime semantics only |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -41,9 +42,11 @@
 - BR-013 implements the same G1 result as audit shadow columns only: audit common columns equal `true`, final verdict full table equal `true`, G1 shadow rows `7`.
 - BR-014 previews operator-facing impact only: 7 ktc_ess rows, 13 columns, 91 cells, production output written `0`; 1 row lacks strict-proximal common-cause support.
 - BR-015 reduces first-patch scope to strict-proximal-supported rows only: apply-ready `6`, hold-review `1`, production output written `0`.
+- BR-016 applies only those 6 rows and keeps the hold row excluded. Runtime final verdict changes `6` rows, `14` columns, `84` cells; the extra column beyond BR-015 is derived `대표판정_ko`.
+- BR-016 blocks unintended cause-candidate rank drift: top1/top2/top3 cause rank drift rows `0`; published strict current output changed rows `0`.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
 - use bucket-specific review packets before proposing any operator-facing event semantic change.
-- next branch may implement an explicit semantic patch for the 6 apply-ready rows only after approval; the hold-review row remains excluded.
-- only after reviewer confirmation consider a separate operator-facing rule proposal.
+- after BR-016 merge, rerun a fresh tri-site pack from the merged base and compare raw-only candidate vs published strict-current boundaries.
+- only after reviewer confirmation consider the excluded hold-review row.

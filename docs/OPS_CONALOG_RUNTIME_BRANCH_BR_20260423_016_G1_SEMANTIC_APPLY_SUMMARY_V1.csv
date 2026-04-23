@@ -1,0 +1,5 @@
+﻿table_name,before_rows,after_rows,changed_rows,changed_columns,changed_cells,changed_columns_csv
+runtime_final_verdict,766,766,6,14,84,"급작고장이력_flag,급작평가셋편입_flag,대표판정_ko,사건유형_ko,사건유형_해석_ko,사건이력_ko,사건해석상전조시작일,순수급작_flag,운영최초전조마커,운영최초전조발견일,전조평가셋편입_flag,전조형이력_flag,전조흔적_flag,최종고장양상_ko"
+raw_only_chain_fault_result,145,145,6,2,12,"사건유형_ko,최종고장양상_ko"
+runtime_cause_candidate_heuristic,145,145,6,3,18,"사건유형_ko,원인후보_해석메모_ko,최종고장양상_ko"
+published_raw_only_current,114,114,0,0,0,

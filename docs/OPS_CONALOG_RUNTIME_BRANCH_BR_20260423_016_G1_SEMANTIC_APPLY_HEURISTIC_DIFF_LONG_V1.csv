@@ -1,0 +1,19 @@
+﻿table_name,site,panel_id,output_column,before_value,after_value
+runtime_cause_candidate_heuristic,ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,사건유형_ko,전조형 고장,급작 고장
+runtime_cause_candidate_heuristic,ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,사건유형_ko,전조형 고장,급작 고장
+runtime_cause_candidate_heuristic,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,사건유형_ko,전조형 고장,급작 고장
+runtime_cause_candidate_heuristic,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,사건유형_ko,전조형 고장,급작 고장
+runtime_cause_candidate_heuristic,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,사건유형_ko,전조형 고장,급작 고장
+runtime_cause_candidate_heuristic,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,사건유형_ko,전조형 고장,급작 고장
+runtime_cause_candidate_heuristic,ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,최종고장양상_ko,진행성 악화,급작 발생
+runtime_cause_candidate_heuristic,ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,최종고장양상_ko,진행성 악화,급작 발생
+runtime_cause_candidate_heuristic,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,최종고장양상_ko,진행성 악화,급작 발생
+runtime_cause_candidate_heuristic,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,최종고장양상_ko,진행성 악화,급작 발생
+runtime_cause_candidate_heuristic,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,최종고장양상_ko,진행성 악화,급작 발생
+runtime_cause_candidate_heuristic,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,최종고장양상_ko,진행성 악화,급작 발생
+runtime_cause_candidate_heuristic,ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.1.15,원인후보_해석메모_ko,"family=모듈손상형, temporal=전조형 고장/진행성 악화, critical_source=none","family=모듈손상형, temporal=전조형 고장/진행성 악화, g1_guard_temporal_basis=pre_guard, critical_source=none"
+runtime_cause_candidate_heuristic,ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.15,원인후보_해석메모_ko,"family=모듈손상형, temporal=전조형 고장/진행성 악화, critical_source=none","family=모듈손상형, temporal=전조형 고장/진행성 악화, g1_guard_temporal_basis=pre_guard, critical_source=none"
+runtime_cause_candidate_heuristic,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.13,원인후보_해석메모_ko,"family=모듈손상형, temporal=전조형 고장/진행성 악화, critical_source=none","family=모듈손상형, temporal=전조형 고장/진행성 악화, g1_guard_temporal_basis=pre_guard, critical_source=none"
+runtime_cause_candidate_heuristic,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.15,원인후보_해석메모_ko,"family=모듈손상형, temporal=전조형 고장/진행성 악화, critical_source=none","family=모듈손상형, temporal=전조형 고장/진행성 악화, g1_guard_temporal_basis=pre_guard, critical_source=none"
+runtime_cause_candidate_heuristic,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.16,원인후보_해석메모_ko,"family=모듈손상형, temporal=전조형 고장/진행성 악화, critical_source=none","family=모듈손상형, temporal=전조형 고장/진행성 악화, g1_guard_temporal_basis=pre_guard, critical_source=none"
+runtime_cause_candidate_heuristic,ktc_ess,ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.18,원인후보_해석메모_ko,"family=모듈손상형, temporal=전조형 고장/진행성 악화, critical_source=none","family=모듈손상형, temporal=전조형 고장/진행성 악화, g1_guard_temporal_basis=pre_guard, critical_source=none"

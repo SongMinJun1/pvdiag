@@ -58,6 +58,8 @@ AUDIT_COLS = [
     "g1_suppressed_event_shadow_final_pattern_if_applied_ko",
     "g1_suppressed_event_shadow_transition_class",
     "g1_suppressed_event_shadow_reason",
+    "g1_suppressed_event_guard_applied_flag",
+    "g1_suppressed_event_guard_apply_reason",
     "secondary_window_candidate_flag",
     "secondary_window_selected_onset_date",
     "secondary_window_selected_marker",
@@ -102,6 +104,8 @@ SUMMARY_COLS = [
     "promotion_decision_audit_provenance_only_패널수",
     "g1_suppressed_event_shadow_candidate_패널수",
     "g1_suppressed_event_shadow_precursor_to_sudden_패널수",
+    "g1_suppressed_event_guard_applied_패널수",
+    "g1_suppressed_event_guard_hold_review_패널수",
     "note_ko",
 ]
 
@@ -200,6 +204,12 @@ def build_rows(root: Path) -> pd.DataFrame:
                     "g1_suppressed_event_shadow_reason": (
                         metrics.g1_suppressed_event_shadow_reason
                     ),
+                    "g1_suppressed_event_guard_applied_flag": int(
+                        metrics.g1_suppressed_event_guard_applied_flag
+                    ),
+                    "g1_suppressed_event_guard_apply_reason": (
+                        metrics.g1_suppressed_event_guard_apply_reason
+                    ),
                     "secondary_window_candidate_flag": int(metrics.secondary_window_candidate_flag),
                     "secondary_window_selected_onset_date": (
                         metrics.secondary_window_selected_onset_date
@@ -235,6 +245,12 @@ def build_rows(root: Path) -> pd.DataFrame:
 def build_summary(df: pd.DataFrame) -> pd.DataFrame:
     promotion_bucket = df["promotion_decision_bucket"].map(common.normalize_text)
     g1_shadow_transition = df["g1_suppressed_event_shadow_transition_class"].map(common.normalize_text)
+    g1_shadow_flag = pd.to_numeric(
+        df["g1_suppressed_event_shadow_flag"], errors="coerce"
+    ).fillna(0)
+    g1_guard_applied = pd.to_numeric(
+        df["g1_suppressed_event_guard_applied_flag"], errors="coerce"
+    ).fillna(0)
     row = {
         "전체_패널수": int(len(df)),
         "고장_패널수": int(df["패널고장여부_ko"].map(common.normalize_text).eq("고장").sum()),
@@ -276,10 +292,14 @@ def build_summary(df: pd.DataFrame) -> pd.DataFrame:
             promotion_bucket.eq("audit_provenance_only").sum()
         ),
         "g1_suppressed_event_shadow_candidate_패널수": int(
-            pd.to_numeric(df["g1_suppressed_event_shadow_flag"], errors="coerce").fillna(0).sum()
+            g1_shadow_flag.sum()
         ),
         "g1_suppressed_event_shadow_precursor_to_sudden_패널수": int(
             g1_shadow_transition.eq("전조형 고장 -> 급작 고장").sum()
+        ),
+        "g1_suppressed_event_guard_applied_패널수": int(g1_guard_applied.sum()),
+        "g1_suppressed_event_guard_hold_review_패널수": int(
+            ((g1_shadow_flag == 1) & (g1_guard_applied == 0)).sum()
         ),
         "note_ko": (
             "이 runtime audit는 raw-only 경로다. panel_day_core와 precursor gate만 사용하며, "

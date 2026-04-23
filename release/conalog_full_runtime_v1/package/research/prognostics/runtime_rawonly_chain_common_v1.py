@@ -123,6 +123,8 @@ class PanelRuntimeMetrics:
     g1_suppressed_event_shadow_final_pattern_if_applied_ko: str
     g1_suppressed_event_shadow_transition_class: str
     g1_suppressed_event_shadow_reason: str
+    g1_suppressed_event_guard_applied_flag: bool
+    g1_suppressed_event_guard_apply_reason: str
     secondary_window_candidate_flag: bool
     secondary_window_selected_onset_date: str
     secondary_window_selected_marker: str
@@ -716,10 +718,13 @@ def compute_panel_metrics(
     g1_shadow_flag = degradation_guard_flag and fault_status == "고장" and strict_trigger is not None
     g1_shadow_event_type = "급작 고장" if g1_shadow_flag else ""
     g1_shadow_final_pattern = "급작 발생" if g1_shadow_flag else ""
+    g1_shadow_current_onset_date = format_date(retrospective_onset) if g1_shadow_flag else ""
+    g1_shadow_current_event_type = event_type if g1_shadow_flag else ""
+    g1_shadow_current_final_pattern = terminal_pattern if g1_shadow_flag else ""
     g1_shadow_transition_class = ""
     g1_shadow_reason = ""
     if g1_shadow_flag:
-        g1_shadow_transition_class = f"{event_type} -> {g1_shadow_event_type}"
+        g1_shadow_transition_class = f"{g1_shadow_current_event_type} -> {g1_shadow_event_type}"
         g1_shadow_reason = (
             "BR013: audit-only G1 suppressed-event shadow; suppress extreme long-gap "
             "one-day degradation onset while keeping strict trigger as event anchor"
@@ -806,6 +811,26 @@ def compute_panel_metrics(
         has_shadow=has_shadow,
     )
 
+    g1_guard_applied_flag = g1_shadow_flag and has_strict_trigger_proximal_common_cause
+    g1_guard_apply_reason = ""
+    if g1_guard_applied_flag:
+        event_type = g1_shadow_event_type
+        terminal_pattern = g1_shadow_final_pattern
+        precursor_flag = 0
+        abrupt_flag = 1
+        precursor_eval_flag = 0
+        abrupt_eval_flag = 1
+        retrospective_onset = None
+        earliest_warning = None
+        earliest_marker = ""
+        onset_method = "runtime_trigger_only"
+        onset_confidence = "low"
+        current_needs_correction = 0
+        g1_guard_apply_reason = (
+            "BR016: applied strict-proximal-supported G1 guard; "
+            "one-day long-gap degradation onset suppressed from operator-facing event semantics"
+        )
+
     evidence_bits: list[str] = []
     if earliest_marker:
         evidence_bits.append(f"warning={earliest_marker}")
@@ -813,10 +838,14 @@ def compute_panel_metrics(
         evidence_bits.append(f"critical_source={representative_source}")
     if representative_subtype:
         evidence_bits.append(f"anom_subtype={representative_subtype}")
-    if gap_days:
+    if g1_guard_applied_flag:
+        evidence_bits.append(f"g1_suppressed_backdate_gap_days={gap_days}")
+    elif gap_days:
         evidence_bits.append(f"precursor_gap_days={gap_days}")
     if has_group_off:
         evidence_bits.append("group_off_signal=1")
+    if g1_guard_applied_flag:
+        evidence_bits.append("g1_guard_applied=1")
 
     return PanelRuntimeMetrics(
         site=site,
@@ -857,19 +886,21 @@ def compute_panel_metrics(
             DEGRADATION_ONSET_BACKDATE_GUARD_NAME if g1_shadow_flag else ""
         ),
         g1_suppressed_event_shadow_current_onset_date=(
-            format_date(retrospective_onset) if g1_shadow_flag else ""
+            g1_shadow_current_onset_date
         ),
         g1_suppressed_event_shadow_strict_trigger_date=(
             format_date(strict_trigger) if g1_shadow_flag else ""
         ),
-        g1_suppressed_event_shadow_current_event_type_ko=event_type if g1_shadow_flag else "",
+        g1_suppressed_event_shadow_current_event_type_ko=g1_shadow_current_event_type,
         g1_suppressed_event_shadow_current_final_pattern_ko=(
-            terminal_pattern if g1_shadow_flag else ""
+            g1_shadow_current_final_pattern
         ),
         g1_suppressed_event_shadow_event_type_if_applied_ko=g1_shadow_event_type,
         g1_suppressed_event_shadow_final_pattern_if_applied_ko=g1_shadow_final_pattern,
         g1_suppressed_event_shadow_transition_class=g1_shadow_transition_class,
         g1_suppressed_event_shadow_reason=g1_shadow_reason,
+        g1_suppressed_event_guard_applied_flag=g1_guard_applied_flag,
+        g1_suppressed_event_guard_apply_reason=g1_guard_apply_reason,
         secondary_window_candidate_flag=secondary_window_candidate_flag,
         secondary_window_selected_onset_date=(
             format_date(secondary_window_onset) if secondary_window_candidate_flag else ""
