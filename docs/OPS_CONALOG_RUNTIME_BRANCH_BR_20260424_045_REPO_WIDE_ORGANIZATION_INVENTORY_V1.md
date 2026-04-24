@@ -4,7 +4,7 @@
 
 ## Purpose
 - evidence line 바깥까지 포함한 repo-wide organization 상태를 한 번에 읽을 수 있게 inventory를 남긴다.
-- 목표는 현재 cleanup pressure를 막연한 느낌이 아니라 `lane`으로 분리하는 것이다.
+- 목표는 현재 `헷갈림`을 막연한 느낌이 아니라 `lane`으로 분리하는 것이다.
 
 ## Implementation
 - added builder:
@@ -43,26 +43,26 @@
 - current docs temp-root reference classes:
   - `historical_br = 5`
   - `current_evidence = 1`
-- cleanup lanes declared:
-  1. `main_dirty_disentangle`
-  2. `source_release_finaldelivery_mirror_policy`
-  3. `audit_builder_registry`
-  4. `historical_tmp_archive`
-  5. `runtime_bundle_hygiene`
-  6. `workspace_clutter`
+- confusion-reduction lanes declared:
+  1. `mixed_scope_disentangle`
+  2. `source_vs_packaged_mirror_boundary`
+  3. `active_builder_entrypoint_registry`
+  4. `historical_vs_current_boundary`
+  5. `runtime_bundle_boundary`
+  6. `workspace_boundary_cleanup`
 
 ## Why This Matters
-- 이제 repo-wide cleanup을 `뭉뚱그린 불안`이 아니라, current blocker와 backlog lane으로 나눠서 말할 수 있다.
+- 이제 repo-wide confusion을 `뭉뚱그린 불안`이 아니라, current blocker와 backlog lane으로 나눠서 말할 수 있다.
 - 특히 지금은 `main dirty`, `mirror surface`, `builder sprawl`가 가장 큰 구조적 축이라는 점이 숫자로 확인됐다.
 
 ## Recommended Order
-1. `main_dirty_disentangle`
-2. `source_release_finaldelivery_mirror_policy`
-3. `audit_builder_registry`
-4. `historical_tmp_archive`
-5. `runtime_bundle_hygiene`
-6. `workspace_clutter`
+1. `mixed_scope_disentangle`
+2. `source_vs_packaged_mirror_boundary`
+3. `active_builder_entrypoint_registry`
+4. `historical_vs_current_boundary`
+5. `runtime_bundle_boundary`
+6. `workspace_boundary_cleanup`
 
 ## Decision
-- current runtime evidence line은 유지하되, user request 기준 next emphasis는 repo cleanup이다.
-- immediate next cleanup target is `main_dirty_disentangle`.
+- current runtime evidence line은 유지하되, user request 기준 next emphasis는 repo confusion reduction이다.
+- immediate next target is `mixed_scope_disentangle`.

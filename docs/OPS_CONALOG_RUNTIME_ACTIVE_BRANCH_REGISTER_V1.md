@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-045` | `repo_wide_cleanup_inventory_built` | broader repo cleanup pressure is now inventoried as six lanes; current evidence line stays intact, but user-priority emphasis moves to cleanup before more expansion | plan `main_dirty_disentangle` next |
+| `BR-20260424-046` | `confusion_reduction_lanes_locked` | broader repo confusion is now read as role/boundary disentanglement rather than branch hygiene; current evidence line stays intact, but practical emphasis moves to mixed-scope disentanglement before more expansion | plan `mixed_scope_disentangle` next |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -57,6 +57,7 @@
 | `BR-20260424-043` | `evidence_manifest_pack_root_implemented` | adds a reproducible manifest builder/smoke pair and a family-organized pack root so base result, blocker scan, opportunity scan, and sidecar artifacts can be read from one index | no |
 | `BR-20260424-044` | `remaining_organization_gap_audited` | confirms the current evidence line is organized, while `25` historical BR temp roots, `3` manual-oneoff manifest rows, and `47` wider audit/probe builders remain backlog cleanup targets outside the current blocker path | no |
 | `BR-20260424-045` | `repo_wide_cleanup_inventory_built` | inventory confirms the broader cleanup pressure is repo-wide, not evidence-only: main dirty concentration, mirror-surface skew, builder sprawl, archive temp roots, runtime bundle weight, and workspace clutter are now explicit lanes | no |
+| `BR-20260424-046` | `confusion_reduction_lanes_locked` | clarifies that the immediate goal is not git-only branch cleanup but reducing cross-lane confusion among mixed scopes, packaged mirrors, builder entrypoints, archive/current roots, runtime bundle, and workspace clutter | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -110,6 +111,7 @@
 - BR-043 implements that consolidation step: current evidence artifacts are now readable from one manifest/pack root, and future scans should start there instead of re-assembling temp roots by memory.
 - BR-044 confirms that there are still broader organization gaps outside the current line, but they belong to archive/registry backlog rather than the immediate blocker path, so the next implementation still remains `common_cause_synchrony_axis`.
 - BR-045 widens the lens beyond evidence-only cleanup: the next practical emphasis is now repo-wide cleanup planning, with `main_dirty_disentangle` first, before adding more expansion lanes.
+- BR-046 refines that wording so the target is explicit: the next practical emphasis is confusion reduction by role/boundary disentanglement, not branch cosmetics.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -119,4 +121,4 @@
 - before generating more packet branches, prefer a tracked packet generator or an exact one-shot reproduction script.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
 - after BR-043, use the evidence manifest/consolidated pack root as the default read base, then implement `common_cause_synchrony_axis`, then do a cross-axis review, then rerun exact same-day missing-family search, and only then reopen algorithm gating.
-- after BR-045, keep that runtime evidence order intact, but insert a repo-cleanup prelude on the practical execution lane: first `main_dirty_disentangle`, then `source_release_finaldelivery_mirror_policy`, then `audit_builder_registry`.
+- after BR-046, keep that runtime evidence order intact, but insert a confusion-reduction prelude on the practical execution lane: first `mixed_scope_disentangle`, then `source_vs_packaged_mirror_boundary`, then `active_builder_entrypoint_registry`.

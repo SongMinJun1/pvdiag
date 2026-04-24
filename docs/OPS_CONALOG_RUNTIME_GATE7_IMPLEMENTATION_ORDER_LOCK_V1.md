@@ -200,9 +200,9 @@
 - BR-043 기준 `evidence manifest / consolidated pack root`도 builder + smoke까지 구현 완료
 - next 순서는 `common_cause_synchrony_axis`
 - 단, BR-045 기준 practical execution lane에는 repo-cleanup prelude가 추가됐다:
-  - `main_dirty_disentangle`
-  - `source_release_finaldelivery_mirror_policy`
-  - `audit_builder_registry`
+  - `mixed_scope_disentangle`
+  - `source_vs_packaged_mirror_boundary`
+  - `active_builder_entrypoint_registry`
 
 ### 6.6B Step 4C. evidence manifest / consolidated pack root
 - 내용:
@@ -227,7 +227,7 @@
     - `panel_day_engine_evidence_pack_manifest_v1.json`
     - `evidence_pack_root/`
 - 이후 exact-family 재탐색과 cross-axis review는 이 pack root를 default entry point로 사용한다.
-- BR-045 기준 이 runtime order 자체는 유지하되, 실제 작업 착수 전 cleanup prelude 3개를 먼저 잠가 current worktree/read-path 혼선을 줄인다.
+- BR-046 기준 이 runtime order 자체는 유지하되, 실제 작업 착수 전 confusion-reduction prelude 3개를 먼저 잠가 current worktree/read-path 혼선을 줄인다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
