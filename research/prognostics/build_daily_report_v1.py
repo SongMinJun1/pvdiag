@@ -120,16 +120,30 @@ def count_summary(
     panel_result_df: pd.DataFrame | None,
 ) -> tuple[str, str, str]:
     if site_summary_df is not None and not site_summary_df.empty:
+        def summed_count(column: str) -> str | None:
+            if column not in site_summary_df.columns:
+                return None
+            values = pd.to_numeric(site_summary_df[column], errors="coerce")
+            if not values.notna().any():
+                return None
+            return str(int(values.fillna(0).sum()))
+
+        total = summed_count("total_panel_count")
+        fault = summed_count("fault_panel_count")
+        non_fault = summed_count("non_fault_or_unresolved_count")
+        if total is not None and fault is not None and non_fault is not None:
+            return total, fault, non_fault
+    if panel_result_df is not None and not panel_result_df.empty:
+        total = len(panel_result_df)
+        fault = int(panel_result_df["패널고장여부_ko"].map(normalize_text).eq("고장").sum())
+        return str(total), str(fault), str(total - fault)
+    if site_summary_df is not None and not site_summary_df.empty:
         row = site_summary_df.iloc[0]
         return (
             normalize_text(row.get("total_panel_count", "")),
             normalize_text(row.get("fault_panel_count", "")),
             normalize_text(row.get("non_fault_or_unresolved_count", "")),
         )
-    if panel_result_df is not None and not panel_result_df.empty:
-        total = len(panel_result_df)
-        fault = int(panel_result_df["패널고장여부_ko"].map(normalize_text).eq("고장").sum())
-        return str(total), str(fault), str(total - fault)
     return "미확인", "미확인", "미확인"
 
 
