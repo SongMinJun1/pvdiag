@@ -86,7 +86,7 @@
 - `±7일 near-window overlap backlog` 대표 사례
 - `vdrop` 또는 `fault_like_day` 반복이 있지만 common-cause hold가 우선이어야 하는 사례
 
-## BR-029 / BR-031 interpretation lock
+## BR-029 / BR-031 / BR-033 interpretation lock
 - BR-028 provisional shortlist는 BR-029 기준을 만족하면 curated counterexample seed로 승격될 수 있다.
 - 단, 그 승격은 `hold/reroute pressure-test seed` 의미만 가진다.
 - 따라서 아래는 계속 `missing family`로 별도 추적한다.
@@ -94,11 +94,18 @@
   - official/current row date direct overlap with common-cause
 - BR-031 기준 widened `±7일 near-window overlap backlog`는 별도 추적 backlog 이다.
 - 따라서 near-window backlog는 pressure-test에는 쓸 수 있지만 `same-day exact family closure` 대체물로 쓰면 안 된다.
+- BR-033 기준 current backlog는 아직 `separate provisional family`가 아니다.
+- future promotion은 아래를 동시에 만족할 때만 다시 검토한다.
+  - one direct flag family
+  - one slice type
+  - report row `3+` and root `3+`
+  - gap sign mostly aligned
 
 ## Minimum Pass Rule Before Algorithm Patch
 - `official_only`, `precursor_only`, `raw_only_only` 각 bucket 대표 사례 3개 이상
 - `mlpe_ambiguous`, `common_cause_risk`는 대표 사례 3개 이상 + Priority A/B seed가 최소 1개 이상 보강
 - `near-window overlap backlog`를 separate provisional family로 쓰려면 representative seed 1개 이상 + `same-day exact 아님` 금지 문구 1개 이상을 같이 유지
+- BR-033 future promotion criteria를 만족하지 못하면 near-window backlog는 계속 non-closing backlog로 둔다
 - 위 조건을 만족하지 못하면 algorithm gating patch는 `보류`로 둔다.
 
 ## Decision

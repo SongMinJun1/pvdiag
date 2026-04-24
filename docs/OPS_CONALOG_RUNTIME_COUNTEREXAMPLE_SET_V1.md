@@ -244,12 +244,27 @@
   - exact missing family closure는 아직 아니다
   - near-window overlap은 새 backlog 축으로 관리할 가치가 있다
 
+## 11C. BR-033 near-window backlog data assessment note
+- BR-033에서는 widened `±7일 near-window overlap backlog`를 event-row가 아니라 independent report-row 기준으로 다시 압축했다.
+- 결과:
+  - `event rows = 9`
+  - `report rows = 5`
+  - `roots = 4`
+  - direct flag family는 `group_off_date`와 `site_event_soft+site_event_hard`로 갈라진다.
+  - slice도 `precursor_onset`과 `current_fault`가 섞여 있다.
+  - gap sign도 `event_before_report`와 `event_after_report`가 섞여 있다.
+- 따라서 현재 near-window backlog는 하나의 coherent family 보다 `두 개의 얇은 proto-cluster`에 더 가깝다.
+- BR-033 reading:
+  - near-window backlog는 `non-closing backlog`
+  - `same-day exact family` 대체물 아님
+  - 하나의 proto-cluster가 `same flag family + same slice + 3 roots + stable sign`을 만족하기 전까지 provisional family로 승격하지 않음
+
 ## 12. 남은 과제
 - `MLPE ambiguous`에서 `장치 응답 이상형` top1 또는 회복/재발까지 확인되는 사례 추가
 - `common_cause risk`에서 작업일 / 운영 이벤트 / 통신 흔들림 겹침 사례 추가
 - `common_cause risk`에서 precursor/current row와 `group_off_event`가 직접 겹치는 `same-day exact` 사례 추가
 - `common_cause risk`에서 official current direct overlap `same-day exact` 사례 추가
-- `±7일 near-window overlap backlog`를 separate provisional family로 둘지 문서에서 먼저 결정
+- `±7일 near-window overlap backlog`는 current state 에서 non-closing backlog로 유지하고, DL-015 criteria를 넘는 proto-cluster가 생기면 그때만 재검토
 - 반례 세트 row를 decision log와 연결하는 `regression checklist`를 실제 patch gate로 사용
 - 필요 시 `challenge set`와 `counterexample set`를 분리
 

@@ -250,9 +250,9 @@
 | Step 7 build/release/smoke sync | 모든 source patch | 배포/검증 |
 
 ## 11. 지금 기준 다음 우선순위
-1. `±7일 near-window overlap backlog`를 separate provisional family로 둘지, 아니면 exact search 보조 backlog 로만 둘지 먼저 잠근다.
-2. `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 `exact same-day` seed를 계속 추가한다.
-3. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가한다.
+1. `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 `exact same-day` seed를 계속 추가한다.
+2. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가한다.
+3. `±7일 near-window overlap backlog`는 BR-033 기준 `non-closing backlog`로 유지하고, 한 proto-cluster가 DL-015 criteria를 넘을 때만 다시 provisional family 승격을 검토한다.
 4. 그 다음에야 algorithm gating patch 검토
 
 ## 12. 관련 문서
