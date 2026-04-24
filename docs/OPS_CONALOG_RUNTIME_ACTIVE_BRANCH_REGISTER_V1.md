@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-079` | `algorithm_evolution_map_complete` | freezes the current panel-day engine as 10 evidence layers, 7 known gaps, and 6 ordered next actions; patch authorization sums 0 | build subtype-truth expansion backlog before threshold replay or direct engine edits |
+| `BR-20260425-080` | `subtype_truth_expansion_backlog_complete` | converts 17 subtype hypotheses into a truth backlog; P0 subtype rows 12, exact truth support 0, patch authorization sums 0 | build episode truth map before threshold replay or direct engine edits |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -91,6 +91,7 @@
 | `BR-20260424-077` | `project_completion_checkpoint_complete` | records the post-BR-076 whole-project map: safety gates are stronger, evidence frontier is known, but latest manifest/handoff indexing is stale | no |
 | `BR-20260425-078` | `latest_evidence_handoff_manifest_complete` | adds a reproducible latest evidence/handoff manifest for BR-064~077: detail rows 14, primary artifacts present 14, operator/engine/threshold authorization sums 0 | no |
 | `BR-20260425-079` | `algorithm_evolution_map_complete` | maps 10 current algorithm layers, 7 evidence gaps, and 6 ordered next actions; P0 gaps 4 and operator/engine/threshold authorization sums 0 | no |
+| `BR-20260425-080` | `subtype_truth_expansion_backlog_complete` | maps 17 subtype hypotheses into truth backlog rows; P0 rows 12, current exact truth support 0, operator/engine/threshold authorization sums 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -178,6 +179,7 @@
 - BR-077 locks the current navigation checkpoint: the core safety/evidence lanes are not missing, but the latest evidence/handoff manifest must be refreshed before new scattered scans or algorithm proposals.
 - BR-078 completes that refresh: BR-064 through BR-077 are now indexed by branch, evidence layer, judgment role, artifact path, temp-artifact repro command, next action, and patch authorization boundary.
 - BR-079 freezes the current algorithm evolution map before code changes: 10 layers, 7 evidence gaps, and 6 ordered next actions; the next safe branch is subtype-truth backlog, not threshold or engine patch.
+- BR-080 completes that subtype-truth backlog: 17 subtype rows, 12 P0 rows, exact truth support 0; next safe branch is episode truth map, not threshold or engine patch.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -214,3 +216,4 @@
 - after BR-077, use `OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_077_PROJECT_COMPLETION_CHECKPOINT_V1.md` as the current whole-project read map; the next safest branch is a latest evidence/handoff manifest refresh covering BR-064 through BR-076.
 - after BR-078, use `/private/tmp/latest_evidence_handoff_manifest_br078_check/panel_day_engine_latest_evidence_handoff_manifest_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_078_LATEST_EVIDENCE_HANDOFF_MANIFEST_V1.md` as the current evidence/handoff entry point before new evidence scans or algorithm proposals.
 - after BR-079, use `/private/tmp/panel_day_engine_algorithm_evolution_map_br079_check/panel_day_engine_algorithm_evolution_layer_map_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_079_ALGORITHM_EVOLUTION_MAP_V1.md` as the current algorithm-evolution map; build subtype-truth backlog before threshold replay or direct engine edits.
+- after BR-080, use `/private/tmp/panel_day_engine_subtype_truth_expansion_backlog_br080_check/panel_day_engine_subtype_truth_expansion_backlog_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_080_SUBTYPE_TRUTH_EXPANSION_BACKLOG_V1.md` as the current subtype truth backlog; build episode truth map before threshold replay or direct engine edits.
