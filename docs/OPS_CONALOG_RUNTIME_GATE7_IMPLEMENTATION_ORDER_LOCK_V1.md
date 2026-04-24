@@ -406,8 +406,10 @@
 39. BR-085 기준 BR-084 row evidence attachment packet은 완료됐지만, reviewer labels `0`, evidence paths `0`, replay-ready rows `0`이다.
 40. BR-086 기준 BR-085 source trace audit은 완료됐고, source references `22/22` resolved, identity mismatch `0`이다.
 41. BR-087 기준 BR-086 source traces `22` rows는 adjudication worksheet `16` rows로 압축됐고, suggested direction은 negative/hold `6`, strict-sudden negative `3`, manual positive/hold `7`이다.
-42. 다음은 BR-087 draft를 복사해 실제 근거가 방어 가능한 row만 reviewer label/evidence path로 채운 뒤 BR-084를 재빌드하는 것이며, threshold replay는 positive/negative replay-ready rows가 생긴 뒤에만 진행한다.
-43. semantic algorithm gating patch는 reviewed episode truth labels와 subtype-conditioned threshold replay가 끝난 뒤에만 검토한다.
+42. BR-088 기준 conservative review input은 source-backed negative `9` rows를 채우고 durable precursor `7` rows는 보류했다.
+43. BR-088 review input으로 BR-084를 재빌드하면 `reviewed_negative=9`, `needs_evidence=7`, replay-ready negative `9`, positive `0`이다.
+44. 다음은 7 deferred durable precursor rows를 raw/shape level에서 양성 근거로 검토하는 것이며, threshold replay는 positive/negative replay-ready rows가 모두 생긴 뒤에만 진행한다.
+45. semantic algorithm gating patch는 reviewed episode truth labels와 subtype-conditioned threshold replay가 끝난 뒤에만 검토한다.
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -643,6 +645,36 @@
 - 금지:
   - BR-087 suggested directions are not truth labels.
   - BR-087 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
+
+## 11M. BR-088 episode truth conservative adjudication
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_088_EPISODE_TRUTH_CONSERVATIVE_ADJUDICATION_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_088_EPISODE_TRUTH_CONSERVATIVE_ADJUDICATION_V1.md)
+- 실행 산출물:
+  - `/private/tmp/panel_day_engine_episode_truth_conservative_adjudication_br088_check/panel_day_engine_episode_truth_conservative_adjudication_v1.csv`
+  - `/private/tmp/panel_day_engine_episode_truth_conservative_adjudication_br088_check/panel_day_engine_episode_truth_review_input_conservative_v1.csv`
+  - `/private/tmp/panel_day_engine_episode_truth_conservative_adjudication_br088_check/panel_day_engine_episode_truth_conservative_adjudication_summary_v1.csv`
+  - `/private/tmp/panel_day_engine_reviewed_episode_truth_rows_br088_conservative_check/panel_day_engine_reviewed_episode_truth_rows_v1.csv`
+- 판정:
+  - conservative adjudication rows `16`.
+  - filled negative labels `9`.
+  - filled positive labels `0`.
+  - deferred durable precursor rows `7`.
+  - BR-084 rebuild result:
+    - `reviewed_negative=9`
+    - `needs_evidence=7`
+    - `negative_counterexample=9`
+    - `unassigned=7`
+    - threshold replay ready rows `9`
+    - reviewed positive rows `0`
+  - operator promotion, engine patch, and threshold patch authorization sums remain `0`.
+- 다음 안전 순서:
+  1. inspect the 7 deferred durable precursor rows at raw/shape level.
+  2. attach positive labels only if family-shape continuity, strict/current anchor relation, and common-cause rejection are defensible.
+  3. rebuild BR-084 with mixed positive/negative review input.
+  4. open subtype-conditioned threshold replay only after positive and negative replay-ready rows both exist.
+- 금지:
+  - BR-088 negative-only replay rows do not approve threshold tuning.
+  - BR-088 does not approve semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
