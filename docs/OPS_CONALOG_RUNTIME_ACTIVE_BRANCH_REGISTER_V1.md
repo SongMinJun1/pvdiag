@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-060` | `panel_engine_algorithm_prepatch_runbook_complete` | combines BR-054 panel-engine safety gate and BR-059 fault-family regression gate into one executable prepatch runbook; real runbook pass, gate count 2, failed gates 0 | use this combined runbook before any direct panel-engine algorithm patch review |
+| `BR-20260424-061` | `result_delta_scorecard_complete` | adds an audit-only scorecard for result-change claims: core diff 0, raw-only candidates 72, precursor rows 0, proximal common-cause context 64/72, performance claim blocked | use this scorecard as the before/after baseline for any future algorithm patch |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -72,6 +72,7 @@
 | `BR-20260424-058` | `fault_family_regression_pressure_packet_complete` | packages 5 non-target hard same-day family-boundary seeds and 6 sensor-feedback ambiguity pressure seeds as regression/counterexample material only | no |
 | `BR-20260424-059` | `fault_family_regression_prepatch_gate_complete` | checks BR-058 packet integrity with 12 required gates; packet rows 11, failed gates 0, target closure/promotion/engine patch sums all 0 | no |
 | `BR-20260424-060` | `panel_engine_algorithm_prepatch_runbook_complete` | combined prepatch runbook passes both panel-engine safety and fault-family regression gates; packet rows 11, target closure/promotion/engine patch sums all 0 | no |
+| `BR-20260424-061` | `result_delta_scorecard_complete` | result delta scorecard confirms core result delta 0 and blocks accuracy/F1 improvement claims without truth-label evaluation | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -140,6 +141,7 @@
 - BR-058 turns those 11 seeds into an executable packet with `target_exact_closure_candidate_sum=0`, `operator_promotion_allowed_sum=0`, and `engine_patch_candidate_sum=0`.
 - BR-059 turns BR-058 into a prepatch gate: the real packet passes 12 required gates and blocks shrinkage, promotion, target-closure drift, engine-patch drift, missing interpretation text, and common-cause mixing.
 - BR-060 combines BR-054 and BR-059 into one executable prepatch runbook: both gates pass, and a passing runbook remains a review precondition rather than patch approval.
+- BR-061 adds the result delta answer layer: core result change is `0`, raw-only candidate context is quantified, and performance improvement remains unclaimed without truth-label evaluation.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -157,3 +159,4 @@
 - after BR-058, any future algorithm patch should first run/check the packet as regression pressure and prove it does not convert packet rows into target exact closure or direct operator promotion.
 - after BR-059, run `check_panel_day_engine_fault_family_regression_prepatch_gate_v1.py` before any direct panel-engine algorithm patch review.
 - after BR-060, use `check_panel_day_engine_algorithm_prepatch_runbook_v1.py` as the default combined prepatch command before direct panel-engine algorithm patch review.
+- after BR-061, compare future post-patch outputs against `result_delta_scorecard_v1` before claiming result or performance improvement.

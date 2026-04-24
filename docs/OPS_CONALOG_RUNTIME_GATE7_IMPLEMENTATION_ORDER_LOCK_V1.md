@@ -239,6 +239,7 @@
 - BR-058 기준 이 11건은 regression/counterexample packet으로 고정됐으며, target exact closure / operator promotion / engine patch candidate는 모두 `0`이다.
 - BR-059 기준 BR-058 packet은 12개 required prepatch gate를 통과했으며, 이후 panel-engine algorithm patch 검토 전 이 gate를 먼저 실행해야 한다.
 - BR-060 기준 panel-engine safety gate와 fault-family regression prepatch gate를 하나의 combined runbook으로 묶었으며, direct engine patch 검토 전 이 runbook을 먼저 통과해야 한다.
+- BR-061 기준 result delta scorecard를 먼저 만들어 core result change와 candidate-context change를 분리하며, truth-label 평가 전에는 성능 향상 claim을 금지한다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
@@ -272,6 +273,8 @@
     - `python3 research/prognostics/check_panel_day_engine_patch_safety_gate_v1.py --output-dir /private/tmp/panel_engine_patch_safety_gate_check`
   - direct `pv_ae/panel_day_engine.py` algorithm patch 검토 전:
     - `python3 research/prognostics/check_panel_day_engine_algorithm_prepatch_runbook_v1.py --repo-root /private/tmp/pvdiag_postmerge_j --packet-input /private/tmp/fault_family_regression_pressure_packet_check/panel_day_engine_fault_family_regression_pressure_packet_v1.csv --output-dir /private/tmp/panel_engine_algorithm_prepatch_runbook_check`
+  - direct `pv_ae/panel_day_engine.py` algorithm patch의 결과 변화 주장 전:
+    - `python3 research/prognostics/build_panel_day_engine_result_delta_scorecard_v1.py --runtime-root /private/tmp/pvdiag_postmerge_j_conalog_smoke_result_delta_scorecard --prepatch-runbook-summary /private/tmp/panel_engine_algorithm_prepatch_runbook_check/panel_day_engine_algorithm_prepatch_runbook_summary_v1.csv --output-dir /private/tmp/panel_engine_result_delta_scorecard_check`
 
 ## 7. 지금 바로 허용되는 패치
 - Gate 5 projection policy를 checklist로 바꾸는 문서 패치
@@ -329,10 +332,11 @@
 10. BR-058 packet은 future algorithm patch의 pre-check 재료로 사용하되, target exact closure나 direct operator promotion으로 읽지 않는다.
 11. BR-059 prepatch gate를 실행해 BR-058 packet이 축소되거나 promotion/closure/engine-patch 후보로 변질되지 않았는지 확인한다.
 12. BR-060 combined runbook을 실행해 panel-engine safety gate와 fault-family regression gate가 동시에 통과하는지 확인한다.
-13. `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
-14. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
-15. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
-16. 그 다음에야 algorithm gating patch 검토
+13. BR-061 result delta scorecard로 현재 result-change baseline을 고정한다.
+14. `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
+15. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
+16. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
+17. 그 다음에야 algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
