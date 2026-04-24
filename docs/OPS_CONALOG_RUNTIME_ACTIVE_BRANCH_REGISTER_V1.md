@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-076` | `algorithm_prepatch_runbook_common_cause_gate_complete` | adds BR-075 common-cause semantic gate to the combined panel-engine algorithm prepatch runbook; gate_count 3, failed 0 | use the 3-gate runbook before direct panel-engine algorithm review |
+| `BR-20260424-077` | `project_completion_checkpoint_complete` | adds a whole-project completion checkpoint after BR-076 so covered layers, open blind spots, and next safe order are readable from one map | refresh the evidence/handoff manifest before adding more scattered scans or algorithm proposals |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -88,6 +88,7 @@
 | `BR-20260424-074` | `common_cause_manual_trace_review_complete` | traces the 2 manual targets: gangui is raw-only near-anchor trace-only, ktc_ess is post-current 71-day mismatch; official/current bridge and semantic patch sums 0 | no |
 | `BR-20260424-075` | `common_cause_semantic_prepatch_gate_complete` | gates BR-071~074 before semantic loosening: overall pass, required failures 0, exact closure 0, raw direct rows 101, expected raw-only context warning 1 | no |
 | `BR-20260424-076` | `algorithm_prepatch_runbook_common_cause_gate_complete` | upgrades the combined prepatch runbook from 2 gates to 3 gates by adding BR-075; panel-engine/fault-family/common-cause statuses all pass | no |
+| `BR-20260424-077` | `project_completion_checkpoint_complete` | records the post-BR-076 whole-project map: safety gates are stronger, evidence frontier is known, but latest manifest/handoff indexing is stale | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -172,6 +173,7 @@
 - BR-074 closes those `2` manual trace targets without semantic loosening: `gangui` is raw-only report trace-only, `ktc_ess` is a post-current 71-day mismatch, and official/current bridge plus semantic patch sums stay `0`.
 - BR-075 makes the common-cause boundary executable: BR-071~074 must pass 12 required prepatch gates before semantic loosening is reviewed, and the one raw-only near-anchor bridge remains context-only warning material.
 - BR-076 moves BR-075 into the default combined algorithm prepatch runbook: future direct panel-engine algorithm review now expects panel-engine safety, fault-family regression, and common-cause semantic gates all to pass.
+- BR-077 locks the current navigation checkpoint: the core safety/evidence lanes are not missing, but the latest evidence/handoff manifest must be refreshed before new scattered scans or algorithm proposals.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -205,3 +207,4 @@
 - after BR-074, do not use raw-only near-anchor traces or post-current date-displaced common-cause rows as official/current closure; preserve BR-071~074 as regression/hold evidence for future semantic patches.
 - after BR-075, any common-cause semantic patch must run `check_panel_day_engine_common_cause_semantic_prepatch_gate_v1.py` first; passing the gate is a safety precondition, not patch approval.
 - after BR-076, use `check_panel_day_engine_algorithm_prepatch_runbook_v1.py` as the default 3-gate prepatch command before direct `panel_day_engine.py` algorithm review.
+- after BR-077, use `OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_077_PROJECT_COMPLETION_CHECKPOINT_V1.md` as the current whole-project read map; the next safest branch is a latest evidence/handoff manifest refresh covering BR-064 through BR-076.

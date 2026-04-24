@@ -395,7 +395,8 @@
 28. BR-074 기준 그 `2` rows도 official/current closure가 아니다. raw-only near-anchor trace와 post-current 71-day mismatch는 regression/hold evidence로 보존한다.
 29. BR-075 기준 common-cause semantic patch 검토 전에는 BR-071~074 prepatch gate를 먼저 통과해야 한다. 통과는 safety precondition이지 patch approval이 아니다.
 30. BR-076 기준 direct `panel_day_engine.py` algorithm patch 검토 전에는 3-gate combined runbook을 먼저 통과해야 한다.
-31. 그 다음에야 semantic algorithm gating patch 검토
+31. BR-077 기준 현재 상태는 project-completion/navigation checkpoint에서 먼저 읽는다. 안전장치 자체는 강화됐지만, 최신 evidence/handoff manifest는 BR-076까지 따라오지 못했으므로 manifest refresh가 다음 안전한 작업이다.
+32. 그 다음에야 semantic algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -407,6 +408,19 @@
 - therefore:
   - 지금 단계의 우선순위는 “규칙 바꾸기”보다 “근거 급과 blocker subtype을 명확히 하는 것”이다.
 - 이 문서의 순서는 보수적이라서 느린 것이 아니라, evidence grade에 맞는 순서라는 점을 DL-020에서 잠갔다.
+
+## 11B. BR-077 현재 체크포인트
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_077_PROJECT_COMPLETION_CHECKPOINT_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_077_PROJECT_COMPLETION_CHECKPOINT_V1.md)
+- 짧은 판정:
+  - core safety/evidence lanes are covered enough to avoid blind algorithm patching.
+  - current weakness is navigation: BR-066 handoff and BR-043/051 manifest lineage are stale relative to BR-067 through BR-076.
+- 다음 안전 순서:
+  1. refresh latest evidence/handoff manifest for BR-064 through BR-076.
+  2. keep voltage physical evidence requests, common-cause closure, result-delta claims, and stable/final delivery sync as separate lanes.
+  3. run the BR-076 3-gate algorithm prepatch runbook before any direct `panel_day_engine.py` algorithm review.
+- 금지:
+  - BR-077 alone does not approve a threshold change, common-cause semantic loosening, raw-only promotion, performance claim, or dirty worktree merge.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
