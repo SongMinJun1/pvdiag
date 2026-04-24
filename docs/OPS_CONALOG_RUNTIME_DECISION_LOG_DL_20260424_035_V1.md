@@ -5,6 +5,7 @@
 ## Decision
 - Before any direct `pv_ae/panel_day_engine.py` algorithm patch, require a reproducible safety-gate packet.
 - Accept BR-053 as the minimum gate for panel-engine source/package changes.
+- BR-054 later tightens this minimum gate and should be treated as the effective contract.
 
 ## Reason
 - The roadmap is now close to actual engine work, but the evidence line still has open blockers:
@@ -40,5 +41,5 @@
   - active register update
   - Gate7 update or reaffirmation
   - public behavior documentation when behavior can change
-  - packaged mirror sync when source engine changes
+  - source/package pair sync and byte-identical content when either engine path changes
   - no committed `data/<site>/raw` or `data/<site>/out` payloads

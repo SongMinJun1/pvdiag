@@ -232,6 +232,7 @@
 - BR-051 기준 cross-axis review와 manifest sync가 완료됐으므로, 다음은 `local_signal_morphology_review` pool에서 exact-family missing seed를 다시 찾는 단계다.
 - BR-052 기준 cleaner local morphology pool에서도 exact target top1은 `0`이므로, 다음은 `no_report_heuristic_match` attachment gap을 먼저 분해한다.
 - BR-053 기준 direct `panel_day_engine.py` 변경 전 safety gate가 먼저 고정됐으므로, `no_report_heuristic_match` 분해 이후 엔진 패치가 필요해져도 safety gate packet을 먼저 통과해야 한다.
+- BR-054 기준 safety gate는 이제 source/package pair, byte-identical content, deleted evidence exclusion, related-evidence check까지 포함한다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
@@ -315,11 +316,12 @@
 5. `report_entry_friction_axis`, `recovery_recurrence_axis`, `common_cause_synchrony_axis`를 cross-axis review로 함께 비교한다.
 6. `local_signal_morphology_review` pool에서 `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 `exact same-day` seed를 다시 찾는다.
 7. direct `panel_day_engine.py` patch 전에 `panel_day_engine_patch_safety_gate_v1`을 필수 관문으로 둔다.
-8. `no_report_heuristic_match` rows를 report-lane / heuristic attachment gap으로 분해한다.
-9. `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
-10. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
-11. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
-12. 그 다음에야 algorithm gating patch 검토
+8. safety gate는 BR-054의 pair/hash/deletion/relevance checks 기준으로 읽는다.
+9. `no_report_heuristic_match` rows를 report-lane / heuristic attachment gap으로 분해한다.
+10. `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
+11. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
+12. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
+13. 그 다음에야 algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.

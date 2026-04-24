@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
+import hashlib
 import subprocess
 from pathlib import Path
 
@@ -17,6 +19,12 @@ VALIDATION_COMMANDS = [
     "python3 research/prognostics/smoke_test_conalog_full_runtime_pack_v1.py",
     "python3 release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py --data-root /Users/b9gc/pvdiag/data --output-root /private/tmp/panel_engine_patch_safety_rerun --sites conalog --prefer-existing-site-outs on",
 ]
+RELATED_TERMS = [
+    "panel_day_engine",
+    "panel engine",
+    "pv_ae/panel_day_engine.py",
+    "panel_engine_patch_safety_gate",
+]
 DETAIL_COLS = [
     "gate_id",
     "severity",
@@ -27,6 +35,18 @@ DETAIL_COLS = [
     "requirement",
     "remediation",
 ]
+
+
+@dataclass(frozen=True)
+class ChangedEntry:
+    path: str
+    status: str
+
+    @property
+    def deleted(self) -> bool:
+        return self.status.upper().startswith("D")
+
+
 SUMMARY_COLS = [
     "engine_change_detected",
     "source_engine_changed",
@@ -68,31 +88,98 @@ def normalize_path(value: str) -> str:
     return value.strip().lstrip("./")
 
 
-def read_changed_paths(args: argparse.Namespace) -> list[str]:
+def parse_changed_entry(line: str, default_status: str = "M") -> ChangedEntry | None:
+    value = line.strip()
+    if not value:
+        return None
+    parts = value.split("\t")
+    if len(parts) >= 2 and parts[0] and parts[0][0].upper() in {"A", "C", "D", "M", "R", "T", "U"}:
+        status = parts[0].upper()
+        path = parts[-1]
+    else:
+        status = default_status
+        path = value
+    path = normalize_path(path)
+    if not path:
+        return None
+    return ChangedEntry(path=path, status=status)
+
+
+def read_changed_entries(args: argparse.Namespace) -> list[ChangedEntry]:
     if args.changed_paths_file is not None:
         if not args.changed_paths_file.exists():
             raise SystemExit(f"missing changed paths file: {args.changed_paths_file}")
-        paths = [normalize_path(line) for line in args.changed_paths_file.read_text(encoding="utf-8").splitlines()]
-        return sorted({path for path in paths if path})
+        entries = [
+            entry
+            for line in args.changed_paths_file.read_text(encoding="utf-8").splitlines()
+            if (entry := parse_changed_entry(line)) is not None
+        ]
+        return sorted({entry.path: entry for entry in entries}.values(), key=lambda entry: entry.path)
 
-    paths: set[str] = set()
+    entries_by_path: dict[str, ChangedEntry] = {}
     commands = [
-        ["git", "diff", "--name-only", args.base_ref, "--"],
-        ["git", "ls-files", "--others", "--exclude-standard"],
+        (["git", "diff", "--name-status", args.base_ref, "--"], "M"),
+        (["git", "ls-files", "--others", "--exclude-standard"], "A"),
     ]
-    for command in commands:
+    for command, default_status in commands:
         completed = subprocess.run(command, cwd=args.repo_root, text=True, capture_output=True)
         if completed.returncode != 0:
             raise SystemExit(completed.stderr or completed.stdout)
         for line in completed.stdout.splitlines():
-            path = normalize_path(line)
-            if path:
-                paths.add(path)
-    return sorted(paths)
+            entry = parse_changed_entry(line, default_status=default_status)
+            if entry is not None:
+                entries_by_path[entry.path] = entry
+    return sorted(entries_by_path.values(), key=lambda entry: entry.path)
 
 
 def match_paths(paths: list[str], predicate) -> list[str]:
     return sorted(path for path in paths if predicate(path))
+
+
+def is_required_evidence_path(path: str) -> bool:
+    return (
+        (path.startswith("research/prognostics/build_") and path.endswith(".py"))
+        or path.startswith("research/prognostics/smoke_test_")
+        or path.startswith("docs/OPS_CONALOG_RUNTIME_BRANCH_BR_")
+        or path.startswith("docs/OPS_CONALOG_RUNTIME_DECISION_LOG_DL_")
+        or path
+        in {
+            ENGINE_SOURCE,
+            ENGINE_PACKAGE,
+            "docs/OPS_CONALOG_RUNTIME_ACTIVE_BRANCH_REGISTER_V1.md",
+            "docs/OPS_CONALOG_RUNTIME_GATE7_IMPLEMENTATION_ORDER_LOCK_V1.md",
+            "ONEPAGER.md",
+            "data_dictionary_paper.md",
+        }
+    )
+
+
+def existing_paths(repo_root: Path, paths: list[str]) -> list[str]:
+    return sorted(path for path in paths if (repo_root / path).is_file())
+
+
+def related_existing_paths(repo_root: Path, paths: list[str]) -> list[str]:
+    matched: list[str] = []
+    for path in existing_paths(repo_root, paths):
+        file_path = repo_root / path
+        try:
+            content = file_path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            content = ""
+        haystack = f"{path}\n{content}".lower()
+        if any(term.lower() in haystack for term in RELATED_TERMS):
+            matched.append(path)
+    return sorted(matched)
+
+
+def sha256_file(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def row(
@@ -125,23 +212,56 @@ def row(
     }
 
 
-def build_detail(paths: list[str]) -> pd.DataFrame:
+def build_detail(entries: list[ChangedEntry], repo_root: Path) -> pd.DataFrame:
+    paths = sorted({entry.path for entry in entries})
+    active_paths = sorted({entry.path for entry in entries if not entry.deleted})
+    deleted_paths = sorted({entry.path for entry in entries if entry.deleted})
     source_engine = ENGINE_SOURCE in paths
     package_engine = ENGINE_PACKAGE in paths
+    active_source_engine = ENGINE_SOURCE in active_paths
+    active_package_engine = ENGINE_PACKAGE in active_paths
     engine_changed = source_engine or package_engine
-    branch_docs = match_paths(paths, lambda p: p.startswith("docs/OPS_CONALOG_RUNTIME_BRANCH_BR_") and p.endswith(".md"))
-    decision_logs = match_paths(paths, lambda p: p.startswith("docs/OPS_CONALOG_RUNTIME_DECISION_LOG_DL_") and p.endswith(".md"))
-    shadow_builders = match_paths(
-        paths,
-        lambda p: p.startswith("research/prognostics/build_")
-        and p.endswith(".py")
-        and any(token in Path(p).name for token in ["shadow", "simulation", "safety", "gate", "forensic", "audit", "gap", "seed", "review"]),
+    branch_docs = related_existing_paths(
+        repo_root,
+        match_paths(active_paths, lambda p: p.startswith("docs/OPS_CONALOG_RUNTIME_BRANCH_BR_") and p.endswith(".md")),
     )
-    smoke_tests = match_paths(paths, lambda p: p.startswith("research/prognostics/smoke_test_") and p.endswith(".py"))
-    active_register = match_paths(paths, lambda p: p == "docs/OPS_CONALOG_RUNTIME_ACTIVE_BRANCH_REGISTER_V1.md")
-    gate7 = match_paths(paths, lambda p: p == "docs/OPS_CONALOG_RUNTIME_GATE7_IMPLEMENTATION_ORDER_LOCK_V1.md")
-    public_docs = match_paths(paths, lambda p: p in {"ONEPAGER.md", "data_dictionary_paper.md"} or p.startswith("paper_pack/"))
-    data_paths = match_paths(paths, lambda p: p.startswith("data/") and ("/raw/" in p or "/out/" in p))
+    decision_logs = related_existing_paths(
+        repo_root,
+        match_paths(active_paths, lambda p: p.startswith("docs/OPS_CONALOG_RUNTIME_DECISION_LOG_DL_") and p.endswith(".md")),
+    )
+    shadow_builders = related_existing_paths(
+        repo_root,
+        match_paths(
+            active_paths,
+            lambda p: p.startswith("research/prognostics/build_")
+            and p.endswith(".py")
+            and any(token in Path(p).name for token in ["shadow", "simulation", "safety", "gate", "forensic", "audit", "gap", "seed", "review"]),
+        ),
+    )
+    smoke_tests = related_existing_paths(
+        repo_root,
+        match_paths(active_paths, lambda p: p.startswith("research/prognostics/smoke_test_") and p.endswith(".py")),
+    )
+    active_register = existing_paths(
+        repo_root,
+        match_paths(active_paths, lambda p: p == "docs/OPS_CONALOG_RUNTIME_ACTIVE_BRANCH_REGISTER_V1.md"),
+    )
+    gate7 = existing_paths(
+        repo_root,
+        match_paths(active_paths, lambda p: p == "docs/OPS_CONALOG_RUNTIME_GATE7_IMPLEMENTATION_ORDER_LOCK_V1.md"),
+    )
+    public_docs = related_existing_paths(
+        repo_root,
+        match_paths(active_paths, lambda p: p in {"ONEPAGER.md", "data_dictionary_paper.md"} or p.startswith("paper_pack/")),
+    )
+    data_paths = match_paths(active_paths, lambda p: p.startswith("data/") and ("/raw/" in p or "/out/" in p))
+    deleted_gate_evidence = match_paths(
+        deleted_paths,
+        is_required_evidence_path,
+    )
+    source_hash = sha256_file(repo_root / ENGINE_SOURCE)
+    package_hash = sha256_file(repo_root / ENGINE_PACKAGE)
+    source_package_hash_equal = source_hash is not None and package_hash is not None and source_hash == package_hash
 
     rows = [
         row(
@@ -217,16 +337,34 @@ def build_detail(paths: list[str]) -> pd.DataFrame:
             "Update ONEPAGER.md or the paper/data-dictionary documentation, or split the patch until behavior change is absent.",
         ),
         row(
-            "G08_source_package_sync_present",
+            "G08_source_package_pair_changed_together",
             "required",
-            source_engine,
-            package_engine,
+            engine_changed,
+            active_source_engine and active_package_engine,
             [path for path in paths if path in {ENGINE_SOURCE, ENGINE_PACKAGE}],
-            "Source engine changes must include package mirror sync in the same safety packet.",
-            f"Update {ENGINE_PACKAGE} or explicitly split into a source-only non-release patch with a separate mirror-sync decision.",
+            "Source and packaged panel engines must move together; package-only and source-only drift are both blocked.",
+            f"Update both {ENGINE_SOURCE} and {ENGINE_PACKAGE}, or split the patch with an explicit non-release decision.",
         ),
         row(
-            "G09_no_large_data_paths",
+            "G09_source_package_content_equal",
+            "required",
+            active_source_engine and active_package_engine,
+            source_package_hash_equal,
+            [path for path in paths if path in {ENGINE_SOURCE, ENGINE_PACKAGE}],
+            "Source and packaged panel engines must be byte-identical after the patch.",
+            "Copy the accepted source engine into the packaged mirror, then rerun the safety gate.",
+        ),
+        row(
+            "G10_no_deleted_required_evidence",
+            "required",
+            engine_changed and bool(deleted_gate_evidence),
+            not deleted_gate_evidence,
+            deleted_gate_evidence,
+            "Deleted safety evidence, docs, smoke, public behavior docs, or engine files cannot satisfy the gate.",
+            "Restore the required evidence file or replace it with a related active file in the same patch.",
+        ),
+        row(
+            "G11_no_large_data_paths",
             "required",
             engine_changed or bool(data_paths),
             not data_paths,
@@ -238,7 +376,8 @@ def build_detail(paths: list[str]) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=DETAIL_COLS)
 
 
-def build_summary(paths: list[str], detail_df: pd.DataFrame) -> pd.DataFrame:
+def build_summary(entries: list[ChangedEntry], detail_df: pd.DataFrame) -> pd.DataFrame:
+    paths = sorted({entry.path for entry in entries})
     source_engine = ENGINE_SOURCE in paths
     package_engine = ENGINE_PACKAGE in paths
     engine_changed = source_engine or package_engine
@@ -267,9 +406,9 @@ def build_summary(paths: list[str], detail_df: pd.DataFrame) -> pd.DataFrame:
 def main() -> None:
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    paths = read_changed_paths(args)
-    detail_df = build_detail(paths)
-    summary_df = build_summary(paths, detail_df)
+    entries = read_changed_entries(args)
+    detail_df = build_detail(entries, args.repo_root)
+    summary_df = build_summary(entries, detail_df)
     detail_df.to_csv(args.output_dir / DETAIL_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary_df.to_csv(args.output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
 

@@ -34,6 +34,11 @@
   - source engine 변경 시 packaged mirror도 같은 safety packet에 포함되어야 한다.
 - `G09_no_large_data_paths`
   - `data/<site>/raw` 또는 `data/<site>/out` 대용량/생성 데이터는 엔진 safety patch에 포함하면 안 된다.
+- BR-054 tightened this initial contract:
+  - package-only engine changes are also blocked.
+  - source/package content equality is checked by SHA-256.
+  - deleted files cannot satisfy required evidence gates.
+  - docs/builders/smokes must be panel-engine related, not just filename-shaped.
 
 ## Current Patch Result
 - current patch has no engine code change:
@@ -60,6 +65,7 @@
 - Accept `panel_day_engine_patch_safety_gate_v1` as a pre-engine-change safety gate.
 - Do not patch `pv_ae/panel_day_engine.py` until this gate says the proposed packet is complete.
 - Keep the next evidence task as `no_report_heuristic_match` decomposition, but run it under this safety discipline.
+- Effective gate semantics are tightened by BR-054.
 
 ## Repro Command
 ```bash
