@@ -129,11 +129,27 @@
   - `rawonly_near_signal_anchor`만 next inspect 우선순위가 높다.
   - 나머지 subtype은 immediate exact-family closure 근거가 아니다.
 
+## BR-058 / BR-059 fault-family regression pressure lock
+- BR-058 packet rows are regression/counterexample pressure only.
+- BR-059 makes this packet executable as a prepatch gate:
+  - script: `research/prognostics/check_panel_day_engine_fault_family_regression_prepatch_gate_v1.py`
+  - required gates: `12`
+  - real packet status: `pass`
+- Before any future panel-engine algorithm patch, the gate must verify:
+  - `non_target_hard_same_day_fault_family_seed >= 5`
+  - `sensor_feedback_hard_same_day_ambiguity_pressure >= 6`
+  - `target_exact_closure_candidate_sum = 0`
+  - `operator_promotion_allowed_sum = 0`
+  - `engine_patch_candidate_sum = 0`
+- A passing BR-059 gate preserves packet integrity only.
+- It does not approve threshold changes or target exact-family closure.
+
 ## Minimum Pass Rule Before Algorithm Patch
 - `official_only`, `precursor_only`, `raw_only_only` 각 bucket 대표 사례 3개 이상
 - `mlpe_ambiguous`, `common_cause_risk`는 대표 사례 3개 이상 + Priority A/B seed가 최소 1개 이상 보강
 - `near-window overlap backlog`를 separate provisional family로 쓰려면 representative seed 1개 이상 + `same-day exact 아님` 금지 문구 1개 이상을 같이 유지
 - BR-033 future promotion criteria를 만족하지 못하면 near-window backlog는 계속 non-closing backlog로 둔다
+- BR-059 fault-family regression prepatch gate가 실패하면 algorithm gating patch는 `보류`로 둔다.
 - 위 조건을 만족하지 못하면 algorithm gating patch는 `보류`로 둔다.
 
 ## Decision

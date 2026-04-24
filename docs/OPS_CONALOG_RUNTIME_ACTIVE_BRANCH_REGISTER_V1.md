@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-058` | `fault_family_regression_pressure_packet_complete` | packages 11 BR-057 regression/pressure seeds into counterexample rows; target exact closure 0, operator promotion 0, engine patch candidates 0 | add the packet to a broader pre-patch regression gate/runbook before any threshold work |
+| `BR-20260424-059` | `fault_family_regression_prepatch_gate_complete` | turns BR-058 packet into an executable 12-gate prepatch check; real packet pass, failed required gates 0 | integrate this gate with future algorithm-patch runbooks before any threshold work |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -70,6 +70,7 @@
 | `BR-20260424-056` | `non_fault_morphology_observation_sidecar_complete` | emits sidecar-only evidence for the 3 near-anchor non-fault morphology rows; `operator_promotion_allowed_sum=0`, `engine_patch_candidate_sum=0` | no |
 | `BR-20260424-057` | `exact_family_closure_readiness_review_complete` | rereads 21 local morphology rows after BR-056: target exact closure 0, non-target hard same-day fault-family seeds 5, sensor-feedback pressure seeds 6, closed non-fault blockers 8 | no |
 | `BR-20260424-058` | `fault_family_regression_pressure_packet_complete` | packages 5 non-target hard same-day family-boundary seeds and 6 sensor-feedback ambiguity pressure seeds as regression/counterexample material only | no |
+| `BR-20260424-059` | `fault_family_regression_prepatch_gate_complete` | checks BR-058 packet integrity with 12 required gates; packet rows 11, failed gates 0, target closure/promotion/engine patch sums all 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -136,6 +137,7 @@
 - BR-056 closes the 3 near-anchor rows as sidecar-only observation evidence: operator promotion `0`, engine patch candidates `0`, exact-family closure still open.
 - BR-057 confirms the post-BR-056 pool still has target exact closure `0`, while 11 non-target regression/pressure seeds are useful for future counterexample packets only.
 - BR-058 turns those 11 seeds into an executable packet with `target_exact_closure_candidate_sum=0`, `operator_promotion_allowed_sum=0`, and `engine_patch_candidate_sum=0`.
+- BR-059 turns BR-058 into a prepatch gate: the real packet passes 12 required gates and blocks shrinkage, promotion, target-closure drift, engine-patch drift, missing interpretation text, and common-cause mixing.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -151,3 +153,4 @@
 - after BR-056, do not patch the engine for no-report heuristic rows or near-anchor non-fault morphology observations; continue exact-family closure search with stronger fault-family evidence.
 - after BR-057, keep target exact-family closure open and package the 11 regression/pressure seeds separately before any algorithm gating discussion.
 - after BR-058, any future algorithm patch should first run/check the packet as regression pressure and prove it does not convert packet rows into target exact closure or direct operator promotion.
+- after BR-059, run `check_panel_day_engine_fault_family_regression_prepatch_gate_v1.py` before any direct panel-engine algorithm patch review.

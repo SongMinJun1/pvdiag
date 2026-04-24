@@ -237,6 +237,7 @@
 - BR-056 기준 BR-055의 near-anchor 3건은 non-fault morphology observation sidecar로만 보존되며, operator promotion과 engine patch candidate는 모두 `0`이다.
 - BR-057 기준 post-BR-056 local morphology pool은 target exact closure `0`을 유지하지만, non-target hard same-day fault-family seed 5건과 sensor-feedback pressure seed 6건을 회귀/반례 재료로 분리했다.
 - BR-058 기준 이 11건은 regression/counterexample packet으로 고정됐으며, target exact closure / operator promotion / engine patch candidate는 모두 `0`이다.
+- BR-059 기준 BR-058 packet은 12개 required prepatch gate를 통과했으며, 이후 panel-engine algorithm patch 검토 전 이 gate를 먼저 실행해야 한다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
@@ -323,10 +324,11 @@
 8. safety gate는 BR-054의 pair/hash/deletion/relevance checks 기준으로 읽는다.
 9. `no_report_heuristic_match` rows는 BR-055 기준 engine patch 대상이 아니며, BR-056 기준 near-anchor 3건도 non-fault observation sidecar로만 보존한다.
 10. BR-058 packet은 future algorithm patch의 pre-check 재료로 사용하되, target exact closure나 direct operator promotion으로 읽지 않는다.
-11. `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
-12. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
-13. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
-14. 그 다음에야 algorithm gating patch 검토
+11. BR-059 prepatch gate를 실행해 BR-058 packet이 축소되거나 promotion/closure/engine-patch 후보로 변질되지 않았는지 확인한다.
+12. `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
+13. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
+14. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
+15. 그 다음에야 algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
