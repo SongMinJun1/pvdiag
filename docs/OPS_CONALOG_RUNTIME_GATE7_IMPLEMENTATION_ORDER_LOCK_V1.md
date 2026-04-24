@@ -413,7 +413,8 @@
 46. 다음은 pilot subtype-threshold replay review이며, 이는 evidence assessment일 뿐 threshold tuning approval이 아니다.
 47. BR-090 기준 7개 threshold 후보를 replay하면 duration/event-only 3개는 deferred hold pressure로 blocked, strict/voltage 4개는 clean pilot candidate지만 positive support가 `1`뿐이다.
 48. BR-091 기준 6 deferred holds를 48 selected raw days로 재검토해도 voltage-preserved positive candidate는 `0`이고, current-limited hold `2` rows만 별도 축으로 분리된다.
-49. semantic algorithm gating patch는 expanded positive truth outside these holds, rerun replay, and BR-076 prepatch gates가 끝난 뒤에만 검토한다.
+49. BR-092 기준 voltage-preserved positive search는 best-per-hard-episode 후보 `96` rows를 찾았지만, known negative overlap `1` row도 같이 잡으므로 search hit는 truth label이나 threshold approval이 아니다.
+50. semantic algorithm gating patch는 BR-092 후보 confirmation packet, positive truth rebuild, replay rerun, and BR-076 prepatch gates가 끝난 뒤에만 검토한다.
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -772,6 +773,37 @@
 - 금지:
   - BR-091 does not add positive truth labels.
   - BR-091 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
+
+## 11Q. BR-092 voltage-preserved positive search
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_092_VOLTAGE_PRESERVED_POSITIVE_SEARCH_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_092_VOLTAGE_PRESERVED_POSITIVE_SEARCH_V1.md)
+- 실행 산출물:
+  - `/private/tmp/panel_day_engine_voltage_preserved_positive_search_br092_check/panel_day_engine_voltage_preserved_positive_search_candidates_v1.csv`
+  - `/private/tmp/panel_day_engine_voltage_preserved_positive_search_br092_check/panel_day_engine_voltage_preserved_positive_search_summary_v1.csv`
+  - `/private/tmp/panel_day_engine_voltage_preserved_positive_search_br092_check/panel_day_engine_voltage_preserved_positive_search_action_queue_v1.csv`
+- 판정:
+  - candidate rows `96`.
+  - new search candidates `94`.
+  - manual review ready rows `86`.
+  - known positive seed rediscovered `1`.
+  - known negative overlap rows `1`.
+  - known deferred hold overlap rows `0`.
+  - positive truth candidate approved sum `0`.
+  - threshold tuning approved sum `0`.
+  - operator promotion, engine patch, and threshold patch authorization sums remain `0`.
+  - candidate tiers:
+    - `strong_b089_like=80`
+    - `voltage_preserved_10d=8`
+    - `voltage_preserved_2d_review=8`
+- 다음 안전 순서:
+  1. build a confirmation packet for `manual_review_ready=1` new candidates.
+  2. deduplicate repeated candidates by panel/root/date family.
+  3. attach independent source, physical inspection, maintenance, or raw waveform confirmation before adding positive truth.
+  4. rerun BR-090 only after at least 3 independent positive truth rows exist.
+- 금지:
+  - BR-092 search hits are not positive truth labels.
+  - BR-092 known negative overlap blocks direct thresholding from this search pattern alone.
+  - BR-092 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
