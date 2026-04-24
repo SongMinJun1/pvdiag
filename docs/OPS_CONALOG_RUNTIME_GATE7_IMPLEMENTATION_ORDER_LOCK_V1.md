@@ -181,6 +181,20 @@
 - 현재 산출물:
   - [OPS_CONALOG_RUNTIME_GATE2C_EXISTING_SIGNAL_SCORE_MAP_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_GATE2C_EXISTING_SIGNAL_SCORE_MAP_V1.md)
 
+### 6.6A Step 4B. evidence-axis sidecar expansion
+- 내용:
+  - 기존 raw/audit fields만으로 새 evidence-only sidecar axis를 만든다.
+- 목적:
+  - exact family를 억지 closure하지 않고 blocker / hold / review 설명력을 올린다.
+- 우선순위:
+  1. `report_entry_friction_axis`
+  2. `recovery_recurrence_axis`
+  3. `common_cause_synchrony_axis`
+- 조건:
+  - new top-level fault label을 직접 만들지 않는다.
+  - operator headline으로 직접 승격하지 않는다.
+  - first use는 explanation / blocker split / hold-review support로 제한한다.
+
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
   - 필요 시 precursor 승격 / hard evidence 경계 코드 조정
@@ -259,7 +273,8 @@
 4. `±7일 near-window overlap backlog`는 BR-033 기준 `non-closing backlog`로 유지하고, 한 proto-cluster가 DL-015 criteria를 넘을 때만 다시 provisional family 승격을 검토한다.
 5. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural blocker`로 먼저 읽는다.
 6. `group_off_date`는 BR-037 blocker subtype(`no entry / precursor carry-over / rawonly displacement / near-anchor residual`)으로 먼저 자른 뒤, near-anchor residual만 exact-family inspect 대상으로 본다.
-7. 그 다음에야 algorithm gating patch 검토
+7. 필요한 evidence-axis sidecar를 먼저 만든다.
+8. 그 다음에야 algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.

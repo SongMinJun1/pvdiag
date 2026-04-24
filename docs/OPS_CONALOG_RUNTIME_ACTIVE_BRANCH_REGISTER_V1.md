@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-038` | `patch_direction_rationale_locked` | explicitly record why the redesign is moving docs/evidence-first and blocker-first instead of jumping into algorithm gating while exact family is still missing | keep near-anchor and site-event blocker inspection next, and only reopen algorithm gating when exact closure or a sharply defined blocker target appears |
+| `BR-20260424-039` | `evidence_axis_opportunity_mapped` | map where the same blocker-first/evidence-first method can be reused beyond the current exact-family gap, and rank which new evidence-only axes are worth building first | choose whether to start with `report_entry_friction_axis` sidecar or `recovery_recurrence_axis` sidecar next |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -49,6 +49,7 @@
 | `BR-20260424-035` | `exact_seed_blocker_anatomy_locked` | same-day direct raw rows are re-read as `candidate reservoir`, while missing exact family is attributed to report-lane entry and date-alignment blockers | no |
 | `BR-20260424-036` | `judgment_rubric_locked` | new evidence is now classified first as exact closure, supportive hint, candidate reservoir, non-closing backlog, or structural blocker before any patch discussion | no |
 | `BR-20260424-037` | `group_off_report_lane_blockers_mapped` | `group_off_date` exact raw rows split into no-entry, precursor-carryover, rawonly-date-displaced, and near-anchor blocker subtypes; only the last remains a plausible near-term inspect target | no |
+| `BR-20260424-038` | `patch_direction_rationale_locked` | explicit rationale recorded for staying docs/evidence-first and blocker-first while exact family remains missing and most evidence is still below closure grade | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -95,6 +96,7 @@
 - BR-036 locks a single judgment rubric over BR-033/034/035 outputs: `supportive_hint`, `candidate_reservoir`, `non_closing_backlog`, and `structural_blocker` are distinct roles, and only `exact_family_closure` can close the still-missing family directly.
 - BR-037 shows the `group_off_date` family is not one blocker but four subtypes: `no_report_lane_entry`, `precursor_carryover_without_exact_overlap`, `rawonly_date_displaced`, and `rawonly_near_signal_anchor`; only the last one remains a plausible near-term exact-family inspect target.
 - BR-038 locks the rationale for this whole path: exact family is still missing, most evidence is below closure grade, and blocker subtypes are more informative than premature threshold/rule changes, so docs/evidence-first remains the correct patch direction.
+- BR-039 confirms the same method can be reused elsewhere: `report_entry_friction`, `recovery_recurrence`, and `common_cause_synchrony` are the strongest evidence-axis expansion candidates already supported by existing raw/audit fields.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -103,4 +105,4 @@
 - adjudicate BR-023 `group_off` cluster boundaries and `strict_trigger_proximal` vs secondary-window evidence before any subtype promotion discussion.
 - before generating more packet branches, prefer a tracked packet generator or an exact one-shot reproduction script.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
-- after BR-038, the next safe lane remains docs/evidence-first: continue exact same-day missing-family search first, classify every new finding by judgment role, keep control-like score and raw-only date widening as supportive evidence only, split blocker families before discussing rules, and reopen algorithm gating only when exact closure or sharply defined blocker targets appear.
+- after BR-039, the next safe lane remains docs/evidence-first: continue exact same-day missing-family search first, classify every new finding by judgment role, keep control-like score and raw-only date widening as supportive evidence only, and when expanding new sidecars prefer `report_entry_friction`, `recovery_recurrence`, and `common_cause_synchrony` before reopening algorithm gating.
