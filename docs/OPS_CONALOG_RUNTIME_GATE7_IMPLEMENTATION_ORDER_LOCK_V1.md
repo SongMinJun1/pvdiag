@@ -229,6 +229,7 @@
 - 이후 exact-family 재탐색과 cross-axis review는 이 pack root를 default entry point로 사용한다.
 - BR-049 기준 이 runtime order 자체는 유지하되, `repo_role_boundary_manifest_v1`, `repo_mirror_boundary_manifest_v1`, `repo_active_builder_entrypoint_registry_v1`를 먼저 읽어 current worktree/read-path 혼선을 줄인다.
 - BR-050 기준 `common_cause_synchrony_axis` sidecar까지 구현됐으므로, 다음은 세 evidence axis를 함께 읽는 cross-axis review다.
+- BR-051 기준 cross-axis review와 manifest sync가 완료됐으므로, 다음은 `local_signal_morphology_review` pool에서 exact-family missing seed를 다시 찾는 단계다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
@@ -308,10 +309,11 @@
 3. `repo_active_builder_entrypoint_registry_v1`를 읽어 현재 진입점과 archive/helper review queue를 구분한다.
 4. `common_cause_synchrony_axis`를 evidence-only sidecar로 만든다.
 5. `report_entry_friction_axis`, `recovery_recurrence_axis`, `common_cause_synchrony_axis`를 cross-axis review로 함께 비교한다.
-6. `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 `exact same-day` seed를 계속 추가한다.
-7. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
-8. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural blocker`로 먼저 읽는다.
-9. 그 다음에야 algorithm gating patch 검토
+6. `local_signal_morphology_review` pool에서 `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 `exact same-day` seed를 다시 찾는다.
+7. `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
+8. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
+9. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
+10. 그 다음에야 algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.

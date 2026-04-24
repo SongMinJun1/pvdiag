@@ -35,6 +35,13 @@ RECOVERY_REPRO_COMMAND = (
     "--output-dir /private/tmp/recovery_recurrence_axis_sidecar_check "
     "--sites conalog gangui ktc_ess"
 )
+COMMON_CAUSE_REPRO_COMMAND = (
+    "python3 research/prognostics/build_panel_day_engine_common_cause_synchrony_axis_v1.py "
+    "--data-root /Users/b9gc/pvdiag/data "
+    "--result-root /private/tmp/conalog_mlpe_seed_expand_check/result "
+    "--output-dir /private/tmp/common_cause_synchrony_axis_sidecar_check "
+    "--sites conalog gangui ktc_ess"
+)
 GROUP_OFF_REPRO_COMMAND = "manual_oneoff_scan_locked_in_docs: BR-20260424-037"
 OPPORTUNITY_REPRO_COMMAND = "manual_oneoff_scan_locked_in_docs: BR-20260424-039"
 
@@ -249,6 +256,26 @@ ARTIFACT_SPECS = [
         "repro_mode": "builder",
         "repro_command": RECOVERY_REPRO_COMMAND,
     },
+    {
+        "evidence_family": "common_cause_synchrony_axis",
+        "judgment_role": "hold_reroute_context",
+        "root_key": "common_cause_root",
+        "relative_path": "panel_day_engine_common_cause_synchrony_axis_v1.csv",
+        "artifact_kind": "detail_csv",
+        "latest_decision_log": "DL-20260424-032",
+        "repro_mode": "builder",
+        "repro_command": COMMON_CAUSE_REPRO_COMMAND,
+    },
+    {
+        "evidence_family": "common_cause_synchrony_axis",
+        "judgment_role": "hold_reroute_context",
+        "root_key": "common_cause_root",
+        "relative_path": "panel_day_engine_common_cause_synchrony_axis_summary_v1.csv",
+        "artifact_kind": "summary_csv",
+        "latest_decision_log": "DL-20260424-032",
+        "repro_mode": "builder",
+        "repro_command": COMMON_CAUSE_REPRO_COMMAND,
+    },
 ]
 
 DETAIL_COLS = [
@@ -291,6 +318,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--opportunity-root", type=Path, required=True, help="Folder containing evidence-axis opportunity scan CSVs.")
     parser.add_argument("--report-entry-root", type=Path, required=True, help="Folder containing report-entry friction sidecar CSVs.")
     parser.add_argument("--recovery-root", type=Path, required=True, help="Folder containing recovery/recurrence sidecar CSVs.")
+    parser.add_argument("--common-cause-root", type=Path, required=True, help="Folder containing common-cause synchrony sidecar CSVs.")
     parser.add_argument("--output-dir", type=Path, required=True, help="Folder where the manifest and consolidated pack root will be written.")
     parser.add_argument(
         "--owner-branch",
@@ -343,6 +371,7 @@ def build_manifest(args: argparse.Namespace) -> pd.DataFrame:
         "opportunity_root": args.opportunity_root.resolve(),
         "report_entry_root": args.report_entry_root.resolve(),
         "recovery_root": args.recovery_root.resolve(),
+        "common_cause_root": args.common_cause_root.resolve(),
     }
     rows: list[dict[str, object]] = []
     for spec in ARTIFACT_SPECS:
@@ -415,6 +444,7 @@ def write_json_manifest(args: argparse.Namespace, detail_df: pd.DataFrame, summa
             "opportunity_root": str(args.opportunity_root.resolve()),
             "report_entry_root": str(args.report_entry_root.resolve()),
             "recovery_root": str(args.recovery_root.resolve()),
+            "common_cause_root": str(args.common_cause_root.resolve()),
         },
         "artifact_count": int(len(detail_df)),
         "existing_artifact_count": int(detail_df["artifact_exists"].sum()) if not detail_df.empty else 0,

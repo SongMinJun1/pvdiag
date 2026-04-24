@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-050` | `common_cause_synchrony_axis_sidecar_implemented` | common-cause synchrony is now split by site-event, group-off, subgroup, prefault-B overlap, co-drop breadth hint, and report lane without runtime semantic change | run cross-axis review next |
+| `BR-20260424-051` | `cross_axis_manifest_sync_review_implemented` | report-entry friction, recovery/recurrence, common-cause synchrony, evidence manifest, and cleanup maps are aligned into one review map | resume exact-family missing seed re-search from local morphology pool |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -62,6 +62,7 @@
 | `BR-20260424-048` | `mirror_boundary_manifest_implemented` | adds a reproducible source/package mirror boundary builder and smoke; package-facing mirror rows are split into in-sync mirrors, package-only surfaces, and generated artifacts | no |
 | `BR-20260424-049` | `active_builder_entrypoint_registry_implemented` | adds a reproducible build/smoke entrypoint registry; 289 entrypoints split into packaged runtime, documented paired, documented unpaired, paired unreferenced, and unpaired review queues | no |
 | `BR-20260424-050` | `common_cause_synchrony_axis_sidecar_implemented` | adds a reproducible common-cause synchrony sidecar; 206 tri-site panels split into site-event, group-off, subgroup, co-drop, and weak/local buckets across report lanes | no |
+| `BR-20260424-051` | `cross_axis_manifest_sync_review_implemented` | adds a reproducible cross-axis review and refreshes the evidence manifest to include common-cause synchrony; 209 panels split into strong common-cause hold, subgroup/breadth context, local morphology, and weak context buckets | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -120,6 +121,7 @@
 - BR-048 implements the second concrete confusion-reduction manifest: source/package mirror pairs are hash-checked separately from package-only surfaces and generated outputs.
 - BR-049 implements the third concrete confusion-reduction manifest: build/smoke entrypoints are now read by pair status, package mirror status, doc reference count, and recommended action before adding or editing another script.
 - BR-050 implements the third evidence-axis sidecar: common-cause synchrony is now readable by marker family and report lane, while `co_drop_breadth_hint` stays weak context and no runtime semantics change.
+- BR-051 aligns the maps: evidence manifest now includes `common_cause_synchrony_axis`, cleanup maps stay separate from evidence-family rows, and cross-axis review gives the next search pool without algorithm gating.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -129,4 +131,4 @@
 - before generating more packet branches, prefer a tracked packet generator or an exact one-shot reproduction script.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
 - after BR-043, use the evidence manifest/consolidated pack root as the default read base, then implement `common_cause_synchrony_axis`, then do a cross-axis review, then rerun exact same-day missing-family search, and only then reopen algorithm gating.
-- after BR-050, compare `report_entry_friction_axis`, `recovery_recurrence_axis`, and `common_cause_synchrony_axis` in a cross-axis review before exact-family re-search or algorithm gating.
+- after BR-051, resume exact-family missing seed re-search from `local_signal_morphology_review`, while keeping `strong_common_cause_hold_review` as blocker/regression pressure only.

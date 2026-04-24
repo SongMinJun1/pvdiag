@@ -26,6 +26,7 @@
 - implemented sidecar roots:
   - [/private/tmp/report_entry_friction_axis_sidecar_check](</private/tmp/report_entry_friction_axis_sidecar_check>)
   - [/private/tmp/recovery_recurrence_axis_sidecar_check](</private/tmp/recovery_recurrence_axis_sidecar_check>)
+  - [/private/tmp/common_cause_synchrony_axis_sidecar_check](</private/tmp/common_cause_synchrony_axis_sidecar_check>)
 
 ## What The Manifest Solves
 - artifact가 여러 temp root에 흩어져 있어도
@@ -52,24 +53,30 @@
   - [/private/tmp/evidence_manifest_pack_check/evidence_pack_root](</private/tmp/evidence_manifest_pack_check/evidence_pack_root>)
 
 ## Data Read
-- indexed artifact rows: `21`
-- existing artifacts: `21`
-- indexed families: `7`
+- indexed artifact rows: `23`
+- existing artifacts: `23`
+- indexed families: `8`
   - `report_lane_result_base = 6`
   - `runtime_summary_context = 5`
   - `operator_surface_preview = 3`
   - `group_off_report_lane_blocker = 2`
   - `report_entry_friction_axis = 2`
   - `recovery_recurrence_axis = 2`
+  - `common_cause_synchrony_axis = 2`
   - `evidence_axis_opportunity_map = 1`
 - `judgment_role` split:
   - `candidate_reservoir = 7`
   - `structural_blocker = 4`
   - `supportive_hint = 10`
+  - `hold_reroute_context = 2`
 - `repro_mode` split:
   - `runtime_run = 14`
-  - `builder = 4`
+  - `builder = 6`
   - `manual_oneoff = 3`
+
+## BR-051 Refresh Note
+- BR-043 originally created the manifest before `common_cause_synchrony_axis` existed.
+- BR-051 refreshed the same manifest builder so the current pack root now indexes all three implemented evidence axes.
 
 ## Why This Matters
 - 이제 다음 축을 추가해도 “근거가 어디 있었는지”를 다시 찾느라 흐트러질 가능성이 줄어든다.

@@ -36,6 +36,7 @@ def build_fixture(root: Path) -> dict[str, Path]:
     opportunity_root = root / "opportunity"
     report_entry_root = root / "report_entry"
     recovery_root = root / "recovery"
+    common_cause_root = root / "common_cause"
 
     write_text(result_root / "fault_panel_result_current_v1.csv", "site,panel_id,고장 기준일\nconalog,panel.1,2025-01-01\n")
     write_text(result_root / "fault_panel_result_precursor_report_v1.csv", "site,panel_id,전조날짜\nconalog,panel.2,2025-01-02\n")
@@ -48,12 +49,15 @@ def build_fixture(root: Path) -> dict[str, Path]:
     write_text(report_entry_root / "panel_day_engine_report_entry_friction_axis_summary_v1.csv", "direct_flag_family,panels\ngroup_off_date,1\n")
     write_text(recovery_root / "panel_day_engine_recovery_recurrence_axis_v1.csv", "panel_id,recovery_bucket\npanel.6,re_drop_cycle\n")
     write_text(recovery_root / "panel_day_engine_recovery_recurrence_axis_summary_v1.csv", "site,panels\nconalog,1\n")
+    write_text(common_cause_root / "panel_day_engine_common_cause_synchrony_axis_v1.csv", "panel_id,synchrony_bucket\npanel.7,site_event_synchrony\n")
+    write_text(common_cause_root / "panel_day_engine_common_cause_synchrony_axis_summary_v1.csv", "site,panels\nconalog,1\n")
     return {
         "result_root": result_root,
         "group_off_root": group_off_root,
         "opportunity_root": opportunity_root,
         "report_entry_root": report_entry_root,
         "recovery_root": recovery_root,
+        "common_cause_root": common_cause_root,
     }
 
 
@@ -77,6 +81,8 @@ def main() -> None:
             str(roots["report_entry_root"]),
             "--recovery-root",
             str(roots["recovery_root"]),
+            "--common-cause-root",
+            str(roots["common_cause_root"]),
             "--output-dir",
             str(out_dir),
             "--owner-branch",
@@ -126,6 +132,7 @@ def main() -> None:
         assert_true(int(report_entry_summary.sum()) == 2, summary_df.to_string())
         assert_true(manifest_payload["owner_branch"] == "codex/test-branch", manifest_payload)
         assert_true("report_entry_friction_axis" in manifest_payload["families"], manifest_payload)
+        assert_true("common_cause_synchrony_axis" in manifest_payload["families"], manifest_payload)
         assert_true((out_dir / PACK_ROOT).exists(), "missing pack root")
 
 
