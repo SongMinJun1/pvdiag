@@ -247,6 +247,7 @@
 - BR-066 기준 evidence line은 `handoff_ready_with_index`다. 새 작업자는 BR-066 handoff index에서 시작하고, BR-064/065 재현이 막히면 새 rule이 아니라 handoff/repro layer를 먼저 고친다.
 - BR-067 기준 2건의 voltage-dominant hard-signal row는 broad peer/reference artifact보다는 physical-leaning voltage-axis review로 읽힌다. 단, confirmed fault family나 threshold patch가 아니라 physical confirmation 대기 상태다.
 - BR-068 기준 2건 모두 raw timestamp peer comparison에서 low-voltage/current-preserved morphology가 재확인됐다. 단, raw waveform support는 independent physical confirmation과 다르므로 threshold patch 승인으로 읽지 않는다.
+- BR-069 기준 2건 모두 independent physical-confirmation layer는 아직 미충족이다. 정확한 패널 ID에 붙은 direct physical measurement와 maintenance/inspection evidence가 없으므로 threshold patch는 계속 보류한다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
@@ -296,6 +297,8 @@
     - `python3 research/prognostics/build_panel_day_engine_voltage_dominant_physical_vs_artifact_review_v1.py --shape-input /private/tmp/local_morphology_family_shape_review_check/panel_day_engine_local_morphology_family_shape_review_v1.csv --data-root /Users/b9gc/pvdiag/data --output-dir /private/tmp/voltage_dominant_physical_vs_artifact_review_check`
   - BR-068 raw waveform physical-support review:
     - `python3 research/prognostics/build_panel_day_engine_raw_waveform_physical_support_review_v1.py --review-input /private/tmp/voltage_dominant_physical_vs_artifact_review_check/panel_day_engine_voltage_dominant_physical_vs_artifact_review_v1.csv --data-root /Users/b9gc/pvdiag/data --output-dir /private/tmp/raw_waveform_physical_support_review_check`
+  - BR-069 physical confirmation requirements review:
+    - `python3 research/prognostics/build_panel_day_engine_physical_confirmation_requirements_review_v1.py --raw-review-input /private/tmp/raw_waveform_physical_support_review_check/panel_day_engine_raw_waveform_physical_support_review_v1.csv --manual-evidence-input docs/internal/manual_field_evidence_latest.csv --output-dir /private/tmp/physical_confirmation_requirements_review_check`
 
 ## 7. 지금 바로 허용되는 패치
 - Gate 5 projection policy를 checklist로 바꾸는 문서 패치
@@ -361,10 +364,11 @@
 18. BR-066 handoff index에서 status/order/artifact/candidate/shape docs를 먼저 확인한다.
 19. BR-067 기준 2건은 physical-leaning으로 좁혀졌지만, waveform/IV/maintenance/reproducible voltage-axis evidence 전에는 threshold patch로 가지 않는다.
 20. BR-068 기준 raw waveform support가 생겼지만, independent physical confirmation checklist 전에는 threshold patch로 가지 않는다.
-21. `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
-22. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
-23. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
-24. 그 다음에야 semantic algorithm gating patch 검토
+21. BR-069 기준 current evidence는 `raw_supported_confirmation_gap_hold`이므로, exact-panel physical/inspection evidence 없이는 voltage-axis threshold patch를 열지 않는다.
+22. `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
+23. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
+24. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
+25. 그 다음에야 semantic algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
