@@ -199,10 +199,10 @@
   - BR-041 기준 `recovery_recurrence_axis`도 builder + smoke까지 구현 완료
 - BR-043 기준 `evidence manifest / consolidated pack root`도 builder + smoke까지 구현 완료
 - next 순서는 `common_cause_synchrony_axis`
-- 단, BR-048 기준 practical execution lane에는 confusion-reduction prelude가 추가됐고 앞의 두 step은 구현 완료됐다:
+- 단, BR-049 기준 practical execution lane에는 confusion-reduction prelude가 추가됐고 세 step 모두 구현 완료됐다:
   - `mixed_scope_disentangle` -> `repo_role_boundary_manifest_v1`
   - `source_vs_packaged_mirror_boundary` -> `repo_mirror_boundary_manifest_v1`
-  - `active_builder_entrypoint_registry`
+  - `active_builder_entrypoint_registry` -> `repo_active_builder_entrypoint_registry_v1`
 
 ### 6.6B Step 4C. evidence manifest / consolidated pack root
 - 내용:
@@ -227,7 +227,7 @@
     - `panel_day_engine_evidence_pack_manifest_v1.json`
     - `evidence_pack_root/`
 - 이후 exact-family 재탐색과 cross-axis review는 이 pack root를 default entry point로 사용한다.
-- BR-048 기준 이 runtime order 자체는 유지하되, `repo_role_boundary_manifest_v1`와 `repo_mirror_boundary_manifest_v1`를 먼저 읽어 current worktree/read-path 혼선을 줄인다.
+- BR-049 기준 이 runtime order 자체는 유지하되, `repo_role_boundary_manifest_v1`, `repo_mirror_boundary_manifest_v1`, `repo_active_builder_entrypoint_registry_v1`를 먼저 읽어 current worktree/read-path 혼선을 줄인다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
@@ -304,7 +304,7 @@
 ## 11. 지금 기준 다음 우선순위
 1. `repo_role_boundary_manifest_v1`를 먼저 읽어 현재 dirty/read-path를 role 기준으로 분류한다.
 2. `repo_mirror_boundary_manifest_v1`를 읽어 source mirror, package-only surface, generated artifact를 분리한다.
-3. `active_builder_entrypoint_registry`를 잠가 현재 진입점과 archive/helper를 구분한다.
+3. `repo_active_builder_entrypoint_registry_v1`를 읽어 현재 진입점과 archive/helper review queue를 구분한다.
 4. 그 뒤 `common_cause_synchrony_axis`를 evidence-only sidecar로 만든다.
 5. `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 `exact same-day` seed를 계속 추가한다.
 6. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.

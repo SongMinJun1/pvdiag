@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-048` | `mirror_boundary_manifest_implemented` | source/package mirror rows are now hash-checked separately from package-only surfaces and generated artifacts; package-facing scan has no real content drift after pycache/noise exclusion | plan `active_builder_entrypoint_registry` next |
+| `BR-20260424-049` | `active_builder_entrypoint_registry_implemented` | build/smoke entrypoints are now classified by pair status, package mirror, doc reference, dirty status, and review action; confusion-reduction prelude is complete enough to resume evidence-axis work | resume `common_cause_synchrony_axis` next |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -60,6 +60,7 @@
 | `BR-20260424-046` | `confusion_reduction_lanes_locked` | clarifies that the immediate goal is not git-only branch cleanup but reducing cross-lane confusion among mixed scopes, packaged mirrors, builder entrypoints, archive/current roots, runtime bundle, and workspace clutter | no |
 | `BR-20260424-047` | `role_boundary_manifest_implemented` | adds a reproducible role/boundary builder and smoke; current dirty paths classify into 24 manifest roles with `unclassified_dirty_entry_total=0`, so the first confusion-reduction step is now actionable | no |
 | `BR-20260424-048` | `mirror_boundary_manifest_implemented` | adds a reproducible source/package mirror boundary builder and smoke; package-facing mirror rows are split into in-sync mirrors, package-only surfaces, and generated artifacts | no |
+| `BR-20260424-049` | `active_builder_entrypoint_registry_implemented` | adds a reproducible build/smoke entrypoint registry; 289 entrypoints split into packaged runtime, documented paired, documented unpaired, paired unreferenced, and unpaired review queues | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -116,6 +117,7 @@
 - BR-046 refines that wording so the target is explicit: the next practical emphasis is confusion reduction by role/boundary disentanglement, not branch cosmetics.
 - BR-047 implements the first concrete role/boundary manifest: dirty paths are now read by `role_id`, `role_family`, owner, sync direction, edit policy, commit policy, validation, and cleanup action before any moving or syncing.
 - BR-048 implements the second concrete confusion-reduction manifest: source/package mirror pairs are hash-checked separately from package-only surfaces and generated outputs.
+- BR-049 implements the third concrete confusion-reduction manifest: build/smoke entrypoints are now read by pair status, package mirror status, doc reference count, and recommended action before adding or editing another script.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -125,4 +127,4 @@
 - before generating more packet branches, prefer a tracked packet generator or an exact one-shot reproduction script.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
 - after BR-043, use the evidence manifest/consolidated pack root as the default read base, then implement `common_cause_synchrony_axis`, then do a cross-axis review, then rerun exact same-day missing-family search, and only then reopen algorithm gating.
-- after BR-048, `source_vs_packaged_mirror_boundary` is implemented by `repo_mirror_boundary_manifest_v1`; next confusion-reduction lane is `active_builder_entrypoint_registry`.
+- after BR-049, the practical confusion-reduction prelude is implemented through role, mirror, and builder registries; resume `common_cause_synchrony_axis` next.
