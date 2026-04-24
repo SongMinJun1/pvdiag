@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-077` | `project_completion_checkpoint_complete` | adds a whole-project completion checkpoint after BR-076 so covered layers, open blind spots, and next safe order are readable from one map | refresh the evidence/handoff manifest before adding more scattered scans or algorithm proposals |
+| `BR-20260425-078` | `latest_evidence_handoff_manifest_complete` | implements the post-BR-077 manifest refresh for BR-064 through BR-077; detail rows 14, docs missing 0, patch authorization sums 0 | use the latest manifest as the current BR-064~077 entry point before new scans or algorithm proposals |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -89,6 +89,7 @@
 | `BR-20260424-075` | `common_cause_semantic_prepatch_gate_complete` | gates BR-071~074 before semantic loosening: overall pass, required failures 0, exact closure 0, raw direct rows 101, expected raw-only context warning 1 | no |
 | `BR-20260424-076` | `algorithm_prepatch_runbook_common_cause_gate_complete` | upgrades the combined prepatch runbook from 2 gates to 3 gates by adding BR-075; panel-engine/fault-family/common-cause statuses all pass | no |
 | `BR-20260424-077` | `project_completion_checkpoint_complete` | records the post-BR-076 whole-project map: safety gates are stronger, evidence frontier is known, but latest manifest/handoff indexing is stale | no |
+| `BR-20260425-078` | `latest_evidence_handoff_manifest_complete` | adds a reproducible latest evidence/handoff manifest for BR-064~077: detail rows 14, primary artifacts present 14, operator/engine/threshold authorization sums 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -174,6 +175,7 @@
 - BR-075 makes the common-cause boundary executable: BR-071~074 must pass 12 required prepatch gates before semantic loosening is reviewed, and the one raw-only near-anchor bridge remains context-only warning material.
 - BR-076 moves BR-075 into the default combined algorithm prepatch runbook: future direct panel-engine algorithm review now expects panel-engine safety, fault-family regression, and common-cause semantic gates all to pass.
 - BR-077 locks the current navigation checkpoint: the core safety/evidence lanes are not missing, but the latest evidence/handoff manifest must be refreshed before new scattered scans or algorithm proposals.
+- BR-078 completes that refresh: BR-064 through BR-077 are now indexed by branch, evidence layer, judgment role, artifact path, temp-artifact repro command, next action, and patch authorization boundary.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -208,3 +210,4 @@
 - after BR-075, any common-cause semantic patch must run `check_panel_day_engine_common_cause_semantic_prepatch_gate_v1.py` first; passing the gate is a safety precondition, not patch approval.
 - after BR-076, use `check_panel_day_engine_algorithm_prepatch_runbook_v1.py` as the default 3-gate prepatch command before direct `panel_day_engine.py` algorithm review.
 - after BR-077, use `OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_077_PROJECT_COMPLETION_CHECKPOINT_V1.md` as the current whole-project read map; the next safest branch is a latest evidence/handoff manifest refresh covering BR-064 through BR-076.
+- after BR-078, use `/private/tmp/latest_evidence_handoff_manifest_br078_check/panel_day_engine_latest_evidence_handoff_manifest_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_078_LATEST_EVIDENCE_HANDOFF_MANIFEST_V1.md` as the current evidence/handoff entry point before new evidence scans or algorithm proposals.

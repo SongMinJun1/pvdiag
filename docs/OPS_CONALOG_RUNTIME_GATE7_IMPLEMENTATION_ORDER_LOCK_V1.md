@@ -396,7 +396,8 @@
 29. BR-075 기준 common-cause semantic patch 검토 전에는 BR-071~074 prepatch gate를 먼저 통과해야 한다. 통과는 safety precondition이지 patch approval이 아니다.
 30. BR-076 기준 direct `panel_day_engine.py` algorithm patch 검토 전에는 3-gate combined runbook을 먼저 통과해야 한다.
 31. BR-077 기준 현재 상태는 project-completion/navigation checkpoint에서 먼저 읽는다. 안전장치 자체는 강화됐지만, 최신 evidence/handoff manifest는 BR-076까지 따라오지 못했으므로 manifest refresh가 다음 안전한 작업이다.
-32. 그 다음에야 semantic algorithm gating patch 검토
+32. BR-078 기준 BR-064~077 최신 evidence/handoff manifest가 생성됐다. 이후 새 scan이나 algorithm proposal은 먼저 이 manifest에 붙는지 확인한다.
+33. 그 다음에야 semantic algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -421,6 +422,23 @@
   3. run the BR-076 3-gate algorithm prepatch runbook before any direct `panel_day_engine.py` algorithm review.
 - 금지:
   - BR-077 alone does not approve a threshold change, common-cause semantic loosening, raw-only promotion, performance claim, or dirty worktree merge.
+
+## 11C. BR-078 최신 handoff manifest
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_078_LATEST_EVIDENCE_HANDOFF_MANIFEST_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_078_LATEST_EVIDENCE_HANDOFF_MANIFEST_V1.md)
+- 실행 산출물:
+  - `/private/tmp/latest_evidence_handoff_manifest_br078_check/panel_day_engine_latest_evidence_handoff_manifest_v1.csv`
+  - `/private/tmp/latest_evidence_handoff_manifest_br078_check/panel_day_engine_latest_evidence_handoff_manifest_summary_v1.csv`
+  - `/private/tmp/latest_evidence_handoff_manifest_br078_check/panel_day_engine_latest_evidence_handoff_manifest_note_v1.md`
+- 판정:
+  - BR-064 through BR-077 are now indexed from one latest manifest.
+  - temp artifacts are allowed to be missing later, but the manifest row's `repro_command` becomes mandatory before detailed review.
+  - operator promotion, engine patch, threshold patch, stable contract change, and release regeneration authorization sums remain `0`.
+- 다음 안전 순서:
+  1. use BR-078 manifest before opening scattered temp roots.
+  2. attach exact-panel physical evidence and rerun BR-069/070 if physical evidence exists.
+  3. require official/current bridge evidence before common-cause closure work.
+  4. run BR-076 3-gate runbook before direct `panel_day_engine.py` algorithm review.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
