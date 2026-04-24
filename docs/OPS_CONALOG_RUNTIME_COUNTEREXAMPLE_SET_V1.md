@@ -307,6 +307,27 @@
   - `group_off_date` family는 아직 exact-family closure가 아니라 blocker-family에 가깝다.
   - 다만 `rawonly_near_signal_anchor` 1 panel은 next inspect residual로 남는다.
 
+## 11H. BR-058 fault-family regression pressure packet note
+- BR-057/058에서는 local morphology pool을 다시 읽어 target exact closure와 regression pressure를 분리했다.
+- 결과:
+  - `target_exact_closure_candidate_sum = 0`
+  - `operator_promotion_allowed_sum = 0`
+  - `engine_patch_candidate_sum = 0`
+  - `fault_family_regression_pressure_packet rows = 11`
+- packet 구성:
+  - `non_target_hard_same_day_fault_family_seed = 5`
+    - `conalog / 다이오드·서브스트링형 = 3`
+    - `conalog / 접속·부분개방형 = 1`
+    - `gangui / 접속·부분개방형 = 1`
+  - `sensor_feedback_hard_same_day_ambiguity_pressure = 6`
+    - `gangui / 센서·피드백형 = 6`
+- BR-058 reading:
+  - 이 packet은 target exact-family closure가 아니다.
+  - 이 packet은 operator-facing promotion 근거가 아니다.
+  - 이 packet은 future algorithm patch가 과하게 넓어지지 않도록 막는 regression/counterexample pressure다.
+- packet artifact:
+  - `/private/tmp/fault_family_regression_pressure_packet_check/panel_day_engine_fault_family_regression_pressure_packet_v1.csv`
+
 ## 12. 남은 과제
 - `MLPE ambiguous`에서 `장치 응답 이상형` top1 또는 회복/재발까지 확인되는 사례 추가
 - `common_cause risk`에서 작업일 / 운영 이벤트 / 통신 흔들림 겹침 사례 추가
