@@ -400,8 +400,10 @@
 33. BR-079 기준 현재 `panel_day_engine.py`는 10개 algorithm/evidence layer, 7개 evidence gap, 6개 ordered action으로 먼저 읽는다.
 34. BR-080 기준 17개 subtype hypothesis는 truth backlog로 고정됐고, current exact truth support는 `0`이다.
 35. BR-081 기준 episode truth map은 완료됐다.
-36. BR-082 기준 episode truth review packet은 완료됐고, 다음은 reviewed episode truth rows 또는 manual evidence attachment이다.
-37. semantic algorithm gating patch는 reviewed episode truth rows와 subtype-conditioned threshold replay가 끝난 뒤에만 검토한다.
+36. BR-082 기준 episode truth review packet은 완료됐다.
+37. BR-083 기준 BR-079~082 direction/assumption audit guard는 40/40 checks PASS로 완료됐다.
+38. 다음은 reviewed episode truth rows 또는 manual evidence attachment이며, BR-083이 green인 경우에만 진행한다.
+39. semantic algorithm gating patch는 reviewed episode truth rows와 subtype-conditioned threshold replay가 끝난 뒤에만 검토한다.
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -520,6 +522,25 @@
   4. open subtype-conditioned threshold replay only after reviewed episode truth exists.
 - 금지:
   - BR-082 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
+
+## 11H. BR-083 direction assumption audit
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_083_DIRECTION_ASSUMPTION_AUDIT_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_083_DIRECTION_ASSUMPTION_AUDIT_V1.md)
+- 실행 산출물:
+  - `/private/tmp/panel_day_engine_direction_assumption_audit_br083_check/panel_day_engine_direction_assumption_audit_v1.csv`
+  - `/private/tmp/panel_day_engine_direction_assumption_audit_br083_check/panel_day_engine_direction_assumption_audit_summary_v1.csv`
+  - `/private/tmp/panel_day_engine_direction_assumption_audit_br083_check/panel_day_engine_direction_assumption_audit_action_queue_v1.csv`
+- 판정:
+  - total checks `40`, pass `40`, fail `0`, P0 fail `0`.
+  - G1 bucket precedence, durable/common-cause separation, BR-082 duplicate-lens collapse, blank reviewer labels, and recommended-next chain all pass.
+  - operator promotion, engine patch, and threshold patch authorization sums remain `0`.
+- 다음 안전 순서:
+  1. rerun BR-083 before moving beyond BR-082 if any upstream artifact was regenerated.
+  2. if BR-083 is green, attach reviewer evidence or labels to BR-082 rows.
+  3. build `panel_day_engine_reviewed_episode_truth_rows_v1`.
+  4. open subtype-conditioned threshold replay only after reviewed episode truth exists.
+- 금지:
+  - BR-083 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
