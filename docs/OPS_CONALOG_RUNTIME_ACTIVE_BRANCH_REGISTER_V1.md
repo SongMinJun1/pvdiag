@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-052` | `local_morphology_exact_seed_search_complete` | local morphology pool was scanned for exact target top1 and same-day morphology; exact closure remains 0, one supportive device-response seed remains context only | inspect no-report heuristic attachment gap next |
+| `BR-20260424-053` | `panel_engine_patch_safety_gate_complete` | minimum pre-engine-change safety gate is now reproducible; current packet has no engine change and passes, while synthetic source-only engine edits fail | inspect no-report heuristic attachment gap under the safety gate discipline |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -64,6 +64,7 @@
 | `BR-20260424-050` | `common_cause_synchrony_axis_sidecar_implemented` | adds a reproducible common-cause synchrony sidecar; 206 tri-site panels split into site-event, group-off, subgroup, co-drop, and weak/local buckets across report lanes | no |
 | `BR-20260424-051` | `cross_axis_manifest_sync_review_implemented` | adds a reproducible cross-axis review and refreshes the evidence manifest to include common-cause synchrony; 209 panels split into strong common-cause hold, subgroup/breadth context, local morphology, and weak context buckets | no |
 | `BR-20260424-052` | `local_morphology_exact_seed_search_complete` | scans 21 local morphology rows; exact target top1 remains 0, supportive device-response recovery seed 1, sensor-feedback local morphology pressure rows 6, no-report heuristic gap 8 | no |
+| `BR-20260424-053` | `panel_engine_patch_safety_gate_complete` | adds a reproducible gate and smoke so future `pv_ae/panel_day_engine.py` changes must include decision docs, shadow/safety evidence, smoke, source/package sync, and public behavior docs when behavior can change | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -124,6 +125,7 @@
 - BR-050 implements the third evidence-axis sidecar: common-cause synchrony is now readable by marker family and report lane, while `co_drop_breadth_hint` stays weak context and no runtime semantics change.
 - BR-051 aligns the maps: evidence manifest now includes `common_cause_synchrony_axis`, cleanup maps stay separate from evidence-family rows, and cross-axis review gives the next search pool without algorithm gating.
 - BR-052 confirms the cleaner local morphology pool still does not close the exact family gap: target top1 rows `0`, exact-family candidates `0`, supportive device-response seed `1`, and no-report heuristic gap `8`.
+- BR-053 locks the safety rail before direct engine edits: engine source/package changes must pass the panel-engine safety gate packet before any runtime semantics patch is considered.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -134,3 +136,4 @@
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
 - after BR-043, use the evidence manifest/consolidated pack root as the default read base, then implement `common_cause_synchrony_axis`, then do a cross-axis review, then rerun exact same-day missing-family search, and only then reopen algorithm gating.
 - after BR-052, inspect `no_report_heuristic_match` as a report-lane / heuristic attachment gap before reopening any algorithm gating discussion.
+- after BR-053, run any future `pv_ae/panel_day_engine.py` patch through `panel_day_engine_patch_safety_gate_v1` before code review or commit.
