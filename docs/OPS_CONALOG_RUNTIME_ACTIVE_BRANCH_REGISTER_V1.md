@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-071` | `strong_common_cause_blocker_regression_packet_complete` | packages 50 strong common-cause hold rows as panel-local promotion blockers/regression seeds: gangui group-off 20 rows, ktc_ess site-event 30 rows | use as regression pressure before any semantic algorithm patch |
+| `BR-20260424-072` | `common_cause_exact_seed_search_complete` | common-cause exact closure remains 0, but 49 panels / 101 raw direct rows are preserved as candidate reservoir plus structural blockers | resolve report-lane/date-alignment blockers before semantic algorithm patch |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -83,6 +83,7 @@
 | `BR-20260424-069` | `physical_confirmation_requirements_review_complete` | converts BR-068 raw support into an independent confirmation checklist; both rows have `0/2` required axes met and threshold/promotion/engine patch sums remain 0 | no |
 | `BR-20260424-070` | `physical_evidence_request_packet_complete` | emits 2 high-priority exact-panel evidence requests for physical measurement plus maintenance/inspection records; promotion/engine/threshold sums remain 0 | no |
 | `BR-20260424-071` | `strong_common_cause_blocker_regression_packet_complete` | turns 50 strong common-cause hold rows into blocker/regression seeds; panel-local promotion blocked sum 50 and promotion/engine/threshold sums remain 0 | no |
+| `BR-20260424-072` | `common_cause_exact_seed_search_complete` | rereads 176 external/common-cause candidates: exact closure 0, candidate reservoir 49 panels / 101 raw rows, structural blockers 49, promotion/engine/threshold sums 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -162,6 +163,7 @@
 - BR-069 confirms the independent confirmation layer is still open: both raw-supported rows have `0/2` required exact-panel axes met, so voltage-axis thresholding remains blocked.
 - BR-070 converts the BR-069 gap into 2 high-priority exact-panel evidence requests so the next action is acquisition, not rule tuning.
 - BR-071 packages the 50 strong common-cause hold rows as regression blockers so future rules cannot accidentally promote common-cause spatiality as panel-local evidence.
+- BR-072 confirms conservative common-cause gating still has forward motion: exact closure is `0`, but `49` panels / `101` raw same-day direct rows are preserved as candidate reservoir plus report-lane/date-alignment structural blockers.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -190,3 +192,4 @@
 - after BR-069, do not propose voltage-axis thresholding until exact-panel direct physical measurement and maintenance/inspection evidence are attached.
 - after BR-070, attach exact-panel evidence and rerun BR-069/070 before reopening any voltage-axis threshold proposal.
 - after BR-071, run or inspect the strong common-cause blocker packet before any semantic algorithm patch that could affect panel-local promotion.
+- after BR-072, use the common-cause exact seed search before loosening common-cause semantics: raw direct rows are search reservoir only until report-layer same-day closure or a scoped structural-blocker patch target is proven.

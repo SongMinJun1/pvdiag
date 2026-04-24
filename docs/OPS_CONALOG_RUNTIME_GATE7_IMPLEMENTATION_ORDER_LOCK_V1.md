@@ -250,6 +250,7 @@
 - BR-069 기준 2건 모두 independent physical-confirmation layer는 아직 미충족이다. 정확한 패널 ID에 붙은 direct physical measurement와 maintenance/inspection evidence가 없으므로 threshold patch는 계속 보류한다.
 - BR-070 기준 그 미충족 상태는 2건의 high-priority exact-panel evidence request로 전환됐다. 다음 행동은 evidence acquisition이며, rule tuning이 아니다.
 - BR-071 기준 BR-064 strong common-cause hold 50건은 panel-local promotion blocker/regression seed로 고정됐다. common-cause spatiality를 panel-local fault-family threshold positive로 읽지 않는다.
+- BR-072 기준 common-cause exact closure는 여전히 `0`이지만, `49` panels / `101` raw same-day direct rows는 `candidate_reservoir + structural_blocker`로 보존된다. 보수성은 정지가 아니라 report-lane/date-alignment 병목을 정확히 좁히는 장치다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
@@ -305,6 +306,8 @@
     - `python3 research/prognostics/build_panel_day_engine_physical_evidence_request_packet_v1.py --confirmation-input /private/tmp/physical_confirmation_requirements_review_check/panel_day_engine_physical_confirmation_requirements_review_v1.csv --checklist-input /private/tmp/physical_confirmation_requirements_review_check/panel_day_engine_physical_confirmation_requirements_checklist_v1.csv --output-dir /private/tmp/physical_evidence_request_packet_check`
   - BR-071 strong common-cause blocker regression packet:
     - `python3 research/prognostics/build_panel_day_engine_strong_common_cause_blocker_regression_packet_v1.py --judgment-input /private/tmp/fault_family_judgment_candidate_packet_check/panel_day_engine_fault_family_judgment_candidate_packet_v1.csv --output-dir /private/tmp/strong_common_cause_blocker_regression_packet_check`
+  - BR-072 common-cause exact seed search:
+    - `python3 research/prognostics/build_panel_day_engine_common_cause_exact_seed_search_v1.py --judgment-input /private/tmp/fault_family_judgment_candidate_packet_check/panel_day_engine_fault_family_judgment_candidate_packet_v1.csv --synchrony-input /private/tmp/common_cause_synchrony_axis_sidecar_check/panel_day_engine_common_cause_synchrony_axis_v1.csv --current-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_current_v1.csv --precursor-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_precursor_report_v1.csv --rawonly-signal-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_raw_only_fault_signal_report_v1.csv --data-root /Users/b9gc/pvdiag/data --output-dir /private/tmp/common_cause_exact_seed_search_check`
 
 ## 7. 지금 바로 허용되는 패치
 - Gate 5 projection policy를 checklist로 바꾸는 문서 패치
@@ -375,7 +378,8 @@
 23. BR-071 기준 `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
 24. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
 25. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
-26. 그 다음에야 semantic algorithm gating patch 검토
+26. BR-072 기준 현재 exact closure는 `0`이므로, 다음 common-cause 진전은 raw reservoir 추가 수집보다 report-lane/date-alignment blocker 해소 여부를 먼저 본다.
+27. 그 다음에야 semantic algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
