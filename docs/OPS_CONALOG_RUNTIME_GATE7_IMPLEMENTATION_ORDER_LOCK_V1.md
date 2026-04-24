@@ -397,7 +397,8 @@
 30. BR-076 기준 direct `panel_day_engine.py` algorithm patch 검토 전에는 3-gate combined runbook을 먼저 통과해야 한다.
 31. BR-077 기준 현재 상태는 project-completion/navigation checkpoint에서 먼저 읽는다. 안전장치 자체는 강화됐지만, 최신 evidence/handoff manifest는 BR-076까지 따라오지 못했으므로 manifest refresh가 다음 안전한 작업이다.
 32. BR-078 기준 BR-064~077 최신 evidence/handoff manifest가 생성됐다. 이후 새 scan이나 algorithm proposal은 먼저 이 manifest에 붙는지 확인한다.
-33. 그 다음에야 semantic algorithm gating patch 검토
+33. BR-079 기준 현재 `panel_day_engine.py`는 10개 algorithm/evidence layer, 7개 evidence gap, 6개 ordered action으로 먼저 읽는다.
+34. 다음은 subtype truth backlog와 episode truth map이며, semantic algorithm gating patch는 그 뒤에만 검토한다.
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -439,6 +440,25 @@
   2. attach exact-panel physical evidence and rerun BR-069/070 if physical evidence exists.
   3. require official/current bridge evidence before common-cause closure work.
   4. run BR-076 3-gate runbook before direct `panel_day_engine.py` algorithm review.
+
+## 11D. BR-079 알고리즘 진화 지도
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_079_ALGORITHM_EVOLUTION_MAP_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_079_ALGORITHM_EVOLUTION_MAP_V1.md)
+- 실행 산출물:
+  - `/private/tmp/panel_day_engine_algorithm_evolution_map_br079_check/panel_day_engine_algorithm_evolution_layer_map_v1.csv`
+  - `/private/tmp/panel_day_engine_algorithm_evolution_map_br079_check/panel_day_engine_algorithm_evolution_gap_audit_v1.csv`
+  - `/private/tmp/panel_day_engine_algorithm_evolution_map_br079_check/panel_day_engine_algorithm_evolution_action_queue_v1.csv`
+- 판정:
+  - current algorithm is a conservative diagnostic plus evidence-gated candidate engine.
+  - mapped layers `10`, gaps `7`, P0 gaps `4`, ordered next actions `6`.
+  - operator promotion, engine patch, and threshold patch authorization sums remain `0`.
+- 다음 안전 순서:
+  1. build `panel_day_engine_subtype_truth_expansion_backlog_v1`.
+  2. build `panel_day_engine_episode_truth_map_v1`.
+  3. run subtype-conditioned threshold replay only after those two truth/evidence layers exist.
+  4. run BR-076 3-gate runbook before any direct `panel_day_engine.py` algorithm review.
+- 금지:
+  - BR-079 does not approve threshold tuning, AE root-cause claims, voltage-axis loosening, common-cause semantic loosening, or monolithic refactor mixed with behavior.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
