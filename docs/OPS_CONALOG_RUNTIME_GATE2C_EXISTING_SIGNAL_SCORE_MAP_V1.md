@@ -340,6 +340,7 @@
 - 이후 algorithm gating patch가 오더라도, 이 bundle 규칙보다 먼저 `single helper`를 top-level 승격시키는 패치는 금지한다.
 
 ## 14. 다음 단계
+- `DL-20260424-014` 기준으로 projection은 `eligible evidence lane -> hold/reroute cap -> actionability ceiling` 순서로만 읽는다.
 - `DL-008`에서 operator-facing artifact에 `event_type/terminal_pattern`을 어디까지 허용할지 잠글 때, 이 score map을 함께 본다.
 - `MLPE ambiguous`와 `common_cause_risk` 반례 seed를 더 보강해, 위 projection bundle이 실제 tri-site 사례와 충돌하지 않는지 먼저 확인한다.
 - algorithm gating patch 전에는
@@ -348,6 +349,7 @@
   - Gate 3
   - Gate 4
   - 본 문서
+  - `DL-20260424-014`
   를 함께 확인한다.
 - 이후 필요 시 아래로 확장한다.
   - numeric weighting table

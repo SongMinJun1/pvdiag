@@ -188,6 +188,7 @@
   - 그 다음 `score-to-projection decision log`가 먼저 잠겨 있어야 한다.
   - 관련 decision log가 추가로 잠겨 있어야 한다.
   - [DL-20260422-012](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_DECISION_LOG_DL_20260422_012_V1.md) 기준으로 `prefault_B_effective`는 eligibility/explanation additive evidence까지만 허용되고, `고위험 관찰` direct trigger 승격은 별도 decision 전까지 보류한다.
+  - [DL-20260424-014](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_DECISION_LOG_DL_20260424_014_V1.md) 기준으로 projection은 `highest score wins`가 아니라 `eligible evidence lane -> hold/reroute cap -> actionability ceiling` 순서를 따라야 한다.
 
 ### 6.8 Step 6. Lane E taxonomy/action patch
 - 내용:
@@ -247,7 +248,7 @@
 | Step 7 build/release/smoke sync | 모든 source patch | 배포/검증 |
 
 ## 11. 지금 기준 다음 우선순위
-1. `score-to-projection decision log` 잠금
+1. BR-028 provisional shortlist를 실제 curated counterexample row로 편입
 2. `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 exact seed 추가
 3. `common_cause_risk`의 운영 이벤트 / `group_off_event` 연계 exact seed 추가
 4. 그 다음에야 algorithm gating patch 검토

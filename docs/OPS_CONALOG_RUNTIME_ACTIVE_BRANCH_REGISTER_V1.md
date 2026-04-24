@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-029` | `provisional_seed_promotion_criteria_locked` | lock when BR-028 provisional shortlist can be promoted into curated counterexample seeds without pretending that the exact missing target family has already been found | lock a score-to-projection decision log that uses BR-026/027/028/029 as one gate before reopening algorithm gating |
+| `BR-20260424-030` | `score_to_projection_precedence_locked` | lock that projection follows `eligible evidence lane -> hold/reroute cap -> actionability ceiling` instead of `highest score wins` | choose whether to curate BR-028 provisional shortlist into actual curated counterexample rows next, or keep expanding exact missing-family seeds first |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -40,6 +40,7 @@
 | `BR-20260424-026` | `signal_score_map_tightened` | Gate 2C now locks projection bundles: precursor/hard-evidence/common-cause/ambiguity/actionability can combine, but single helpers and explanation-only signals cannot jump directly to top-level projection | no |
 | `BR-20260424-027` | `counterexample_regression_checklist_added` | counterexample set now has an explicit regression gate: bucket pressure-test matrix, per-bucket checks, and minimum pass rule before algorithm patch | no |
 | `BR-20260424-028` | `missing_seed_scan_complete` | scan confirms `제어응답형 top1` and report-row direct common-cause overlap are still absent, but finds live-chain MLPE shortlist 4건 plus raw-daily `group_off` / `co_drop_surge` provisional seed clusters | no |
+| `BR-20260424-029` | `provisional_seed_promotion_criteria_locked` | BR-028 provisional shortlist may enter the curated counterexample set only as `hold/reroute pressure-test seed`; this does not close the still-missing exact target families | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -77,6 +78,7 @@
 - BR-027 turns counterexamples into an actual patch gate: algorithm changes now need bucket coverage, bundle-specific checks, and minimum pass conditions, not just a loose seed list.
 - BR-028 adds evidence about the remaining gaps: the desired `장치 응답 이상형/제어응답형 top1` seed is still missing, official/current direct overlap with common-cause is still missing, but raw-daily provisional seed clusters now exist for curation.
 - BR-029 separates `curated seed promotion` from `exact family closure`: provisional MLPE/common-cause shortlist can be used as regression seed only if reproducible identity, direct bundle pressure, two-cue evidence, and prohibited-overgeneralization note are all present.
+- BR-030 locks projection precedence: promotion starts from eligible evidence lanes only, common-cause and ambiguity are hold/reroute caps, and actionability cannot outrun the strongest eligible lane.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -85,4 +87,4 @@
 - adjudicate BR-023 `group_off` cluster boundaries and `strict_trigger_proximal` vs secondary-window evidence before any subtype promotion discussion.
 - before generating more packet branches, prefer a tracked packet generator or an exact one-shot reproduction script.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
-- after BR-029, the next safe lane remains docs/evidence-first: lock a score-to-projection decision log before reopening algorithm gating.
+- after BR-030, the next safe lane remains docs/evidence-first: either curate the BR-028 provisional shortlist into actual curated counterexample rows or keep expanding the exact missing-family seeds before reopening algorithm gating.
