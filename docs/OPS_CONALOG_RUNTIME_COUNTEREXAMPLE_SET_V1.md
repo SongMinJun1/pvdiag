@@ -197,7 +197,16 @@
 - 따라서 bucket을 늘리는 것만으로 충분하지 않고, 각 bucket이 `무엇을 승격시키지 못하게 막는지`까지 함께 적어야 한다.
 - 실제 patch turn에서는 [OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md) 를 함께 본다.
 
-## 11. 남은 과제
+## 11. BR-028 scan result note
+- `장치 응답 이상형/제어응답형 top1`은 현재 tri-site raw-only runtime heuristics scan에서 `0건`이다.
+- 대신 live-chain 기준 `장치 응답 이상형` 관련 경합 shortlist `4건`은 확보됐다.
+- report-row 날짜 기준 `site_event/group_off` direct overlap은 `0건`이었고, 즉 official/current/precursor row와 직접 겹치는 common-cause seed는 여전히 미관측이다.
+- 반면 raw-daily level에서는 아래 provisional source가 확보됐다.
+  - `gangui` group-off precursor overlap candidate cluster
+  - `ktc_ess 2025-10-26 co_drop_surge` hard-like overlap cluster
+- 자세한 scan 결과는 [OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_028_MISSING_SEED_SCAN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_028_MISSING_SEED_SCAN_V1.md) 를 본다.
+
+## 12. 남은 과제
 - `MLPE ambiguous`에서 `장치 응답 이상형` top1 또는 회복/재발까지 확인되는 사례 추가
 - `common_cause risk`에서 작업일 / 운영 이벤트 / 통신 흔들림 겹침 사례 추가
 - `common_cause risk`에서 precursor/current row와 `group_off_event`가 직접 겹치는 사례 추가
@@ -205,7 +214,7 @@
 - 반례 세트 row를 decision log와 연결하는 `regression checklist`를 실제 patch gate로 사용
 - 필요 시 `challenge set`와 `counterexample set`를 분리
 
-## 12. 다음 연결 문서
+## 13. 다음 연결 문서
 - 상위 로드맵:
   - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
 - Gate 7 구현 순서:
@@ -218,5 +227,7 @@
   - [OPS_CONALOG_RUNTIME_GATE5_OUTPUT_POLICY_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_GATE5_OUTPUT_POLICY_V1.md)
 - regression checklist:
   - [OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md)
+- BR-028 scan note:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_028_MISSING_SEED_SCAN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_028_MISSING_SEED_SCAN_V1.md)
 - cross-gate 감사:
   - [OPS_CONALOG_RUNTIME_CROSS_GATE_DESIGN_GAP_AUDIT_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_CROSS_GATE_DESIGN_GAP_AUDIT_V1.md)
