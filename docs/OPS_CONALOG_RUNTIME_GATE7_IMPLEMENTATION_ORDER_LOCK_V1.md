@@ -241,6 +241,7 @@
 - BR-060 기준 panel-engine safety gate와 fault-family regression prepatch gate를 하나의 combined runbook으로 묶었으며, direct engine patch 검토 전 이 runbook을 먼저 통과해야 한다.
 - BR-061 기준 result delta scorecard를 먼저 만들어 core result change와 candidate-context change를 분리하며, truth-label 평가 전에는 성능 향상 claim을 금지한다.
 - BR-062 기준 baseline/post scorecard compare를 실행해 changed metric count와 core changed flag를 먼저 확인한 뒤 result-change claim을 검토한다.
+- BR-063 기준 direct engine patch rehearsal은 `critical_fault_mask` cleanup으로 통과했다: source/package mirror, safety review, BR-060 runbook, BR-061 scorecard, BR-062 compare가 모두 green이다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
@@ -278,6 +279,8 @@
     - `python3 research/prognostics/build_panel_day_engine_result_delta_scorecard_v1.py --runtime-root /private/tmp/pvdiag_postmerge_j_conalog_smoke_result_delta_scorecard --prepatch-runbook-summary /private/tmp/panel_engine_algorithm_prepatch_runbook_check/panel_day_engine_algorithm_prepatch_runbook_summary_v1.csv --output-dir /private/tmp/panel_engine_result_delta_scorecard_check`
   - direct `pv_ae/panel_day_engine.py` algorithm patch의 before/after 결과 비교:
     - `python3 research/prognostics/compare_panel_day_engine_result_delta_scorecards_v1.py --baseline-scorecard-summary /private/tmp/panel_engine_result_delta_scorecard_check/panel_day_engine_result_delta_scorecard_summary_v1.csv --post-scorecard-summary /private/tmp/panel_engine_result_delta_scorecard_post_compare_check/panel_day_engine_result_delta_scorecard_summary_v1.csv --output-dir /private/tmp/panel_engine_result_delta_scorecard_compare_check`
+  - BR-063 critical bool-mask cleanup safety review:
+    - `python3 research/prognostics/build_panel_day_engine_critical_bool_mask_safety_review_v1.py --output-dir /private/tmp/panel_engine_critical_bool_mask_safety_review_check`
 
 ## 7. 지금 바로 허용되는 패치
 - Gate 5 projection policy를 checklist로 바꾸는 문서 패치
@@ -337,10 +340,11 @@
 12. BR-060 combined runbook을 실행해 panel-engine safety gate와 fault-family regression gate가 동시에 통과하는지 확인한다.
 13. BR-061 result delta scorecard로 현재 result-change baseline을 고정한다.
 14. BR-062 result delta scorecard compare로 future post-patch 변화량을 비교한다.
-15. `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
-16. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
-17. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
-18. 그 다음에야 algorithm gating patch 검토
+15. BR-063 direct engine cleanup rehearsal처럼 source/package mirror와 scorecard compare까지 green인 경우만 accept한다.
+16. `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
+17. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
+18. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
+19. 그 다음에야 semantic algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.

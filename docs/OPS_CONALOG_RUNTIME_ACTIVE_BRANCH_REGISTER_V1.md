@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-062` | `result_delta_scorecard_compare_complete` | adds an audit-only before/after comparator for BR-061 scorecards; baseline vs fresh conalog rerun has changed metrics 0 and core changed flag 0 | use this comparator after future post-patch scorecards before claiming result or performance change |
+| `BR-20260424-063` | `critical_bool_mask_engine_cleanup_complete` | direct engine patch rehearsal passed: source/package critical bool mask cleanup, BR-054/060/061/062 all green, compare changed metrics 0 | use this path as the minimum pattern before any semantic engine patch |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -74,6 +74,7 @@
 | `BR-20260424-060` | `panel_engine_algorithm_prepatch_runbook_complete` | combined prepatch runbook passes both panel-engine safety and fault-family regression gates; packet rows 11, target closure/promotion/engine patch sums all 0 | no |
 | `BR-20260424-061` | `result_delta_scorecard_complete` | result delta scorecard confirms core result delta 0 and blocks accuracy/F1 improvement claims without truth-label evaluation | no |
 | `BR-20260424-062` | `result_delta_scorecard_compare_complete` | baseline vs fresh conalog rerun scorecard compare reports changed metric count 0, core result changed flag 0, and performance improvement claim still blocked | no |
+| `BR-20260424-063` | `critical_bool_mask_engine_cleanup_complete` | source/package panel engine mirrors use explicit `critical_fault_mask`; safety gate/runbook/scorecard/compare all pass with result delta 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -144,6 +145,7 @@
 - BR-060 combines BR-054 and BR-059 into one executable prepatch runbook: both gates pass, and a passing runbook remains a review precondition rather than patch approval.
 - BR-061 adds the result delta answer layer: core result change is `0`, raw-only candidate context is quantified, and performance improvement remains unclaimed without truth-label evaluation.
 - BR-062 adds the before/after compare layer: future post-patch scorecards must be compared against the baseline before any result-change claim.
+- BR-063 completes the first direct engine cleanup rehearsal with no result drift: scorecard compare changed metrics `0`.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -163,3 +165,4 @@
 - after BR-060, use `check_panel_day_engine_algorithm_prepatch_runbook_v1.py` as the default combined prepatch command before direct panel-engine algorithm patch review.
 - after BR-061, compare future post-patch outputs against `result_delta_scorecard_v1` before claiming result or performance improvement.
 - after BR-062, use `compare_panel_day_engine_result_delta_scorecards_v1.py` for the actual before/after comparison.
+- after BR-063, use source/package mirror + safety review + prepatch runbook + scorecard + compare as the minimum direct engine patch pattern.
