@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-090` | `subtype_threshold_replay_pilot_complete` | replays 7 candidate rules against BR-089 mixed truth rows; broad duration/event rules hit deferred holds, while 4 strict/voltage candidates stay clean but support is only 1 positive | expand positive truth and inspect holds before any threshold tuning |
+| `BR-20260425-091` | `durable_hold_raw_shape_review_complete` | recomputes selected raw-day waveform proxy metrics for 6 durable holds; positive candidates 0, current-limited holds 2, no-low/weak holds 4 | search for new voltage-preserved positives outside these holds |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -102,6 +102,7 @@
 | `BR-20260425-088` | `episode_truth_conservative_negative_adjudication_complete` | conservative BR-084 review input fills 6 long-gap backdating negatives and 3 strict-sudden negatives; positives 0, deferred durable 7 | no |
 | `BR-20260425-089` | `episode_truth_durable_shape_review_complete` | BR-089 mixed review input yields positive 1, negative 9, deferred 6; threshold tuning approved 0 | no |
 | `BR-20260425-090` | `subtype_threshold_replay_pilot_complete` | pilot replay rows 112, summary rows 7; 3 broad rules blocked by hold pressure, 4 strict/voltage rules need more positive truth; threshold tuning approved 0 | no |
+| `BR-20260425-091` | `durable_hold_raw_shape_review_complete` | reviews 6 durable holds over 48 selected raw days; no voltage-preserved positives added, 2 current-limited holds separated, threshold tuning approved 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -237,3 +238,4 @@
 - after BR-088, use `/private/tmp/panel_day_engine_episode_truth_conservative_adjudication_br088_check/panel_day_engine_episode_truth_review_input_conservative_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_088_EPISODE_TRUTH_CONSERVATIVE_ADJUDICATION_V1.md` as the current negative counterexample input; BR-084 now has negative replay-ready rows 9 but positive rows 0, so threshold replay remains blocked until durable positive evidence is attached.
 - after BR-089, use `/private/tmp/panel_day_engine_episode_truth_durable_shape_review_br089_check/panel_day_engine_episode_truth_review_input_mixed_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_089_EPISODE_TRUTH_DURABLE_SHAPE_REVIEW_V1.md` as the current mixed truth input; pilot replay review is allowed as evidence assessment only, while threshold tuning and direct engine edits remain blocked.
 - after BR-090, use `/private/tmp/panel_day_engine_subtype_threshold_replay_pilot_br090_check/panel_day_engine_subtype_threshold_replay_pilot_summary_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_090_SUBTYPE_THRESHOLD_REPLAY_PILOT_V1.md` as the current replay evidence; voltage-preserved candidates are evidence-collection targets only, not tuning approval.
+- after BR-091, use `/private/tmp/panel_day_engine_durable_hold_raw_shape_review_br091_check/panel_day_engine_durable_hold_raw_shape_review_summary_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_091_DURABLE_HOLD_RAW_SHAPE_REVIEW_V1.md` as the current hold-resolution evidence; do not mine the 6 holds for voltage-preserved positives, search elsewhere.

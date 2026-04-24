@@ -412,7 +412,8 @@
 45. BR-089 mixed input으로 BR-084를 재빌드하면 `reviewed_negative=9`, `reviewed_positive=1`, `needs_evidence=6`, replay-ready rows `10`이다.
 46. 다음은 pilot subtype-threshold replay review이며, 이는 evidence assessment일 뿐 threshold tuning approval이 아니다.
 47. BR-090 기준 7개 threshold 후보를 replay하면 duration/event-only 3개는 deferred hold pressure로 blocked, strict/voltage 4개는 clean pilot candidate지만 positive support가 `1`뿐이다.
-48. semantic algorithm gating patch는 expanded positive truth, rerun replay, and BR-076 prepatch gates가 끝난 뒤에만 검토한다.
+48. BR-091 기준 6 deferred holds를 48 selected raw days로 재검토해도 voltage-preserved positive candidate는 `0`이고, current-limited hold `2` rows만 별도 축으로 분리된다.
+49. semantic algorithm gating patch는 expanded positive truth outside these holds, rerun replay, and BR-076 prepatch gates가 끝난 뒤에만 검토한다.
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -745,6 +746,32 @@
 - 금지:
   - BR-090 clean pilot candidates are not threshold tuning approval.
   - BR-090 does not approve semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
+
+## 11P. BR-091 durable hold raw shape review
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_091_DURABLE_HOLD_RAW_SHAPE_REVIEW_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_091_DURABLE_HOLD_RAW_SHAPE_REVIEW_V1.md)
+- 실행 산출물:
+  - `/private/tmp/panel_day_engine_durable_hold_raw_shape_review_br091_check/panel_day_engine_durable_hold_raw_shape_review_summary_v1.csv`
+  - `/private/tmp/panel_day_engine_durable_hold_raw_shape_review_br091_check/panel_day_engine_durable_hold_raw_shape_review_days_v1.csv`
+  - `/private/tmp/panel_day_engine_durable_hold_raw_shape_review_br091_check/panel_day_engine_durable_hold_raw_shape_review_action_queue_v1.csv`
+- 판정:
+  - hold summary rows `6`.
+  - selected raw day rows `48`.
+  - positive truth candidates `0`.
+  - threshold tuning approved sum `0`.
+  - operator promotion, engine patch, and threshold patch authorization sums remain `0`.
+  - raw shape decisions:
+    - `stay_hold_current_limited_shape=2`
+    - `stay_hold_no_low_shape_on_selected_raw_days=3`
+    - `stay_hold_weak_or_sparse_shape=1`
+- 다음 안전 순서:
+  1. keep the 6 durable holds out of positive voltage-preserved truth.
+  2. search for additional voltage-preserved positives outside these holds.
+  3. track current-limited/current-axis morphology as a separate subtype backlog.
+  4. rerun BR-090 only after positive support grows.
+- 금지:
+  - BR-091 does not add positive truth labels.
+  - BR-091 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
