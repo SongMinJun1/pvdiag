@@ -144,12 +144,25 @@
 - A passing BR-059 gate preserves packet integrity only.
 - It does not approve threshold changes or target exact-family closure.
 
+## BR-060 combined prepatch runbook lock
+- BR-060 combines the panel-engine patch safety gate and the BR-059 fault-family regression gate.
+- Before any direct `pv_ae/panel_day_engine.py` algorithm patch review, run:
+  - `research/prognostics/check_panel_day_engine_algorithm_prepatch_runbook_v1.py`
+- The runbook must report:
+  - `overall_status = pass`
+  - `panel_engine_gate_status = pass`
+  - `fault_family_gate_status = pass`
+  - `failed_gate_count = 0`
+- A passing BR-060 runbook only permits review to proceed.
+- It does not approve threshold changes, exact-family closure, or operator promotion.
+
 ## Minimum Pass Rule Before Algorithm Patch
 - `official_only`, `precursor_only`, `raw_only_only` 각 bucket 대표 사례 3개 이상
 - `mlpe_ambiguous`, `common_cause_risk`는 대표 사례 3개 이상 + Priority A/B seed가 최소 1개 이상 보강
 - `near-window overlap backlog`를 separate provisional family로 쓰려면 representative seed 1개 이상 + `same-day exact 아님` 금지 문구 1개 이상을 같이 유지
 - BR-033 future promotion criteria를 만족하지 못하면 near-window backlog는 계속 non-closing backlog로 둔다
 - BR-059 fault-family regression prepatch gate가 실패하면 algorithm gating patch는 `보류`로 둔다.
+- BR-060 combined prepatch runbook이 실패하면 algorithm gating patch는 `보류`로 둔다.
 - 위 조건을 만족하지 못하면 algorithm gating patch는 `보류`로 둔다.
 
 ## Decision
