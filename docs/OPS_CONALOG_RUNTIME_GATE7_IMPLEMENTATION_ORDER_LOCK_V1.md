@@ -168,6 +168,7 @@
   - `MLPE ambiguous`에서 `센서·피드백형` 외에 `장치 응답 이상형` top1 또는 회복/재발 사례를 더 확보해야 한다.
   - `common_cause_risk`에서 운영 이벤트/통신 흔들림 연계 사례와 `group_off_event` 직접 중첩 사례를 더 확보해야 한다.
   - `official current`와 direct overlap하는 common-cause 사례는 `2026-04-22` tri-site scan 기준 아직 미관측이라 별도 수집이 필요하다.
+  - BR-029 기준으로 provisional shortlist는 curated counterexample seed로 승격될 수 있지만, 이는 `exact missing family closure`와는 별개다.
 
 ### 6.6 Step 4A. existing signal -> score axis map 정리
 - 내용:
@@ -183,6 +184,8 @@
 - 조건:
   - Step 4 반례 세트가 먼저 존재해야 한다.
   - Step 4A signal-to-score map이 먼저 존재해야 한다.
+  - BR-029 이후에는 provisional seed promotion criteria가 먼저 잠겨 있어야 한다.
+  - 그 다음 `score-to-projection decision log`가 먼저 잠겨 있어야 한다.
   - 관련 decision log가 추가로 잠겨 있어야 한다.
   - [DL-20260422-012](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_DECISION_LOG_DL_20260422_012_V1.md) 기준으로 `prefault_B_effective`는 eligibility/explanation additive evidence까지만 허용되고, `고위험 관찰` direct trigger 승격은 별도 decision 전까지 보류한다.
 
@@ -244,9 +247,9 @@
 | Step 7 build/release/smoke sync | 모든 source patch | 배포/검증 |
 
 ## 11. 지금 기준 다음 우선순위
-1. `existing signal -> multi-axis score map` refinement
-2. `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 seed 추가
-3. `common_cause_risk`의 운영 이벤트 / `group_off_event` 연계 seed 추가
+1. `score-to-projection decision log` 잠금
+2. `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 exact seed 추가
+3. `common_cause_risk`의 운영 이벤트 / `group_off_event` 연계 exact seed 추가
 4. 그 다음에야 algorithm gating patch 검토
 
 ## 12. 관련 문서

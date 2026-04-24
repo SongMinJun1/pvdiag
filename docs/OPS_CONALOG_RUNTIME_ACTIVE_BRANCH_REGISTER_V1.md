@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-028` | `missing_seed_scan_complete` | tri-site scan for still-missing MLPE ambiguous/common-cause seeds; records what is still absent and what raw-daily provisional sources exist | choose whether to curate BR-028 provisional seeds into the counterexample set or lock a score-to-projection decision log next |
+| `BR-20260424-029` | `provisional_seed_promotion_criteria_locked` | lock when BR-028 provisional shortlist can be promoted into curated counterexample seeds without pretending that the exact missing target family has already been found | lock a score-to-projection decision log that uses BR-026/027/028/029 as one gate before reopening algorithm gating |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -76,6 +76,7 @@
 - BR-026 tightens Gate 2C without touching code: `actionability_score` is capped by eligible evidence lanes, `common_cause_risk_score` and `mlpe_ambiguity_score` stay hold/reroute axes, and explanation-only signals remain non-promoting.
 - BR-027 turns counterexamples into an actual patch gate: algorithm changes now need bucket coverage, bundle-specific checks, and minimum pass conditions, not just a loose seed list.
 - BR-028 adds evidence about the remaining gaps: the desired `장치 응답 이상형/제어응답형 top1` seed is still missing, official/current direct overlap with common-cause is still missing, but raw-daily provisional seed clusters now exist for curation.
+- BR-029 separates `curated seed promotion` from `exact family closure`: provisional MLPE/common-cause shortlist can be used as regression seed only if reproducible identity, direct bundle pressure, two-cue evidence, and prohibited-overgeneralization note are all present.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -84,4 +85,4 @@
 - adjudicate BR-023 `group_off` cluster boundaries and `strict_trigger_proximal` vs secondary-window evidence before any subtype promotion discussion.
 - before generating more packet branches, prefer a tracked packet generator or an exact one-shot reproduction script.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
-- after BR-028, the next safe lane remains docs/evidence-first: either curate the new provisional seeds into the counterexample set or lock a score-to-projection decision log before reopening algorithm gating.
+- after BR-029, the next safe lane remains docs/evidence-first: lock a score-to-projection decision log before reopening algorithm gating.

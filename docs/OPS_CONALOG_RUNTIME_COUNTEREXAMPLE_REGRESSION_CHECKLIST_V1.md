@@ -84,6 +84,13 @@
 - official current와 동시에 엮이는 common-cause direct overlap 사례
 - `vdrop` 또는 `fault_like_day` 반복이 있지만 common-cause hold가 우선이어야 하는 사례
 
+## BR-029 interpretation lock
+- BR-028 provisional shortlist는 BR-029 기준을 만족하면 curated counterexample seed로 승격될 수 있다.
+- 단, 그 승격은 `hold/reroute pressure-test seed` 의미만 가진다.
+- 따라서 아래는 계속 `missing family`로 별도 추적한다.
+  - `제어응답형 top1`
+  - official/current row date direct overlap with common-cause
+
 ## Minimum Pass Rule Before Algorithm Patch
 - `official_only`, `precursor_only`, `raw_only_only` 각 bucket 대표 사례 3개 이상
 - `mlpe_ambiguous`, `common_cause_risk`는 대표 사례 3개 이상 + Priority A/B seed가 최소 1개 이상 보강

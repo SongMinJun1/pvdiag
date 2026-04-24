@@ -206,6 +206,17 @@
   - `ktc_ess 2025-10-26 co_drop_surge` hard-like overlap cluster
 - 자세한 scan 결과는 [OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_028_MISSING_SEED_SCAN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_028_MISSING_SEED_SCAN_V1.md) 를 본다.
 
+## 11A. BR-029 promotion rule note
+- BR-028에서 찾은 shortlist는 `curated counterexample seed`로 승격될 수 있다.
+- 단, 이 승격은 `hold/reroute pressure-test seed` 의미만 가진다.
+- 아래는 그대로 분리해 유지한다.
+  - `curated seed로는 충분함`
+  - `원래 찾던 exact missing family를 찾았음`
+- 따라서 아래 사실은 BR-029 이후에도 계속 missing 상태로 읽는다.
+  - `제어응답형 top1 = 0`
+  - report-row 날짜 기준 `official/current direct overlap = 0`
+- 자세한 기준은 [OPS_CONALOG_RUNTIME_DECISION_LOG_DL_20260424_013_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_DECISION_LOG_DL_20260424_013_V1.md) 와 [OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_029_PROVISIONAL_SEED_PROMOTION_CRITERIA_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_029_PROVISIONAL_SEED_PROMOTION_CRITERIA_V1.md) 를 본다.
+
 ## 12. 남은 과제
 - `MLPE ambiguous`에서 `장치 응답 이상형` top1 또는 회복/재발까지 확인되는 사례 추가
 - `common_cause risk`에서 작업일 / 운영 이벤트 / 통신 흔들림 겹침 사례 추가
