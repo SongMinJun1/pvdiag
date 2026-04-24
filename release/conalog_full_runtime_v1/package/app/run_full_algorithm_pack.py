@@ -13,6 +13,15 @@ from pathlib import Path
 
 import pandas as pd
 
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+if str(PACKAGE_ROOT) not in sys.path:
+    sys.path.insert(0, str(PACKAGE_ROOT))
+from research.prognostics.heuristic_display_registry_v1 import (
+    DISPLAY_HEURISTIC_NAME_MAP,
+    HEURISTIC_DISPLAY_NOTE_MAP,
+    display_heuristic_name as shared_display_heuristic_name,
+    display_heuristic_note as shared_display_heuristic_note,
+)
 
 DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 DEFAULT_SITES = ["conalog", "gangui", "ktc_ess"]
@@ -26,14 +35,6 @@ CORE_DIGEST_COLUMNS = [
     "anom_level",
     "anom_subtype",
 ]
-DISPLAY_HEURISTIC_NAME_MAP = {
-    "다이오드·서브스트링형": "다이오드·국소 회로 이상형",
-    "접속·부분개방형": "접촉 끊김 형",
-    "센서·피드백형": "장치 측정 이상형",
-    "제어응답형": "장치 응답 이상형",
-    "전력변환부형": "전력변환부 이상형",
-    "외부계통교란형": "외부 전원 흔들림형",
-}
 LIVE_FAULT_COMPARE_COLS = [
     "site",
     "panel_id",
@@ -69,8 +70,10 @@ USER_PREVIEW_OUTPUT_COLS = [
     "panel_id",
     "전조날짜",
     "고장 기준일",
-    "최종고장양상",
     "운영 판정",
+    "급락 종결 관측",
+    "점진 저하 누적",
+    "사건 종결 요약",
     "상위 해석 후보",
     "기존 알고리즘 source",
 ]
@@ -79,8 +82,10 @@ SIGNAL_PREVIEW_OUTPUT_COLS = [
     "panel_id",
     "전조날짜",
     "신호 기준일",
-    "최종고장양상",
     "운영 판정",
+    "급락 종결 관측",
+    "점진 저하 누적",
+    "사건 종결 요약",
     "상위 해석 후보",
     "기존 알고리즘 source",
 ]
@@ -90,19 +95,43 @@ PRECURSOR_REPORT_OUTPUT_COLS = [
     "운영 판정",
     "판정 근거",
     "전조날짜",
-    "신호 기준일",
-    "최종고장양상",
+    "전조 축",
+    "대표 전조 신호",
+    "전조 요약",
     "상위 해석 후보",
     "기존 알고리즘 source",
     "패턴 설명",
-    "대표 전조 신호",
-    "전조 축",
+    "모니터링 권고",
+    "공통원인 위험",
+    "권고 검토 레인",
     "EWS 전조 일수",
     "pre_alarm 일수",
     "pre_ews 일수",
+    "Option B 유효 일수",
+    "공통원인 겹침 일수",
     "AE 전조 조건 일수",
     "DTW 전조 조건 일수",
-    "전조 요약",
+]
+FAULT_SIGNAL_REPORT_OUTPUT_COLS = [
+    "site",
+    "group root",
+    "subgroup base",
+    "subgroup cluster",
+    "panel_id",
+    "동일 subgroup row 수",
+    "동일 cluster row 수",
+    "운영 판정",
+    "확정 경로",
+    "고장 신호 요약",
+    "전조 시작일",
+    "신호 기준일",
+    "사건유형",
+    "사건 종결 요약",
+    "근접 공통원인",
+    "상위 해석 후보",
+    "기존 알고리즘 source",
+    "패턴 설명",
+    "현장 점검 권고",
 ]
 ROOT_LIVE_FAULT_NAME = "fault_panel_result_current_v1.csv"
 ROOT_LIVE_PREVIEW_NAME = "fault_panel_result_current_preview_v1.csv"
@@ -115,7 +144,9 @@ ROOT_RAWONLY_REPORT_NAME = "fault_panel_result_raw_only_current_report_v1.md"
 ROOT_MASTER_REPORT_NAME = "fault_panel_result_master_report_v1.md"
 ROOT_DETAILED_REPORT_NAME = "fault_panel_result_detailed_report_v1.xlsx"
 ROOT_PRECURSOR_REPORT_NAME = "fault_panel_result_precursor_report_v1.csv"
+ROOT_FAULT_SIGNAL_REPORT_NAME = "fault_panel_result_raw_only_fault_signal_report_v1.csv"
 RAW_ONLY_STRICT_CURRENT_GRADES = {"확정"}
+FAULT_SIGNAL_CLUSTER_GAP_DAYS = 3
 MAIL_BUCKET_ALGORITHM_MAP = {
     ("conalog", "7f7dd654-2760-4eb2-a197-3ebb72b85cda.2.0"): "panel-bypass",
     ("conalog", "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"): "disconnection",
@@ -538,8 +569,11 @@ def row_key(site: object, panel_id: object) -> tuple[str, str]:
 
 
 def display_heuristic_name(raw_label: object) -> str:
-    normalized = normalize_text(raw_label)
-    return DISPLAY_HEURISTIC_NAME_MAP.get(normalized, normalized)
+    return shared_display_heuristic_name(raw_label)
+
+
+def display_heuristic_note(raw_label: object) -> str:
+    return shared_display_heuristic_note(raw_label)
 
 
 def choose_display_precursor_date(
@@ -602,6 +636,119 @@ def display_existing_algorithm_source(value: object) -> str:
     return text
 
 
+def as_int(value: object) -> int:
+    try:
+        parsed = int(float(value))
+    except (TypeError, ValueError):
+        return 0
+    return parsed
+
+
+def is_truthy_scalar(value: object) -> bool:
+    text = normalize_text(value).lower()
+    return text in {"1", "true", "t", "yes", "y"}
+
+
+def event_summary_from_labels(event_type: object, terminal_pattern: object) -> str:
+    event = normalize_text(event_type)
+    terminal = normalize_text(terminal_pattern)
+    mapping = {
+        ("전조형 고장", "급격 종료"): "전조 후 급격 종료",
+        ("전조형 고장", "진행성 악화"): "전조 후 진행 악화",
+        ("급작 고장", "급작 발생"): "급작 발생",
+    }
+    return mapping.get((event, terminal), "")
+
+
+def event_display_fields(record: pd.Series | dict[str, object]) -> dict[str, str]:
+    existing_abrupt = normalize_text(record.get("급락 종결 관측"))
+    existing_progressive = normalize_text(record.get("점진 저하 누적"))
+    existing_summary = normalize_text(record.get("사건 종결 요약"))
+    if existing_abrupt or existing_progressive or existing_summary:
+        return {
+            "급락 종결 관측": existing_abrupt or "없음",
+            "점진 저하 누적": existing_progressive or "없음",
+            "사건 종결 요약": existing_summary,
+        }
+
+    event_type = normalize_text(record.get("사건유형_ko")) or normalize_text(record.get("사건 해석"))
+    terminal_pattern = normalize_text(record.get("최종고장양상_ko")) or normalize_text(
+        record.get("최종고장양상")
+    )
+    precursor_date = display_preview_precursor_date(record.get("전조날짜"))
+    grade = normalize_text(record.get("운영해석등급_ko")) or normalize_text(record.get("운영 판정"))
+    if not grade and isinstance(record, pd.Series):
+        grade = display_signal_grade(record)
+
+    abrupt_observed = (
+        terminal_pattern in {"급격 종료", "급작 발생"}
+        or as_int(record.get("final_days")) > 0
+        or is_truthy_scalar(record.get("대표final_fault"))
+        or is_truthy_scalar(record.get("final_fault"))
+    )
+    progressive_observed = (
+        terminal_pattern == "진행성 악화"
+        or event_type == "전조형 고장"
+        or "degradation" in normalize_text(record.get("anom_subtypes_csv")).lower()
+        or "degradation" in normalize_text(record.get("대표anom_subtype")).lower()
+        or as_int(record.get("ews_warning_days")) > 0
+        or as_int(record.get("pre_alarm_days")) > 0
+        or as_int(record.get("pre_ews_days")) > 0
+        or as_int(record.get("prefault_cond_ae_days")) > 0
+        or as_int(record.get("prefault_cond_dtw_days")) > 0
+        or precursor_date != "전조없음"
+    )
+
+    summary = ""
+    if grade == "확정" or normalize_text(record.get("패널고장여부_ko")) == "고장":
+        summary = event_summary_from_labels(event_type, terminal_pattern)
+        if not summary:
+            if abrupt_observed and progressive_observed and precursor_date != "전조없음":
+                summary = "전조 후 급격 종료"
+            elif progressive_observed and precursor_date != "전조없음":
+                summary = "전조 후 진행 악화"
+            elif abrupt_observed:
+                summary = "급작 발생" if precursor_date == "전조없음" else "급격 종료 관측"
+
+    return {
+        "급락 종결 관측": "있음" if abrupt_observed else "없음",
+        "점진 저하 누적": "있음" if progressive_observed else "없음",
+        "사건 종결 요약": summary,
+    }
+
+
+def has_precursor_signal(record: dict[str, object] | pd.Series) -> bool:
+    if normalize_text(record.get("전조날짜")):
+        return True
+    for field in [
+        "ews_warning_days",
+        "pre_alarm_days",
+        "pre_ews_days",
+        "prefault_cond_ae_days",
+        "prefault_cond_dtw_days",
+        "prefault_cond_ews_days",
+    ]:
+        if as_int(record.get(field)) > 0:
+            return True
+    return False
+
+
+def has_hard_fault_evidence(record: dict[str, object] | pd.Series) -> bool:
+    return any(
+        [
+            as_int(record.get("final_days")) > 0,
+            as_int(record.get("critical_days")) > 0,
+            as_int(record.get("critical_confirmed_days")) > 0,
+            is_truthy_scalar(record.get("final_fault")),
+            is_truthy_scalar(record.get("critical_fault")),
+            is_truthy_scalar(record.get("critical_confirmed")),
+            is_truthy_scalar(record.get("대표final_fault")),
+            is_truthy_scalar(record.get("대표critical_fault")),
+            is_truthy_scalar(record.get("대표critical_confirmed")),
+        ]
+    )
+
+
 def as_float(value: object) -> float | None:
     try:
         parsed = float(value)
@@ -649,6 +796,7 @@ def signal_grade_explainer(evidence_row: dict[str, object]) -> str:
     text = normalize_text(evidence_row.get("운영해석등급_ko"))
     final_days = int(evidence_row.get("final_days", 0) or 0)
     critical_days = int(evidence_row.get("critical_days", 0) or 0)
+    critical_confirmed_days = int(evidence_row.get("critical_confirmed_days", 0) or 0)
     ews_warning_days = int(evidence_row.get("ews_warning_days", 0) or 0)
     pre_alarm_days = int(evidence_row.get("pre_alarm_days", 0) or 0)
     pre_ews_days = int(evidence_row.get("pre_ews_days", 0) or 0)
@@ -656,9 +804,20 @@ def signal_grade_explainer(evidence_row: dict[str, object]) -> str:
     prefault_cond_dtw_days = int(evidence_row.get("prefault_cond_dtw_days", 0) or 0)
     critical_sources = normalize_text(evidence_row.get("critical_sources_csv"))
     if text == "확정":
+        signal_labels: list[str] = []
+        if final_days > 0:
+            signal_labels.append("최종 고장 신호")
+        if critical_confirmed_days > 0:
+            signal_labels.append("강한 고장 신호 확정")
+        elif critical_days > 0:
+            signal_labels.append("강한 고장 신호")
         if "vdrop" in critical_sources:
-            return f"final/critical 신호로 확정({final_days + critical_days}일, vdrop 포함). 원인명은 후보 단계"
-        return f"final/critical 신호로 확정({final_days + critical_days}일). 원인명은 후보 단계"
+            signal_labels.append("vdrop 전기 신호")
+        signal_summary = " / ".join(signal_labels) if signal_labels else "확정 신호"
+        return (
+            f"다음 확정 신호가 관측돼 확정({final_days + critical_days + critical_confirmed_days}일): "
+            f"{signal_summary}. 원인명은 후보 단계"
+        )
     if text == "고위험 관찰":
         return (
             f"EWS({ews_warning_days}일)·pre_alarm({pre_alarm_days}일)·pre_ews({pre_ews_days}일)"
@@ -671,7 +830,9 @@ def signal_grade_explainer(evidence_row: dict[str, object]) -> str:
     return ""
 
 
-def pattern_explainer(evidence_row: dict[str, object]) -> str:
+def pattern_explainer(
+    evidence_row: dict[str, object], *, soften_hard_language: bool = False
+) -> str:
     mid_v_ratio = as_float(evidence_row.get("대표mid_v_ratio"))
     mid_i_ratio = as_float(evidence_row.get("대표mid_i_ratio"))
     mid_ratio = as_float(evidence_row.get("대표mid_ratio"))
@@ -686,25 +847,41 @@ def pattern_explainer(evidence_row: dict[str, object]) -> str:
 
     reasons: list[str] = []
     if "vdrop" in critical_source:
-        reasons.append("전압강하형 전기 신호가 직접 관측됨")
+        if soften_hard_language:
+            reasons.append("상대 전압 이탈 징후가 반복 관측됨")
+        else:
+            reasons.append("전압강하형 전기 신호가 직접 관측됨")
     if mid_v_ratio is not None and mid_i_ratio is not None:
         if mid_v_ratio >= 0.9 and mid_i_ratio <= 0.4:
-            reasons.append(
-                f"전압은 비교적 유지되지만 전류가 크게 낮아짐(mid_v={mid_v_ratio:.2f}, mid_i={mid_i_ratio:.2f})"
-            )
+            if soften_hard_language:
+                reasons.append(
+                    f"전압 대비 전류 저하 징후가 나타남(mid_v={mid_v_ratio:.2f}, mid_i={mid_i_ratio:.2f})"
+                )
+            else:
+                reasons.append(
+                    f"전압은 비교적 유지되지만 전류가 크게 낮아짐(mid_v={mid_v_ratio:.2f}, mid_i={mid_i_ratio:.2f})"
+                )
         elif mid_v_ratio <= 0.8 and mid_i_ratio <= 0.8:
-            reasons.append(
-                f"전압과 전류가 함께 낮아짐(mid_v={mid_v_ratio:.2f}, mid_i={mid_i_ratio:.2f})"
-            )
+            if soften_hard_language:
+                reasons.append(
+                    f"전압과 전류가 함께 낮아지는 징후가 이어짐(mid_v={mid_v_ratio:.2f}, mid_i={mid_i_ratio:.2f})"
+                )
+            else:
+                reasons.append(
+                    f"전압과 전류가 함께 낮아짐(mid_v={mid_v_ratio:.2f}, mid_i={mid_i_ratio:.2f})"
+                )
         elif mid_i_ratio <= 0.4:
-            reasons.append(f"전류가 크게 낮아진 패턴(mid_i={mid_i_ratio:.2f})")
+            if soften_hard_language:
+                reasons.append(f"전류 저하 징후가 두드러짐(mid_i={mid_i_ratio:.2f})")
+            else:
+                reasons.append(f"전류가 크게 낮아진 패턴(mid_i={mid_i_ratio:.2f})")
     if mid_ratio is not None:
         if mid_ratio <= 0.1:
             reasons.append(f"중간 출력이 거의 0에 가까움(mid_ratio={mid_ratio:.2f})")
         elif mid_ratio <= 0.5:
             reasons.append(f"중간 출력이 뚜렷하게 낮아짐(mid_ratio={mid_ratio:.2f})")
     if final_flag:
-        reasons.append("최종 fault로 닫히는 급격 종료 패턴이 보임")
+        reasons.append("급락 종결 패턴이 직접 관측됨")
     elif critical_flag:
         reasons.append("critical fault 신호가 직접 나타남")
     elif event_flag:
@@ -751,14 +928,15 @@ def to_user_preview_schema(df: pd.DataFrame) -> pd.DataFrame:
 
     rows: list[dict[str, str]] = []
     for _, row in df.fillna("").iterrows():
+        event_fields = event_display_fields(row)
         rows.append(
             {
                 "site": normalize_text(row.get("site")),
                 "panel_id": normalize_text(row.get("panel_id")),
                 "전조날짜": display_preview_precursor_date(row.get("전조날짜")),
                 "고장 기준일": pick_text(row, "고장 기준일", "고장날짜", "신호 기준일"),
-                "최종고장양상": pick_text(row, "최종고장양상", "최종고장양상_ko"),
                 "운영 판정": display_signal_grade(row),
+                **event_fields,
                 "상위 해석 후보": pick_text(
                     row,
                     "상위 해석 후보",
@@ -802,14 +980,15 @@ def to_signal_preview_schema(df: pd.DataFrame) -> pd.DataFrame:
 
     rows: list[dict[str, str]] = []
     for _, row in df.fillna("").iterrows():
+        event_fields = event_display_fields(row)
         rows.append(
             {
                 "site": normalize_text(row.get("site")),
                 "panel_id": normalize_text(row.get("panel_id")),
                 "전조날짜": display_preview_precursor_date(row.get("전조날짜")),
                 "신호 기준일": pick_text(row, "신호 기준일", "고장날짜", "고장 기준일"),
-                "최종고장양상": pick_text(row, "최종고장양상", "최종고장양상_ko"),
                 "운영 판정": display_signal_grade(row),
+                **event_fields,
                 "상위 해석 후보": pick_text(
                     row,
                     "상위 해석 후보",
@@ -1313,7 +1492,7 @@ def build_live_report_markdown(
     return (
         "# fault_panel_result_current_report_v1\n\n"
         "## 목적\n"
-        "현재 runtime 실행에서 운영자가 바로 확인할 핵심 결과를 한 곳에 모아 보여준다.\n\n"
+        "현재 runtime 실행에서 운영자가 바로 확인할 `운영 공식 current` 결과를 한 곳에 모아 보여준다.\n\n"
         "## 실행 대상 site\n"
         f"{site_lines}\n\n"
         "## baseline 입력 비교\n"
@@ -1323,6 +1502,11 @@ def build_live_report_markdown(
         f"- `fixed_fault_reference_exact_match`: `{compare.get('exact_match')}`\n"
         f"- `baseline_input_all_sites_match`: `{compare.get('baseline_input_all_sites_match')}`\n"
         f"- `diff_columns`: `{compare.get('diff_columns', [])}`\n\n"
+        "## 읽는 법\n"
+        "- 이 report는 `official current` 설명용 문서다.\n"
+        "- `fault_panel_result_current_preview_v1.csv`와 함께 현재 운영 공식 결과를 먼저 읽는 기본 문서다.\n"
+        "- `raw-only` 보조표나 analyst artifact를 대신하지 않는다.\n"
+        "- `fault_panel_result_master_report_v1.md`는 artifact 안내와 fallback 설명용 문서이며, 이 report를 대체하지 않는다.\n\n"
         "## 주요 산출물\n"
         f"{output_lines}\n\n"
         "## 현재 preview 표\n"
@@ -1345,7 +1529,7 @@ def build_raw_only_report_markdown(
     return (
         "# fault_panel_result_raw_only_current_report_v1\n\n"
         "## 목적\n"
-        "raw-only algorithm candidate chain 중 운영 strict current로 승격된 현재 결과를 한 번에 확인한다.\n\n"
+        "raw-only algorithm candidate chain 중 운영 strict current로 승격된 현재 결과를 `분석용/운영 보조표`로 확인한다.\n\n"
         "## 실행 대상 site\n"
         f"{site_lines}\n\n"
         "## raw-only vs fixed reference 비교\n"
@@ -1369,6 +1553,9 @@ def build_raw_only_report_markdown(
         "## 주의\n"
         "- `커널로그_원인군_ko` 컬럼명은 유지하지만, 이 report에서는 raw-only algorithm-derived family 의미다.\n"
         "- 이 chain은 frozen truth/support asset을 참조하지 않는다.\n\n"
+        "- 이 report는 `official current report`가 아니며, 운영 공식 결과를 대체하지 않는다.\n"
+        "- 운영자 기본 진입점은 `fault_panel_result_current_*` 계열이고, 이 report는 analyst/support 확인용이다.\n\n"
+        "- preview 표의 `사건 종결 요약`은 관측 플래그를 먼저 본 뒤, 확정 row에서만 채워지는 요약이다.\n\n"
         "- `result/raw_only_chain/*`에는 전체 candidate가 남고, `result/fault_panel_result_raw_only_current_*`는 strict current subset만 노출한다.\n\n"
         "## 주요 산출물\n"
         f"{output_lines}\n\n"
@@ -1384,8 +1571,11 @@ def build_master_report_markdown(
     raw_only_chain_result: dict[str, object],
     live_preview_df: pd.DataFrame,
     raw_only_preview_df: pd.DataFrame,
+    precursor_report_df: pd.DataFrame | None = None,
+    fault_signal_report_df: pd.DataFrame | None = None,
     detailed_report_path: Path | None = None,
     precursor_report_path: Path | None = None,
+    fault_signal_report_path: Path | None = None,
 ) -> str:
     site_lines = "\n".join(f"- `{site}`" for site in sites)
     baseline_site_lines = []
@@ -1395,12 +1585,107 @@ def build_master_report_markdown(
     baseline_block = "\n".join(baseline_site_lines)
     live_compare = live_chain_result.get("fixed_fault_reference_compare", {})
     raw_only_compare = raw_only_chain_result.get("fixed_fault_reference_compare", {})
-    output_lines = []
+    primary_output_lines = []
+    analyst_output_lines = []
     for name, path in sorted(live_chain_result.get("published_outputs", {}).items()):
-        output_lines.append(f"- `live::{name}`: `{path}`")
+        primary_output_lines.append(f"- `live::{name}`: `{path}`")
     for name, path in sorted(raw_only_chain_result.get("published_outputs", {}).items()):
-        output_lines.append(f"- `raw_only::{name}`: `{path}`")
-    output_block = "\n".join(output_lines) if output_lines else "_none_"
+        analyst_output_lines.append(f"- `raw_only::{name}`: `{path}`")
+    primary_output_block = "\n".join(primary_output_lines) if primary_output_lines else "_none_"
+    analyst_output_block = "\n".join(analyst_output_lines) if analyst_output_lines else "_none_"
+    precursor_report_df = precursor_report_df if precursor_report_df is not None else pd.DataFrame()
+    fault_signal_report_df = fault_signal_report_df if fault_signal_report_df is not None else pd.DataFrame()
+    precursor_keys = set(
+        zip(
+            precursor_report_df.get("site", pd.Series(dtype=object)).astype(str),
+            precursor_report_df.get("panel_id", pd.Series(dtype=object)).astype(str),
+        )
+    )
+    fault_signal_keys = set(
+        zip(
+            fault_signal_report_df.get("site", pd.Series(dtype=object)).astype(str),
+            fault_signal_report_df.get("panel_id", pd.Series(dtype=object)).astype(str),
+        )
+    )
+    overlap_row_count = len(precursor_keys & fault_signal_keys)
+    fault_signal_subgroup_summary = pd.DataFrame(
+        columns=["site", "group root", "subgroup base", "row_count"]
+    )
+    fault_signal_cluster_summary = pd.DataFrame(
+        columns=[
+            "site",
+            "group root",
+            "subgroup base",
+            "subgroup cluster",
+            "row_count",
+            "min_signal_date",
+            "max_signal_date",
+        ]
+    )
+    if fault_signal_report_df is not None and not fault_signal_report_df.empty:
+        working = fault_signal_report_df.copy()
+        working["group root"] = working["group root"].map(normalize_text)
+        working["subgroup base"] = working["subgroup base"].map(normalize_text)
+        working["subgroup cluster"] = working["subgroup cluster"].map(normalize_text)
+        working["신호 기준일_dt"] = pd.to_datetime(working["신호 기준일"], errors="coerce")
+        working = working.loc[working["subgroup base"].ne("")].copy()
+        if not working.empty:
+            fault_signal_subgroup_summary = (
+                working.groupby(["site", "group root", "subgroup base"], dropna=False)
+                .size()
+                .rename("row_count")
+                .reset_index()
+                .sort_values(
+                    ["row_count", "site", "group root", "subgroup base"],
+                    ascending=[False, True, True, True],
+                )
+                .reset_index(drop=True)
+            )
+            fault_signal_cluster_summary = (
+                working.groupby(
+                    ["site", "group root", "subgroup base", "subgroup cluster"], dropna=False
+                )
+                .agg(
+                    row_count=("panel_id", "size"),
+                    min_signal_date=("신호 기준일_dt", "min"),
+                    max_signal_date=("신호 기준일_dt", "max"),
+                )
+                .reset_index()
+                .sort_values(
+                    ["row_count", "site", "group root", "subgroup base", "subgroup cluster"],
+                    ascending=[False, True, True, True, True],
+                )
+                .reset_index(drop=True)
+            )
+            for column in ["min_signal_date", "max_signal_date"]:
+                fault_signal_cluster_summary[column] = pd.to_datetime(
+                    fault_signal_cluster_summary[column], errors="coerce"
+                ).dt.strftime("%Y-%m-%d")
+    fault_signal_unique_group_root_count = (
+        int(len(fault_signal_subgroup_summary[["site", "group root"]].drop_duplicates()))
+        if not fault_signal_subgroup_summary.empty
+        else 0
+    )
+    fault_signal_unique_subgroup_base_count = (
+        int(len(fault_signal_subgroup_summary[["site", "subgroup base"]].drop_duplicates()))
+        if not fault_signal_subgroup_summary.empty
+        else 0
+    )
+    fault_signal_unique_subgroup_cluster_count = (
+        int(len(fault_signal_cluster_summary[["site", "subgroup cluster"]].drop_duplicates()))
+        if not fault_signal_cluster_summary.empty
+        else 0
+    )
+    fault_signal_top_subgroup_block = (
+        markdown_table_from_df(fault_signal_subgroup_summary.head(10))
+        if not fault_signal_subgroup_summary.empty
+        else "_none_"
+    )
+    fault_signal_top_cluster_block = (
+        markdown_table_from_df(fault_signal_cluster_summary.head(10))
+        if not fault_signal_cluster_summary.empty
+        else "_none_"
+    )
     detailed_report_block = (
         f"- `fault_panel_result_detailed_report_v1.xlsx`: `{detailed_report_path}`\n\n"
         if detailed_report_path is not None
@@ -1411,10 +1696,15 @@ def build_master_report_markdown(
         if precursor_report_path is not None
         else ""
     )
+    fault_signal_report_block = (
+        f"- `{ROOT_FAULT_SIGNAL_REPORT_NAME}`: `{fault_signal_report_path}`\n\n"
+        if fault_signal_report_path is not None
+        else ""
+    )
     return (
         "# fault_panel_result_master_report_v1\n\n"
         "## 목적\n"
-        "frozen-support live chain과 raw-only algorithm candidate chain을 한 번에 같이 확인한다.\n\n"
+        "frozen-support live chain과 raw-only algorithm candidate chain을 비교하고, 어떤 artifact를 어떤 순서로 읽을지 안내한다.\n\n"
         "## 실행 대상 site\n"
         f"{site_lines}\n\n"
         "## baseline 입력 비교\n"
@@ -1434,34 +1724,156 @@ def build_master_report_markdown(
         f"- `published_current_row_count`: `{raw_only_chain_result.get('publish_meta', {}).get('published_current_row_count', '')}`\n"
         f"- `matched_row_key_count`: `{raw_only_compare.get('matched_row_key_count')}`\n"
         f"- `overlap_diff_columns`: `{raw_only_compare.get('overlap_diff_columns', [])}`\n\n"
+        "## report split 요약\n"
+        f"- `precursor_candidate_row_count`: `{len(precursor_report_df)}`\n"
+        f"- `raw_only_fault_signal_row_count`: `{len(fault_signal_report_df)}`\n"
+        f"- `raw_only_fault_signal_unique_group_root_count`: `{fault_signal_unique_group_root_count}`\n"
+        f"- `raw_only_fault_signal_unique_subgroup_base_count`: `{fault_signal_unique_subgroup_base_count}`\n"
+        f"- `raw_only_fault_signal_unique_subgroup_cluster_count`: `{fault_signal_unique_subgroup_cluster_count}`\n"
+        f"- `report_row_overlap_count`: `{overlap_row_count}`\n\n"
+        "## 먼저 보는 법\n"
+        "- `fault_panel_result_current_*`: frozen-support live chain 기준의 공식 current 결과를 먼저 확인한다. current preview/current report가 있으면 그쪽이 공식 current 설명의 주 문서다.\n"
+        "- `fault_panel_result_precursor_report_v1.csv`: 아직 고장 신호는 없지만 추적 가치가 있는 precursor candidate를 본다.\n"
+        "- raw-only artifact는 operator 기본 읽기 순서가 아니라 아래 `analyst/support 추가 자료` 섹션에서 필요 시 확인한다.\n\n"
         "## 해석 가이드\n"
+        "- 이 문서는 공식 current 설명 문서를 대체하지 않는 안내/fallback 문서다. current preview/current report가 있으면 그쪽을 먼저 읽는다.\n"
         "- `fault_panel_result_current_*`는 frozen-support live chain 기준 결과다.\n"
         "- `fault_panel_result_raw_only_current_*`는 raw-only candidate 중 strict current subset만 보여준다.\n"
+        "- `fault_panel_result_precursor_report_v1.csv`는 고장 신호가 아직 없는 precursor candidate만 보여준다.\n"
+        f"- `{ROOT_FAULT_SIGNAL_REPORT_NAME}`는 raw-only candidate 우주에서 고장 신호가 이미 관측된 panel만 모은 analyst/support 보조표다.\n"
         "- raw-only chain의 `커널로그_원인군_ko`는 기존 라벨 family가 아니라 algorithm-derived family 의미다.\n"
-        "- preview 표의 `운영 판정`은 신호 단계, `상위 해석 후보`는 가장 가까운 원인 후보를 뜻한다.\n"
+        "- preview 표의 `운영 판정`은 현재 신호 단계, `상위 해석 후보`는 가장 가까운 원인 후보를 뜻한다.\n"
+        "- `급락 종결 관측`과 `점진 저하 누적`은 관측 축이고, `사건 종결 요약`은 확정 row에서만 채워지는 사건 요약이다.\n"
         "- `고장 기준일`은 확정 고장일만 뜻하는 칼럼이 아니라 판단 기준으로 삼은 날짜다.\n"
         "- `기존 알고리즘 source`의 `미검출`은 legacy source 태그가 없다는 뜻이다.\n"
-        "- precursor report의 `판정 근거`와 `패턴 설명`을 함께 보면 왜 그렇게 봤는지 물리적/시간적 근거를 더 쉽게 읽을 수 있다.\n"
+        "- precursor report와 raw-only fault signal report는 row가 중복되지 않게 분리해 읽어야 한다.\n"
+        "- raw-only fault signal report의 row 수는 `panel_id` 기준 count이고, 같은 `subgroup base` 아래 여러 panel이 함께 잡히면 여러 row로 보일 수 있다.\n"
+        f"- `subgroup cluster`는 같은 subgroup base 안에서 `신호 기준일` 간격이 `{FAULT_SIGNAL_CLUSTER_GAP_DAYS}`일 이하인 row를 하나의 보조 cluster로 묶은 analyst/support 휴리스틱이다.\n"
+        "- 운영자는 기본적으로 current -> precursor 순서로 읽고, raw-only artifact는 analyst/support 추가 자료가 필요할 때만 연다.\n"
         "- 전체 candidate universe는 `result/raw_only_chain/*`와 detailed report 안에 그대로 남는다.\n\n"
+        "## 컬럼 읽는 법\n"
+        "- precursor report의 `전조 축`은 EWS/AE/DTW/규칙징후 중 어떤 축이 전조로 묶였는지 보여준다.\n"
+        "- precursor report의 `대표 전조 신호`는 전조 후보를 만든 누적 신호를 짧게 풀어쓴 요약이다.\n"
+        "- precursor report의 `모니터링 권고`는 다음 수집 주기에 무엇을 먼저 확인할지 알려주는 운영 메모다.\n"
+        "- precursor report의 `공통원인 위험`과 `권고 검토 레인`은 panel-local precursor로 읽기 전에 공통 외란 가능성을 얼마나 먼저 볼지 정리한 보조 값이다.\n"
+        "- raw-only fault signal report의 `group root`는 넓은 family root, `subgroup base`는 common-cause 검토에 더 가까운 하위 묶음이다.\n"
+        "- raw-only fault signal report의 `동일 subgroup row 수`는 같은 subgroup base 아래 함께 잡힌 panel row 수다.\n"
+        "- raw-only fault signal report의 `subgroup cluster`와 `동일 cluster row 수`는 `사건 수`를 직접 뜻하지 않고, 같은 subgroup base 안에서 가까운 날짜 row를 묶어 읽기 쉽게 만든 보조 값이다.\n"
+        "- raw-only fault signal report의 `확정 경로`는 주 경로 하나만 보여주고, `고장 신호 요약`은 일수와 보조 근거를 덧붙인다.\n"
+        "- raw-only fault signal report의 `근접 공통원인`은 strict_trigger 기준 ±3일 안의 common-cause만 적고, warning-anchor 기준 common-cause는 audit 전용으로 남긴다.\n"
+        "- raw-only fault signal report의 `현장 점검 권고`는 첫 현장 액션의 우선순위를 짧게 적은 값이다.\n\n"
         "## 주요 산출물\n"
-        f"{output_block}\n\n"
+        f"{primary_output_block}\n\n"
+        "## analyst/support 추가 자료\n"
+        f"{analyst_output_block}\n\n"
         "## 상세 리포트\n"
         f"{detailed_report_block}"
         "## 전조 리포트\n"
         f"{precursor_report_block}"
+        "## raw-only 고장 신호 리포트\n"
+        f"{fault_signal_report_block}"
+        "## raw-only 고장 신호 subgroup base 요약 (앞 10행)\n"
+        f"{fault_signal_top_subgroup_block}\n\n"
+        "## raw-only 고장 신호 subgroup cluster 요약 (앞 10행)\n"
+        f"{fault_signal_top_cluster_block}\n\n"
         "## current preview 표\n"
         f"{markdown_table_from_df(truncate_report_df(live_preview_df))}\n\n"
-        "## raw-only preview 표 (앞 20행)\n"
-        f"{markdown_table_from_df(truncate_report_df(raw_only_preview_df, limit=20))}\n"
+        "## precursor 후보 표 (앞 20행)\n"
+        f"{markdown_table_from_df(truncate_report_df(precursor_report_df, limit=20))}\n\n"
+        "## analyst/support 참고 메모\n"
+        f"- `{ROOT_FAULT_SIGNAL_REPORT_NAME}`와 `fault_panel_result_raw_only_current_*`는 master report에서 경로만 안내하는 보조 artifact다.\n"
+        "- raw-only preview/fault signal row는 operator 기본 읽기 흐름에 직접 전개하지 않는다.\n"
+        f"- raw-only strict current preview row count: `{len(raw_only_preview_df)}`\n"
+        f"- raw-only fault signal row count: `{len(fault_signal_report_df)}`\n"
     )
 
 
-def panel_base(panel_id: object) -> str:
+def panel_group_root(panel_id: object) -> str:
     text = normalize_text(panel_id)
     tokens = text.split(".")
     if len(tokens) >= 3:
         return ".".join(tokens[:-2])
     return text
+
+
+def panel_subgroup_base(panel_id: object) -> str:
+    text = normalize_text(panel_id)
+    tokens = text.split(".")
+    if len(tokens) >= 2:
+        return ".".join(tokens[:-1])
+    return text
+
+
+def attach_fault_signal_cluster_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        working = df.copy() if df is not None else pd.DataFrame()
+        if "subgroup cluster" not in working.columns:
+            working["subgroup cluster"] = pd.Series(dtype=object)
+        if "동일 cluster row 수" not in working.columns:
+            working["동일 cluster row 수"] = pd.Series(dtype=int)
+        return working
+
+    working = df.copy()
+    working["신호 기준일_dt"] = pd.to_datetime(working["신호 기준일"], errors="coerce")
+    cluster_key_by_index: dict[int, str] = {}
+    cluster_size_by_index: dict[int, int] = {}
+
+    for (_, subgroup_base), subgroup_rows in working.groupby(
+        ["site", "subgroup base"], sort=False, dropna=False
+    ):
+        subgroup_rows = subgroup_rows.sort_values(
+            ["신호 기준일_dt", "panel_id"], ascending=[True, True]
+        ).copy()
+        cluster_ids: list[int] = []
+        cluster_id = 0
+        prev_date = None
+        for _, subgroup_row in subgroup_rows.iterrows():
+            current_date = subgroup_row.get("신호 기준일_dt")
+            if pd.isna(current_date):
+                cluster_id += 1
+            elif prev_date is None or (current_date - prev_date).days > FAULT_SIGNAL_CLUSTER_GAP_DAYS:
+                cluster_id += 1
+                prev_date = current_date
+            else:
+                prev_date = current_date
+            cluster_ids.append(cluster_id)
+        subgroup_rows["cluster_id"] = cluster_ids
+
+        cluster_meta = (
+            subgroup_rows.groupby("cluster_id", dropna=False)
+            .agg(
+                cluster_rows=("panel_id", "size"),
+                start_date=("신호 기준일_dt", "min"),
+                end_date=("신호 기준일_dt", "max"),
+            )
+            .reset_index()
+        )
+        label_map: dict[int, str] = {}
+        size_map: dict[int, int] = {}
+        for cluster_row in cluster_meta.to_dict(orient="records"):
+            cid = int(cluster_row["cluster_id"])
+            start_date = cluster_row.get("start_date")
+            end_date = cluster_row.get("end_date")
+            if pd.notna(start_date) and pd.notna(end_date):
+                start_text = pd.Timestamp(start_date).strftime("%Y-%m-%d")
+                end_text = pd.Timestamp(end_date).strftime("%Y-%m-%d")
+                if start_text == end_text:
+                    label = f"{normalize_text(subgroup_base)} @ {start_text}"
+                else:
+                    label = f"{normalize_text(subgroup_base)} @ {start_text}~{end_text}"
+            else:
+                label = f"{normalize_text(subgroup_base)} @ undated#{cid}"
+            label_map[cid] = label
+            size_map[cid] = int(cluster_row.get("cluster_rows", 0) or 0)
+
+        subgroup_rows["subgroup cluster"] = subgroup_rows["cluster_id"].map(label_map)
+        subgroup_rows["동일 cluster row 수"] = subgroup_rows["cluster_id"].map(size_map)
+        cluster_key_by_index.update(subgroup_rows["subgroup cluster"].to_dict())
+        cluster_size_by_index.update(subgroup_rows["동일 cluster row 수"].to_dict())
+
+    working["subgroup cluster"] = working.index.map(cluster_key_by_index.get)
+    working["동일 cluster row 수"] = working.index.map(cluster_size_by_index.get)
+    return working.drop(columns=["신호 기준일_dt"], errors="ignore")
 
 
 def bool_count(df: pd.DataFrame, column: str) -> int:
@@ -1489,6 +1901,7 @@ def load_gate_from_workspace(workspace_root: Path, site: str) -> pd.DataFrame:
 def report_attention_grade(evidence_row: dict[str, object]) -> str:
     final_days = int(evidence_row.get("final_days", 0) or 0)
     critical_days = int(evidence_row.get("critical_days", 0) or 0)
+    critical_confirmed_days = int(evidence_row.get("critical_confirmed_days", 0) or 0)
     fault_like_days = int(evidence_row.get("fault_like_days", 0) or 0)
     ews_warning_days = int(evidence_row.get("ews_warning_days", 0) or 0)
     pre_alarm_days = int(evidence_row.get("pre_alarm_days", 0) or 0)
@@ -1497,7 +1910,7 @@ def report_attention_grade(evidence_row: dict[str, object]) -> str:
     prefault_cond_dtw_days = int(evidence_row.get("prefault_cond_dtw_days", 0) or 0)
     critical_sources = normalize_text(evidence_row.get("critical_sources_csv"))
 
-    if final_days > 0 or critical_days > 0:
+    if final_days > 0 or critical_days > 0 or critical_confirmed_days > 0:
         return "확정"
     if (
         "vdrop" in critical_sources
@@ -1517,30 +1930,45 @@ def report_reason_text(evidence_row: dict[str, object]) -> str:
     top1 = normalize_text(evidence_row.get("1순위_의심원인_ko"))
     final_days = int(evidence_row.get("final_days", 0) or 0)
     critical_days = int(evidence_row.get("critical_days", 0) or 0)
+    critical_confirmed_days = int(evidence_row.get("critical_confirmed_days", 0) or 0)
     ews_warning_days = int(evidence_row.get("ews_warning_days", 0) or 0)
     pre_ews_days = int(evidence_row.get("pre_ews_days", 0) or 0)
+    prefault_B_effective_days = int(evidence_row.get("prefault_B_effective_days", 0) or 0)
+    prefault_B_common_cause_overlap_days = int(evidence_row.get("prefault_B_common_cause_overlap_days", 0) or 0)
     prefault_cond_ae_days = int(evidence_row.get("prefault_cond_ae_days", 0) or 0)
     prefault_cond_dtw_days = int(evidence_row.get("prefault_cond_dtw_days", 0) or 0)
     critical_sources = normalize_text(evidence_row.get("critical_sources_csv"))
     subtypes = normalize_text(evidence_row.get("anom_subtypes_csv"))
-    base_candidate_count = int(evidence_row.get("base_candidate_panel_count", 0) or 0)
+    subgroup_candidate_count = int(evidence_row.get("subgroup_candidate_panel_count", 0) or 0)
 
     if grade == "확정":
+        signal_labels: list[str] = []
+        if final_days > 0:
+            signal_labels.append("최종 고장 신호")
+        if critical_confirmed_days > 0:
+            signal_labels.append("강한 고장 신호 확정")
+        elif critical_days > 0:
+            signal_labels.append("강한 고장 신호")
         if "vdrop" in critical_sources:
-            return "vdrop/critical/final 신호가 함께 나타나 고장 신호가 뚜렷하게 포착됨"
-        return "critical/final 신호가 나타나 고장 신호가 뚜렷하게 포착됨"
+            signal_labels.append("vdrop 전기 신호")
+        signal_summary = " / ".join(signal_labels) if signal_labels else "확정 신호"
+        return f"{signal_summary}가 나타나 고장 신호가 뚜렷하게 포착됨"
 
     reasons: list[str] = []
     if "degradation" in subtypes:
         reasons.append("degradation subtype 반복")
     if ews_warning_days > 0 or pre_ews_days > 0:
         reasons.append(f"EWS 전조 누적(ews={ews_warning_days}, pre_ews={pre_ews_days})")
+    if prefault_B_effective_days > 0:
+        reasons.append(f"Option B 유효 전조 누적({prefault_B_effective_days}일)")
     if prefault_cond_ae_days > 0 or prefault_cond_dtw_days > 0:
         reasons.append(
             f"AE/DTW 전조 조건 누적(ae={prefault_cond_ae_days}, dtw={prefault_cond_dtw_days})"
         )
-    if base_candidate_count >= 3:
-        reasons.append(f"동일 base 군집 흔들림({base_candidate_count} panels)")
+    if prefault_B_common_cause_overlap_days > 0:
+        reasons.append(f"공통원인 겹침 option B({prefault_B_common_cause_overlap_days}일)는 별도 분리")
+    if subgroup_candidate_count >= 3:
+        reasons.append(f"동일 subgroup 동시 흔들림({subgroup_candidate_count} panels)")
     if top1:
         reasons.append(f"가장 가까운 후보는 {top1}")
     if not reasons:
@@ -1575,7 +2003,7 @@ def report_precursor_axes_text(evidence_row: dict[str, object]) -> str:
         or critical_days > 0
         or "vdrop" in critical_sources
     ):
-        axes.append("Rule")
+        axes.append("규칙징후")
     return "+".join(axes)
 
 
@@ -1584,6 +2012,8 @@ def report_precursor_signal_text(evidence_row: dict[str, object]) -> str:
     ews_warning_days = int(evidence_row.get("ews_warning_days", 0) or 0)
     pre_alarm_days = int(evidence_row.get("pre_alarm_days", 0) or 0)
     pre_ews_days = int(evidence_row.get("pre_ews_days", 0) or 0)
+    prefault_B_effective_days = int(evidence_row.get("prefault_B_effective_days", 0) or 0)
+    prefault_B_common_cause_overlap_days = int(evidence_row.get("prefault_B_common_cause_overlap_days", 0) or 0)
     prefault_cond_ae_days = int(evidence_row.get("prefault_cond_ae_days", 0) or 0)
     prefault_cond_dtw_days = int(evidence_row.get("prefault_cond_dtw_days", 0) or 0)
     critical_sources = normalize_text(evidence_row.get("critical_sources_csv"))
@@ -1591,6 +2021,8 @@ def report_precursor_signal_text(evidence_row: dict[str, object]) -> str:
 
     if ews_warning_days > 0 or pre_ews_days > 0:
         signals.append(f"EWS 전조 누적(ews={ews_warning_days}, pre_ews={pre_ews_days})")
+    if prefault_B_effective_days > 0:
+        signals.append(f"Option B 유효 누적({prefault_B_effective_days}일)")
     if prefault_cond_ae_days > 0:
         signals.append(f"AE 전조 조건 누적({prefault_cond_ae_days}일)")
     if prefault_cond_dtw_days > 0:
@@ -1598,10 +2030,120 @@ def report_precursor_signal_text(evidence_row: dict[str, object]) -> str:
     if pre_alarm_days > 0:
         signals.append(f"pre_alarm 누적({pre_alarm_days}일)")
     if "vdrop" in critical_sources:
-        signals.append("vdrop 전기 신호")
+        signals.append("상대 전압 이탈 징후")
     if "degradation" in subtypes:
         signals.append("degradation subtype 반복")
+    if prefault_B_common_cause_overlap_days > 0:
+        signals.append(f"공통원인 겹침 option B({prefault_B_common_cause_overlap_days}일)")
     return " / ".join(signals)
+
+
+def precursor_common_cause_risk_text(evidence_row: dict[str, object]) -> str:
+    prefault_B_common_cause_overlap_days = int(
+        evidence_row.get("prefault_B_common_cause_overlap_days", 0) or 0
+    )
+    subgroup_candidate_count = int(evidence_row.get("subgroup_candidate_panel_count", 0) or 0)
+    if prefault_B_common_cause_overlap_days > 0 and subgroup_candidate_count >= 3:
+        return "높음"
+    if prefault_B_common_cause_overlap_days > 0 or subgroup_candidate_count >= 3:
+        return "중간"
+    return "낮음"
+
+
+def precursor_review_lane_text(evidence_row: dict[str, object]) -> str:
+    risk = precursor_common_cause_risk_text(evidence_row)
+    grade = normalize_text(evidence_row.get("운영해석등급_ko"))
+    if risk == "높음":
+        return "공통원인 검토"
+    if risk == "중간":
+        return "공통원인 우선 확인"
+    if grade == "고위험 관찰":
+        return "단일 패널 우선 추적"
+    return "일반 모니터링"
+
+
+def precursor_monitoring_action_text(evidence_row: dict[str, object]) -> str:
+    grade = normalize_text(evidence_row.get("운영해석등급_ko"))
+    top1 = normalize_text(evidence_row.get("1순위_의심원인_ko"))
+    axes = report_precursor_axes_text(evidence_row)
+    prefault_B_effective_days = int(evidence_row.get("prefault_B_effective_days", 0) or 0)
+    prefault_B_common_cause_overlap_days = int(evidence_row.get("prefault_B_common_cause_overlap_days", 0) or 0)
+    subgroup_candidate_count = int(evidence_row.get("subgroup_candidate_panel_count", 0) or 0)
+    if prefault_B_common_cause_overlap_days > 0 and subgroup_candidate_count >= 3:
+        return "site_event/group_off 및 동일 subgroup 동시 흔들림을 먼저 재확인"
+    if prefault_B_common_cause_overlap_days > 0 and prefault_B_effective_days == 0:
+        return "site_event/group_off 공통원인 여부를 먼저 재확인"
+    if subgroup_candidate_count >= 3 and prefault_B_effective_days == 0:
+        return "동일 subgroup 동시 흔들림과 공통 외란 여부를 먼저 재확인"
+    if "오염" in top1:
+        return "세척 전후 추세 비교와 추가 관찰 권고"
+    if "음영" in top1:
+        return "인접 음영 구조와 시간대별 반복 여부 재확인 권고"
+    if "접촉" in top1 or "끊김" in top1:
+        return "다음 수집 주기 재확인 후 접속부 점검 여부 판단"
+    if grade == "고위험 관찰":
+        return "가까운 주기 재확인과 현장 비교 점검 권고"
+    if axes:
+        return f"{axes} 축 모니터링 유지"
+    return "지속 모니터링 유지"
+
+
+def strict_trigger_common_cause_text(evidence_row: dict[str, object]) -> str:
+    if bool(evidence_row.get("strict_trigger_proximal_common_cause_flag")):
+        return "strict_trigger 근처 공통원인 흔들림 동반"
+    return ""
+
+
+def fault_signal_path_text(evidence_row: dict[str, object]) -> str:
+    final_days = int(evidence_row.get("final_days", 0) or 0)
+    critical_days = int(evidence_row.get("critical_days", 0) or 0)
+    critical_confirmed_days = int(evidence_row.get("critical_confirmed_days", 0) or 0)
+    critical_sources = normalize_text(evidence_row.get("critical_sources_csv"))
+    if final_days > 0:
+        return "최종 고장 신호 경로"
+    if critical_confirmed_days > 0:
+        return "강한 고장 신호 확정 경로"
+    if critical_days > 0:
+        return "vdrop 강신호 경로" if "vdrop" in critical_sources else "강한 고장 신호 경로"
+    return "고장 신호 관측"
+
+
+def fault_signal_summary_text(evidence_row: dict[str, object]) -> str:
+    final_days = int(evidence_row.get("final_days", 0) or 0)
+    critical_days = int(evidence_row.get("critical_days", 0) or 0)
+    critical_confirmed_days = int(evidence_row.get("critical_confirmed_days", 0) or 0)
+    critical_sources = normalize_text(evidence_row.get("critical_sources_csv"))
+    parts: list[str] = []
+    if final_days > 0:
+        parts.append(f"최종 고장 신호 {final_days}일")
+        if critical_confirmed_days > 0:
+            parts.append("강한 고장 신호 확정이 함께 관측됨")
+        elif critical_days > 0:
+            parts.append("강한 고장 신호가 함께 관측됨")
+    elif critical_confirmed_days > 0:
+        parts.append(f"강한 고장 신호 확정 {critical_confirmed_days}일")
+    elif critical_days > 0:
+        parts.append(f"강한 고장 신호 {critical_days}일")
+    if "vdrop" in critical_sources:
+        parts.append("vdrop 전기 신호 동반")
+    if bool(evidence_row.get("strict_trigger_proximal_common_cause_flag")):
+        parts.append("strict_trigger 근처 공통원인 흔들림 동반")
+    return " / ".join(parts) if parts else "고장 신호 관측"
+
+
+def fault_signal_action_text(evidence_row: dict[str, object]) -> str:
+    top1 = normalize_text(evidence_row.get("1순위_의심원인_ko"))
+    if bool(evidence_row.get("strict_trigger_proximal_common_cause_flag")):
+        return "패널 국소 고장 신호와 함께 strict_trigger 근처 공통원인 여부도 동시 확인"
+    if "다이오드" in top1 or "국소 회로" in top1:
+        return "현장 점검 후 다이오드·국소 회로 이상 여부 우선 확인"
+    if "접촉" in top1 or "끊김" in top1 or "개방" in top1:
+        return "배선·접속부 우선 점검"
+    if "측정" in top1 or "응답" in top1:
+        return "MLPE/계측값과 접속 상태 동시 점검"
+    if "외부 전원" in top1:
+        return "패널 국소 이상보다 외부 전원/공통 원인 먼저 확인"
+    return "현장 점검과 최근 작업 이력 확인 권고"
 
 
 def build_precursor_report_df(evidence_df: pd.DataFrame) -> pd.DataFrame:
@@ -1611,31 +2153,34 @@ def build_precursor_report_df(evidence_df: pd.DataFrame) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     for _, row in evidence_df.fillna("").iterrows():
         precursor_date = normalize_text(row.get("전조날짜"))
-        if not precursor_date:
-            continue
         evidence_row = row.to_dict()
+        if not precursor_date or not has_precursor_signal(evidence_row) or has_hard_fault_evidence(evidence_row):
+            continue
         rows.append(
             {
                 "site": normalize_text(row.get("site")),
                 "panel_id": normalize_text(row.get("panel_id")),
-                "운영 판정": display_signal_grade(row),
-                "판정 근거": signal_grade_explainer(evidence_row),
+                "운영 판정": normalize_text(row.get("운영해석등급_ko")) or "전조 후보",
+                "판정 근거": report_reason_text(evidence_row),
                 "전조날짜": precursor_date,
-                "신호 기준일": normalize_text(row.get("고장날짜")),
-                "최종고장양상": normalize_text(row.get("최종고장양상_ko")),
+                "전조 축": report_precursor_axes_text(evidence_row),
+                "대표 전조 신호": report_precursor_signal_text(evidence_row),
+                "전조 요약": normalize_text(row.get("근거요약_ko")),
                 "상위 해석 후보": normalize_text(row.get("1순위_의심원인_ko")),
                 "기존 알고리즘 source": display_existing_algorithm_source(
                     row.get("커널로그 기존 알고리즘")
                 ),
-                "패턴 설명": pattern_explainer(evidence_row),
-                "대표 전조 신호": report_precursor_signal_text(evidence_row),
-                "전조 축": report_precursor_axes_text(evidence_row),
+                "패턴 설명": pattern_explainer(evidence_row, soften_hard_language=True),
+                "모니터링 권고": precursor_monitoring_action_text(evidence_row),
+                "공통원인 위험": precursor_common_cause_risk_text(evidence_row),
+                "권고 검토 레인": precursor_review_lane_text(evidence_row),
                 "EWS 전조 일수": int(row.get("ews_warning_days", 0) or 0),
                 "pre_alarm 일수": int(row.get("pre_alarm_days", 0) or 0),
                 "pre_ews 일수": int(row.get("pre_ews_days", 0) or 0),
+                "Option B 유효 일수": int(row.get("prefault_B_effective_days", 0) or 0),
+                "공통원인 겹침 일수": int(row.get("prefault_B_common_cause_overlap_days", 0) or 0),
                 "AE 전조 조건 일수": int(row.get("prefault_cond_ae_days", 0) or 0),
                 "DTW 전조 조건 일수": int(row.get("prefault_cond_dtw_days", 0) or 0),
-                "전조 요약": normalize_text(row.get("근거요약_ko")),
             }
         )
     return (
@@ -1644,6 +2189,51 @@ def build_precursor_report_df(evidence_df: pd.DataFrame) -> pd.DataFrame:
         .sort_values(["site", "panel_id"], ascending=[True, True])
         .reset_index(drop=True)
     )
+
+
+def build_fault_signal_report_df(evidence_df: pd.DataFrame) -> pd.DataFrame:
+    if evidence_df is None or evidence_df.empty:
+        return pd.DataFrame(columns=FAULT_SIGNAL_REPORT_OUTPUT_COLS)
+
+    rows: list[dict[str, object]] = []
+    for _, row in evidence_df.fillna("").iterrows():
+        evidence_row = row.to_dict()
+        if not has_hard_fault_evidence(evidence_row):
+            continue
+        event_fields = event_display_fields(evidence_row)
+        rows.append(
+            {
+                "site": normalize_text(row.get("site")),
+                "group root": normalize_text(row.get("group_root")),
+                "subgroup base": normalize_text(row.get("subgroup_base")),
+                "panel_id": normalize_text(row.get("panel_id")),
+                "동일 subgroup row 수": int(row.get("subgroup_candidate_panel_count", 0) or 0),
+                "운영 판정": normalize_text(row.get("운영해석등급_ko")) or display_signal_grade(row),
+                "확정 경로": fault_signal_path_text(evidence_row),
+                "고장 신호 요약": fault_signal_summary_text(evidence_row),
+                "전조 시작일": normalize_text(row.get("전조날짜")),
+                "신호 기준일": normalize_text(row.get("고장날짜")),
+                "사건유형": normalize_text(row.get("사건유형_ko")),
+                "사건 종결 요약": event_fields.get("사건 종결 요약", ""),
+                "근접 공통원인": strict_trigger_common_cause_text(evidence_row),
+                "상위 해석 후보": normalize_text(row.get("1순위_의심원인_ko")),
+                "기존 알고리즘 source": display_existing_algorithm_source(
+                    row.get("커널로그 기존 알고리즘")
+                ),
+                "패턴 설명": pattern_explainer(evidence_row),
+                "현장 점검 권고": fault_signal_action_text(evidence_row),
+            }
+        )
+    working = pd.DataFrame(rows)
+    working = attach_fault_signal_cluster_columns(working)
+    working = (
+        working.reindex(columns=FAULT_SIGNAL_REPORT_OUTPUT_COLS)
+        .sort_values(["site", "subgroup base", "신호 기준일", "panel_id"], ascending=[True, True, True, True])
+        .reset_index(drop=True)
+    )
+    if "동일 cluster row 수" in working.columns:
+        working["동일 cluster row 수"] = working["동일 cluster row 수"].fillna(0).astype(int)
+    return working
 
 
 def nonempty_sheet_df(df: pd.DataFrame, note: str) -> pd.DataFrame:
@@ -1682,6 +2272,10 @@ def signal_label_text(record: dict[str, object]) -> str:
         labels.append("group_off")
     if bool(record.get("prefault_B")):
         labels.append("prefault_B")
+    if bool(record.get("prefault_B_effective")):
+        labels.append("prefault_B_effective")
+    if bool(record.get("prefault_B_common_cause_overlap")):
+        labels.append("prefault_B_common_cause_overlap")
     if bool(record.get("prefault_cond_mid")):
         labels.append("prefault_mid")
     if bool(record.get("prefault_cond_ae")):
@@ -1819,10 +2413,17 @@ def build_detailed_report_frames(
             [{"note": "raw-only chain not completed; cluster summary unavailable"}]
         )
         frames["precursor_report"] = pd.DataFrame(columns=PRECURSOR_REPORT_OUTPUT_COLS)
+        frames["fault_signal_report"] = pd.DataFrame(columns=FAULT_SIGNAL_REPORT_OUTPUT_COLS)
         frames["definitions"] = pd.DataFrame(
             [
-                {"항목": "확정", "설명": "final/critical hard signal이 존재"},
-                {"항목": "고위험 관찰", "설명": "hard signal은 없지만 EWS/AE/DTW 전조가 강하게 누적"},
+                {
+                    "항목": "확정",
+                    "설명": "최종 고장 신호 또는 강한 고장 신호가 관측된 상태",
+                },
+                {
+                    "항목": "고위험 관찰",
+                    "설명": "즉시 확정에 쓰는 신호는 없지만 EWS/AE/DTW 전조가 강하게 누적",
+                },
                 {"항목": "관찰", "설명": "약한 이상 또는 간헐 이상으로 계속 관찰 필요"},
             ]
         )
@@ -1856,12 +2457,22 @@ def build_detailed_report_frames(
 
     per_site_core = {site: load_panel_day_core_from_workspace(workspace_root, site) for site in sites}
     per_site_gate = {site: load_gate_from_workspace(workspace_root, site) for site in sites}
-    preview_with_base = raw_only_preview_df.copy()
-    if not preview_with_base.empty:
-        preview_with_base["base"] = preview_with_base["panel_id"].map(panel_base)
-    base_counts = (
-        preview_with_base.groupby(["site", "base"]).size().to_dict()
-        if not preview_with_base.empty
+    preview_with_group_keys = raw_only_preview_df.copy()
+    if not preview_with_group_keys.empty:
+        preview_with_group_keys["group_root"] = preview_with_group_keys["panel_id"].map(
+            panel_group_root
+        )
+        preview_with_group_keys["subgroup_base"] = preview_with_group_keys["panel_id"].map(
+            panel_subgroup_base
+        )
+    group_root_counts = (
+        preview_with_group_keys.groupby(["site", "group_root"]).size().to_dict()
+        if not preview_with_group_keys.empty
+        else {}
+    )
+    subgroup_counts = (
+        preview_with_group_keys.groupby(["site", "subgroup_base"]).size().to_dict()
+        if not preview_with_group_keys.empty
         else {}
     )
 
@@ -1872,7 +2483,9 @@ def build_detailed_report_frames(
     for _, preview_row in raw_only_preview_df.iterrows():
         site = normalize_text(preview_row.get("site"))
         panel_id = normalize_text(preview_row.get("panel_id"))
-        base = panel_base(panel_id)
+        group_root = panel_group_root(panel_id)
+        subgroup_base = panel_subgroup_base(panel_id)
+        base = group_root
         key = row_key(site, panel_id)
         audit_row = audit_lookup.get(key, {})
         heuristic_row = heuristic_lookup.get(key, {})
@@ -1889,8 +2502,11 @@ def build_detailed_report_frames(
         evidence_row: dict[str, object] = {
             "site": site,
             "panel_id": panel_id,
-            "base": base,
-            "base_candidate_panel_count": int(base_counts.get((site, base), 0)),
+            "base": group_root,
+            "group_root": group_root,
+            "subgroup_base": subgroup_base,
+            "base_candidate_panel_count": int(group_root_counts.get((site, group_root), 0)),
+            "subgroup_candidate_panel_count": int(subgroup_counts.get((site, subgroup_base), 0)),
             "패널고장여부_ko": normalize_text(preview_row.get("패널고장여부_ko")),
             "사건유형_ko": normalize_text(preview_row.get("사건유형_ko")),
             "최종고장양상_ko": normalize_text(preview_row.get("최종고장양상_ko")),
@@ -1906,7 +2522,10 @@ def build_detailed_report_frames(
             "ews_warning_days": bool_count(panel_gate, "ews_warning"),
             "pre_alarm_days": bool_count(panel_gate, "pre_alarm"),
             "pre_ews_days": bool_count(panel_gate, "pre_ews"),
+            "critical_confirmed_days": bool_count(panel_core, "critical_confirmed"),
             "prefault_B_days": bool_count(panel_gate, "prefault_B"),
+            "prefault_B_effective_days": bool_count(panel_gate, "prefault_B_effective"),
+            "prefault_B_common_cause_overlap_days": bool_count(panel_gate, "prefault_B_common_cause_overlap"),
             "prefault_cond_mid_days": bool_count(panel_gate, "prefault_cond_mid"),
             "prefault_cond_ae_days": bool_count(panel_gate, "prefault_cond_ae"),
             "prefault_cond_dtw_days": bool_count(panel_gate, "prefault_cond_dtw"),
@@ -1927,6 +2546,12 @@ def build_detailed_report_frames(
             "사건해석상전조시작일": normalize_text(verdict_row.get("사건해석상전조시작일")),
             "세부fault_기준일": normalize_text(verdict_row.get("세부fault_기준일")),
             "판정주의_ko": normalize_text(verdict_row.get("판정주의_ko")),
+            "strict_trigger_proximal_common_cause_flag": int(
+                audit_row.get("strict_trigger_proximal_common_cause_flag", 0) or 0
+            ),
+            "warning_proximal_common_cause_flag": int(
+                audit_row.get("warning_proximal_common_cause_flag", 0) or 0
+            ),
             "대표critical_source": normalize_text(representative.get("critical_source")),
             "대표anom_subtype": normalize_text(representative.get("anom_subtype")),
             "대표mid_ratio": representative.get("mid_ratio", ""),
@@ -1937,6 +2562,7 @@ def build_detailed_report_frames(
             "대표hs_score": representative.get("hs_score", ""),
             "대표event_A": normalize_text(representative.get("event_A")),
             "대표critical_fault": normalize_text(representative.get("critical_fault")),
+            "대표critical_confirmed": normalize_text(representative.get("critical_confirmed")),
             "대표final_fault": normalize_text(representative.get("final_fault")),
         }
         evidence_row["전조날짜"] = choose_display_precursor_date(
@@ -2011,6 +2637,8 @@ def build_detailed_report_frames(
             "site_event_hard",
             "group_off_date",
             "prefault_B",
+            "prefault_B_effective",
+            "prefault_B_common_cause_overlap",
             "prefault_cond_mid",
             "prefault_cond_ae",
             "prefault_cond_dtw",
@@ -2036,6 +2664,8 @@ def build_detailed_report_frames(
             "site_event_hard",
             "group_off_date",
             "prefault_B",
+            "prefault_B_effective",
+            "prefault_B_common_cause_overlap",
             "prefault_cond_mid",
             "prefault_cond_ae",
             "prefault_cond_dtw",
@@ -2084,6 +2714,8 @@ def build_detailed_report_frames(
                     "site_event_hard": record.get("site_event_hard"),
                     "group_off_date": record.get("group_off_date"),
                     "prefault_B": record.get("prefault_B"),
+                    "prefault_B_effective": record.get("prefault_B_effective"),
+                    "prefault_B_common_cause_overlap": record.get("prefault_B_common_cause_overlap"),
                     "prefault_cond_mid": record.get("prefault_cond_mid"),
                     "prefault_cond_ae": record.get("prefault_cond_ae"),
                     "prefault_cond_dtw": record.get("prefault_cond_dtw"),
@@ -2125,6 +2757,8 @@ def build_detailed_report_frames(
                     "site_event_hard": record.get("site_event_hard"),
                     "group_off_date": record.get("group_off_date"),
                     "prefault_B": record.get("prefault_B"),
+                    "prefault_B_effective": record.get("prefault_B_effective"),
+                    "prefault_B_common_cause_overlap": record.get("prefault_B_common_cause_overlap"),
                     "prefault_cond_mid": record.get("prefault_cond_mid"),
                     "prefault_cond_ae": record.get("prefault_cond_ae"),
                     "prefault_cond_dtw": record.get("prefault_cond_dtw"),
@@ -2166,28 +2800,143 @@ def build_detailed_report_frames(
             axis=1,
         )
 
+    heuristic_definition_rows = [
+        {
+            "항목": "1/2/3순위_의심원인_ko",
+            "설명": "한국어 표시용 heuristic candidate 라벨이며, internal code를 대신하지 않는다. 라벨은 엔지니어 친화적으로 유지하고 쉬운 설명은 definitions에서 별도로 붙인다",
+        },
+        *[
+            {
+                "항목": display_name,
+                "설명": display_heuristic_note(display_name),
+            }
+            for display_name in DISPLAY_HEURISTIC_NAME_MAP.values()
+        ],
+    ]
+
     definitions_df = pd.DataFrame(
         [
+            {
+                "항목": "definitions 시트",
+                "설명": "상세 리포트 안에서 artifact 역할과 주요 컬럼 뜻을 짧게 설명하는 analyst/support glossary로, 읽기 순서나 auto-open 정책을 대신하지 않는다",
+            },
+            {
+                "항목": "detailed report",
+                "설명": "여러 row universe와 lineage를 함께 담는 analyst primary 문서로, current/master report를 대체하지 않는다",
+            },
+            {
+                "항목": "official current",
+                "설명": "frozen-support live chain 기준의 운영 공식 결과 묶음으로, detailed definitions에서는 역할과 공식성 차이만 짧게 설명한다",
+            },
+            {
+                "항목": "raw_only current",
+                "설명": "raw-only candidate 우주에서 strict current subset만 따로 보여주는 analyst/support 추가 자료로, official current를 대체하지 않는다",
+            },
             {
                 "항목": "운영해석등급_ko",
                 "설명": "상세 리포트용 보조 등급으로 core verdict를 바꾸지 않고 사람이 읽기 쉽게 정리한 값",
             },
             {
                 "항목": "확정",
-                "설명": "final_fault 또는 critical_fault hard signal이 존재하는 패널",
+                "설명": "최종 고장 신호 또는 강한 고장 신호가 존재하는 패널",
             },
             {
                 "항목": "고위험 관찰",
-                "설명": "hard signal은 없지만 EWS, prefault_cond_ae/dtw/ews, fault_like 누적이 강한 패널",
+                "설명": "즉시 확정에 쓰는 신호는 없지만 EWS, prefault_cond_ae/dtw/ews, fault_like 누적이 강한 패널",
             },
             {
                 "항목": "관찰",
                 "설명": "약한 이상 또는 간헐 이상으로 추가 추적이 필요한 패널",
             },
             {
-                "항목": "raw_only_chain 주의",
-                "설명": "raw-only candidate chain은 current/frozen 공식 결과보다 넓은 후보 우주를 보여준다",
+                "항목": "precursor_report",
+                "설명": "고장 신호가 아직 없는 precursor candidate만 따로 정리한 watchlist 성격의 보조표로, current artifact를 대체하지 않는다",
             },
+            {
+                "항목": "fault_signal_report",
+                "설명": "raw-only candidate 우주에서 고장 신호가 이미 관측된 패널만 따로 정리한 analyst/support 보조표로, operator 기본 읽기 순서에는 직접 포함되지 않는다",
+            },
+            {
+                "항목": "전조 축",
+                "설명": "EWS/AE/DTW/규칙징후 중 어떤 축이 precursor candidate를 만들었는지 보여주는 묶음",
+            },
+            {
+                "항목": "규칙징후",
+                "설명": "pre_alarm, fault_like, 상대 전압 이탈 같은 규칙 기반 이상 징후를 완곡하게 묶은 표현",
+            },
+            {
+                "항목": "Option B 유효 일수",
+                "설명": "prefault_B 중 site_event/group_off 공통원인 겹침을 제외하고 실제 precursor 승격 설명에 반영한 일수",
+            },
+            {
+                "항목": "공통원인 겹침 일수",
+                "설명": "prefault_B가 켜졌지만 site_event/group_off와 직접 겹쳐 operator-facing precursor 승격에서는 별도 분리한 일수",
+            },
+            {
+                "항목": "대표 전조 신호",
+                "설명": "전조 표에서 누적된 핵심 신호를 짧게 요약한 값",
+            },
+            {
+                "항목": "모니터링 권고",
+                "설명": "precursor candidate에 대해 다음 수집 주기에서 무엇을 먼저 볼지 안내하는 운영 메모",
+            },
+            {
+                "항목": "공통원인 위험",
+                "설명": "site_event/group_off 겹침과 동일 subgroup 동시 흔들림을 바탕으로 panel-local precursor 해석을 얼마나 보수적으로 볼지 적은 보조 라벨",
+            },
+            {
+                "항목": "권고 검토 레인",
+                "설명": "일반 모니터링, 단일 패널 우선 추적, 공통원인 검토 중 다음 확인 방향을 짧게 정리한 값",
+            },
+            {
+                "항목": "근접 공통원인",
+                "설명": "raw-only 고장 신호 표에서 strict_trigger 기준 ±3일 안에 common-cause 이력이 같이 있으면 채우는 analyst/support 보조 값",
+            },
+            {
+                "항목": "group root",
+                "설명": "panel_id에서 마지막 두 서브인덱스를 제외한 넓은 family root로, 같은 상위 군집인지 보기 위한 값",
+            },
+            {
+                "항목": "subgroup base",
+                "설명": "panel_id에서 마지막 서브인덱스 하나만 제외한 하위 묶음으로, runtime common-cause 검토 단위에 더 가까운 값",
+            },
+            {
+                "항목": "동일 subgroup row 수",
+                "설명": "같은 raw-only current/fault-signal 우주에서 동일 subgroup base 아래 함께 잡힌 panel row 수로, row 수와 독립 사건 수를 혼동하지 않도록 돕는 값",
+            },
+            {
+                "항목": "subgroup cluster",
+                "설명": f"같은 subgroup base 안에서 신호 기준일 간격이 {FAULT_SIGNAL_CLUSTER_GAP_DAYS}일 이하인 row를 하나의 보조 cluster로 묶어 읽기 쉽게 만든 값",
+            },
+            {
+                "항목": "동일 cluster row 수",
+                "설명": "같은 subgroup cluster 안에 함께 들어간 panel row 수로, 대략적인 사건 뭉치를 읽기 쉽게 보조하는 값",
+            },
+            {
+                "항목": "확정 경로",
+                "설명": "raw-only 고장 신호 표에서 주된 고장 신호 경로 하나만 표시한 값",
+            },
+            {
+                "항목": "고장 신호 요약",
+                "설명": "고장 신호 지속 일수와 vdrop 같은 보조 근거를 함께 적은 요약",
+            },
+            {
+                "항목": "현장 점검 권고",
+                "설명": "raw-only 고장 신호 표에서 첫 현장 액션 우선순위를 짧게 적은 값",
+            },
+            {
+                "항목": "strict_trigger_proximal_common_cause_flag",
+                "설명": "raw-only audit에서 strict_trigger 기준 ±3일 안의 common-cause 이력을 잡는 내부 analyst flag",
+            },
+            {
+                "항목": "warning_proximal_common_cause_flag",
+                "설명": "raw-only audit에서 earliest_warning 기준 ±3일 안의 common-cause 이력을 잡는 내부 analyst flag로, 현재는 audit 전용",
+            },
+            {
+                "항목": "raw_only_chain 주의",
+                "설명": "raw-only candidate chain은 current/frozen 공식 결과보다 넓은 후보 우주를 보여주며, official current를 대체하지 않는다",
+            },
+            *heuristic_definition_rows,
         ]
     )
 
@@ -2212,6 +2961,7 @@ def build_detailed_report_frames(
         "raw-only cluster summary unavailable",
     )
     frames["precursor_report"] = build_precursor_report_df(evidence_df)
+    frames["fault_signal_report"] = build_fault_signal_report_df(evidence_df)
     frames["definitions"] = definitions_df
     return frames
 
@@ -2627,6 +3377,7 @@ def main() -> None:
     master_report_path = output_root / "result" / ROOT_MASTER_REPORT_NAME
     detailed_report_path = output_root / "result" / ROOT_DETAILED_REPORT_NAME
     precursor_report_path = output_root / "result" / ROOT_PRECURSOR_REPORT_NAME
+    fault_signal_report_path = output_root / "result" / ROOT_FAULT_SIGNAL_REPORT_NAME
     live_preview_path = output_root / "result" / ROOT_LIVE_PREVIEW_NAME
     live_preview_df = pd.read_csv(live_preview_path, encoding="utf-8-sig", low_memory=False) if live_preview_path.exists() else pd.DataFrame()
     raw_only_candidate_preview_path = output_root / "result" / "raw_only_chain" / "fault_panel_result_raw_only_preview_v1.csv"
@@ -2665,7 +3416,7 @@ def main() -> None:
                 sites=sites,
                 compare=raw_only_chain_result.get("fixed_fault_reference_compare", {}),
                 published_outputs=raw_only_chain_result["published_outputs"],
-                live_preview_df=strict_preview_df,
+                live_preview_df=to_user_preview_schema(strict_preview_df),
                 publish_meta=publish_meta,
             ),
         )
@@ -2689,7 +3440,12 @@ def main() -> None:
         "precursor_report",
         pd.DataFrame(columns=PRECURSOR_REPORT_OUTPUT_COLS),
     )
+    fault_signal_report_df = detailed_frames.get(
+        "fault_signal_report",
+        pd.DataFrame(columns=FAULT_SIGNAL_REPORT_OUTPUT_COLS),
+    )
     precursor_report_df.to_csv(precursor_report_path, index=False, encoding="utf-8-sig")
+    fault_signal_report_df.to_csv(fault_signal_report_path, index=False, encoding="utf-8-sig")
     write_detailed_report_xlsx(
         detailed_report_path,
         detailed_frames,
@@ -2703,8 +3459,11 @@ def main() -> None:
             raw_only_chain_result=raw_only_chain_result,
             live_preview_df=live_preview_display_df,
             raw_only_preview_df=raw_only_current_preview_display_df,
+            precursor_report_df=precursor_report_df,
+            fault_signal_report_df=fault_signal_report_df,
             detailed_report_path=detailed_report_path,
             precursor_report_path=precursor_report_path,
+            fault_signal_report_path=fault_signal_report_path,
         ),
     )
     if live_preview_path.exists():
@@ -2726,6 +3485,7 @@ def main() -> None:
         "raw_only_chain": raw_only_chain_result,
         "detailed_report_path": str(detailed_report_path),
         "precursor_report_path": str(precursor_report_path),
+        "fault_signal_report_path": str(fault_signal_report_path),
         "master_report_path": str(master_report_path),
     }
     write_json(output_root / "run_metadata_v1.json", metadata)
@@ -2734,6 +3494,7 @@ def main() -> None:
     print(f"[OK] shadow compare: {output_root / 'shadow_compare_v1.json'}")
     print(f"[OK] detailed report: {detailed_report_path}")
     print(f"[OK] precursor report: {precursor_report_path}")
+    print(f"[OK] raw-only fault signal report: {fault_signal_report_path}")
     print(f"[OK] master report: {master_report_path}")
     if live_chain_result.get("requested"):
         print(f"[OK] live chain status: {live_chain_result.get('status_ko')}")

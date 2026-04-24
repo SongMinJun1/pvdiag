@@ -121,7 +121,7 @@ def build_rows(audit_df: pd.DataFrame) -> pd.DataFrame:
                 "benchmark전조시작일": "",
                 "전조형이력_flag": int(event_type == "전조형 고장"),
                 "급작고장이력_flag": int(event_type == "급작 고장"),
-                "공통원인이력_flag": 0,
+                "공통원인이력_flag": int(row.get("common_cause_history_flag") or 0),
                 "반복이상이력_flag": int(status == "미확정"),
                 "패널고장여부_ko": status,
                 "GPVS_적용대상_ko": "raw-only 미사용",

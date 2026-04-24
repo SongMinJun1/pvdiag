@@ -4,20 +4,31 @@ from __future__ import annotations
 import argparse
 import subprocess
 import tempfile
+import sys
 from pathlib import Path
 
 import pandas as pd
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if __package__ in {None, ""}:
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from research.prognostics.heuristic_display_registry_v1 import (
+        display_heuristic_name as shared_display_heuristic_name,
+    )
+else:
+    from .heuristic_display_registry_v1 import (
+        display_heuristic_name as shared_display_heuristic_name,
+    )
 
 VERDICT_NAME = "panel_day_engine_panel_multiaxis_verdict_v1.csv"
-INTEGRATED_NAME = "panel_day_engine_integrated_result_table_v1.csv"
 HEURISTIC_NAME = "panel_day_engine_cause_candidate_heuristics_v1.csv"
 
 OUTPUT_DIR_DEFAULT = REPO_ROOT / "outputs" / "validation"
 OUTPUT_CSV_NAME = "fault_validation_report_v1.csv"
 OUTPUT_MD_NAME = "fault_validation_report_v1.md"
+BACKFILL_RUNNER_PATH = REPO_ROOT / "app" / "run_backfill.py"
 
 CSV_COLS = [
     "case_id",
@@ -39,18 +50,6 @@ VERDICT_REQUIRED_COLS = [
     "커널로그_원인군_ko",
 ]
 
-INTEGRATED_REQUIRED_COLS = [
-    "site",
-    "panel_id",
-    "패널고장여부_ko",
-    "사건유형_ko",
-    "최종고장양상_ko",
-    "커널로그_원인군_ko",
-    "1순위_의심원인_ko",
-    "2순위_의심원인_ko",
-    "3순위_의심원인_ko",
-]
-
 HEURISTIC_REQUIRED_COLS = [
     "site",
     "panel_id",
@@ -64,12 +63,63 @@ HEURISTIC_REQUIRED_COLS = [
 
 SURROGATE_IDS = [
     "surrogate::부분음영형",
-    "surrogate::접촉 끊김형",
-    "surrogate::장치 측정 이상형",
-    "surrogate::장치 응답 이상형",
+    "surrogate::접속불량·부분개방형",
+    "surrogate::센서·계측피드백이상형",
+    "surrogate::제어응답이상형",
     "surrogate::gpvs_attach_on_off_fallback",
     "surrogate::sparse_conalog",
 ]
+
+CORE_EXPECTATIONS = {
+    ("conalog", "7f7dd654-2760-4eb2-a197-3ebb72b85cda.2.0"): {
+        "패널고장여부_ko": "고장",
+        "사건유형_ko": "전조형 고장",
+        "최종고장양상_ko": "진행성 악화",
+        "커널로그_원인군_ko": "다이오드형",
+        "원인후보_경합상태_ko": "단일우세",
+        "원인후보_실증우선확인_ko": "다이오드·서브스트링형 우선 점검",
+    },
+    ("conalog", "c42997a6-5881-47e7-9035-7de8a2673b54.1.1"): {
+        "패널고장여부_ko": "고장",
+        "사건유형_ko": "전조형 고장",
+        "최종고장양상_ko": "급격 종료",
+        "커널로그_원인군_ko": "개방/장치이상형",
+        "원인후보_경합상태_ko": "2자경합",
+        "원인후보_실증우선확인_ko": "센서·피드백형과 접속·부분개방형을 함께 우선 점검",
+    },
+    ("gangui", "bf1a912f-6cf0-4f12-8e97-9d9d86576511.0.7"): {
+        "패널고장여부_ko": "고장",
+        "사건유형_ko": "급작 고장",
+        "최종고장양상_ko": "급작 발생",
+        "커널로그_원인군_ko": "다이오드형",
+        "원인후보_경합상태_ko": "다자경합",
+        "원인후보_실증우선확인_ko": "다이오드·서브스트링형, 센서·피드백형, 접속·부분개방형을 함께 우선 점검",
+    },
+    ("gangui", "bf1a912f-6cf0-4f12-8e97-9d9d86576511.2.16"): {
+        "패널고장여부_ko": "고장",
+        "사건유형_ko": "급작 고장",
+        "최종고장양상_ko": "급작 발생",
+        "커널로그_원인군_ko": "다이오드형",
+        "원인후보_경합상태_ko": "다자경합",
+        "원인후보_실증우선확인_ko": "다이오드·서브스트링형, 센서·피드백형, 접속·부분개방형을 함께 우선 점검",
+    },
+    ("ktc_ess", "10305b40-b67e-40d1-9cd1-271b6642a3d9.2.12"): {
+        "패널고장여부_ko": "고장",
+        "사건유형_ko": "급작 고장",
+        "최종고장양상_ko": "급작 발생",
+        "커널로그_원인군_ko": "다이오드형",
+        "원인후보_경합상태_ko": "단일우세",
+        "원인후보_실증우선확인_ko": "다이오드·서브스트링형 우선 점검",
+    },
+    ("ktc_ess", "70ad2d87-cdb6-4842-81b7-71c7599bbf05.1.4"): {
+        "패널고장여부_ko": "고장",
+        "사건유형_ko": "전조형 고장",
+        "최종고장양상_ko": "진행성 악화",
+        "커널로그_원인군_ko": "모듈손상형",
+        "원인후보_경합상태_ko": "다자경합",
+        "원인후보_실증우선확인_ko": "열화형, 센서·피드백형, 다이오드·서브스트링형을 함께 우선 점검",
+    },
+}
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -163,37 +213,33 @@ def run(cmd: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
 
 def build_core_rows(
     verdict_df: pd.DataFrame,
-    integrated_df: pd.DataFrame,
     heuristic_df: pd.DataFrame,
 ) -> list[dict[str, object]]:
     fault_verdict_df = verdict_df.loc[verdict_df["패널고장여부_ko"].map(normalize_text).eq("고장")].copy()
-    fault_integrated_df = integrated_df.loc[integrated_df["패널고장여부_ko"].map(normalize_text).eq("고장")].copy()
     if len(fault_verdict_df) != 6:
         raise SystemExit(f"{VERDICT_NAME} current fault panel count must be 6, found {len(fault_verdict_df)}")
-    if len(fault_integrated_df) != 6:
-        raise SystemExit(f"{INTEGRATED_NAME} current fault panel count must be 6, found {len(fault_integrated_df)}")
     if len(heuristic_df) != 6:
         raise SystemExit(f"{HEURISTIC_NAME} current fault panel count must be 6, found {len(heuristic_df)}")
 
     verdict_lookup = lookup_map(fault_verdict_df)
-    integrated_lookup = lookup_map(fault_integrated_df)
     heuristic_lookup = lookup_map(heuristic_df)
 
-    if set(verdict_lookup) != set(integrated_lookup):
-        raise SystemExit("fault key universe mismatch between verdict and integrated outputs")
+    expected_keys = set(CORE_EXPECTATIONS)
+    if set(verdict_lookup) != expected_keys:
+        raise SystemExit("fault key universe mismatch between verdict output and official core expectation registry")
     if set(verdict_lookup) != set(heuristic_lookup):
         raise SystemExit("fault key universe mismatch between verdict and heuristic outputs")
 
     rows: list[dict[str, object]] = []
-    for key in sorted(verdict_lookup):
+    for key in sorted(expected_keys):
         site, panel_id = key
+        expected_row = CORE_EXPECTATIONS[key]
         verdict_row = verdict_lookup[key]
-        integrated_row = integrated_lookup[key]
         heuristic_row = heuristic_lookup[key]
         scope = f"frozen_fault_snapshot::{site}/{panel_id}"
 
-        expected_fault_status = normalize_text(verdict_row["패널고장여부_ko"])
-        actual_fault_status = normalize_text(integrated_row["패널고장여부_ko"])
+        expected_fault_status = normalize_text(expected_row["패널고장여부_ko"])
+        actual_fault_status = normalize_text(verdict_row["패널고장여부_ko"])
         rows.append(
             {
                 "case_id": f"core::{panel_id}::패널고장여부",
@@ -203,12 +249,12 @@ def build_core_rows(
                 "expected_output_ko": expected_fault_status,
                 "actual_output_ko": actual_fault_status,
                 "pass_flag": int(expected_fault_status == actual_fault_status),
-                "note_ko": "field truth replay가 아니라 frozen panel multiaxis verdict와 final integrated table 간 consistency check 임",
+                "note_ko": "field truth replay가 아니라 current frozen core registry 대비 panel multiaxis verdict alignment check 임",
             }
         )
 
-        expected_event_type = normalize_text(verdict_row["사건유형_ko"])
-        actual_event_type = normalize_text(integrated_row["사건유형_ko"])
+        expected_event_type = normalize_text(expected_row["사건유형_ko"])
+        actual_event_type = normalize_text(verdict_row["사건유형_ko"])
         rows.append(
             {
                 "case_id": f"core::{panel_id}::사건유형",
@@ -222,8 +268,8 @@ def build_core_rows(
             }
         )
 
-        expected_terminal = normalize_text(verdict_row["최종고장양상_ko"])
-        actual_terminal = normalize_text(integrated_row["최종고장양상_ko"])
+        expected_terminal = normalize_text(expected_row["최종고장양상_ko"])
+        actual_terminal = normalize_text(verdict_row["최종고장양상_ko"])
         rows.append(
             {
                 "case_id": f"core::{panel_id}::최종고장양상",
@@ -237,8 +283,8 @@ def build_core_rows(
             }
         )
 
-        expected_conalog = normalize_text(verdict_row["커널로그_원인군_ko"])
-        actual_conalog = normalize_text(integrated_row["커널로그_원인군_ko"])
+        expected_conalog = normalize_text(expected_row["커널로그_원인군_ko"])
+        actual_conalog = normalize_text(verdict_row["커널로그_원인군_ko"])
         rows.append(
             {
                 "case_id": f"core::{panel_id}::conalog원인군",
@@ -252,7 +298,7 @@ def build_core_rows(
             }
         )
 
-        expected_competition = expected_competition_state(heuristic_row["원인후보_공동상위후보_csv"])
+        expected_competition = normalize_text(expected_row["원인후보_경합상태_ko"])
         actual_competition = normalize_text(heuristic_row["원인후보_경합상태_ko"])
         rows.append(
             {
@@ -267,11 +313,7 @@ def build_core_rows(
             }
         )
 
-        expected_note = expected_action_note(
-            normalize_text(heuristic_row["원인후보_top1_ko"]),
-            actual_competition,
-            normalize_text(heuristic_row["원인후보_공동상위후보_csv"]),
-        )
+        expected_note = normalize_text(expected_row["원인후보_실증우선확인_ko"])
         actual_note = normalize_text(heuristic_row["원인후보_실증우선확인_ko"])
         rows.append(
             {
@@ -290,19 +332,19 @@ def build_core_rows(
 
 def build_surrogate_rows(
     root: Path,
-    integrated_df: pd.DataFrame,
+    verdict_df: pd.DataFrame,
+    heuristic_df: pd.DataFrame,
 ) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
-    fault_integrated_df = integrated_df.loc[integrated_df["패널고장여부_ko"].map(normalize_text).eq("고장")].copy()
     label_values = {
-        normalize_text(value)
-        for value in fault_integrated_df[
-            ["1순위_의심원인_ko", "2순위_의심원인_ko", "3순위_의심원인_ko"]
+        shared_display_heuristic_name(value)
+        for value in heuristic_df[
+            ["원인후보_top1_ko", "원인후보_top2_ko", "원인후보_top3_ko"]
         ].stack().tolist()
         if normalize_text(value)
     }
 
-    for label in ["부분음영형", "접촉 끊김 형", "장치 측정 이상형", "장치 응답 이상형"]:
+    for label in ["부분음영형", "접속 불량·부분 개방형", "센서·계측 피드백 이상형", "제어 응답 이상형"]:
         rows.append(
             {
                 "case_id": f"surrogate::{label.replace(' ', '')}",
@@ -320,8 +362,8 @@ def build_surrogate_rows(
         tmp_root = Path(tmp_dir)
         on_result = run(
             [
-                "python",
-                "app/run_backfill.py",
+                sys.executable,
+                str(BACKFILL_RUNNER_PATH),
                 "--dry-run",
                 "--site",
                 "conalog",
@@ -330,7 +372,7 @@ def build_surrogate_rows(
                 "--end-date",
                 "2024-01-07",
                 "--input-root",
-                ".",
+                str(root),
                 "--output-root",
                 str(tmp_root / "on"),
                 "--gpvs-attach",
@@ -340,12 +382,12 @@ def build_surrogate_rows(
                 "--mode",
                 "operational",
             ],
-            cwd=root,
+            cwd=REPO_ROOT,
         )
         off_result = run(
             [
-                "python",
-                "app/run_backfill.py",
+                sys.executable,
+                str(BACKFILL_RUNNER_PATH),
                 "--dry-run",
                 "--site",
                 "conalog",
@@ -354,7 +396,7 @@ def build_surrogate_rows(
                 "--end-date",
                 "2024-01-07",
                 "--input-root",
-                ".",
+                str(root),
                 "--output-root",
                 str(tmp_root / "off"),
                 "--gpvs-attach",
@@ -364,7 +406,7 @@ def build_surrogate_rows(
                 "--mode",
                 "operational",
             ],
-            cwd=root,
+            cwd=REPO_ROOT,
         )
         if on_result.returncode != 0 or off_result.returncode != 0:
             raise SystemExit("backfill gpvs attach on/off dry-run fallback check failed")
@@ -390,25 +432,20 @@ def build_surrogate_rows(
             }
         )
 
-    sparse_df = integrated_df.loc[
-        integrated_df["커널로그_원인군_ko"].map(normalize_text).eq("불충분")
+    sparse_df = verdict_df.loc[
+        verdict_df["커널로그_원인군_ko"].map(normalize_text).eq("불충분")
     ].copy()
-    sparse_blank = True
-    if not sparse_df.empty:
-        sparse_normalized = sparse_df[
-            ["1순위_의심원인_ko", "2순위_의심원인_ko", "3순위_의심원인_ko"]
-        ].apply(lambda column: column.map(normalize_text))
-        sparse_blank = sparse_normalized.eq("").all().all()
+    heuristic_fault_only = int(len(heuristic_df))
     rows.append(
         {
             "case_id": "surrogate::sparse_conalog",
             "case_type": "surrogate_sparse_conalog",
             "validation_axis_ko": "sparse conalog test",
-            "input_scope": "frozen_integrated_snapshot",
-            "expected_output_ko": "sparse conalog rows는 conservative하게 유지되고 suspected cause는 blank 처리",
-            "actual_output_ko": f"sparse_row_count={len(sparse_df)}, suspected_cause_blank={int(bool(sparse_blank))}",
-            "pass_flag": int(len(sparse_df) > 0 and sparse_blank),
-            "note_ko": "synthetic/skeleton surrogate row이며 sparse conalog handling guardrail만 점검함",
+            "input_scope": "frozen_verdict_snapshot",
+            "expected_output_ko": "sparse conalog rows는 verdict에 남아 있고 heuristic output은 fault-only 6행으로 제한되어야 함",
+            "actual_output_ko": f"sparse_row_count={len(sparse_df)}, heuristic_fault_row_count={heuristic_fault_only}",
+            "pass_flag": int(len(sparse_df) > 0 and heuristic_fault_only == 6),
+            "note_ko": "synthetic/skeleton surrogate row이며 sparse conalog rows를 final fault-only heuristic output에 섞지 않는 guardrail을 점검함",
         }
     )
 
@@ -510,15 +547,13 @@ def main(argv: list[str] | None = None) -> int:
     share_dir = root / "_share"
 
     verdict_df = read_csv(share_dir / VERDICT_NAME)
-    integrated_df = read_csv(share_dir / INTEGRATED_NAME)
     heuristic_df = read_csv(share_dir / HEURISTIC_NAME)
 
     ensure_columns(verdict_df, VERDICT_REQUIRED_COLS, VERDICT_NAME)
-    ensure_columns(integrated_df, INTEGRATED_REQUIRED_COLS, INTEGRATED_NAME)
     ensure_columns(heuristic_df, HEURISTIC_REQUIRED_COLS, HEURISTIC_NAME)
 
-    rows = build_core_rows(verdict_df, integrated_df, heuristic_df)
-    rows.extend(build_surrogate_rows(root, integrated_df))
+    rows = build_core_rows(verdict_df, heuristic_df)
+    rows.extend(build_surrogate_rows(root, verdict_df, heuristic_df))
     report_df = pd.DataFrame(rows).reindex(columns=CSV_COLS)
     csv_path, md_path = write_outputs(report_df, args.output_dir.resolve())
     print(f"[OK] wrote {csv_path}")

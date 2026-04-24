@@ -16,6 +16,19 @@ import pandas as pd
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if __package__ in {None, ""}:
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from research.prognostics.heuristic_display_registry_v1 import (
+        DISPLAY_HEURISTIC_NAME_MAP,
+        display_heuristic_name as shared_display_heuristic_name,
+    )
+else:
+    from .heuristic_display_registry_v1 import (
+        DISPLAY_HEURISTIC_NAME_MAP,
+        display_heuristic_name as shared_display_heuristic_name,
+    )
+
 RELEASE_ROOT = REPO_ROOT / "release" / "conalog_full_runtime_v1"
 PACKAGE_ROOT = RELEASE_ROOT / "package"
 PACKAGE_APP_ROOT = PACKAGE_ROOT / "app"
@@ -92,23 +105,16 @@ HEURISTIC_REQUIRED_COLS = [
     "원인후보_top2_ko",
     "원인후보_top3_ko",
 ]
-DISPLAY_HEURISTIC_NAME_MAP = {
-    "다이오드·서브스트링형": "다이오드·국소 회로 이상형",
-    "접속·부분개방형": "접촉 끊김 형",
-    "센서·피드백형": "장치 측정 이상형",
-    "제어응답형": "장치 응답 이상형",
-    "전력변환부형": "전력변환부 이상형",
-    "외부계통교란형": "외부 전원 흔들림형",
-}
-
 BASELINE_SITES = ["conalog", "gangui", "ktc_ess"]
 PREVIEW_OUTPUT_COLS = [
     "site",
     "panel_id",
     "전조날짜",
     "고장 기준일",
-    "최종고장양상",
     "운영 판정",
+    "급락 종결 관측",
+    "점진 저하 누적",
+    "사건 종결 요약",
     "상위 해석 후보",
     "기존 알고리즘 source",
 ]
@@ -177,6 +183,7 @@ REQUIRED_FAULT_EVENT_AUDIT_INPUTS = [
 ]
 PACKAGED_RUNTIME_CHAIN_SCRIPTS = [
     REPO_ROOT / "research" / "prognostics" / "runtime_rawonly_chain_common_v1.py",
+    REPO_ROOT / "research" / "prognostics" / "heuristic_display_registry_v1.py",
     REPO_ROOT / "research" / "prognostics" / "build_panel_day_engine_bootstrap_verdict_v1.py",
     REPO_ROOT / "research" / "prognostics" / "build_panel_day_engine_fault_panel_event_audit_v1.py",
     REPO_ROOT / "research" / "prognostics" / "build_panel_day_engine_panel_multiaxis_verdict_v1.py",
@@ -230,8 +237,7 @@ def validate_unique_keys(df: pd.DataFrame, name: str) -> None:
 
 
 def display_heuristic_name(raw_label: object) -> str:
-    normalized = normalize_text(raw_label)
-    return DISPLAY_HEURISTIC_NAME_MAP.get(normalized, normalized)
+    return shared_display_heuristic_name(raw_label)
 
 
 def choose_display_precursor_date(
@@ -279,6 +285,17 @@ def display_existing_algorithm_source(value: object) -> str:
     if text == "기존 알고리즘 미검출":
         return "미검출"
     return text
+
+
+def event_summary_from_labels(event_type: object, terminal_pattern: object) -> str:
+    event = normalize_text(event_type)
+    terminal = normalize_text(terminal_pattern)
+    mapping = {
+        ("전조형 고장", "급격 종료"): "전조 후 급격 종료",
+        ("전조형 고장", "진행성 악화"): "전조 후 진행 악화",
+        ("급작 고장", "급작 발생"): "급작 발생",
+    }
+    return mapping.get((event, terminal), "")
 
 
 def build_fault6_artifact() -> pd.DataFrame:
@@ -438,8 +455,17 @@ def build_fault6_preview_artifact(fault_df: pd.DataFrame) -> pd.DataFrame:
                     strict_trigger_date=audit_row.get("strict_trigger_date"),
                     first_final_fault_date=audit_row.get("first_final_fault_date"),
                 ),
-                "최종고장양상": normalize_text(row["최종고장양상_ko"]),
                 "운영 판정": display_signal_grade(row),
+                "급락 종결 관측": "있음"
+                if normalize_text(row["최종고장양상_ko"]) in {"급격 종료", "급작 발생"}
+                else "없음",
+                "점진 저하 누적": "있음"
+                if normalize_text(verdict_row.get("사건유형_ko", row.get("사건유형_ko"))) == "전조형 고장"
+                else "없음",
+                "사건 종결 요약": event_summary_from_labels(
+                    verdict_row.get("사건유형_ko", row.get("사건유형_ko")),
+                    row.get("최종고장양상_ko"),
+                ),
                 "상위 해석 후보": normalize_text(row["1순위_의심원인_ko"]),
                 "기존 알고리즘 source": display_existing_algorithm_source(
                     MAIL_BUCKET_ALGORITHM_MAP.get((site, panel_id), "")
@@ -928,8 +954,6 @@ if errorlevel 1 goto FAIL
 echo [100%%] 실행 완료. 결과 리포트를 엽니다.
 if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
@@ -1138,8 +1162,6 @@ echo [100%%] 실행 완료. 결과 리포트를 엽니다.
 
 if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
@@ -1212,8 +1234,6 @@ echo [100%%] 실행 완료. 결과 리포트를 엽니다.
 
 if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
@@ -1309,8 +1329,6 @@ echo [100%%] 실행 완료. 결과 리포트를 엽니다.
 
 if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
@@ -1394,8 +1412,6 @@ echo [100%%] 실행 완료. 결과 리포트를 엽니다.
 
 if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
@@ -1515,6 +1531,7 @@ def main() -> None:
         "root_live_report_output_name": "fault_panel_result_current_report_v1.md",
         "root_master_report_output_name": "fault_panel_result_master_report_v1.md",
         "root_detailed_report_output_name": "fault_panel_result_detailed_report_v1.xlsx",
+        "root_fault_signal_report_output_name": "fault_panel_result_raw_only_fault_signal_report_v1.csv",
         "root_raw_only_fault_output_name": "fault_panel_result_raw_only_current_v1.csv",
         "root_raw_only_preview_output_name": "fault_panel_result_raw_only_current_preview_v1.csv",
         "root_raw_only_report_output_name": "fault_panel_result_raw_only_current_report_v1.md",

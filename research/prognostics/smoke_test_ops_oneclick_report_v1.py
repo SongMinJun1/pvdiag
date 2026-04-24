@@ -23,16 +23,17 @@ HANDOFF_EXAMPLE_INPUT = REPO_ROOT / "delivery/conalog_handoff_v1/examples/input_
 WATCH_OUTPUTS = [
     REPO_ROOT / "_share/panel_day_engine_panel_multiaxis_verdict_v1.csv",
     REPO_ROOT / "_share/panel_day_engine_gpvs_evidence_pack_v1.csv",
-    REPO_ROOT / "_share/panel_day_engine_integrated_result_table_v1.csv",
     REPO_ROOT / "_share/panel_day_engine_cause_candidate_heuristics_v1.csv",
 ]
+OPTIONAL_EXPERIMENTAL_EXPORTS = {
+    "gpvs_evidence_pack_v1.csv": REPO_ROOT / "_share/panel_day_engine_gpvs_evidence_pack_v1.csv",
+    "cause_candidate_heuristics_v1.csv": REPO_ROOT / "_share/panel_day_engine_cause_candidate_heuristics_v1.csv",
+}
 
 EXPECTED_LATEST_FILES = [
     "conalog_panel_result_v1.csv",
     "conalog_site_summary_v1.csv",
     "conalog_run_metadata_v1.json",
-    "integrated_result_table_v1.csv",
-    "integrated_result_summary_v1.csv",
     "daily_report_v1.md",
     "runtime_log_v1.jsonl",
     "failure_log_v1.jsonl",
@@ -143,8 +144,16 @@ def main() -> None:
         for filename in EXPECTED_LATEST_FILES:
             assert_true((latest_dir / filename).exists(), f"missing expected latest file: {latest_dir / filename}")
         assert_true((latest_dir / "conalog_reference_sidecar_v1.csv").exists(), "experimental sidecar must exist when enabled")
-        assert_true((latest_dir / "gpvs_evidence_pack_v1.csv").exists(), "experimental GPVS export must exist when enabled")
-        assert_true((latest_dir / "cause_candidate_heuristics_v1.csv").exists(), "experimental heuristic export must exist when enabled")
+        plan = json.loads((latest_dir / "oneclick_plan_v1.json").read_text(encoding="utf-8"))
+        optional_missing = set(plan.get("optional_missing_exports", []))
+        for export_name, source_path in OPTIONAL_EXPERIMENTAL_EXPORTS.items():
+            latest_export_path = latest_dir / export_name
+            if source_path.exists():
+                assert_true(latest_export_path.exists(), f"experimental export must exist when source exists: {latest_export_path}")
+                assert_true(export_name not in optional_missing, f"present export should not be marked optional-missing: {export_name}")
+            else:
+                assert_true(not latest_export_path.exists(), f"missing optional export should not be fabricated: {latest_export_path}")
+                assert_true(export_name in optional_missing, f"missing optional export should be recorded in plan: {export_name}")
         metadata = json.loads((latest_dir / "conalog_run_metadata_v1.json").read_text(encoding="utf-8"))
         assert_true(metadata.get("dry_run") is False, "non-dry-run metadata flag mismatch")
 

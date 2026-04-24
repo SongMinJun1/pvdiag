@@ -1,4 +1,5 @@
-@echo off
+﻿@echo off
+chcp 65001 >nul
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
@@ -8,12 +9,12 @@ set "IMPORT_APP=%PACKAGE_ROOT%\app\import_any_csv_root.py"
 set "DEFAULT_OUTPUT=%PACKAGE_ROOT%\real_output_imported"
 
 call "%PACKAGE_ROOT%\bin\resolve_python.bat"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
 
 where powershell >nul 2>nul
 if errorlevel 1 (
   echo Windows PowerShell을 찾을 수 없습니다.
-  exit /b 0
+  goto FAIL
 )
 
 set "DATA_ROOT="
@@ -21,8 +22,10 @@ for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Add-Type -Ass
 
 if "%DATA_ROOT%"=="" (
   echo 입력 폴더 경로를 다시 확인하십시오.
-  exit /b 0
+  goto CANCEL
 )
+
+echo [005%%] 입력 폴더 선택 완료: %DATA_ROOT%
 
 set "OUTPUT_ROOT="
 for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; $dialog.Description='출력 폴더를 선택하십시오 (취소 시 기본값 사용)'; if ($dialog.ShowDialog() -eq 'OK') { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Output $dialog.SelectedPath }"`) do set "OUTPUT_ROOT=%%I"
@@ -32,22 +35,45 @@ set "IMPORT_STAGE_ROOT=%OUTPUT_ROOT%\imported_data"
 set "IMPORT_ENV=%IMPORT_STAGE_ROOT%\import_env.bat"
 set "IMPORT_MANIFEST=%IMPORT_STAGE_ROOT%\import_any_csv_manifest_v1.json"
 
+echo [010%%] 결과 폴더 준비 완료: %OUTPUT_ROOT%
+echo [020%%] CSV 파일을 재귀 수집해 실행 구조로 staging합니다.
+
 %PYTHON_CMD% "%IMPORT_APP%" --input-root "%DATA_ROOT%" --output-root "%IMPORT_STAGE_ROOT%" --clear-output --manifest-path "%IMPORT_MANIFEST%" --env-bat-path "%IMPORT_ENV%"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
 
 call "%IMPORT_ENV%"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
+
+echo [040%%] 학습/추론 및 결과표 생성을 시작합니다.
 
 %PYTHON_CMD% "%APP_PATH%" --data-root "%IMPORTED_DATA_ROOT%" --output-root "%OUTPUT_ROOT%" --sites "%IMPORTED_SITES%"
-if errorlevel 1 exit /b %errorlevel%
+if errorlevel 1 goto FAIL
 
-if exist "%OUTPUT_ROOT%\result\fault_panel_result_master_report_v1.md" (
-  start "" "%OUTPUT_ROOT%\result\fault_panel_result_master_report_v1.md"
+echo [100%%] 실행 완료. 결과 리포트를 엽니다.
+
+if exist "%OUTPUT_ROOT%\result\fault_panel_result_current_preview_v1.csv" (
+  start "" "%OUTPUT_ROOT%\result\fault_panel_result_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\result\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\result\fault_panel_result_current_report_v1.md"
-) else if exist "%OUTPUT_ROOT%\result\fault_panel_result_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\result\fault_panel_result_current_preview_v1.csv"
+) else if exist "%OUTPUT_ROOT%\result\fault_panel_result_master_report_v1.md" (
+  start "" "%OUTPUT_ROOT%\result\fault_panel_result_master_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\result" (
   start "" "%OUTPUT_ROOT%\result"
 )
+goto SUCCESS
+
+:CANCEL
+echo 작업이 취소되었습니다.
+if "%PVDIAG_NO_PAUSE%"=="" pause
+exit /b 0
+
+:FAIL
+set "EXIT_CODE=%ERRORLEVEL%"
+if "%EXIT_CODE%"=="" set "EXIT_CODE=1"
+echo 실행이 중단되었습니다. 위 메시지를 확인하십시오.
+if "%PVDIAG_NO_PAUSE%"=="" pause
+exit /b %EXIT_CODE%
+
+:SUCCESS
+if "%PVDIAG_NO_PAUSE%"=="" pause
 exit /b 0

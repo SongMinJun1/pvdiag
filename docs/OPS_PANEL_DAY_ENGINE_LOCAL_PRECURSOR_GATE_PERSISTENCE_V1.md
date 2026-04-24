@@ -56,8 +56,11 @@
 
 ## shadow builder 변경점
 - 새 helper file이 있으면 exact gate state를 우선 join한다.
-- 없으면 기존 `ae_simple_ews_warnings.csv`, `ae_simple_prefault_B_daily.csv`, `ae_simple_panel_alarms.csv` 로 예전 방식의 flag를 유지한다.
+- 없으면 기존 `ae_simple_ews_warnings.csv`, canonical `ae_simple_prefault_option_b_daily.csv`(legacy alias `ae_simple_prefault_B_daily.csv` 포함), `ae_simple_panel_alarms.csv` 로 예전 방식의 flag를 유지한다.
 - 즉, 과거 site output도 깨지지 않는다.
+- `prefault_B`는 raw helper로 유지하고, `prefault_B_common_cause_overlap` / `prefault_B_effective` 를 함께 보존해 downstream에서 common-cause gate를 분리 검토할 수 있게 한다.
+- `local_precursor_any_flag`와 `alert_pattern`은 operator-facing precursor eligibility에 가까운 shadow 지표이므로, raw `prefault_B`가 아니라 `prefault_B_effective`를 사용한다.
+- 즉, `site_event` / `group_off`와 직접 겹친 `prefault_B` row는 forensic raw helper로는 남지만 local precursor 승격 일수에는 바로 포함하지 않는다.
 
 ## 좁은 shadow-join integrity fix
 - 이 패치에는 helper gate file join 안정성 보정도 포함된다.

@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-04-20T05:05:07Z",
+  "generated_at_utc": "2026-04-20T12:22:14Z",
   "python_runtime_kind": "windows_embeddable_python",
   "python_version": "3.11.9",
   "python_exe_path": "/Users/b9gc/pvdiag/release/conalog_full_runtime_v1/package/runtime/windows_x64/python/python.exe",
@@ -10,8 +10,9 @@
     "numpy==2.3.4",
     "pandas==2.3.3",
     "tqdm==4.67.1",
-    "torch==2.9.1"
+    "torch==2.9.1",
+    "openpyxl==3.1.5"
   ],
-  "wheel_count": 16,
+  "wheel_count": 18,
   "note_ko": "이 runtime은 Windows embeddable Python 3.11.9와 필요한 win_amd64 wheel을 미리 포함해, 현장 PC에 별도 Python/pip 설치 없이 실행할 수 있도록 만든 포터블 런타임이다."
 }

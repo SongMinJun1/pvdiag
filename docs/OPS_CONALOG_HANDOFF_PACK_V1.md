@@ -7,6 +7,11 @@
 - GPVS는 reference-only 임.
 - heuristic은 field-trial triage only 임.
 
+## 문서 경계
+- 본 문서는 `stable/handoff contract`를 설명하는 문서다.
+- runtime redesign / hybrid artifact 정책과 같은 층의 문서가 아니며, operator-facing headline 정책도 자동으로 공유하지 않는다.
+- 두 경로를 함께 읽을 때는 [OPS_CONALOG_STABLE_RUNTIME_MAPPING_NOTE_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_STABLE_RUNTIME_MAPPING_NOTE_V1.md) 를 먼저 참조한다.
+
 ## 실행 entrypoint
 ```bash
 python app/run_conalog_infer.py --help

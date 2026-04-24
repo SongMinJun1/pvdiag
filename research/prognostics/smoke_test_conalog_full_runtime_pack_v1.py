@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import atexit
+from contextlib import ExitStack
 import json
 import py_compile
 import subprocess
@@ -11,8 +13,46 @@ from pathlib import Path
 import pandas as pd
 from openpyxl import load_workbook
 
+if __package__ in {None, ""}:
+    if str(Path(__file__).resolve().parents[2]) not in sys.path:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from research.prognostics.smoke_frozen_share_fixture_v1 import (
+        stage_missing_repo_data_link,
+        stage_missing_share_fixtures,
+    )
+else:
+    from .smoke_frozen_share_fixture_v1 import (
+        stage_missing_repo_data_link,
+        stage_missing_share_fixtures,
+    )
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if __package__ in {None, ""}:
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from research.prognostics.build_conalog_full_runtime_pack_v1 import (
+        OPTIONAL_PACKAGED_SHARE_INPUTS,
+        PACKAGED_RUNTIME_CHAIN_SHARE_INPUTS,
+    )
+    from research.prognostics.heuristic_display_registry_v1 import (
+        DISPLAY_HEURISTIC_NAME_MAP,
+        HEURISTIC_DISPLAY_NOTE_MAP,
+        LEGACY_HEURISTIC_DISPLAY_NAMES,
+        contains_legacy_heuristic_display_name,
+    )
+else:
+    from .build_conalog_full_runtime_pack_v1 import (
+        OPTIONAL_PACKAGED_SHARE_INPUTS,
+        PACKAGED_RUNTIME_CHAIN_SHARE_INPUTS,
+    )
+    from .heuristic_display_registry_v1 import (
+        DISPLAY_HEURISTIC_NAME_MAP,
+        HEURISTIC_DISPLAY_NOTE_MAP,
+        LEGACY_HEURISTIC_DISPLAY_NAMES,
+        contains_legacy_heuristic_display_name,
+    )
+
 BUILD_SCRIPT = REPO_ROOT / "research" / "prognostics" / "build_conalog_full_runtime_pack_v1.py"
 RELEASE_ROOT = REPO_ROOT / "release" / "conalog_full_runtime_v1"
 PACKAGE_ROOT = RELEASE_ROOT / "package"
@@ -68,8 +108,10 @@ EXPECTED_PREVIEW_COLS = [
     "panel_id",
     "전조날짜",
     "고장 기준일",
-    "최종고장양상",
     "운영 판정",
+    "급락 종결 관측",
+    "점진 저하 누적",
+    "사건 종결 요약",
     "상위 해석 후보",
     "기존 알고리즘 source",
 ]
@@ -81,6 +123,14 @@ EXPECTED_PREVIEW_DATE_ROWS = {
     ("ktc_ess", "10305b40-b67e-40d1-9cd1-271b6642a3d9.2.12"): ("전조없음", "2025-08-16"),
     ("ktc_ess", "70ad2d87-cdb6-4842-81b7-71c7599bbf05.1.4"): ("2025-01-25", "2025-02-02"),
 }
+REQUIRED_SMOKE_SHARE_FIXTURES = sorted(
+    (set(PACKAGED_RUNTIME_CHAIN_SHARE_INPUTS) - set(OPTIONAL_PACKAGED_SHARE_INPUTS))
+    | {
+        "panel_day_engine_cause_candidate_heuristics_v1.csv",
+        "panel_day_engine_fault_panel_event_audit_v1.csv",
+        "panel_day_engine_integrated_result_table_v1.csv",
+    }
+)
 
 def make_dummy_site(tmp_root: Path, site: str) -> None:
     raw_dir = tmp_root / site / "raw"
@@ -90,115 +140,130 @@ def make_dummy_site(tmp_root: Path, site: str) -> None:
 
 
 def main() -> None:
-    before_watch = OUT_WATCH.read_bytes()
-
     py_compile.compile(str(REPO_ROOT / "pv_ae" / "panel_day_engine.py"), doraise=True)
     py_compile.compile(str(BUILD_SCRIPT), doraise=True)
+    with stage_missing_repo_data_link(REPO_ROOT):
+        with stage_missing_share_fixtures(
+            REPO_ROOT,
+            REQUIRED_SMOKE_SHARE_FIXTURES,
+        ):
+            before_watch = OUT_WATCH.read_bytes()
 
-    subprocess.run([sys.executable, str(BUILD_SCRIPT)], cwd=REPO_ROOT, check=True)
-    py_compile.compile(str(RUNNER), doraise=True)
+            missing_display_notes = [
+                label
+                for label in DISPLAY_HEURISTIC_NAME_MAP.values()
+                if not str(HEURISTIC_DISPLAY_NOTE_MAP.get(label, "")).strip()
+            ]
+            if missing_display_notes:
+                raise SystemExit(
+                    "shared heuristic display registry is missing short notes for: "
+                    f"{missing_display_notes}"
+                )
 
-    for path in [
-        RUNNER,
-        IMPORT_HELPER,
-        ENGINE,
-        FAULT6_TABLE,
-        FAULT6_PREVIEW,
-        FAULT6_PROVENANCE,
-        BASELINE_MANIFEST,
-        CORE_BASELINE_DIGEST,
-        DEPENDENCY_AUDIT_JSON,
-        DEPENDENCY_AUDIT_MD,
-        PACKAGE_BOOTSTRAP_VERDICT,
-        PACKAGE_AUDIT_SCRIPT,
-        PACKAGE_VERDICT_SCRIPT,
-        PACKAGE_GPVS_SCRIPT,
-        PACKAGE_HEURISTIC_SCRIPT,
-        PACKAGE_RAWONLY_COMMON,
-        PACKAGE_RAWONLY_AUDIT_SCRIPT,
-        PACKAGE_RAWONLY_VERDICT_SCRIPT,
-        PACKAGE_RAWONLY_HEURISTIC_SCRIPT,
-        SUMMARY,
-        PACKAGE_ROOT / "bin" / "run_real.bat",
-        RUN_DEMO_BAT,
-        RUN_GUIDED_REAL_BAT,
-        PACKAGE_ROOT / "requirements.txt",
-        STAGING_PS1,
-        SNAPSHOT_COPY_PS1,
-        DAILY_RUN_BAT,
-        INCREMENTAL_RUN_BAT,
-        RUN_IMPORTED_REAL_BAT,
-        RESOLVE_PYTHON_BAT,
-        WINDOWS_RUNTIME_MANIFEST,
-        WINDOWS_RUNTIME_PYTHON_EXE,
-        README_PATH,
-    ]:
-        if not path.exists():
-            raise SystemExit(f"missing package file: {path}")
+            subprocess.run([sys.executable, str(BUILD_SCRIPT)], cwd=REPO_ROOT, check=True)
+            py_compile.compile(str(RUNNER), doraise=True)
 
-    subprocess.run([sys.executable, str(RUNNER), "--help"], cwd=REPO_ROOT, check=True)
-    subprocess.run([sys.executable, str(IMPORT_HELPER), "--help"], cwd=REPO_ROOT, check=True)
+            for path in [
+                RUNNER,
+                IMPORT_HELPER,
+                ENGINE,
+                FAULT6_TABLE,
+                FAULT6_PREVIEW,
+                FAULT6_PROVENANCE,
+                BASELINE_MANIFEST,
+                CORE_BASELINE_DIGEST,
+                DEPENDENCY_AUDIT_JSON,
+                DEPENDENCY_AUDIT_MD,
+                PACKAGE_BOOTSTRAP_VERDICT,
+                PACKAGE_AUDIT_SCRIPT,
+                PACKAGE_VERDICT_SCRIPT,
+                PACKAGE_GPVS_SCRIPT,
+                PACKAGE_HEURISTIC_SCRIPT,
+                PACKAGE_RAWONLY_COMMON,
+                PACKAGE_RAWONLY_AUDIT_SCRIPT,
+                PACKAGE_RAWONLY_VERDICT_SCRIPT,
+                PACKAGE_RAWONLY_HEURISTIC_SCRIPT,
+                SUMMARY,
+                PACKAGE_ROOT / "bin" / "run_real.bat",
+                RUN_DEMO_BAT,
+                RUN_GUIDED_REAL_BAT,
+                PACKAGE_ROOT / "requirements.txt",
+                STAGING_PS1,
+                SNAPSHOT_COPY_PS1,
+                DAILY_RUN_BAT,
+                INCREMENTAL_RUN_BAT,
+                RUN_IMPORTED_REAL_BAT,
+                RESOLVE_PYTHON_BAT,
+                WINDOWS_RUNTIME_MANIFEST,
+                WINDOWS_RUNTIME_PYTHON_EXE,
+                README_PATH,
+            ]:
+                if not path.exists():
+                    raise SystemExit(f"missing package file: {path}")
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_root = Path(tmp_dir)
-        data_root = tmp_root / "data"
-        output_root = tmp_root / "output"
-        for site in ["conalog", "gangui", "ktc_ess"]:
-            make_dummy_site(data_root, site)
+            subprocess.run([sys.executable, str(RUNNER), "--help"], cwd=REPO_ROOT, check=True)
+            subprocess.run([sys.executable, str(IMPORT_HELPER), "--help"], cwd=REPO_ROOT, check=True)
 
-        subprocess.run(
-            [
-                sys.executable,
-                str(RUNNER),
-                "--data-root",
-                str(data_root),
-                "--output-root",
-                str(output_root),
-                "--dry-run",
-                "--epochs",
-                "1",
-            ],
-            cwd=REPO_ROOT,
-            check=True,
-        )
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_root = Path(tmp_dir)
+                data_root = tmp_root / "data"
+                output_root = tmp_root / "output"
+                for site in ["conalog", "gangui", "ktc_ess"]:
+                    make_dummy_site(data_root, site)
 
-        run_plan = output_root / "run_plan_v1.json"
-        if not run_plan.exists():
-            raise SystemExit("dry-run must create run_plan_v1.json")
-        if not (output_root / "result" / "fault6_fixed_result_table_v1.csv").exists():
-            raise SystemExit("dry-run must export fixed fault6 result table")
-        if not (output_root / "result" / "fault6_label_and_algorithm_preview_v1.csv").exists():
-            raise SystemExit("dry-run must export fault6 preview artifact")
-        if (output_root / "result" / "integrated_result_table_fixed_v1.csv").exists():
-            raise SystemExit("integrated result table snapshot should no longer be exported by the runtime pack")
+                subprocess.run(
+                    [
+                        sys.executable,
+                        str(RUNNER),
+                        "--data-root",
+                        str(data_root),
+                        "--output-root",
+                        str(output_root),
+                        "--dry-run",
+                        "--epochs",
+                        "1",
+                    ],
+                    cwd=REPO_ROOT,
+                    check=True,
+                )
 
-        plan = json.loads(run_plan.read_text(encoding="utf-8"))
-        if plan.get("dry_run") is not True:
-            raise SystemExit("dry-run plan must mark dry_run=true")
-        if plan.get("sites") != ["conalog", "gangui", "ktc_ess"]:
-            raise SystemExit(f"unexpected site list: {plan.get('sites')}")
-        if len(plan.get("site_plans", [])) != 3:
-            raise SystemExit("dry-run plan must describe 3 site plans")
-        if "shadow_compare_reference_path" not in plan:
-            raise SystemExit("dry-run plan must expose shadow compare reference path")
-        if "fault6_provenance_path" not in plan:
-            raise SystemExit("dry-run plan must expose fault6 provenance path")
-        if "dependency_audit_json_path" not in plan:
-            raise SystemExit("dry-run plan must expose dependency audit path")
-        if "live_chain" not in plan:
-            raise SystemExit("dry-run plan must describe live chain support")
-        if plan["live_chain"].get("requested") is not True:
-            raise SystemExit("live chain should be requested by default in dry-run plan")
-        if plan["live_chain"].get("supported") is not True:
-            raise SystemExit("dry-run plan must mark packaged live chain as supported")
-        if "raw_only_chain" not in plan:
-            raise SystemExit("dry-run plan must describe raw-only chain support")
-        if plan["raw_only_chain"].get("requested") is not True:
-            raise SystemExit("raw-only chain should be requested by default in dry-run plan")
-        if plan["raw_only_chain"].get("supported") is not True:
-            raise SystemExit("dry-run plan must mark packaged raw-only chain as supported")
-        if plan.get("prefer_existing_site_outs") != "auto":
-            raise SystemExit("dry-run plan must expose prefer-existing-site-outs default=auto")
+                run_plan = output_root / "run_plan_v1.json"
+                if not run_plan.exists():
+                    raise SystemExit("dry-run must create run_plan_v1.json")
+                if not (output_root / "result" / "fault6_fixed_result_table_v1.csv").exists():
+                    raise SystemExit("dry-run must export fixed fault6 result table")
+                if not (output_root / "result" / "fault6_label_and_algorithm_preview_v1.csv").exists():
+                    raise SystemExit("dry-run must export fault6 preview artifact")
+                if (output_root / "result" / "integrated_result_table_fixed_v1.csv").exists():
+                    raise SystemExit("integrated result table snapshot should no longer be exported by the runtime pack")
+
+                plan = json.loads(run_plan.read_text(encoding="utf-8"))
+                if plan.get("dry_run") is not True:
+                    raise SystemExit("dry-run plan must mark dry_run=true")
+                if plan.get("sites") != ["conalog", "gangui", "ktc_ess"]:
+                    raise SystemExit(f"unexpected site list: {plan.get('sites')}")
+                if len(plan.get("site_plans", [])) != 3:
+                    raise SystemExit("dry-run plan must describe 3 site plans")
+                if "shadow_compare_reference_path" not in plan:
+                    raise SystemExit("dry-run plan must expose shadow compare reference path")
+                if "fault6_provenance_path" not in plan:
+                    raise SystemExit("dry-run plan must expose fault6 provenance path")
+                if "dependency_audit_json_path" not in plan:
+                    raise SystemExit("dry-run plan must expose dependency audit path")
+                if "live_chain" not in plan:
+                    raise SystemExit("dry-run plan must describe live chain support")
+                if plan["live_chain"].get("requested") is not True:
+                    raise SystemExit("live chain should be requested by default in dry-run plan")
+                if plan["live_chain"].get("supported") is not True:
+                    raise SystemExit("dry-run plan must mark packaged live chain as supported")
+                if "raw_only_chain" not in plan:
+                    raise SystemExit("dry-run plan must describe raw-only chain support")
+                if plan["raw_only_chain"].get("requested") is not True:
+                    raise SystemExit("raw-only chain should be requested by default in dry-run plan")
+                if plan["raw_only_chain"].get("supported") is not True:
+                    raise SystemExit("dry-run plan must mark packaged raw-only chain as supported")
+                if plan.get("prefer_existing_site_outs") != "auto":
+                    raise SystemExit("dry-run plan must expose prefer-existing-site-outs default=auto")
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_root = Path(tmp_dir)
@@ -244,6 +309,13 @@ def main() -> None:
         if "IMPORTED_DATA_ROOT" not in env_bat_path.read_text(encoding="utf-8"):
             raise SystemExit("import helper must emit env bat with IMPORTED_DATA_ROOT")
 
+    post_build_fixture_stack = ExitStack()
+    atexit.register(post_build_fixture_stack.close)
+    post_build_fixture_stack.enter_context(stage_missing_repo_data_link(REPO_ROOT))
+    post_build_fixture_stack.enter_context(
+        stage_missing_share_fixtures(REPO_ROOT, REQUIRED_SMOKE_SHARE_FIXTURES)
+    )
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         output_root = Path(tmp_dir) / "reuse_out_run"
         subprocess.run(
@@ -278,6 +350,7 @@ def main() -> None:
         root_master_report_path = output_root / "result" / "fault_panel_result_master_report_v1.md"
         root_detailed_report_path = output_root / "result" / "fault_panel_result_detailed_report_v1.xlsx"
         root_precursor_report_path = output_root / "result" / "fault_panel_result_precursor_report_v1.csv"
+        root_fault_signal_report_path = output_root / "result" / "fault_panel_result_raw_only_fault_signal_report_v1.csv"
         root_raw_only_fault_path = output_root / "result" / "fault_panel_result_raw_only_current_v1.csv"
         root_raw_only_preview_path = output_root / "result" / "fault_panel_result_raw_only_current_preview_v1.csv"
         root_raw_only_summary_path = output_root / "result" / "raw_only_chain_summary_v1.json"
@@ -299,6 +372,7 @@ def main() -> None:
             root_master_report_path,
             root_detailed_report_path,
             root_precursor_report_path,
+            root_fault_signal_report_path,
             root_raw_only_fault_path,
             root_raw_only_preview_path,
             root_raw_only_summary_path,
@@ -316,6 +390,7 @@ def main() -> None:
             "raw_only_preview",
             "raw_only_evidence",
             "precursor_report",
+            "fault_signal_report",
             "raw_only_candidate_scores",
             "raw_only_timeline",
             "raw_only_daily_log",
@@ -342,6 +417,9 @@ def main() -> None:
             raise SystemExit("packaged live chain summary must record published root live summary")
         if not published.get("fault_panel_result_current_report_v1.md"):
             raise SystemExit("packaged live chain summary must record published root live report")
+        current_fault_df = pd.read_csv(root_live_fault_path, encoding="utf-8-sig")
+        if current_fault_df.astype(str).applymap(contains_legacy_heuristic_display_name).any().any():
+            raise SystemExit("packaged live chain current fault result must not contain legacy softened heuristic labels")
 
         raw_only_summary = json.loads(raw_only_summary_path.read_text(encoding="utf-8"))
         if raw_only_summary.get("status_ko") != "completed":
@@ -384,24 +462,58 @@ def main() -> None:
         if publish_meta.get("published_current_row_count") != len(root_raw_only_fault_df):
             raise SystemExit("raw-only summary published_current_row_count must match root current rows")
         precursor_report_df = pd.read_csv(root_precursor_report_path, encoding="utf-8-sig")
+        fault_signal_report_df = pd.read_csv(root_fault_signal_report_path, encoding="utf-8-sig")
         for column in [
             "site",
             "panel_id",
             "운영 판정",
             "판정 근거",
             "전조날짜",
-            "신호 기준일",
+            "전조 축",
+            "대표 전조 신호",
+            "전조 요약",
             "상위 해석 후보",
             "기존 알고리즘 source",
             "패턴 설명",
-            "대표 전조 신호",
-            "전조 축",
-            "전조 요약",
+            "모니터링 권고",
         ]:
             if column not in precursor_report_df.columns:
                 raise SystemExit(f"precursor report must include column: {column}")
         if precursor_report_df.empty:
             raise SystemExit("precursor report should not be empty on baseline reuse run")
+        for column in [
+            "site",
+            "panel_id",
+            "운영 판정",
+            "확정 경로",
+            "고장 신호 요약",
+            "전조 시작일",
+            "신호 기준일",
+            "사건유형",
+            "사건 종결 요약",
+            "상위 해석 후보",
+            "기존 알고리즘 source",
+            "패턴 설명",
+            "현장 점검 권고",
+        ]:
+            if column not in fault_signal_report_df.columns:
+                raise SystemExit(f"raw-only fault signal report must include column: {column}")
+        if fault_signal_report_df.empty:
+            raise SystemExit("raw-only fault signal report should not be empty on baseline reuse run")
+        precursor_keys = set(
+            zip(
+                precursor_report_df["site"].astype(str),
+                precursor_report_df["panel_id"].astype(str),
+            )
+        )
+        fault_signal_keys = set(
+            zip(
+                fault_signal_report_df["site"].astype(str),
+                fault_signal_report_df["panel_id"].astype(str),
+            )
+        )
+        if precursor_keys & fault_signal_keys:
+            raise SystemExit("precursor report and raw-only fault signal report must not overlap on row keys")
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         output_root = Path(tmp_dir) / "auto_reuse_run"
@@ -442,6 +554,8 @@ def main() -> None:
             raise SystemExit("auto-reuse run must publish detailed xlsx report")
         if not (output_root / "result" / "fault_panel_result_precursor_report_v1.csv").exists():
             raise SystemExit("auto-reuse run must publish precursor report")
+        if not (output_root / "result" / "fault_panel_result_raw_only_fault_signal_report_v1.csv").exists():
+            raise SystemExit("auto-reuse run must publish raw-only fault signal report")
 
     fault_df = pd.read_csv(FAULT6_TABLE, encoding="utf-8-sig")
     if fault_df.columns.tolist() != EXPECTED_FAULT6_COLS:
@@ -451,14 +565,6 @@ def main() -> None:
 
     frozen_verdict = pd.read_csv(FROZEN_VERDICT, encoding="utf-8-sig", low_memory=False)
     frozen_heuristic = pd.read_csv(FROZEN_HEURISTIC, encoding="utf-8-sig", low_memory=False)
-    display_map = {
-        "다이오드·서브스트링형": "다이오드·국소 회로 이상형",
-        "접속·부분개방형": "접촉 끊김 형",
-        "센서·피드백형": "장치 측정 이상형",
-        "제어응답형": "장치 응답 이상형",
-        "전력변환부형": "전력변환부 이상형",
-        "외부계통교란형": "외부 전원 흔들림형",
-    }
     expected_fault = frozen_verdict.loc[
         frozen_verdict["패널고장여부_ko"].astype(str).eq("고장"),
         ["site", "panel_id", "패널고장여부_ko", "사건유형_ko", "최종고장양상_ko", "커널로그_원인군_ko"],
@@ -469,9 +575,15 @@ def main() -> None:
         on=["site", "panel_id"],
         how="left",
     )
-    expected_fault["1순위_의심원인_ko"] = expected_fault["원인후보_top1_ko"].map(lambda value: display_map.get(str(value), str(value)))
-    expected_fault["2순위_의심원인_ko"] = expected_fault["원인후보_top2_ko"].map(lambda value: display_map.get(str(value), str(value)))
-    expected_fault["3순위_의심원인_ko"] = expected_fault["원인후보_top3_ko"].map(lambda value: display_map.get(str(value), str(value)))
+    expected_fault["1순위_의심원인_ko"] = expected_fault["원인후보_top1_ko"].map(
+        lambda value: DISPLAY_HEURISTIC_NAME_MAP.get(str(value), str(value))
+    )
+    expected_fault["2순위_의심원인_ko"] = expected_fault["원인후보_top2_ko"].map(
+        lambda value: DISPLAY_HEURISTIC_NAME_MAP.get(str(value), str(value))
+    )
+    expected_fault["3순위_의심원인_ko"] = expected_fault["원인후보_top3_ko"].map(
+        lambda value: DISPLAY_HEURISTIC_NAME_MAP.get(str(value), str(value))
+    )
     expected_fault = (
         expected_fault[
             ["site", "panel_id", "패널고장여부_ko", "사건유형_ko", "최종고장양상_ko", "커널로그_원인군_ko", "1순위_의심원인_ko", "2순위_의심원인_ko", "3순위_의심원인_ko"]
@@ -503,6 +615,12 @@ def main() -> None:
         raise SystemExit("fault6 provenance must confirm exact match to legacy integrated 6-row slice")
     if provenance.get("source_chain_ko") != "frozen verdict plus frozen heuristic with integrated display-name mapping":
         raise SystemExit("fault6 provenance must document the new direct source chain")
+    if provenance.get("display_name_map") != DISPLAY_HEURISTIC_NAME_MAP:
+        raise SystemExit("fault6 provenance display_name_map must exactly match shared registry")
+    if any(legacy_name in preview_df.to_csv(index=False) for legacy_name in LEGACY_HEURISTIC_DISPLAY_NAMES):
+        raise SystemExit("preview artifact must not contain legacy softened heuristic labels")
+    if any(legacy_name in fault_df.to_csv(index=False) for legacy_name in LEGACY_HEURISTIC_DISPLAY_NAMES):
+        raise SystemExit("fault6 artifact must not contain legacy softened heuristic labels")
 
     baseline = json.loads(BASELINE_MANIFEST.read_text(encoding="utf-8"))
     for site in ["conalog", "gangui", "ktc_ess"]:
@@ -550,6 +668,8 @@ def main() -> None:
         raise SystemExit("daily_run.bat must resolve embedded/system python through resolve_python.bat")
     if "fault_panel_result_master_report_v1.md" not in daily_run_text:
         raise SystemExit("daily_run.bat must prefer opening the master report")
+    if "fault_panel_result_raw_only_current_preview_v1.csv" in daily_run_text:
+        raise SystemExit("daily_run.bat must not auto-open raw-only preview in the operator default path")
     snapshot_text = SNAPSHOT_COPY_PS1.read_text(encoding="utf-8", errors="ignore")
     if "StableMinutes" not in snapshot_text or "Move-Item" not in snapshot_text:
         raise SystemExit("snapshot_copy.ps1 must implement stable-minute gating and atomic rename")
@@ -564,6 +684,8 @@ def main() -> None:
         raise SystemExit("incremental_run.bat must resolve embedded/system python through resolve_python.bat")
     if "fault_panel_result_master_report_v1.md" not in incremental_text:
         raise SystemExit("incremental_run.bat must prefer opening the master report")
+    if "fault_panel_result_raw_only_current_preview_v1.csv" in incremental_text:
+        raise SystemExit("incremental_run.bat must not auto-open raw-only preview in the operator default path")
     run_real_text = (PACKAGE_ROOT / "bin" / "run_real.bat").read_text(encoding="utf-8", errors="ignore")
     if "FolderBrowserDialog" not in run_real_text or "run_full_algorithm_pack.py" not in run_real_text:
         raise SystemExit("run_real.bat must use folder picker and invoke run_full_algorithm_pack.py")
@@ -577,6 +699,8 @@ def main() -> None:
         raise SystemExit("run_real.bat must stay on the stable full-runtime path")
     if "fault_panel_result_master_report_v1.md" not in run_real_text:
         raise SystemExit("run_real.bat must prefer opening the master report")
+    if "fault_panel_result_raw_only_current_preview_v1.csv" in run_real_text:
+        raise SystemExit("run_real.bat must not auto-open raw-only preview in the operator default path")
     imported_real_text = RUN_IMPORTED_REAL_BAT.read_text(encoding="utf-8", errors="ignore")
     if "import_any_csv_root.py" not in imported_real_text or "run_full_algorithm_pack.py" not in imported_real_text:
         raise SystemExit("run_imported_real.bat must import arbitrary folder roots then invoke run_full_algorithm_pack.py")
@@ -598,6 +722,10 @@ def main() -> None:
     ]:
         if phrase not in guided_real_text:
             raise SystemExit(f"run_guided_real.bat missing phrase: {phrase}")
+    if "fault_panel_result_raw_only_current_preview_v1.csv" in guided_real_text:
+        raise SystemExit("run_guided_real.bat must not auto-open raw-only preview in the operator default path")
+    if "fault_panel_result_raw_only_current_preview_v1.csv" in imported_real_text:
+        raise SystemExit("run_imported_real.bat must not auto-open raw-only preview in the operator default path")
     resolve_python_text = RESOLVE_PYTHON_BAT.read_text(encoding="utf-8", errors="ignore")
     if "runtime\\windows_x64\\python\\python.exe" not in resolve_python_text:
         raise SystemExit("resolve_python.bat must prefer the packaged embedded python runtime")
@@ -610,6 +738,9 @@ def main() -> None:
         "판정 근거",
         "고장 기준일",
         "기존 알고리즘 source",
+        "급락 종결 관측",
+        "점진 저하 누적",
+        "사건 종결 요약",
         "패턴 설명",
         "fault_panel_result_detailed_report_v1.xlsx",
         "openpyxl",
@@ -641,6 +772,7 @@ def main() -> None:
     after_watch = OUT_WATCH.read_bytes()
     if before_watch != after_watch:
         raise SystemExit("frozen integrated result table was modified by runtime pack build/test")
+    post_build_fixture_stack.close()
 
     print("[OK] conalog_full_runtime_v1 smoke test passed")
 

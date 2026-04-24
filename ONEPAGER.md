@@ -11,11 +11,17 @@
   - 예: onset 기준 리드타임, alert concentration(집중도), list diversity(다양성)
   - 목적: 모델 비교 및 보고
 
-### degradation onset fallback guard
-- `degradation onset fallback`은 `G1_extreme_longgap_one_day` 조건으로 long-gap one-day degradation backdating 후보를 추적한다.
-- BR-016부터는 `g1_suppressed_event_shadow_flag=1`이면서 `strict_trigger_proximal_common_cause_flag=1`인 6건에 한해 raw-only runtime final verdict의 사건 semantics를 `전조형 고장 -> 급작 고장`으로 적용한다.
-- strict-trigger 근접 common-cause support가 없는 1건은 hold-review로 남겨 첫 semantic patch에서 제외한다.
-- 이 guard는 전조 승격 규칙이 아니라, 과도한 retrospective degradation onset backdating을 억제하는 규칙이다.
+### local precursor 게이트 원칙
+- `prefault_B`는 raw helper 신호로 보존한다.
+- 다만 운영/승격 관점의 local precursor eligibility에는 `prefault_B_effective = prefault_B & ~common_cause_overlap` 를 우선 사용한다.
+- 즉, `site_event` 또는 `group_off`와 직접 겹친 `prefault_B`는 forensic/analyst 근거로는 남기되, operator-facing precursor day로는 즉시 승격하지 않는다.
+- 현재 `prefault_B_effective`는 eligibility / explanation additive evidence까지는 사용하지만, 별도 tri-site 근거가 쌓이기 전까지는 `고위험 관찰` 단독 attention-grade trigger로는 올리지 않는다.
+- 별도로 `subgroup_common_cause_candidate` shadow evidence를 두어, `site-wide/group-off`가 아닌 `base-level breadth` 흔들림도 retrospective `공통원인이력_flag`에 남긴다. 다만 이 shadow는 아직 direct gating/onset 보정에는 쓰지 않는다.
+- `공통원인이력_flag`는 넓은 history 성격으로 유지하고, 별도 raw-only audit에서 `trigger_proximal_common_cause_flag`를 분리해 `strict_trigger` 또는 경고 anchor 근처의 common-cause만 따로 검토한다.
+- raw-only audit에서는 `strict_trigger_proximal_common_cause_flag`와 `warning_proximal_common_cause_flag`를 함께 기록해, 실제 고장 trigger 근처와 warning-anchor 근처 common-cause를 분리해서 본다.
+- 현재 표면에는 `strict_trigger_proximal_common_cause_flag`만 반영하고 `warning_proximal_common_cause_flag`는 audit 전용으로 둔다. 이유는 tri-site 확인 기준 `strict`는 고장 패널에만 붙고, `warning`은 미확정 꼬리에만 남아 operator-facing 해석을 다시 넓힐 수 있기 때문이다.
+- raw-only fault signal 표면에서는 `group root / subgroup base / subgroup cluster`를 분리해 row 수와 사건 뭉치가 섞여 읽히지 않게 하고, precursor 쪽 공통원인 위험/권고도 넓은 root count가 아니라 `subgroup` 동시 흔들림 기준으로 맞춘다.
+- `degradation onset fallback`은 아직 판정 규칙을 바꾸지 않고, `G1_extreme_longgap_one_day` 조건을 raw-only audit shadow flag로만 기록한다. 목적은 long-gap one-day degradation backdating 후보를 추적하되 `전조형/급작` 사건유형을 즉시 흔들지 않기 위함이다.
 
 ### 순위 비교 지표 공통 적용 원칙
 - leadtime, 경보 집중도(alert concentration), 리스트 다양성(list diversity)은 **순위 비교 지표**다.
