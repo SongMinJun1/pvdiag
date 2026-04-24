@@ -404,8 +404,9 @@
 37. BR-083 기준 BR-079~082 direction/assumption audit guard는 40/40 checks PASS로 완료됐다.
 38. BR-084 기준 reviewed episode truth rows intake는 완료됐지만, reviewer labels `0` and replay-ready rows `0`이다.
 39. BR-085 기준 BR-084 row evidence attachment packet은 완료됐지만, reviewer labels `0`, evidence paths `0`, replay-ready rows `0`이다.
-40. 다음은 BR-085 review template을 실제 근거로 채우고 BR-084를 재빌드하는 것이며, threshold replay는 positive/negative replay-ready rows가 생긴 뒤에만 진행한다.
-41. semantic algorithm gating patch는 reviewed episode truth labels와 subtype-conditioned threshold replay가 끝난 뒤에만 검토한다.
+40. BR-086 기준 BR-085 source trace audit은 완료됐고, source references `22/22` resolved, identity mismatch `0`이다.
+41. 다음은 BR-086 trace-ready rows를 보고 BR-085 review template을 실제 근거로 채운 뒤 BR-084를 재빌드하는 것이며, threshold replay는 positive/negative replay-ready rows가 생긴 뒤에만 진행한다.
+42. semantic algorithm gating patch는 reviewed episode truth labels와 subtype-conditioned threshold replay가 끝난 뒤에만 검토한다.
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -588,6 +589,29 @@
   4. open subtype-conditioned threshold replay only after positive and negative replay-ready rows exist.
 - 금지:
   - BR-085 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
+
+## 11K. BR-086 episode truth source trace audit
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_086_EPISODE_TRUTH_SOURCE_TRACE_AUDIT_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_086_EPISODE_TRUTH_SOURCE_TRACE_AUDIT_V1.md)
+- 실행 산출물:
+  - `/private/tmp/panel_day_engine_episode_truth_source_trace_audit_br086_check/panel_day_engine_episode_truth_source_trace_audit_v1.csv`
+  - `/private/tmp/panel_day_engine_episode_truth_source_trace_audit_br086_check/panel_day_engine_episode_truth_source_trace_audit_summary_v1.csv`
+  - `/private/tmp/panel_day_engine_episode_truth_source_trace_audit_br086_check/panel_day_engine_episode_truth_source_trace_audit_action_queue_v1.csv`
+- 판정:
+  - review rows `16`, source references `22`.
+  - source files existing `22`, source rows resolved `22`, source identity matches `22`.
+  - identity mismatch count `0`, trace-ready references `22`.
+  - reviewer truth labels assigned `0`.
+  - reviewer evidence paths filled `0`.
+  - threshold replay ready rows `0`.
+  - operator promotion, engine patch, and threshold patch authorization sums remain `0`.
+- 다음 안전 순서:
+  1. inspect BR-086 trace rows with BR-085 evidence cards.
+  2. fill BR-085 review template only when prove/reject axes are defensible.
+  3. rebuild BR-084 with the filled template.
+  4. open subtype-conditioned threshold replay only after positive and negative replay-ready rows exist.
+- 금지:
+  - BR-086 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)

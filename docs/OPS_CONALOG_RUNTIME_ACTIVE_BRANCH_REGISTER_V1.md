@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-085` | `episode_truth_evidence_attachment_complete` | creates 16 evidence cards and 16 review-input template rows from BR-084; reviewer labels 0, evidence paths 0, replay-ready 0, patch authorization sums 0 | fill review template, rebuild BR-084, then consider threshold replay only if positive/negative replay rows exist |
+| `BR-20260425-086` | `episode_truth_source_trace_audit_complete` | verifies 22/22 BR-085 source references resolve to BR-017 CSV rows with identity mismatches 0; labels 0, replay-ready 0, patch authorization sums 0 | adjudicate trace-ready rows, fill BR-085 review template only with defensible labels, then rebuild BR-084 |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -97,6 +97,7 @@
 | `BR-20260425-083` | `direction_assumption_audit_complete` | verifies BR-079~082 counts, sequence, authorization boundaries, G1 bucket precedence, duplicate-lens collapse, and blank reviewer labels; 40/40 checks pass | no |
 | `BR-20260425-084` | `reviewed_episode_truth_rows_intake_complete` | builds 16 truth-intake rows from BR-082; all `needs_evidence`, reviewer labels 0, threshold replay ready 0, patch authorization sums 0 | no |
 | `BR-20260425-085` | `episode_truth_evidence_attachment_complete` | packages the 16 BR-084 rows into 16 evidence cards plus a blank review-input template; reviewer labels 0, evidence paths 0, threshold replay ready 0 | no |
+| `BR-20260425-086` | `episode_truth_source_trace_audit_complete` | resolves 22 source references for 16 review rows; source rows resolved 22, identity matches 22, trace-ready 22, labels 0, replay-ready 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -227,3 +228,4 @@
 - after BR-083, use `/private/tmp/panel_day_engine_direction_assumption_audit_br083_check/panel_day_engine_direction_assumption_audit_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_083_DIRECTION_ASSUMPTION_AUDIT_V1.md` as the current direction guard; if any P0 audit fails, stop before reviewed truth rows, threshold replay, or direct engine edits.
 - after BR-084, use `/private/tmp/panel_day_engine_reviewed_episode_truth_rows_br084_check/panel_day_engine_reviewed_episode_truth_rows_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_084_REVIEWED_EPISODE_TRUTH_ROWS_V1.md` as the current truth-intake table; threshold replay remains blocked until reviewer labels and evidence paths create positive/negative replay-ready rows.
 - after BR-085, use `/private/tmp/panel_day_engine_episode_truth_evidence_attachment_br085_check/panel_day_engine_episode_truth_review_input_template_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_085_EPISODE_TRUTH_EVIDENCE_ATTACHMENT_V1.md` as the current evidence attachment packet; fill the template and rebuild BR-084 before any subtype-conditioned threshold replay.
+- after BR-086, use `/private/tmp/panel_day_engine_episode_truth_source_trace_audit_br086_check/panel_day_engine_episode_truth_source_trace_audit_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_086_EPISODE_TRUTH_SOURCE_TRACE_AUDIT_V1.md` as the current source-trace guard; source trace readiness is not a truth label, so fill BR-085 manually and rebuild BR-084 before threshold replay.
