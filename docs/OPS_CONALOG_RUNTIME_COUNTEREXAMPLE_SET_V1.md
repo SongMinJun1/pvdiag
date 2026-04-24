@@ -187,15 +187,25 @@
 - 발표/운영 방어:
   - “왜 이 규칙을 넓히지 않았는가”를 설명할 때 `prohibited_overgeneralization`을 직접 인용한다.
 
-## 10. 남은 과제
+## 10. BR-026 이후 pressure-test 읽기
+- BR-026 이후에는 아래 bundle 관점으로 각 bucket을 다시 읽는다.
+  - `official_only`: artifact lane separation pressure-test
+  - `precursor_only`: precursor bundle minimum-condition pressure-test
+  - `raw_only_only`: hard evidence bundle + lane split pressure-test
+  - `mlpe_ambiguous`: ambiguity hold bundle pressure-test
+  - `common_cause_risk`: common-cause hold bundle pressure-test
+- 따라서 bucket을 늘리는 것만으로 충분하지 않고, 각 bucket이 `무엇을 승격시키지 못하게 막는지`까지 함께 적어야 한다.
+- 실제 patch turn에서는 [OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md) 를 함께 본다.
+
+## 11. 남은 과제
 - `MLPE ambiguous`에서 `장치 응답 이상형` top1 또는 회복/재발까지 확인되는 사례 추가
 - `common_cause risk`에서 작업일 / 운영 이벤트 / 통신 흔들림 겹침 사례 추가
 - `common_cause risk`에서 precursor/current row와 `group_off_event`가 직접 겹치는 사례 추가
 - `common_cause risk`에서 official current direct overlap 사례 추가
-- 반례 세트 row를 decision log와 연결하는 `regression checklist` 생성
+- 반례 세트 row를 decision log와 연결하는 `regression checklist`를 실제 patch gate로 사용
 - 필요 시 `challenge set`와 `counterexample set`를 분리
 
-## 11. 다음 연결 문서
+## 12. 다음 연결 문서
 - 상위 로드맵:
   - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
 - Gate 7 구현 순서:
@@ -206,5 +216,7 @@
   - [OPS_CONALOG_RUNTIME_GATE4_HARD_EVIDENCE_BOUNDARY_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_GATE4_HARD_EVIDENCE_BOUNDARY_V1.md)
 - Gate 5 출력 정책:
   - [OPS_CONALOG_RUNTIME_GATE5_OUTPUT_POLICY_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_GATE5_OUTPUT_POLICY_V1.md)
+- regression checklist:
+  - [OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md)
 - cross-gate 감사:
   - [OPS_CONALOG_RUNTIME_CROSS_GATE_DESIGN_GAP_AUDIT_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_CROSS_GATE_DESIGN_GAP_AUDIT_V1.md)

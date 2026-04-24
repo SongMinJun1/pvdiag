@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-026` | `signal_score_map_tightened` | tighten Gate 2C from loose signal inventory to conservative projection-bundle rules before any new algorithm gating patch | choose whether to expand counterexample seeds first or lock a score-to-projection decision log next |
+| `BR-20260424-027` | `counterexample_regression_checklist_added` | expand counterexample lane from seed inventory to actual patch-gate checklist tied to BR-026 projection bundles | choose whether to collect new seed rows first or lock a score-to-projection decision log next |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -38,6 +38,7 @@
 | `BR-20260423-024` | `patch_gap_review_complete` | fixes BR-023 packet id order to `BR023-001..077`; records remaining gaps: tracked generator missing, site_event 60 not packeted, review priority is triage-only | no |
 | `BR-20260424-025` | `boundary_note_sync_complete` | final_delivery docs now state stable/runtime contract separation after PR-79 merge; active register moved from BR-024 packet cleanup to the next Gate 7 safe-lane choice | no |
 | `BR-20260424-026` | `signal_score_map_tightened` | Gate 2C now locks projection bundles: precursor/hard-evidence/common-cause/ambiguity/actionability can combine, but single helpers and explanation-only signals cannot jump directly to top-level projection | no |
+| `BR-20260424-027` | `counterexample_regression_checklist_added` | counterexample set now has an explicit regression gate: bucket pressure-test matrix, per-bucket checks, and minimum pass rule before algorithm patch | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -72,6 +73,7 @@
 - BR-024 confirms BR-023 packet IDs are review handles only, not semantic ranks; after cleanup the packet opens at `BR023-001` and remains `subtype_production_write_allowed_sum=0`.
 - BR-025 applies accepted boundary-note decisions only: final_delivery docs stay stable-first, runtime redesign artifact semantics remain canonical in the runtime pack README/mapping note, and no runtime code or row universe changes.
 - BR-026 tightens Gate 2C without touching code: `actionability_score` is capped by eligible evidence lanes, `common_cause_risk_score` and `mlpe_ambiguity_score` stay hold/reroute axes, and explanation-only signals remain non-promoting.
+- BR-027 turns counterexamples into an actual patch gate: algorithm changes now need bucket coverage, bundle-specific checks, and minimum pass conditions, not just a loose seed list.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -80,4 +82,4 @@
 - adjudicate BR-023 `group_off` cluster boundaries and `strict_trigger_proximal` vs secondary-window evidence before any subtype promotion discussion.
 - before generating more packet branches, prefer a tracked packet generator or an exact one-shot reproduction script.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
-- after BR-026, the next safe lane is still docs/evidence-first: strengthen `counterexample` seeds against the new projection-bundle rules before reopening algorithm gating.
+- after BR-027, the next safe lane is still docs/evidence-first: add missing `MLPE ambiguous` and `common_cause risk` seeds that satisfy the new regression checklist before reopening algorithm gating.
