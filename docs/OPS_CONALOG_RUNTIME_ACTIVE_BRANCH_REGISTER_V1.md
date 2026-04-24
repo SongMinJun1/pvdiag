@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-069` | `physical_confirmation_requirements_review_complete` | both BR-068 raw-supported voltage-axis rows remain `raw_supported_confirmation_gap_hold`; exact-panel direct physical measurement and maintenance/inspection axes are missing | collect exact-panel independent evidence before any family-specific threshold patch |
+| `BR-20260424-070` | `physical_evidence_request_packet_complete` | converts the 2 BR-069 confirmation-gap rows into high-priority exact-panel evidence requests; both need physical measurement plus inspection evidence before thresholding | attach exact-panel evidence, then rerun BR-069/070 |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -81,6 +81,7 @@
 | `BR-20260424-067` | `voltage_dominant_physical_vs_artifact_review_complete` | checks the 2 voltage-dominant rows against peer/reference artifact evidence; both are physical-leaning voltage-axis review, but still not confirmed family or engine patch candidates | no |
 | `BR-20260424-068` | `raw_waveform_physical_support_review_complete` | raw daily CSV timestamp comparison supports both physical-leaning voltage-axis rows; raw support is stronger evidence but still not an independent physical confirmation or threshold approval | no |
 | `BR-20260424-069` | `physical_confirmation_requirements_review_complete` | converts BR-068 raw support into an independent confirmation checklist; both rows have `0/2` required axes met and threshold/promotion/engine patch sums remain 0 | no |
+| `BR-20260424-070` | `physical_evidence_request_packet_complete` | emits 2 high-priority exact-panel evidence requests for physical measurement plus maintenance/inspection records; promotion/engine/threshold sums remain 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -158,6 +159,7 @@
 - BR-067 checks those 2 rows for artifact/reference risk: both are physical-leaning voltage-axis review, but physical confirmation is still required before thresholding.
 - BR-068 adds raw waveform proxy support for those 2 rows: both have complete raw coverage and persistent low-voltage/current-preserved timestamp morphology, but independent confirmation is still required.
 - BR-069 confirms the independent confirmation layer is still open: both raw-supported rows have `0/2` required exact-panel axes met, so voltage-axis thresholding remains blocked.
+- BR-070 converts the BR-069 gap into 2 high-priority exact-panel evidence requests so the next action is acquisition, not rule tuning.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -184,3 +186,4 @@
 - after BR-067, do not treat physical-leaning voltage-axis rows as confirmed faults; collect physical confirmation evidence first.
 - after BR-068, use raw waveform support as stronger review evidence, but require an independent physical-confirmation checklist before thresholding.
 - after BR-069, do not propose voltage-axis thresholding until exact-panel direct physical measurement and maintenance/inspection evidence are attached.
+- after BR-070, attach exact-panel evidence and rerun BR-069/070 before reopening any voltage-axis threshold proposal.
