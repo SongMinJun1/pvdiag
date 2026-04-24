@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-047` | `role_boundary_manifest_implemented` | `mixed_scope_disentangle` now has a reproducible role/boundary manifest; current dirty paths are classified by role before cleanup, mirror sync, or new evidence-axis work | plan `source_vs_packaged_mirror_boundary` next |
+| `BR-20260424-048` | `mirror_boundary_manifest_implemented` | source/package mirror rows are now hash-checked separately from package-only surfaces and generated artifacts; package-facing scan has no real content drift after pycache/noise exclusion | plan `active_builder_entrypoint_registry` next |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -59,6 +59,7 @@
 | `BR-20260424-045` | `repo_wide_cleanup_inventory_built` | inventory confirms the broader cleanup pressure is repo-wide, not evidence-only: main dirty concentration, mirror-surface skew, builder sprawl, archive temp roots, runtime bundle weight, and workspace clutter are now explicit lanes | no |
 | `BR-20260424-046` | `confusion_reduction_lanes_locked` | clarifies that the immediate goal is not git-only branch cleanup but reducing cross-lane confusion among mixed scopes, packaged mirrors, builder entrypoints, archive/current roots, runtime bundle, and workspace clutter | no |
 | `BR-20260424-047` | `role_boundary_manifest_implemented` | adds a reproducible role/boundary builder and smoke; current dirty paths classify into 24 manifest roles with `unclassified_dirty_entry_total=0`, so the first confusion-reduction step is now actionable | no |
+| `BR-20260424-048` | `mirror_boundary_manifest_implemented` | adds a reproducible source/package mirror boundary builder and smoke; package-facing mirror rows are split into in-sync mirrors, package-only surfaces, and generated artifacts | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -114,6 +115,7 @@
 - BR-045 widens the lens beyond evidence-only cleanup: the next practical emphasis is now repo-wide cleanup planning, with `main_dirty_disentangle` first, before adding more expansion lanes.
 - BR-046 refines that wording so the target is explicit: the next practical emphasis is confusion reduction by role/boundary disentanglement, not branch cosmetics.
 - BR-047 implements the first concrete role/boundary manifest: dirty paths are now read by `role_id`, `role_family`, owner, sync direction, edit policy, commit policy, validation, and cleanup action before any moving or syncing.
+- BR-048 implements the second concrete confusion-reduction manifest: source/package mirror pairs are hash-checked separately from package-only surfaces and generated outputs.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -123,4 +125,4 @@
 - before generating more packet branches, prefer a tracked packet generator or an exact one-shot reproduction script.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
 - after BR-043, use the evidence manifest/consolidated pack root as the default read base, then implement `common_cause_synchrony_axis`, then do a cross-axis review, then rerun exact same-day missing-family search, and only then reopen algorithm gating.
-- after BR-047, `mixed_scope_disentangle` is implemented by `repo_role_boundary_manifest_v1`; next confusion-reduction lane is `source_vs_packaged_mirror_boundary`, then `active_builder_entrypoint_registry`.
+- after BR-048, `source_vs_packaged_mirror_boundary` is implemented by `repo_mirror_boundary_manifest_v1`; next confusion-reduction lane is `active_builder_entrypoint_registry`.
