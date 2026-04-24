@@ -76,6 +76,7 @@
 | `BR-20260424-062` | `result_delta_scorecard_compare_complete` | baseline vs fresh conalog rerun scorecard compare reports changed metric count 0, core result changed flag 0, and performance improvement claim still blocked | no |
 | `BR-20260424-063` | `critical_bool_mask_engine_cleanup_complete` | source/package panel engine mirrors use explicit `critical_fault_mask`; safety gate/runbook/scorecard/compare all pass with result delta 0 | no |
 | `BR-20260424-064` | `fault_family_judgment_candidate_packet_complete` | packages 209 cross-axis panels into family-judgment buckets: common-cause block/hold 176, regression pressure 11, local morphology family-shape review 10, weak hold 12; promotion/engine patch sums remain 0 | no |
+| `BR-20260424-065` | `local_morphology_family_shape_review_complete` | rereads BR-064 local morphology 10 rows against panel-day shape metrics: 8 recovery-only holds, 2 voltage-dominant hard-signal review rows, promotion/engine patch sums remain 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -148,6 +149,7 @@
 - BR-062 adds the before/after compare layer: future post-patch scorecards must be compared against the baseline before any result-change claim.
 - BR-063 completes the first direct engine cleanup rehearsal with no result drift: scorecard compare changed metrics `0`.
 - BR-064 separates family-judgment candidates before any threshold patch: most rows are common-cause block/hold, the remaining local morphology pool has `10` rows that still need family-shape evidence.
+- BR-065 narrows those 10 local morphology rows: 8 remain recovery/recurrence-only holds, while 2 voltage-dominant hard-signal rows need partial-open vs measurement/reference review.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -169,3 +171,4 @@
 - after BR-062, use `compare_panel_day_engine_result_delta_scorecards_v1.py` for the actual before/after comparison.
 - after BR-063, use source/package mirror + safety review + prepatch runbook + scorecard + compare as the minimum direct engine patch pattern.
 - after BR-064, inspect `local_morphology_family_candidate_review` rows for family-shape evidence before any fault-family threshold or semantic engine patch.
+- after BR-065, inspect only the 2 `voltage_dominant_hard_signal_review` rows before proposing any family-specific threshold; keep the 8 recovery-only rows on hold.
