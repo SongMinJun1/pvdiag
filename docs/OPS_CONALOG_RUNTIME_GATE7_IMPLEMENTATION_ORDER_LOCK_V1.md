@@ -257,7 +257,8 @@
 3. `control_score > 0` supportive hint 와 exact `제어응답형 top1` family를 계속 분리해 추적한다.
 4. `±7일 near-window overlap backlog`는 BR-033 기준 `non-closing backlog`로 유지하고, 한 proto-cluster가 DL-015 criteria를 넘을 때만 다시 provisional family 승격을 검토한다.
 5. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural blocker`로 먼저 읽는다.
-6. 그 다음에야 algorithm gating patch 검토
+6. `group_off_date`는 BR-037 blocker subtype(`no entry / precursor carry-over / rawonly displacement / near-anchor residual`)으로 먼저 자른 뒤, near-anchor residual만 exact-family inspect 대상으로 본다.
+7. 그 다음에야 algorithm gating patch 검토
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)

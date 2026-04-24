@@ -85,6 +85,7 @@
 - [ ] official current direct overlap 부재를 무시하고 common-cause rule을 확대하지 않았는가
 - [ ] `±7일 near-window overlap backlog`를 `same-day exact family closure`처럼 읽지 않았는가
 - [ ] raw-daily same-day direct row 존재만으로 `report-layer exact family`가 닫힌 것처럼 읽지 않았는가
+- [ ] `group_off_date` exact row는 `no_report_lane_entry / precursor_carryover / rawonly_date_displaced / rawonly_near_signal_anchor` subtype으로 먼저 분리했는가
 
 ## Current Collection Priority
 ### Priority A
@@ -100,7 +101,7 @@
 - `±7일 near-window overlap backlog` 대표 사례
 - `vdrop` 또는 `fault_like_day` 반복이 있지만 common-cause hold가 우선이어야 하는 사례
 
-## BR-029 / BR-031 / BR-033 / BR-034 / BR-035 / BR-036 interpretation lock
+## BR-029 / BR-031 / BR-033 / BR-034 / BR-035 / BR-036 / BR-037 interpretation lock
 - BR-028 provisional shortlist는 BR-029 기준을 만족하면 curated counterexample seed로 승격될 수 있다.
 - 단, 그 승격은 `hold/reroute pressure-test seed` 의미만 가진다.
 - 따라서 아래는 계속 `missing family`로 별도 추적한다.
@@ -124,6 +125,9 @@
   - `non_closing_backlog` -> backlog tracking only
   - `structural_blocker` -> patch target selection only
   - `exact_family_closure`만 missing family closure 주장 가능
+- BR-037 기준 `group_off_date` exact row는 blocker subtype을 먼저 가른다.
+  - `rawonly_near_signal_anchor`만 next inspect 우선순위가 높다.
+  - 나머지 subtype은 immediate exact-family closure 근거가 아니다.
 
 ## Minimum Pass Rule Before Algorithm Patch
 - `official_only`, `precursor_only`, `raw_only_only` 각 bucket 대표 사례 3개 이상

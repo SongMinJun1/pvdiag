@@ -296,6 +296,17 @@
     - BR-035 row-universe/date-alignment mismatch
 - 따라서 curated seed나 widened scan이 추가되더라도, 먼저 `judgment role`을 적기 전에는 exact-family closure나 algorithm gating justification으로 쓰면 안 된다.
 
+## 11G. BR-037 group-off report-lane entry blocker note
+- BR-037에서는 `group_off_date` exact raw-row family를 report-lane blocker subtype으로 다시 분해했다.
+- 결과:
+  - `no_report_lane_entry = 1 panel`
+  - `precursor_carryover_without_exact_overlap = 2 panels`
+  - `rawonly_date_displaced = 15 panels`
+  - `rawonly_near_signal_anchor = 1 panel`
+- 핵심 reading:
+  - `group_off_date` family는 아직 exact-family closure가 아니라 blocker-family에 가깝다.
+  - 다만 `rawonly_near_signal_anchor` 1 panel은 next inspect residual로 남는다.
+
 ## 12. 남은 과제
 - `MLPE ambiguous`에서 `장치 응답 이상형` top1 또는 회복/재발까지 확인되는 사례 추가
 - `common_cause risk`에서 작업일 / 운영 이벤트 / 통신 흔들림 겹침 사례 추가
