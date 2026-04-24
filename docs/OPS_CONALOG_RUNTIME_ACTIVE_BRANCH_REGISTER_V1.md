@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-054` | `panel_engine_patch_safety_gate_tightened` | safety gate now blocks source-only, package-only, source/package content mismatch, deleted required evidence, and unrelated filename-only evidence | inspect no-report heuristic attachment gap under the tightened safety gate discipline |
+| `BR-20260424-055` | `no_report_heuristic_gap_review_complete` | `no_report_heuristic_match=8` decomposes to expected non-fault heuristic absence; engine patch candidates 0, near-anchor report-observation candidates 3, date-displaced evidence 5 | decide whether to add a non-fault morphology observation sidecar for the 3 near-anchor rows |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -66,6 +66,7 @@
 | `BR-20260424-052` | `local_morphology_exact_seed_search_complete` | scans 21 local morphology rows; exact target top1 remains 0, supportive device-response recovery seed 1, sensor-feedback local morphology pressure rows 6, no-report heuristic gap 8 | no |
 | `BR-20260424-053` | `panel_engine_patch_safety_gate_complete` | adds a reproducible gate and smoke so future `pv_ae/panel_day_engine.py` changes must include decision docs, shadow/safety evidence, smoke, source/package sync, and public behavior docs when behavior can change | no |
 | `BR-20260424-054` | `panel_engine_patch_safety_gate_tightened` | closes BR-053 precision holes: package-only drift fails, source/package hash mismatch fails, deleted evidence cannot satisfy gates, and related active docs/builders/smokes are required | no |
+| `BR-20260424-055` | `no_report_heuristic_gap_review_complete` | reviews 8 no-report heuristic rows; all are `미확정` and expected to be absent from fault-only heuristic, with 3 near-anchor observation-sidecar candidates and 5 date-displaced evidence-only rows | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -128,6 +129,7 @@
 - BR-052 confirms the cleaner local morphology pool still does not close the exact family gap: target top1 rows `0`, exact-family candidates `0`, supportive device-response seed `1`, and no-report heuristic gap `8`.
 - BR-053 locks the safety rail before direct engine edits: engine source/package changes must pass the panel-engine safety gate packet before any runtime semantics patch is considered.
 - BR-054 tightens that safety rail so source/package drift, content mismatch, deleted evidence, and unrelated filename-only evidence are blocked before any engine patch.
+- BR-055 closes the immediate no-report heuristic gap as non-engine-bug evidence: all 8 rows are non-fault status-gated heuristic absences, engine patch candidates `0`.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -140,3 +142,4 @@
 - after BR-052, inspect `no_report_heuristic_match` as a report-lane / heuristic attachment gap before reopening any algorithm gating discussion.
 - after BR-053, run any future `pv_ae/panel_day_engine.py` patch through `panel_day_engine_patch_safety_gate_v1` before code review or commit.
 - after BR-054, treat the tightened pair/hash/deletion/relevance checks as the effective safety gate contract.
+- after BR-055, do not patch the engine for no-report heuristic rows; optional next work is a non-fault morphology observation sidecar for 3 near-anchor rows.
