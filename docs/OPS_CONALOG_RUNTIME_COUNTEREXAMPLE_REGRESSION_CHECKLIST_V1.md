@@ -65,6 +65,7 @@
 - [ ] `장치 측정 이상형`, `제어 응답 이상형`, panel-local 후보 경합 시 hold/review가 유지되는가
 - [ ] `critical_source`, `mid_v_ratio`, `mid_i_ratio`를 direct cause certainty로 쓰지 않았는가
 - [ ] ambiguity가 높은데 maintenance/action top1을 강행하지 않았는가
+- [ ] `control_score > 0` 또는 GPVS/usage 보조 가산만으로 `제어응답형 top1 family`를 확보한 것처럼 읽지 않았는가
 
 ### 5. `common_cause_risk`
 - [ ] `group_off_like`, `work/event calendar hit`, `prefault_B_common_cause_overlap`가 suppressor로 유지되는가
@@ -86,7 +87,7 @@
 - `±7일 near-window overlap backlog` 대표 사례
 - `vdrop` 또는 `fault_like_day` 반복이 있지만 common-cause hold가 우선이어야 하는 사례
 
-## BR-029 / BR-031 / BR-033 interpretation lock
+## BR-029 / BR-031 / BR-033 / BR-034 interpretation lock
 - BR-028 provisional shortlist는 BR-029 기준을 만족하면 curated counterexample seed로 승격될 수 있다.
 - 단, 그 승격은 `hold/reroute pressure-test seed` 의미만 가진다.
 - 따라서 아래는 계속 `missing family`로 별도 추적한다.
@@ -100,6 +101,8 @@
   - one slice type
   - report row `3+` and root `3+`
   - gap sign mostly aligned
+- BR-034 기준 `제어응답형 raw_score > 0`는 supportive hint 이지 `top1 family closure`가 아니다.
+- BR-034 기준 raw-only artifact date expanded scan도 `same-day direct overlap family closure`를 만들지 못했다.
 
 ## Minimum Pass Rule Before Algorithm Patch
 - `official_only`, `precursor_only`, `raw_only_only` 각 bucket 대표 사례 3개 이상

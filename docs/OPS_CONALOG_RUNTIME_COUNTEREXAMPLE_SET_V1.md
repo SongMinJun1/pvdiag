@@ -259,12 +259,24 @@
   - `same-day exact family` 대체물 아님
   - 하나의 proto-cluster가 `same flag family + same slice + 3 roots + stable sign`을 만족하기 전까지 provisional family로 승격하지 않음
 
+## 11D. BR-034 exact-seed deep scan note
+- BR-034에서는 `제어응답형 top1`과 `same-day direct overlap` missing family를 더 깊게 다시 스캔했다.
+- 결과:
+  - live/runtime heuristics 모두 `제어응답형 top1 = 0`
+  - live-chain score breakdown에서는 `제어응답형 raw_score > 0` panel `4개`가 보였지만, 모두 GPVS/usage 보조 가산 기반이었다
+  - raw-only artifact 날짜까지 확장한 same-day direct overlap scan도 `0`
+- 따라서 BR-034 이후 reading은 아래처럼 잠근다.
+  - `control_score > 0` 는 supportive hint
+  - `제어응답형 top1 family closure` 아님
+  - expanded raw-only date scan도 `same-day direct overlap family closure` 아님
+
 ## 12. 남은 과제
 - `MLPE ambiguous`에서 `장치 응답 이상형` top1 또는 회복/재발까지 확인되는 사례 추가
 - `common_cause risk`에서 작업일 / 운영 이벤트 / 통신 흔들림 겹침 사례 추가
 - `common_cause risk`에서 precursor/current row와 `group_off_event`가 직접 겹치는 `same-day exact` 사례 추가
 - `common_cause risk`에서 official current direct overlap `same-day exact` 사례 추가
 - `±7일 near-window overlap backlog`는 current state 에서 non-closing backlog로 유지하고, DL-015 criteria를 넘는 proto-cluster가 생기면 그때만 재검토
+- `control_score > 0` panel은 계속 추적하되, exact `제어응답형 top1` seed와 분리해서 관리
 - 반례 세트 row를 decision log와 연결하는 `regression checklist`를 실제 patch gate로 사용
 - 필요 시 `challenge set`와 `counterexample set`를 분리
 
