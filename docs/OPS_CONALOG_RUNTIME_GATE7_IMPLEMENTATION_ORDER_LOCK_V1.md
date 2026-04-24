@@ -34,6 +34,7 @@
   - DL-001, DL-002가 Gate 7보다 우선한다.
   - stable/handoff 문서는 별도 계약으로 읽고, runtime redesign 패치를 stable 문서군에 직접 확장하지 않는다.
   - BR-036 judgment rubric이 exact/supportive/reservoir/backlog/blocker 해석 우선권을 가진다.
+  - DL-020 기준으로 patch 방향 자체는 `docs/evidence-first -> blocker-target-first -> algorithm-last` 순서를 따른다.
 
 ## 4. 기본 원칙
 ### 4.1 문서 결정이 먼저, 코드 패치가 나중
@@ -259,6 +260,17 @@
 5. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural blocker`로 먼저 읽는다.
 6. `group_off_date`는 BR-037 blocker subtype(`no entry / precursor carry-over / rawonly displacement / near-anchor residual`)으로 먼저 자른 뒤, near-anchor residual만 exact-family inspect 대상으로 본다.
 7. 그 다음에야 algorithm gating patch 검토
+
+## 11A. 왜 이 순서로 가는가
+- exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
+- 현재 evidence의 대부분은 아래 급에 있다.
+  - `supportive_hint`
+  - `candidate_reservoir`
+  - `non_closing_backlog`
+  - `structural_blocker`
+- therefore:
+  - 지금 단계의 우선순위는 “규칙 바꾸기”보다 “근거 급과 blocker subtype을 명확히 하는 것”이다.
+- 이 문서의 순서는 보수적이라서 느린 것이 아니라, evidence grade에 맞는 순서라는 점을 DL-020에서 잠갔다.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
