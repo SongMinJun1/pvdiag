@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-042` | `evidence_execution_order_locked` | lock the next work order so the current evidence-sidecar track does not drift: manifest first, then common-cause synchrony, then cross-axis review, then exact-family re-search | implement `evidence manifest / consolidated pack root` next |
+| `BR-20260424-043` | `evidence_manifest_pack_root_implemented` | current sidecar, temp blocker scans, and base runtime result artifacts are now indexed from one manifest plus one pack root | implement `common_cause_synchrony_axis` next |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -54,6 +54,7 @@
 | `BR-20260424-040` | `report_entry_friction_axis_sidecar_implemented` | adds a reproducible builder/smoke pair and shows `group_off_date` / `site_event` rows can now be split into current/precursor/rawonly/no-entry blocker families without touching runtime semantics | no |
 | `BR-20260424-041` | `recovery_recurrence_axis_sidecar_implemented` | adds a reproducible builder/smoke pair and shows transient/sustained/re-drop/persistent morphology can now be read together with report-lane entry bias across sites | no |
 | `BR-20260424-042` | `evidence_execution_order_locked` | locks the next sequence after BR-041 so work is not forgotten: manifest first, `common_cause_synchrony` second, cross-axis review third, exact-family re-search fourth, algorithm gating last | no |
+| `BR-20260424-043` | `evidence_manifest_pack_root_implemented` | adds a reproducible manifest builder/smoke pair and a family-organized pack root so base result, blocker scan, opportunity scan, and sidecar artifacts can be read from one index | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -104,6 +105,7 @@
 - BR-040 turns the first of those candidates into code without touching runtime semantics: `report_entry_friction_axis` is now a reproducible sidecar, not an ad-hoc temp scan, and it keeps `group_off_date` / `site_event` in the evidence/blocker layer only.
 - BR-041 turns the second candidate into code without touching runtime semantics: `recovery_recurrence_axis` is now a reproducible sidecar that keeps recovery/re-drop morphology in the evidence layer and explains lane bias by site.
 - BR-042 locks the immediate next order so the current work does not drift: before the third axis, evidence layout must be consolidated into one manifest/pack root.
+- BR-043 implements that consolidation step: current evidence artifacts are now readable from one manifest/pack root, and future scans should start there instead of re-assembling temp roots by memory.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -112,4 +114,4 @@
 - adjudicate BR-023 `group_off` cluster boundaries and `strict_trigger_proximal` vs secondary-window evidence before any subtype promotion discussion.
 - before generating more packet branches, prefer a tracked packet generator or an exact one-shot reproduction script.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
-- after BR-042, follow this order strictly: first build the evidence manifest/consolidated pack root, then implement `common_cause_synchrony_axis`, then do a cross-axis review, then rerun exact same-day missing-family search, and only then reopen algorithm gating.
+- after BR-043, use the evidence manifest/consolidated pack root as the default read base, then implement `common_cause_synchrony_axis`, then do a cross-axis review, then rerun exact same-day missing-family search, and only then reopen algorithm gating.
