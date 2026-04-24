@@ -199,8 +199,8 @@
   - BR-041 기준 `recovery_recurrence_axis`도 builder + smoke까지 구현 완료
 - BR-043 기준 `evidence manifest / consolidated pack root`도 builder + smoke까지 구현 완료
 - next 순서는 `common_cause_synchrony_axis`
-- 단, BR-045 기준 practical execution lane에는 repo-cleanup prelude가 추가됐다:
-  - `mixed_scope_disentangle`
+- 단, BR-047 기준 practical execution lane에는 confusion-reduction prelude가 추가됐고 첫 step은 구현 완료됐다:
+  - `mixed_scope_disentangle` -> `repo_role_boundary_manifest_v1`
   - `source_vs_packaged_mirror_boundary`
   - `active_builder_entrypoint_registry`
 
@@ -227,7 +227,7 @@
     - `panel_day_engine_evidence_pack_manifest_v1.json`
     - `evidence_pack_root/`
 - 이후 exact-family 재탐색과 cross-axis review는 이 pack root를 default entry point로 사용한다.
-- BR-046 기준 이 runtime order 자체는 유지하되, 실제 작업 착수 전 confusion-reduction prelude 3개를 먼저 잠가 current worktree/read-path 혼선을 줄인다.
+- BR-047 기준 이 runtime order 자체는 유지하되, `repo_role_boundary_manifest_v1`를 먼저 읽어 current worktree/read-path 혼선을 줄인다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
@@ -302,13 +302,13 @@
 | Step 7 build/release/smoke sync | 모든 source patch | 배포/검증 |
 
 ## 11. 지금 기준 다음 우선순위
-1. `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 `exact same-day` seed를 계속 추가한다.
-2. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
-3. `control_score > 0` supportive hint 와 exact `제어응답형 top1` family를 계속 분리해 추적한다.
-4. `±7일 near-window overlap backlog`는 BR-033 기준 `non-closing backlog`로 유지하고, 한 proto-cluster가 DL-015 criteria를 넘을 때만 다시 provisional family 승격을 검토한다.
-5. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural blocker`로 먼저 읽는다.
-6. `group_off_date`는 BR-037 blocker subtype(`no entry / precursor carry-over / rawonly displacement / near-anchor residual`)으로 먼저 자른 뒤, near-anchor residual만 exact-family inspect 대상으로 본다.
-7. 필요한 evidence-axis sidecar를 먼저 만든다.
+1. `repo_role_boundary_manifest_v1`를 먼저 읽어 현재 dirty/read-path를 role 기준으로 분류한다.
+2. `source_vs_packaged_mirror_boundary`를 잠가 source와 release/final_delivery mirror를 같은 원본처럼 다루지 않게 한다.
+3. `active_builder_entrypoint_registry`를 잠가 현재 진입점과 archive/helper를 구분한다.
+4. 그 뒤 `common_cause_synchrony_axis`를 evidence-only sidecar로 만든다.
+5. `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 `exact same-day` seed를 계속 추가한다.
+6. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
+7. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural blocker`로 먼저 읽는다.
 8. 그 다음에야 algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
