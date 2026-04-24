@@ -408,8 +408,10 @@
 41. BR-087 기준 BR-086 source traces `22` rows는 adjudication worksheet `16` rows로 압축됐고, suggested direction은 negative/hold `6`, strict-sudden negative `3`, manual positive/hold `7`이다.
 42. BR-088 기준 conservative review input은 source-backed negative `9` rows를 채우고 durable precursor `7` rows는 보류했다.
 43. BR-088 review input으로 BR-084를 재빌드하면 `reviewed_negative=9`, `needs_evidence=7`, replay-ready negative `9`, positive `0`이다.
-44. 다음은 7 deferred durable precursor rows를 raw/shape level에서 양성 근거로 검토하는 것이며, threshold replay는 positive/negative replay-ready rows가 모두 생긴 뒤에만 진행한다.
-45. semantic algorithm gating patch는 reviewed episode truth labels와 subtype-conditioned threshold replay가 끝난 뒤에만 검토한다.
+44. BR-089 기준 deferred durable precursor `7` rows 중 `1` row만 strong voltage-preserved shape positive seed로 채우고 `6` rows는 보류했다.
+45. BR-089 mixed input으로 BR-084를 재빌드하면 `reviewed_negative=9`, `reviewed_positive=1`, `needs_evidence=6`, replay-ready rows `10`이다.
+46. 다음은 pilot subtype-threshold replay review이며, 이는 evidence assessment일 뿐 threshold tuning approval이 아니다.
+47. semantic algorithm gating patch는 reviewed episode truth labels, pilot replay review, and BR-076 prepatch gates가 끝난 뒤에만 검토한다.
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -675,6 +677,43 @@
 - 금지:
   - BR-088 negative-only replay rows do not approve threshold tuning.
   - BR-088 does not approve semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
+
+## 11N. BR-089 episode truth durable shape review
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_089_EPISODE_TRUTH_DURABLE_SHAPE_REVIEW_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_089_EPISODE_TRUTH_DURABLE_SHAPE_REVIEW_V1.md)
+- 실행 산출물:
+  - `/private/tmp/panel_day_engine_episode_truth_durable_shape_review_br089_check/panel_day_engine_episode_truth_durable_shape_review_v1.csv`
+  - `/private/tmp/panel_day_engine_episode_truth_durable_shape_review_br089_check/panel_day_engine_episode_truth_review_input_mixed_v1.csv`
+  - `/private/tmp/panel_day_engine_episode_truth_durable_shape_review_br089_check/panel_day_engine_episode_truth_durable_shape_review_summary_v1.csv`
+  - `/private/tmp/panel_day_engine_reviewed_episode_truth_rows_br089_mixed_check/panel_day_engine_reviewed_episode_truth_rows_v1.csv`
+- 판정:
+  - durable shape review rows `16`.
+  - carried-forward negative counterexamples `9`.
+  - filled positive precursor seed `1`.
+  - deferred durable shape holds `6`.
+  - threshold replay input candidate rows `10`.
+  - threshold tuning approved `0`.
+  - BR-084 mixed rebuild result:
+    - `reviewed_negative=9`
+    - `reviewed_positive=1`
+    - `needs_evidence=6`
+    - `negative_counterexample=9`
+    - `positive_precursor_truth=1`
+    - `unassigned=6`
+    - threshold replay ready rows `10`
+  - operator promotion, engine patch, and threshold patch authorization sums remain `0`.
+- positive seed:
+  - `BR089-DSR-010` / `BR084-RTR-010` / `BR082-EPR-010`
+  - `site=conalog`, `panel_id=7f7dd654-2760-4eb2-a197-3ebb72b85cda.2.0`
+  - `event_A_days=21`, `low_mid_days=21`, `voltage_low_current_ok_days=20`, `hard_anchor_days=1`, `common_cause_days=0`
+- 다음 안전 순서:
+  1. run pilot subtype-threshold replay review using the BR-089 mixed input.
+  2. read the pilot as evidence quality assessment, not threshold tuning approval.
+  3. inspect the 6 durable holds with raw waveform or independent family-shape evidence before adding more positives.
+  4. keep direct engine edits blocked until replay evidence and BR-076 prepatch gates both pass.
+- 금지:
+  - BR-089 one positive seed does not approve threshold tuning.
+  - BR-089 does not approve semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)

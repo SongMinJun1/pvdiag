@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-088` | `episode_truth_conservative_negative_adjudication_complete` | fills 9 source-backed negative counterexamples from BR-087, leaves 7 durable precursor rows deferred, and produces BR-084 negative replay-ready rows 9 / positive rows 0 | inspect the 7 deferred durable rows for defensible positive evidence before threshold replay |
+| `BR-20260425-089` | `episode_truth_durable_shape_review_complete` | adds 1 shape-backed positive precursor seed, carries 9 negative counterexamples, leaves 6 durable rows deferred, and produces BR-084 mixed replay-ready rows 10 | run pilot subtype-threshold replay review as evidence only; threshold tuning remains blocked |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -100,6 +100,7 @@
 | `BR-20260425-086` | `episode_truth_source_trace_audit_complete` | resolves 22 source references for 16 review rows; source rows resolved 22, identity matches 22, trace-ready 22, labels 0, replay-ready 0 | no |
 | `BR-20260425-087` | `episode_truth_adjudication_worksheet_complete` | compresses source traces into 16 human-adjudication rows; guidance counts 6/3/7, labels 0, replay-ready 0 | no |
 | `BR-20260425-088` | `episode_truth_conservative_negative_adjudication_complete` | conservative BR-084 review input fills 6 long-gap backdating negatives and 3 strict-sudden negatives; positives 0, deferred durable 7 | no |
+| `BR-20260425-089` | `episode_truth_durable_shape_review_complete` | BR-089 mixed review input yields positive 1, negative 9, deferred 6; threshold tuning approved 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -233,3 +234,4 @@
 - after BR-086, use `/private/tmp/panel_day_engine_episode_truth_source_trace_audit_br086_check/panel_day_engine_episode_truth_source_trace_audit_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_086_EPISODE_TRUTH_SOURCE_TRACE_AUDIT_V1.md` as the current source-trace guard; source trace readiness is not a truth label, so fill BR-085 manually and rebuild BR-084 before threshold replay.
 - after BR-087, use `/private/tmp/panel_day_engine_episode_truth_adjudication_worksheet_br087_check/panel_day_engine_episode_truth_adjudication_worksheet_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_087_EPISODE_TRUTH_ADJUDICATION_WORKSHEET_V1.md` as the current adjudication worksheet; suggested directions are guidance only, so manually fill a copy of the draft input and rebuild BR-084 before threshold replay.
 - after BR-088, use `/private/tmp/panel_day_engine_episode_truth_conservative_adjudication_br088_check/panel_day_engine_episode_truth_review_input_conservative_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_088_EPISODE_TRUTH_CONSERVATIVE_ADJUDICATION_V1.md` as the current negative counterexample input; BR-084 now has negative replay-ready rows 9 but positive rows 0, so threshold replay remains blocked until durable positive evidence is attached.
+- after BR-089, use `/private/tmp/panel_day_engine_episode_truth_durable_shape_review_br089_check/panel_day_engine_episode_truth_review_input_mixed_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_089_EPISODE_TRUTH_DURABLE_SHAPE_REVIEW_V1.md` as the current mixed truth input; pilot replay review is allowed as evidence assessment only, while threshold tuning and direct engine edits remain blocked.
