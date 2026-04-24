@@ -399,7 +399,8 @@
 32. BR-078 기준 BR-064~077 최신 evidence/handoff manifest가 생성됐다. 이후 새 scan이나 algorithm proposal은 먼저 이 manifest에 붙는지 확인한다.
 33. BR-079 기준 현재 `panel_day_engine.py`는 10개 algorithm/evidence layer, 7개 evidence gap, 6개 ordered action으로 먼저 읽는다.
 34. BR-080 기준 17개 subtype hypothesis는 truth backlog로 고정됐고, current exact truth support는 `0`이다.
-35. 다음은 episode truth map이며, semantic algorithm gating patch는 그 뒤에만 검토한다.
+35. BR-081 기준 episode truth map은 완료됐고, 다음은 episode truth review packet이다.
+36. semantic algorithm gating patch는 episode truth review packet과 subtype-conditioned threshold replay가 끝난 뒤에만 검토한다.
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -478,6 +479,26 @@
   3. only after subtype/episode truth rows exist, open subtype-conditioned threshold replay.
 - 금지:
   - BR-080 does not approve operator-facing subtype labels, threshold updates, AE root-cause claims, voltage-axis loosening, common-cause semantic loosening, or direct `panel_day_engine.py` edits.
+
+## 11F. BR-081 episode truth map
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_081_EPISODE_TRUTH_MAP_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_081_EPISODE_TRUTH_MAP_V1.md)
+- 실행 산출물:
+  - `/private/tmp/panel_day_engine_episode_truth_map_br081_check/panel_day_engine_episode_truth_map_v1.csv`
+  - `/private/tmp/panel_day_engine_episode_truth_map_br081_check/panel_day_engine_episode_truth_map_summary_v1.csv`
+  - `/private/tmp/panel_day_engine_episode_truth_map_br081_check/panel_day_engine_episode_truth_map_action_queue_v1.csv`
+- 판정:
+  - episode truth map rows `244`, summary rows `10`, action rows `5`.
+  - all rows are `truth_pending`.
+  - bucket counts: `common_cause_or_group_episode_hold=205`, `recovery_recurrence_observation=12`, `long_gap_backdating_hold=12`, `durable_precursor_candidate_review=7`, `episode_truth_requirement=5`, `strict_anchor_sudden_review=3`.
+  - operator promotion, engine patch, and threshold patch authorization sums remain `0`.
+- 다음 안전 순서:
+  1. build `panel_day_engine_episode_truth_review_packet_v1`.
+  2. review long-gap/backdating and strict-sudden rows first.
+  3. review durable precursor candidates only after common-cause and recovery-only holds are separated.
+  4. open subtype-conditioned threshold replay only after reviewed episode truth exists.
+- 금지:
+  - BR-081 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
