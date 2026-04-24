@@ -270,6 +270,17 @@
   - `제어응답형 top1 family closure` 아님
   - expanded raw-only date scan도 `same-day direct overlap family closure` 아님
 
+## 11E. BR-035 exact-seed blocker anatomy note
+- BR-035에서는 `same-day direct overlap` missing family를 raw-daily row reservoir와 report-layer blocker로 다시 분해했다.
+- 결과:
+  - raw-daily direct common-cause same-day rows 자체는 `101 rows / 49 panels`로 존재한다.
+  - 그러나 top-level artifact presence는 `precursor 19`, `rawonly 16`, `none 13`, `current 1`로 갈린다.
+  - 즉 same-day exact family가 비어 있는 이유는 raw-row 부재보다 `report-lane entry/date alignment failure`가 더 크다.
+- 따라서 BR-035 이후 reading은 아래처럼 잠근다.
+  - raw-daily same-day row = candidate reservoir
+  - report-layer exact family closure = 별도 조건
+  - 둘을 혼용하지 않는다
+
 ## 12. 남은 과제
 - `MLPE ambiguous`에서 `장치 응답 이상형` top1 또는 회복/재발까지 확인되는 사례 추가
 - `common_cause risk`에서 작업일 / 운영 이벤트 / 통신 흔들림 겹침 사례 추가
@@ -277,6 +288,7 @@
 - `common_cause risk`에서 official current direct overlap `same-day exact` 사례 추가
 - `±7일 near-window overlap backlog`는 current state 에서 non-closing backlog로 유지하고, DL-015 criteria를 넘는 proto-cluster가 생기면 그때만 재검토
 - `control_score > 0` panel은 계속 추적하되, exact `제어응답형 top1` seed와 분리해서 관리
+- raw-daily same-day direct row가 report-layer exact family로 올라오지 못하는 blocker case를 계속 축적
 - 반례 세트 row를 decision log와 연결하는 `regression checklist`를 실제 patch gate로 사용
 - 필요 시 `challenge set`와 `counterexample set`를 분리
 

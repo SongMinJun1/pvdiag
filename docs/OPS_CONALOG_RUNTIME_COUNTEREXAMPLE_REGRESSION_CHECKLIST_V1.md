@@ -72,6 +72,7 @@
 - [ ] 다수 cluster 흔들림을 singleton precursor나 panel-local hard-evidence 강화 근거로 쓰지 않았는가
 - [ ] official current direct overlap 부재를 무시하고 common-cause rule을 확대하지 않았는가
 - [ ] `±7일 near-window overlap backlog`를 `same-day exact family closure`처럼 읽지 않았는가
+- [ ] raw-daily same-day direct row 존재만으로 `report-layer exact family`가 닫힌 것처럼 읽지 않았는가
 
 ## Current Collection Priority
 ### Priority A
@@ -87,7 +88,7 @@
 - `±7일 near-window overlap backlog` 대표 사례
 - `vdrop` 또는 `fault_like_day` 반복이 있지만 common-cause hold가 우선이어야 하는 사례
 
-## BR-029 / BR-031 / BR-033 / BR-034 interpretation lock
+## BR-029 / BR-031 / BR-033 / BR-034 / BR-035 interpretation lock
 - BR-028 provisional shortlist는 BR-029 기준을 만족하면 curated counterexample seed로 승격될 수 있다.
 - 단, 그 승격은 `hold/reroute pressure-test seed` 의미만 가진다.
 - 따라서 아래는 계속 `missing family`로 별도 추적한다.
@@ -103,6 +104,8 @@
   - gap sign mostly aligned
 - BR-034 기준 `제어응답형 raw_score > 0`는 supportive hint 이지 `top1 family closure`가 아니다.
 - BR-034 기준 raw-only artifact date expanded scan도 `same-day direct overlap family closure`를 만들지 못했다.
+- BR-035 기준 raw-daily same-day direct row reservoir는 존재하지만, report-layer exact family는 계속 비어 있다.
+- 따라서 same-day exact family search는 `row existence`보다 `report-lane entry + artifact-date coincidence`를 함께 본다.
 
 ## Minimum Pass Rule Before Algorithm Patch
 - `official_only`, `precursor_only`, `raw_only_only` 각 bucket 대표 사례 3개 이상
