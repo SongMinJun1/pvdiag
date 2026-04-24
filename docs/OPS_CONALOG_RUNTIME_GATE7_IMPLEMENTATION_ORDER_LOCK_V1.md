@@ -414,7 +414,8 @@
 47. BR-090 기준 7개 threshold 후보를 replay하면 duration/event-only 3개는 deferred hold pressure로 blocked, strict/voltage 4개는 clean pilot candidate지만 positive support가 `1`뿐이다.
 48. BR-091 기준 6 deferred holds를 48 selected raw days로 재검토해도 voltage-preserved positive candidate는 `0`이고, current-limited hold `2` rows만 별도 축으로 분리된다.
 49. BR-092 기준 voltage-preserved positive search는 best-per-hard-episode 후보 `96` rows를 찾았지만, known negative overlap `1` row도 같이 잡으므로 search hit는 truth label이나 threshold approval이 아니다.
-50. semantic algorithm gating patch는 BR-092 후보 confirmation packet, positive truth rebuild, replay rerun, and BR-076 prepatch gates가 끝난 뒤에만 검토한다.
+50. BR-093 기준 BR-092 manual-review-ready 후보 `86` rows는 `14` panel confirmation tasks와 `7` root families로 압축됐고, counterexample-risk family `1`개는 별도 guarded review 대상이다.
+51. semantic algorithm gating patch는 BR-093 confirmation attachment, positive truth rebuild, replay rerun, and BR-076 prepatch gates가 끝난 뒤에만 검토한다.
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -804,6 +805,35 @@
   - BR-092 search hits are not positive truth labels.
   - BR-092 known negative overlap blocks direct thresholding from this search pattern alone.
   - BR-092 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
+
+## 11R. BR-093 voltage-preserved confirmation packet
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_093_VOLTAGE_PRESERVED_CONFIRMATION_PACKET_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_093_VOLTAGE_PRESERVED_CONFIRMATION_PACKET_V1.md)
+- 실행 산출물:
+  - `/private/tmp/panel_day_engine_voltage_preserved_confirmation_packet_br093_check/panel_day_engine_voltage_preserved_confirmation_packet_v1.csv`
+  - `/private/tmp/panel_day_engine_voltage_preserved_confirmation_packet_br093_check/panel_day_engine_voltage_preserved_confirmation_family_summary_v1.csv`
+  - `/private/tmp/panel_day_engine_voltage_preserved_confirmation_packet_br093_check/panel_day_engine_voltage_preserved_confirmation_candidate_map_v1.csv`
+- 판정:
+  - source candidate map rows `86`.
+  - confirmation packet rows `14`.
+  - confirmation family rows `7`.
+  - counterexample-risk packet rows `3`.
+  - counterexample-risk families `1`.
+  - positive truth candidate approved sum `0`.
+  - threshold tuning approved sum `0`.
+  - operator promotion, engine patch, and threshold patch authorization sums remain `0`.
+  - review priority counts:
+    - `P0_multi_anchor_strong_voltage_preserved=10`
+    - `P0_single_anchor_strong_voltage_preserved=3`
+    - `P1_repeated_voltage_preserved_10d=1`
+- 다음 안전 순서:
+  1. attach independent confirmation to P0 packet rows.
+  2. handle counterexample-risk family separately before truth rebuild.
+  3. rebuild positive truth only after confirmation axes are filled.
+  4. rerun BR-090 only after at least 3 independent positive truth rows exist.
+- 금지:
+  - BR-093 packet rows are not positive truth labels.
+  - BR-093 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
