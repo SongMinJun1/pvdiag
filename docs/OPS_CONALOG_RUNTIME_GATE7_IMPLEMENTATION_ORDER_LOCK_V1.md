@@ -403,8 +403,9 @@
 36. BR-082 기준 episode truth review packet은 완료됐다.
 37. BR-083 기준 BR-079~082 direction/assumption audit guard는 40/40 checks PASS로 완료됐다.
 38. BR-084 기준 reviewed episode truth rows intake는 완료됐지만, reviewer labels `0` and replay-ready rows `0`이다.
-39. 다음은 BR-084 row evidence attachment이며, threshold replay는 positive/negative replay-ready rows가 생긴 뒤에만 진행한다.
-40. semantic algorithm gating patch는 reviewed episode truth labels와 subtype-conditioned threshold replay가 끝난 뒤에만 검토한다.
+39. BR-085 기준 BR-084 row evidence attachment packet은 완료됐지만, reviewer labels `0`, evidence paths `0`, replay-ready rows `0`이다.
+40. 다음은 BR-085 review template을 실제 근거로 채우고 BR-084를 재빌드하는 것이며, threshold replay는 positive/negative replay-ready rows가 생긴 뒤에만 진행한다.
+41. semantic algorithm gating patch는 reviewed episode truth labels와 subtype-conditioned threshold replay가 끝난 뒤에만 검토한다.
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -564,6 +565,29 @@
   4. keep hold/common-cause/insufficient-evidence rows out of replay labels.
 - 금지:
   - BR-084 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
+
+## 11J. BR-085 episode truth evidence attachment
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_085_EPISODE_TRUTH_EVIDENCE_ATTACHMENT_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_085_EPISODE_TRUTH_EVIDENCE_ATTACHMENT_V1.md)
+- 실행 산출물:
+  - `/private/tmp/panel_day_engine_episode_truth_evidence_attachment_br085_check/panel_day_engine_episode_truth_evidence_attachment_index_v1.csv`
+  - `/private/tmp/panel_day_engine_episode_truth_evidence_attachment_br085_check/panel_day_engine_episode_truth_review_input_template_v1.csv`
+  - `/private/tmp/panel_day_engine_episode_truth_evidence_attachment_br085_check/panel_day_engine_episode_truth_evidence_cards_v1/`
+- 판정:
+  - input rows `16`, evidence cards `16`, review input template rows `16`.
+  - track counts: `long_gap_backdating_review=6`, `strict_sudden_prior_episode_review=3`, `durable_precursor_review=7`.
+  - site counts: `ktc_ess=10`, `gangui=3`, `conalog=3`.
+  - reviewer truth labels assigned `0`.
+  - reviewer evidence paths filled `0`.
+  - threshold replay ready rows `0`.
+  - operator promotion, engine patch, and threshold patch authorization sums remain `0`.
+- 다음 안전 순서:
+  1. review the 16 evidence cards.
+  2. fill `reviewer_truth_label`, `reviewer_evidence_path`, and notes only where defensible.
+  3. rebuild BR-084 with the filled review template.
+  4. open subtype-conditioned threshold replay only after positive and negative replay-ready rows exist.
+- 금지:
+  - BR-085 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
