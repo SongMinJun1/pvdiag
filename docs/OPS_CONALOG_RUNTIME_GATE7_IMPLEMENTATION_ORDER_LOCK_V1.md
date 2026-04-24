@@ -197,12 +197,31 @@
 - 진행 상태:
   - BR-040 기준 `report_entry_friction_axis`는 builder + smoke까지 구현 완료
   - BR-041 기준 `recovery_recurrence_axis`도 builder + smoke까지 구현 완료
-  - next implementation candidate는 `common_cause_synchrony_axis`
+  - BR-042 기준 다음 순서는 먼저 `evidence manifest / consolidated pack root`, 그 다음 `common_cause_synchrony_axis`
+
+### 6.6B Step 4C. evidence manifest / consolidated pack root
+- 내용:
+  - 현재 흩어진 evidence artifact를 하나의 index/manifest로 묶는다.
+- 목적:
+  - 지금 하고 있는 sidecar/evidence work를 잊지 않고 이어가기
+  - current sidecar와 temp scan, base result artifact의 연결을 한 번에 읽기
+- 최소 필드:
+  - `evidence_family`
+  - `judgment_role`
+  - `artifact_path`
+  - `artifact_kind`
+  - `canonical_or_temp`
+  - `owner_branch`
+  - `latest_decision_log`
+  - `repro_command`
+- 완료 기준:
+  - BR-040, BR-041, 기존 temp scan artifact가 하나의 manifest에서 연결된다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
   - 필요 시 precursor 승격 / hard evidence 경계 코드 조정
 - 조건:
+  - Step 4C evidence manifest / consolidated pack root가 먼저 있어야 한다.
   - Step 4 반례 세트가 먼저 존재해야 한다.
   - Step 4A signal-to-score map이 먼저 존재해야 한다.
   - BR-029 이후에는 provisional seed promotion criteria가 먼저 잠겨 있어야 한다.
