@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-074` | `common_cause_manual_trace_review_complete` | closes the 2 BR-073 manual trace targets as raw-only trace-only and post-current mismatch; promotion/engine/threshold sums remain 0 | preserve BR-071~074 as common-cause hold/regression evidence before any semantic patch |
+| `BR-20260424-075` | `common_cause_semantic_prepatch_gate_complete` | turns BR-071~074 common-cause hold/regression evidence into a 12-required-gate prepatch check; required failures 0, expected warning 1 | run this gate before any common-cause semantic promotion patch |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -86,6 +86,7 @@
 | `BR-20260424-072` | `common_cause_exact_seed_search_complete` | rereads 176 external/common-cause candidates: exact closure 0, candidate reservoir 49 panels / 101 raw rows, structural blockers 49, promotion/engine/threshold sums 0 | no |
 | `BR-20260424-073` | `common_cause_structural_blocker_review_complete` | splits the 49 structural blockers into no-report 13, precursor-carryover 19, rawonly-displaced 15, and 2 manual trace targets; promotion/engine/threshold sums 0 | no |
 | `BR-20260424-074` | `common_cause_manual_trace_review_complete` | traces the 2 manual targets: gangui is raw-only near-anchor trace-only, ktc_ess is post-current 71-day mismatch; official/current bridge and semantic patch sums 0 | no |
+| `BR-20260424-075` | `common_cause_semantic_prepatch_gate_complete` | gates BR-071~074 before semantic loosening: overall pass, required failures 0, exact closure 0, raw direct rows 101, expected raw-only context warning 1 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -168,6 +169,7 @@
 - BR-072 confirms conservative common-cause gating still has forward motion: exact closure is `0`, but `49` panels / `101` raw same-day direct rows are preserved as candidate reservoir plus report-lane/date-alignment structural blockers.
 - BR-073 narrows those `49` structural blockers to `2` manual trace targets while keeping `47` rows as lane/date hold context and keeping promotion/engine/threshold sums at `0`.
 - BR-074 closes those `2` manual trace targets without semantic loosening: `gangui` is raw-only report trace-only, `ktc_ess` is a post-current 71-day mismatch, and official/current bridge plus semantic patch sums stay `0`.
+- BR-075 makes the common-cause boundary executable: BR-071~074 must pass 12 required prepatch gates before semantic loosening is reviewed, and the one raw-only near-anchor bridge remains context-only warning material.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -199,3 +201,4 @@
 - after BR-072, use the common-cause exact seed search before loosening common-cause semantics: raw direct rows are search reservoir only until report-layer same-day closure or a scoped structural-blocker patch target is proven.
 - after BR-073, inspect the `gangui` rawonly-near-anchor row and the `ktc_ess` 71-day current-date-displaced row before any common-cause semantic loosening; the remaining 47 blockers stay hold/context.
 - after BR-074, do not use raw-only near-anchor traces or post-current date-displaced common-cause rows as official/current closure; preserve BR-071~074 as regression/hold evidence for future semantic patches.
+- after BR-075, any common-cause semantic patch must run `check_panel_day_engine_common_cause_semantic_prepatch_gate_v1.py` first; passing the gate is a safety precondition, not patch approval.

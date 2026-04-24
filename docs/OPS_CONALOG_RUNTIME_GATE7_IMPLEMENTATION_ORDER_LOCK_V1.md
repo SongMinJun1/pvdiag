@@ -253,6 +253,7 @@
 - BR-072 기준 common-cause exact closure는 여전히 `0`이지만, `49` panels / `101` raw same-day direct rows는 `candidate_reservoir + structural_blocker`로 보존된다. 보수성은 정지가 아니라 report-lane/date-alignment 병목을 정확히 좁히는 장치다.
 - BR-073 기준 그 `49` structural blockers는 no-report `13`, precursor-carryover `19`, rawonly-displaced `15`, manual-trace target `2`로 분해된다. manual target도 production patch가 아니라 trace review queue다.
 - BR-074 기준 manual-trace target `2`건은 더 좁아졌다. `gangui`는 raw-only near-anchor trace-only, `ktc_ess`는 post-current 71-day mismatch이므로 official/current bridge, semantic patch, promotion/engine/threshold sums는 모두 `0`이다.
+- BR-075 기준 이 common-cause evidence boundary는 실행 가능한 prepatch gate가 됐다. required gate `12/12` 통과, warning `1`은 raw-only near-anchor context-only 경고이며 approval이 아니다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
@@ -314,6 +315,8 @@
     - `python3 research/prognostics/build_panel_day_engine_common_cause_structural_blocker_review_v1.py --exact-seed-input /private/tmp/common_cause_exact_seed_search_check/panel_day_engine_common_cause_exact_seed_search_v1.csv --output-dir /private/tmp/common_cause_structural_blocker_review_check`
   - BR-074 common-cause manual trace review:
     - `python3 research/prognostics/build_panel_day_engine_common_cause_manual_trace_review_v1.py --blocker-input /private/tmp/common_cause_structural_blocker_review_check/panel_day_engine_common_cause_structural_blocker_review_v1.csv --current-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_current_v1.csv --precursor-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_precursor_report_v1.csv --rawonly-signal-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_raw_only_fault_signal_report_v1.csv --data-root /Users/b9gc/pvdiag/data --output-dir /private/tmp/common_cause_manual_trace_review_check`
+  - BR-075 common-cause semantic prepatch gate:
+    - `python3 research/prognostics/check_panel_day_engine_common_cause_semantic_prepatch_gate_v1.py --strong-blocker-input /private/tmp/strong_common_cause_blocker_regression_packet_check/panel_day_engine_strong_common_cause_blocker_regression_packet_v1.csv --exact-search-input /private/tmp/common_cause_exact_seed_search_check/panel_day_engine_common_cause_exact_seed_search_v1.csv --structural-input /private/tmp/common_cause_structural_blocker_review_check/panel_day_engine_common_cause_structural_blocker_review_v1.csv --trace-input /private/tmp/common_cause_manual_trace_review_check/panel_day_engine_common_cause_manual_trace_review_v1.csv --output-dir /private/tmp/common_cause_semantic_prepatch_gate_check`
 
 ## 7. 지금 바로 허용되는 패치
 - Gate 5 projection policy를 checklist로 바꾸는 문서 패치
@@ -387,7 +390,8 @@
 26. BR-072 기준 현재 exact closure는 `0`이므로, 다음 common-cause 진전은 raw reservoir 추가 수집보다 report-lane/date-alignment blocker 해소 여부를 먼저 본다.
 27. BR-073 기준 manual trace target은 `2` rows뿐이며, 이 둘이 data/reporting alignment issue인지 먼저 판정한다.
 28. BR-074 기준 그 `2` rows도 official/current closure가 아니다. raw-only near-anchor trace와 post-current 71-day mismatch는 regression/hold evidence로 보존한다.
-29. 그 다음에야 semantic algorithm gating patch 검토
+29. BR-075 기준 common-cause semantic patch 검토 전에는 BR-071~074 prepatch gate를 먼저 통과해야 한다. 통과는 safety precondition이지 patch approval이 아니다.
+30. 그 다음에야 semantic algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
