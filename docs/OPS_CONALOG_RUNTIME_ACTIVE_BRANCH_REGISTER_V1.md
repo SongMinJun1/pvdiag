@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-063` | `critical_bool_mask_engine_cleanup_complete` | direct engine patch rehearsal passed: source/package critical bool mask cleanup, BR-054/060/061/062 all green, compare changed metrics 0 | use this path as the minimum pattern before any semantic engine patch |
+| `BR-20260424-066` | `evidence_handoff_index_complete` | runtime evidence line is now handoff-ready with a single continuation index; BR-064/065 remain audit-only and narrow the next review target to 2 voltage-dominant rows | inspect physical partial-open/contact vs measurement/reference artifact before any semantic threshold patch |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -77,6 +77,7 @@
 | `BR-20260424-063` | `critical_bool_mask_engine_cleanup_complete` | source/package panel engine mirrors use explicit `critical_fault_mask`; safety gate/runbook/scorecard/compare all pass with result delta 0 | no |
 | `BR-20260424-064` | `fault_family_judgment_candidate_packet_complete` | packages 209 cross-axis panels into family-judgment buckets: common-cause block/hold 176, regression pressure 11, local morphology family-shape review 10, weak hold 12; promotion/engine patch sums remain 0 | no |
 | `BR-20260424-065` | `local_morphology_family_shape_review_complete` | rereads BR-064 local morphology 10 rows against panel-day shape metrics: 8 recovery-only holds, 2 voltage-dominant hard-signal review rows, promotion/engine patch sums remain 0 | no |
+| `BR-20260424-066` | `evidence_handoff_index_complete` | adds a single handoff index so a new reviewer can start from status/order/artifact/candidate/shape documents without reconstructing context from memory | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -150,6 +151,7 @@
 - BR-063 completes the first direct engine cleanup rehearsal with no result drift: scorecard compare changed metrics `0`.
 - BR-064 separates family-judgment candidates before any threshold patch: most rows are common-cause block/hold, the remaining local morphology pool has `10` rows that still need family-shape evidence.
 - BR-065 narrows those 10 local morphology rows: 8 remain recovery/recurrence-only holds, while 2 voltage-dominant hard-signal rows need partial-open vs measurement/reference review.
+- BR-066 declares the evidence stack `handoff_ready_with_index`: start from BR-066 before opening scattered temp roots or proposing new rules.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -172,3 +174,4 @@
 - after BR-063, use source/package mirror + safety review + prepatch runbook + scorecard + compare as the minimum direct engine patch pattern.
 - after BR-064, inspect `local_morphology_family_candidate_review` rows for family-shape evidence before any fault-family threshold or semantic engine patch.
 - after BR-065, inspect only the 2 `voltage_dominant_hard_signal_review` rows before proposing any family-specific threshold; keep the 8 recovery-only rows on hold.
+- after BR-066, use the handoff index as the default entry point for continuation; if BR-064/065 cannot be reproduced from it, fix handoff before adding new evidence.

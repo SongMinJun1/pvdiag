@@ -244,6 +244,7 @@
 - BR-063 기준 direct engine patch rehearsal은 `critical_fault_mask` cleanup으로 통과했다: source/package mirror, safety review, BR-060 runbook, BR-061 scorecard, BR-062 compare가 모두 green이다.
 - BR-064 기준 fault-family judgment candidate packet은 threshold 후보를 먼저 family/axis별 review bucket으로 분리한다: common-cause block/hold `176`, regression pressure `11`, local morphology family-shape review `10`, weak hold `12`, promotion/engine patch `0`.
 - BR-065 기준 BR-064 local morphology 10건 중 8건은 recovery-only hold로 남고, 2건만 voltage-dominant hard-signal review로 좁혀졌다. 둘 다 promotion/engine patch는 `0`이다.
+- BR-066 기준 evidence line은 `handoff_ready_with_index`다. 새 작업자는 BR-066 handoff index에서 시작하고, BR-064/065 재현이 막히면 새 rule이 아니라 handoff/repro layer를 먼저 고친다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
@@ -287,6 +288,8 @@
     - `python3 research/prognostics/build_panel_day_engine_fault_family_judgment_candidate_packet_v1.py --cross-axis-input /private/tmp/cross_axis_manifest_sync_review_check/panel_day_engine_cross_axis_manifest_sync_review_v1.csv --pressure-input /private/tmp/fault_family_regression_pressure_packet_check/panel_day_engine_fault_family_regression_pressure_packet_v1.csv --threshold-input docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260423_017_THRESHOLD_CANDIDATE_V1.csv --subtype-input docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260423_018_FAULT_SUBTYPE_HYPOTHESIS_MAP_V1.csv --output-dir /private/tmp/fault_family_judgment_candidate_packet_check`
   - BR-065 local morphology family-shape review:
     - `python3 research/prognostics/build_panel_day_engine_local_morphology_family_shape_review_v1.py --packet-input /private/tmp/fault_family_judgment_candidate_packet_check/panel_day_engine_fault_family_judgment_candidate_packet_v1.csv --data-root /Users/b9gc/pvdiag/data --output-dir /private/tmp/local_morphology_family_shape_review_check`
+  - BR-066 evidence handoff index:
+    - `python3 -m py_compile pv_ae/panel_day_engine.py`
 
 ## 7. 지금 바로 허용되는 패치
 - Gate 5 projection policy를 checklist로 바꾸는 문서 패치
@@ -349,10 +352,11 @@
 15. BR-063 direct engine cleanup rehearsal처럼 source/package mirror와 scorecard compare까지 green인 경우만 accept한다.
 16. BR-064 packet에서 `local_morphology_family_candidate_review` 10건을 먼저 family-shape review 대상으로 본다.
 17. BR-065 기준 2건의 `voltage_dominant_hard_signal_review`만 partial-open vs measurement/reference artifact로 재검토한다.
-18. `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
-19. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
-20. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
-21. 그 다음에야 semantic algorithm gating patch 검토
+18. BR-066 handoff index에서 status/order/artifact/candidate/shape docs를 먼저 확인한다.
+19. `strong_common_cause_hold_review` rows는 promotion seed가 아니라 blocker/regression pressure로만 사용한다.
+20. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
+21. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural_blocker`로 먼저 읽는다.
+22. 그 다음에야 semantic algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
