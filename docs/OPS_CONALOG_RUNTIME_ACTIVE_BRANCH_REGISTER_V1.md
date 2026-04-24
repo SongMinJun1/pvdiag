@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-089` | `episode_truth_durable_shape_review_complete` | adds 1 shape-backed positive precursor seed, carries 9 negative counterexamples, leaves 6 durable rows deferred, and produces BR-084 mixed replay-ready rows 10 | run pilot subtype-threshold replay review as evidence only; threshold tuning remains blocked |
+| `BR-20260425-090` | `subtype_threshold_replay_pilot_complete` | replays 7 candidate rules against BR-089 mixed truth rows; broad duration/event rules hit deferred holds, while 4 strict/voltage candidates stay clean but support is only 1 positive | expand positive truth and inspect holds before any threshold tuning |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -101,6 +101,7 @@
 | `BR-20260425-087` | `episode_truth_adjudication_worksheet_complete` | compresses source traces into 16 human-adjudication rows; guidance counts 6/3/7, labels 0, replay-ready 0 | no |
 | `BR-20260425-088` | `episode_truth_conservative_negative_adjudication_complete` | conservative BR-084 review input fills 6 long-gap backdating negatives and 3 strict-sudden negatives; positives 0, deferred durable 7 | no |
 | `BR-20260425-089` | `episode_truth_durable_shape_review_complete` | BR-089 mixed review input yields positive 1, negative 9, deferred 6; threshold tuning approved 0 | no |
+| `BR-20260425-090` | `subtype_threshold_replay_pilot_complete` | pilot replay rows 112, summary rows 7; 3 broad rules blocked by hold pressure, 4 strict/voltage rules need more positive truth; threshold tuning approved 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -235,3 +236,4 @@
 - after BR-087, use `/private/tmp/panel_day_engine_episode_truth_adjudication_worksheet_br087_check/panel_day_engine_episode_truth_adjudication_worksheet_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_087_EPISODE_TRUTH_ADJUDICATION_WORKSHEET_V1.md` as the current adjudication worksheet; suggested directions are guidance only, so manually fill a copy of the draft input and rebuild BR-084 before threshold replay.
 - after BR-088, use `/private/tmp/panel_day_engine_episode_truth_conservative_adjudication_br088_check/panel_day_engine_episode_truth_review_input_conservative_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_088_EPISODE_TRUTH_CONSERVATIVE_ADJUDICATION_V1.md` as the current negative counterexample input; BR-084 now has negative replay-ready rows 9 but positive rows 0, so threshold replay remains blocked until durable positive evidence is attached.
 - after BR-089, use `/private/tmp/panel_day_engine_episode_truth_durable_shape_review_br089_check/panel_day_engine_episode_truth_review_input_mixed_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_089_EPISODE_TRUTH_DURABLE_SHAPE_REVIEW_V1.md` as the current mixed truth input; pilot replay review is allowed as evidence assessment only, while threshold tuning and direct engine edits remain blocked.
+- after BR-090, use `/private/tmp/panel_day_engine_subtype_threshold_replay_pilot_br090_check/panel_day_engine_subtype_threshold_replay_pilot_summary_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_090_SUBTYPE_THRESHOLD_REPLAY_PILOT_V1.md` as the current replay evidence; voltage-preserved candidates are evidence-collection targets only, not tuning approval.

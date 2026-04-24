@@ -411,7 +411,8 @@
 44. BR-089 기준 deferred durable precursor `7` rows 중 `1` row만 strong voltage-preserved shape positive seed로 채우고 `6` rows는 보류했다.
 45. BR-089 mixed input으로 BR-084를 재빌드하면 `reviewed_negative=9`, `reviewed_positive=1`, `needs_evidence=6`, replay-ready rows `10`이다.
 46. 다음은 pilot subtype-threshold replay review이며, 이는 evidence assessment일 뿐 threshold tuning approval이 아니다.
-47. semantic algorithm gating patch는 reviewed episode truth labels, pilot replay review, and BR-076 prepatch gates가 끝난 뒤에만 검토한다.
+47. BR-090 기준 7개 threshold 후보를 replay하면 duration/event-only 3개는 deferred hold pressure로 blocked, strict/voltage 4개는 clean pilot candidate지만 positive support가 `1`뿐이다.
+48. semantic algorithm gating patch는 expanded positive truth, rerun replay, and BR-076 prepatch gates가 끝난 뒤에만 검토한다.
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -714,6 +715,36 @@
 - 금지:
   - BR-089 one positive seed does not approve threshold tuning.
   - BR-089 does not approve semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
+
+## 11O. BR-090 subtype threshold replay pilot
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_090_SUBTYPE_THRESHOLD_REPLAY_PILOT_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_090_SUBTYPE_THRESHOLD_REPLAY_PILOT_V1.md)
+- 실행 산출물:
+  - `/private/tmp/panel_day_engine_subtype_threshold_replay_pilot_br090_check/panel_day_engine_subtype_threshold_replay_pilot_cases_v1.csv`
+  - `/private/tmp/panel_day_engine_subtype_threshold_replay_pilot_br090_check/panel_day_engine_subtype_threshold_replay_pilot_summary_v1.csv`
+  - `/private/tmp/panel_day_engine_subtype_threshold_replay_pilot_br090_check/panel_day_engine_subtype_threshold_replay_pilot_action_queue_v1.csv`
+- 판정:
+  - replay case rows `112`.
+  - summary rows `7`.
+  - threshold tuning approved sum `0`.
+  - operator promotion, engine patch, and threshold patch authorization sums remain `0`.
+  - blocked by deferred hold pressure:
+    - `duration_gap_any_signal_2d`, hold hits `6/6`
+    - `duration_gap_eventA_2d`, hold hits `6/6`
+    - `severity_gap_low_mid_2d`, hold hits `3/6`
+  - pilot candidates requiring more positive truth:
+    - `severity_gap_low_mid_10d`
+    - `voltage_preserved_gap_vlow_iok_2d`
+    - `voltage_preserved_gap_vlow_iok_10d`
+    - `br089_strong_voltage_seed_rule`
+- 다음 안전 순서:
+  1. collect more positive durable precursor truth, prioritizing voltage-preserved shape cases.
+  2. inspect the 6 deferred durable holds before loosening duration/event rules.
+  3. rerun BR-090 when positive support reaches at least 3 independent rows.
+  4. keep direct engine edits blocked until replay evidence and BR-076 prepatch gates both pass.
+- 금지:
+  - BR-090 clean pilot candidates are not threshold tuning approval.
+  - BR-090 does not approve semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
