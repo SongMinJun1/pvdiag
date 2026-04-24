@@ -196,7 +196,8 @@
   - first use는 explanation / blocker split / hold-review support로 제한한다.
 - 진행 상태:
   - BR-040 기준 `report_entry_friction_axis`는 builder + smoke까지 구현 완료
-  - next implementation candidate는 `recovery_recurrence_axis`
+  - BR-041 기준 `recovery_recurrence_axis`도 builder + smoke까지 구현 완료
+  - next implementation candidate는 `common_cause_synchrony_axis`
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
