@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-043` | `evidence_manifest_pack_root_implemented` | current sidecar, temp blocker scans, and base runtime result artifacts are now indexed from one manifest plus one pack root | implement `common_cause_synchrony_axis` next |
+| `BR-20260424-044` | `remaining_organization_gap_audited` | current evidence line is organized enough to proceed, while historical temp roots, manual-oneoff residues, and wider audit-builder inventory are recorded as backlog rather than current blockers | implement `common_cause_synchrony_axis` next |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -55,6 +55,7 @@
 | `BR-20260424-041` | `recovery_recurrence_axis_sidecar_implemented` | adds a reproducible builder/smoke pair and shows transient/sustained/re-drop/persistent morphology can now be read together with report-lane entry bias across sites | no |
 | `BR-20260424-042` | `evidence_execution_order_locked` | locks the next sequence after BR-041 so work is not forgotten: manifest first, `common_cause_synchrony` second, cross-axis review third, exact-family re-search fourth, algorithm gating last | no |
 | `BR-20260424-043` | `evidence_manifest_pack_root_implemented` | adds a reproducible manifest builder/smoke pair and a family-organized pack root so base result, blocker scan, opportunity scan, and sidecar artifacts can be read from one index | no |
+| `BR-20260424-044` | `remaining_organization_gap_audited` | confirms the current evidence line is organized, while `25` historical BR temp roots, `3` manual-oneoff manifest rows, and `47` wider audit/probe builders remain backlog cleanup targets outside the current blocker path | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -106,6 +107,7 @@
 - BR-041 turns the second candidate into code without touching runtime semantics: `recovery_recurrence_axis` is now a reproducible sidecar that keeps recovery/re-drop morphology in the evidence layer and explains lane bias by site.
 - BR-042 locks the immediate next order so the current work does not drift: before the third axis, evidence layout must be consolidated into one manifest/pack root.
 - BR-043 implements that consolidation step: current evidence artifacts are now readable from one manifest/pack root, and future scans should start there instead of re-assembling temp roots by memory.
+- BR-044 confirms that there are still broader organization gaps outside the current line, but they belong to archive/registry backlog rather than the immediate blocker path, so the next implementation still remains `common_cause_synchrony_axis`.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
