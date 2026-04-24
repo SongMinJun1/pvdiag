@@ -254,6 +254,7 @@
 - BR-073 기준 그 `49` structural blockers는 no-report `13`, precursor-carryover `19`, rawonly-displaced `15`, manual-trace target `2`로 분해된다. manual target도 production patch가 아니라 trace review queue다.
 - BR-074 기준 manual-trace target `2`건은 더 좁아졌다. `gangui`는 raw-only near-anchor trace-only, `ktc_ess`는 post-current 71-day mismatch이므로 official/current bridge, semantic patch, promotion/engine/threshold sums는 모두 `0`이다.
 - BR-075 기준 이 common-cause evidence boundary는 실행 가능한 prepatch gate가 됐다. required gate `12/12` 통과, warning `1`은 raw-only near-anchor context-only 경고이며 approval이 아니다.
+- BR-076 기준 combined algorithm prepatch runbook은 이제 3-gate contract다. direct panel-engine algorithm review 전 panel-engine safety, fault-family regression, common-cause semantic gate를 모두 통과해야 한다.
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
@@ -286,7 +287,7 @@
   - direct `pv_ae/panel_day_engine.py` patch 검토 전:
     - `python3 research/prognostics/check_panel_day_engine_patch_safety_gate_v1.py --output-dir /private/tmp/panel_engine_patch_safety_gate_check`
   - direct `pv_ae/panel_day_engine.py` algorithm patch 검토 전:
-    - `python3 research/prognostics/check_panel_day_engine_algorithm_prepatch_runbook_v1.py --repo-root /private/tmp/pvdiag_postmerge_j --packet-input /private/tmp/fault_family_regression_pressure_packet_check/panel_day_engine_fault_family_regression_pressure_packet_v1.csv --output-dir /private/tmp/panel_engine_algorithm_prepatch_runbook_check`
+    - `python3 research/prognostics/check_panel_day_engine_algorithm_prepatch_runbook_v1.py --repo-root /private/tmp/pvdiag_postmerge_j --packet-input /private/tmp/fault_family_regression_pressure_packet_check/panel_day_engine_fault_family_regression_pressure_packet_v1.csv --common-cause-strong-blocker-input /private/tmp/strong_common_cause_blocker_regression_packet_check/panel_day_engine_strong_common_cause_blocker_regression_packet_v1.csv --common-cause-exact-search-input /private/tmp/common_cause_exact_seed_search_check/panel_day_engine_common_cause_exact_seed_search_v1.csv --common-cause-structural-input /private/tmp/common_cause_structural_blocker_review_check/panel_day_engine_common_cause_structural_blocker_review_v1.csv --common-cause-trace-input /private/tmp/common_cause_manual_trace_review_check/panel_day_engine_common_cause_manual_trace_review_v1.csv --output-dir /private/tmp/panel_engine_algorithm_prepatch_runbook_br076_check`
   - direct `pv_ae/panel_day_engine.py` algorithm patch의 결과 변화 주장 전:
     - `python3 research/prognostics/build_panel_day_engine_result_delta_scorecard_v1.py --runtime-root /private/tmp/pvdiag_postmerge_j_conalog_smoke_result_delta_scorecard --prepatch-runbook-summary /private/tmp/panel_engine_algorithm_prepatch_runbook_check/panel_day_engine_algorithm_prepatch_runbook_summary_v1.csv --output-dir /private/tmp/panel_engine_result_delta_scorecard_check`
   - direct `pv_ae/panel_day_engine.py` algorithm patch의 before/after 결과 비교:
@@ -317,6 +318,8 @@
     - `python3 research/prognostics/build_panel_day_engine_common_cause_manual_trace_review_v1.py --blocker-input /private/tmp/common_cause_structural_blocker_review_check/panel_day_engine_common_cause_structural_blocker_review_v1.csv --current-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_current_v1.csv --precursor-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_precursor_report_v1.csv --rawonly-signal-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_raw_only_fault_signal_report_v1.csv --data-root /Users/b9gc/pvdiag/data --output-dir /private/tmp/common_cause_manual_trace_review_check`
   - BR-075 common-cause semantic prepatch gate:
     - `python3 research/prognostics/check_panel_day_engine_common_cause_semantic_prepatch_gate_v1.py --strong-blocker-input /private/tmp/strong_common_cause_blocker_regression_packet_check/panel_day_engine_strong_common_cause_blocker_regression_packet_v1.csv --exact-search-input /private/tmp/common_cause_exact_seed_search_check/panel_day_engine_common_cause_exact_seed_search_v1.csv --structural-input /private/tmp/common_cause_structural_blocker_review_check/panel_day_engine_common_cause_structural_blocker_review_v1.csv --trace-input /private/tmp/common_cause_manual_trace_review_check/panel_day_engine_common_cause_manual_trace_review_v1.csv --output-dir /private/tmp/common_cause_semantic_prepatch_gate_check`
+  - BR-076 combined panel-engine algorithm prepatch runbook:
+    - `python3 research/prognostics/check_panel_day_engine_algorithm_prepatch_runbook_v1.py --repo-root /private/tmp/pvdiag_postmerge_j --packet-input /private/tmp/fault_family_regression_pressure_packet_check/panel_day_engine_fault_family_regression_pressure_packet_v1.csv --common-cause-strong-blocker-input /private/tmp/strong_common_cause_blocker_regression_packet_check/panel_day_engine_strong_common_cause_blocker_regression_packet_v1.csv --common-cause-exact-search-input /private/tmp/common_cause_exact_seed_search_check/panel_day_engine_common_cause_exact_seed_search_v1.csv --common-cause-structural-input /private/tmp/common_cause_structural_blocker_review_check/panel_day_engine_common_cause_structural_blocker_review_v1.csv --common-cause-trace-input /private/tmp/common_cause_manual_trace_review_check/panel_day_engine_common_cause_manual_trace_review_v1.csv --output-dir /private/tmp/panel_engine_algorithm_prepatch_runbook_br076_check`
 
 ## 7. 지금 바로 허용되는 패치
 - Gate 5 projection policy를 checklist로 바꾸는 문서 패치
@@ -391,7 +394,8 @@
 27. BR-073 기준 manual trace target은 `2` rows뿐이며, 이 둘이 data/reporting alignment issue인지 먼저 판정한다.
 28. BR-074 기준 그 `2` rows도 official/current closure가 아니다. raw-only near-anchor trace와 post-current 71-day mismatch는 regression/hold evidence로 보존한다.
 29. BR-075 기준 common-cause semantic patch 검토 전에는 BR-071~074 prepatch gate를 먼저 통과해야 한다. 통과는 safety precondition이지 patch approval이 아니다.
-30. 그 다음에야 semantic algorithm gating patch 검토
+30. BR-076 기준 direct `panel_day_engine.py` algorithm patch 검토 전에는 3-gate combined runbook을 먼저 통과해야 한다.
+31. 그 다음에야 semantic algorithm gating patch 검토
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
