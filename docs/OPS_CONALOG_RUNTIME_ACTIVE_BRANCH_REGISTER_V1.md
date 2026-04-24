@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-083` | `direction_assumption_audit_complete` | audits BR-079~082 direction assumptions with 40 checks; fail 0, P0 fail 0, patch authorization sums 0 | attach reviewed truth labels only while BR-083 remains green |
+| `BR-20260425-084` | `reviewed_episode_truth_rows_intake_complete` | converts 16 BR-082 review rows into truth-intake rows; needs_evidence 16, reviewer labels 0, replay-ready 0, patch authorization sums 0 | attach evidence labels before threshold replay or direct engine edits |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -95,6 +95,7 @@
 | `BR-20260425-081` | `episode_truth_map_complete` | maps 244 episode/truth-review rows; all truth_pending, common-cause/group hold 205, long-gap/backdating hold 12, durable precursor review 7, patch authorization sums 0 | no |
 | `BR-20260425-082` | `episode_truth_review_packet_complete` | creates 16 review rows from 22 selected source-lens rows: long-gap/backdating 6, strict-sudden 3, durable precursor 7; reviewer truth labels 0 and patch authorization sums 0 | no |
 | `BR-20260425-083` | `direction_assumption_audit_complete` | verifies BR-079~082 counts, sequence, authorization boundaries, G1 bucket precedence, duplicate-lens collapse, and blank reviewer labels; 40/40 checks pass | no |
+| `BR-20260425-084` | `reviewed_episode_truth_rows_intake_complete` | builds 16 truth-intake rows from BR-082; all `needs_evidence`, reviewer labels 0, threshold replay ready 0, patch authorization sums 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -223,3 +224,4 @@
 - after BR-081, use `/private/tmp/panel_day_engine_episode_truth_map_br081_check/panel_day_engine_episode_truth_map_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_081_EPISODE_TRUTH_MAP_V1.md` as the current episode truth map; build episode truth review packets before threshold replay or direct engine edits.
 - after BR-082, use `/private/tmp/panel_day_engine_episode_truth_review_packet_br082_check/panel_day_engine_episode_truth_review_packet_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_082_EPISODE_TRUTH_REVIEW_PACKET_V1.md` as the current review packet; attach reviewed truth labels before threshold replay or direct engine edits.
 - after BR-083, use `/private/tmp/panel_day_engine_direction_assumption_audit_br083_check/panel_day_engine_direction_assumption_audit_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_083_DIRECTION_ASSUMPTION_AUDIT_V1.md` as the current direction guard; if any P0 audit fails, stop before reviewed truth rows, threshold replay, or direct engine edits.
+- after BR-084, use `/private/tmp/panel_day_engine_reviewed_episode_truth_rows_br084_check/panel_day_engine_reviewed_episode_truth_rows_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_084_REVIEWED_EPISODE_TRUTH_ROWS_V1.md` as the current truth-intake table; threshold replay remains blocked until reviewer labels and evidence paths create positive/negative replay-ready rows.

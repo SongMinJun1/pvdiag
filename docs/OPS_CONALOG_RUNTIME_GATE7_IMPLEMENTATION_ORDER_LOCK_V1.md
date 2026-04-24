@@ -402,8 +402,9 @@
 35. BR-081 기준 episode truth map은 완료됐다.
 36. BR-082 기준 episode truth review packet은 완료됐다.
 37. BR-083 기준 BR-079~082 direction/assumption audit guard는 40/40 checks PASS로 완료됐다.
-38. 다음은 reviewed episode truth rows 또는 manual evidence attachment이며, BR-083이 green인 경우에만 진행한다.
-39. semantic algorithm gating patch는 reviewed episode truth rows와 subtype-conditioned threshold replay가 끝난 뒤에만 검토한다.
+38. BR-084 기준 reviewed episode truth rows intake는 완료됐지만, reviewer labels `0` and replay-ready rows `0`이다.
+39. 다음은 BR-084 row evidence attachment이며, threshold replay는 positive/negative replay-ready rows가 생긴 뒤에만 진행한다.
+40. semantic algorithm gating patch는 reviewed episode truth labels와 subtype-conditioned threshold replay가 끝난 뒤에만 검토한다.
 
 ## 11A. 왜 이 순서로 가는가
 - exact family가 아직 비어 있는 상태에서 rule patch를 넣으면, current evidence보다 stronger semantics를 추정으로 주입하게 된다.
@@ -541,6 +542,28 @@
   4. open subtype-conditioned threshold replay only after reviewed episode truth exists.
 - 금지:
   - BR-083 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
+
+## 11I. BR-084 reviewed episode truth rows intake
+- 현재 기준점:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_084_REVIEWED_EPISODE_TRUTH_ROWS_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_084_REVIEWED_EPISODE_TRUTH_ROWS_V1.md)
+- 실행 산출물:
+  - `/private/tmp/panel_day_engine_reviewed_episode_truth_rows_br084_check/panel_day_engine_reviewed_episode_truth_rows_v1.csv`
+  - `/private/tmp/panel_day_engine_reviewed_episode_truth_rows_br084_check/panel_day_engine_reviewed_episode_truth_rows_summary_v1.csv`
+  - `/private/tmp/panel_day_engine_reviewed_episode_truth_rows_br084_check/panel_day_engine_reviewed_episode_truth_rows_action_queue_v1.csv`
+- 판정:
+  - input review packet rows `16`, truth-intake rows `16`.
+  - all rows are `needs_evidence` / `unassigned`.
+  - reviewer truth labels assigned `0`.
+  - threshold replay ready rows `0`.
+  - BR-083 fail/P0 fail counts remain `0`.
+  - operator promotion, engine patch, and threshold patch authorization sums remain `0`.
+- 다음 안전 순서:
+  1. attach reviewer evidence paths and labels to BR-084 rows.
+  2. rebuild BR-084 with `--review-input`.
+  3. open subtype-conditioned threshold replay only after positive and negative replay-ready rows exist.
+  4. keep hold/common-cause/insufficient-evidence rows out of replay labels.
+- 금지:
+  - BR-084 does not approve threshold tuning, semantic loosening, operator-facing precursor promotion, or direct `panel_day_engine.py` edits.
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
