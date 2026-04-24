@@ -281,6 +281,21 @@
   - report-layer exact family closure = 별도 조건
   - 둘을 혼용하지 않는다
 
+## 11F. BR-036 judgment rubric lock note
+- BR-036에서는 BR-033, BR-034, BR-035 결과를 같은 급으로 읽지 않도록 `judgment role`을 잠갔다.
+- 현재 role reading은 아래와 같다.
+  - `exact_family_closure`
+    - 아직 missing
+  - `supportive_hint`
+    - BR-034 `control_score > 0`
+  - `candidate_reservoir`
+    - BR-035 raw-daily same-day direct common-cause rows
+  - `non_closing_backlog`
+    - BR-033 near-window overlap backlog
+  - `structural_blocker`
+    - BR-035 row-universe/date-alignment mismatch
+- 따라서 curated seed나 widened scan이 추가되더라도, 먼저 `judgment role`을 적기 전에는 exact-family closure나 algorithm gating justification으로 쓰면 안 된다.
+
 ## 12. 남은 과제
 - `MLPE ambiguous`에서 `장치 응답 이상형` top1 또는 회복/재발까지 확인되는 사례 추가
 - `common_cause risk`에서 작업일 / 운영 이벤트 / 통신 흔들림 겹침 사례 추가

@@ -33,6 +33,7 @@
 - 현재 우선 기준:
   - DL-001, DL-002가 Gate 7보다 우선한다.
   - stable/handoff 문서는 별도 계약으로 읽고, runtime redesign 패치를 stable 문서군에 직접 확장하지 않는다.
+  - BR-036 judgment rubric이 exact/supportive/reservoir/backlog/blocker 해석 우선권을 가진다.
 
 ## 4. 기본 원칙
 ### 4.1 문서 결정이 먼저, 코드 패치가 나중
@@ -187,6 +188,7 @@
   - Step 4A signal-to-score map이 먼저 존재해야 한다.
   - BR-029 이후에는 provisional seed promotion criteria가 먼저 잠겨 있어야 한다.
   - 그 다음 `score-to-projection decision log`가 먼저 잠겨 있어야 한다.
+  - BR-036 기준으로 새 evidence가 `judgment role`로 먼저 분류돼 있어야 한다.
   - 관련 decision log가 추가로 잠겨 있어야 한다.
   - [DL-20260422-012](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_DECISION_LOG_DL_20260422_012_V1.md) 기준으로 `prefault_B_effective`는 eligibility/explanation additive evidence까지만 허용되고, `고위험 관찰` direct trigger 승격은 별도 decision 전까지 보류한다.
   - [DL-20260424-014](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_DECISION_LOG_DL_20260424_014_V1.md) 기준으로 projection은 `highest score wins`가 아니라 `eligible evidence lane -> hold/reroute cap -> actionability ceiling` 순서를 따라야 한다.
@@ -251,10 +253,11 @@
 
 ## 11. 지금 기준 다음 우선순위
 1. `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 `exact same-day` seed를 계속 추가한다.
-2. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, raw-daily exact row와 report-layer exact family를 분리해 blocker anatomy로 본다.
+2. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가하되, 새 사례는 먼저 BR-036 `judgment role`로 분류한다.
 3. `control_score > 0` supportive hint 와 exact `제어응답형 top1` family를 계속 분리해 추적한다.
 4. `±7일 near-window overlap backlog`는 BR-033 기준 `non-closing backlog`로 유지하고, 한 proto-cluster가 DL-015 criteria를 넘을 때만 다시 provisional family 승격을 검토한다.
-5. 그 다음에야 algorithm gating patch 검토
+5. raw-daily same-day direct row는 `candidate reservoir`, row-universe/date-alignment mismatch는 `structural blocker`로 먼저 읽는다.
+6. 그 다음에야 algorithm gating patch 검토
 
 ## 12. 관련 문서
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)

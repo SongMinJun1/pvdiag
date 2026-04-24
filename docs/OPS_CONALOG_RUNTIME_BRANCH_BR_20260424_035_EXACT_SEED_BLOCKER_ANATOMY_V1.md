@@ -53,6 +53,7 @@
   - top-level row universe mismatch
   - summary/report date displacement
 - therefore next exact seed search should target blocker removal opportunities, not just more raw-row enumeration.
+- BR-036 judgment rubric 기준으로 보면 BR-035 output은 `candidate_reservoir`와 `structural_blocker`가 함께 있는 케이스다.
 
 ## Next Safe Step
 1. `group_off_date -> current/report-lane entry` blocker 사례를 먼저 찾기

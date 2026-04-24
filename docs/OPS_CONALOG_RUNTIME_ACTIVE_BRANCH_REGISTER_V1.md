@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-035` | `exact_seed_blocker_anatomy_locked` | classify why same-day exact family still does not appear even though raw-daily direct rows exist, and split raw-row reservoir from report-layer family closure | keep exact same-day search primary, but target report-lane entry/date-alignment blockers instead of merely enumerating more raw rows |
+| `BR-20260424-036` | `judgment_rubric_locked` | lock how new evidence is classified between exact closure, supportive hint, candidate reservoir, non-closing backlog, and structural blocker before further patch discussion | keep exact same-day search primary, but classify new findings by judgment role before using them in blocker search or patch discussion |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -46,6 +46,7 @@
 | `BR-20260424-032` | `near_window_backlog_doc_sync_complete` | patch-gate docs are synced so `same-day exact` missing families and widened `±7일` near-window backlog are tracked separately before any new algorithm gating discussion | no |
 | `BR-20260424-033` | `near_window_backlog_data_assessed_keep_backlog` | widened near-window backlog compresses to `5` report rows / `4` roots with mixed flags, slices, and sign, so it stays non-closing | no |
 | `BR-20260424-034` | `exact_seed_deep_scan_supportive_only` | control-like score and raw-only artifact date widening are re-scanned, but both remain supportive only and still do not create exact family closure | no |
+| `BR-20260424-035` | `exact_seed_blocker_anatomy_locked` | same-day direct raw rows are re-read as `candidate reservoir`, while missing exact family is attributed to report-lane entry and date-alignment blockers | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -89,6 +90,7 @@
 - BR-033 uses the actual backlog composition to reject immediate family promotion: current near-window backlog compresses to `5` report rows / `4` roots with mixed flag families, mixed slices, and mixed gap direction, so it remains a non-closing backlog.
 - BR-034 confirms two more non-closures: `control_score > 0` is still only supportive hint, and expanded raw-only artifact date matching still leaves `same-day direct overlap = 0`.
 - BR-035 confirms the next blocker is structural: raw-daily same-day direct rows exist as a reservoir, but report-layer exact family is still blocked by row-universe and date-alignment mismatch.
+- BR-036 locks a single judgment rubric over BR-033/034/035 outputs: `supportive_hint`, `candidate_reservoir`, `non_closing_backlog`, and `structural_blocker` are distinct roles, and only `exact_family_closure` can close the still-missing family directly.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -97,4 +99,4 @@
 - adjudicate BR-023 `group_off` cluster boundaries and `strict_trigger_proximal` vs secondary-window evidence before any subtype promotion discussion.
 - before generating more packet branches, prefer a tracked packet generator or an exact one-shot reproduction script.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
-- after BR-035, the next safe lane remains docs/evidence-first: continue exact same-day missing-family search first, keep control-like score and raw-only date widening as supportive evidence only, and target report-lane entry/date-alignment blocker cases before reopening algorithm gating.
+- after BR-036, the next safe lane remains docs/evidence-first: continue exact same-day missing-family search first, classify every new finding by judgment role, keep control-like score and raw-only date widening as supportive evidence only, and target report-lane entry/date-alignment blocker cases before reopening algorithm gating.
