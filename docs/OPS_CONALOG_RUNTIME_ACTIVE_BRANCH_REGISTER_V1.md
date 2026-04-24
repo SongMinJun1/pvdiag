@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260423-024` | `patch_gap_review_complete` | BR-023 packet ID order fixed and patch-chain gaps documented; no code or semantics change | choose tracked packet generator vs site_event review packet |
+| `BR-20260424-025` | `boundary_note_sync_complete` | post-PR79 docs-only sync: apply accepted stable/runtime boundary note to `release/final_delivery_v1/*` and refresh register after runtime surface merge | choose whether the next safe lane starts with counterexample seed expansion or existing-signal-to-score-map tightening |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -36,6 +36,7 @@
 | `BR-20260423-022` | `common_cause_blocker_detail_validated` | adds `group_off_history_flag` and blocker detail; BR-021 common columns/final verdict/heuristic remain equal; site_event 60, strict_trigger_proximal 49, group_off 28, subgroup_common_cause 1, backdating_risk 7 | no |
 | `BR-20260423-023` | `blocker_detail_review_packet_generated` | packet rows 77: group_off 28, strict_trigger_proximal 49; priority split P1 cluster false-positive 26, P1 strict-vs-secondary 43, P2 group 2, P2 strict 6 | no |
 | `BR-20260423-024` | `patch_gap_review_complete` | fixes BR-023 packet id order to `BR023-001..077`; records remaining gaps: tracked generator missing, site_event 60 not packeted, review priority is triage-only | no |
+| `BR-20260424-025` | `boundary_note_sync_complete` | final_delivery docs now state stable/runtime contract separation after PR-79 merge; active register moved from BR-024 packet cleanup to the next Gate 7 safe-lane choice | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -68,6 +69,7 @@
 - BR-022 keeps BR-021 old audit common columns equal `true` while splitting blocker details: `site_event=60`, `strict_trigger_proximal=49`, `group_off=28`, `subgroup_common_cause=1`, `backdating_risk=7`.
 - BR-023 is packet-only: `group_off=28` and `strict_trigger_proximal=49` are review rows, `subtype_production_write_allowed_sum=0`, and no runtime code changed.
 - BR-024 confirms BR-023 packet IDs are review handles only, not semantic ranks; after cleanup the packet opens at `BR023-001` and remains `subtype_production_write_allowed_sum=0`.
+- BR-025 applies accepted boundary-note decisions only: final_delivery docs stay stable-first, runtime redesign artifact semantics remain canonical in the runtime pack README/mapping note, and no runtime code or row universe changes.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -76,3 +78,4 @@
 - adjudicate BR-023 `group_off` cluster boundaries and `strict_trigger_proximal` vs secondary-window evidence before any subtype promotion discussion.
 - before generating more packet branches, prefer a tracked packet generator or an exact one-shot reproduction script.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
+- after the PR-79 runtime surface merge, the next safe lane is docs/evidence-first again: strengthen `counterexample` seeds and the `existing signal -> score axis` map before reopening algorithm gating.

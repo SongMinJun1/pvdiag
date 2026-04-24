@@ -6,6 +6,12 @@
 - conalog 는 direct operational interpretation layer 임.
 - final front-facing integrated table schema 는 고정되어 있으며 변경하지 않음.
 
+## 문서 경계
+- 본 문서는 `stable/final_delivery contract`를 설명하는 문서다.
+- sibling runtime redesign pack인 `release/conalog_full_runtime_v1/*` 와 같은 계약으로 읽지 않는다.
+- `fault_panel_result_current_*`, `fault_panel_result_precursor_report_v1.csv`, `fault_panel_result_raw_only_fault_signal_report_v1.csv` 같은 runtime artifact semantics 상세는 여기서 다시 정의하지 않는다.
+- runtime artifact semantics 상세가 필요하면 `release/conalog_full_runtime_v1/README.md` 와 [OPS_CONALOG_STABLE_RUNTIME_MAPPING_NOTE_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_STABLE_RUNTIME_MAPPING_NOTE_V1.md) 를 canonical source로 본다.
+
 ## executable pack 에 무엇이 들어 있는가
 - `package/app/`: dashboard 또는 외부 시스템이 직접 호출할 수 있는 CLI/UI entrypoint
 - `package/bin/`: Windows operator wrapper
