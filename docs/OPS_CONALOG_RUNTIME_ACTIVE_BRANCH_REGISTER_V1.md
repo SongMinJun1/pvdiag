@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260424-031` | `curated_seed_promotion_and_gap_rescan_complete` | promote selected BR-028 provisional shortlist rows into actual curated counterexample rows and verify that exact same-day missing families are still absent while widened `±7일` near-window backlog exists | decide whether `near-window overlap` should become its own provisional family, or keep exact same-day missing-family search as the next priority |
+| `BR-20260424-032` | `near_window_backlog_doc_sync_complete` | review BR-031 aftermath and sync patch-gate docs so `same-day exact` missing families and widened `±7일` near-window backlog are tracked separately | decide whether `near-window overlap` should become its own provisional family, or remain a non-closing backlog while exact same-day search continues |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -42,6 +42,7 @@
 | `BR-20260424-028` | `missing_seed_scan_complete` | scan confirms `제어응답형 top1` and report-row direct common-cause overlap are still absent, but finds live-chain MLPE shortlist 4건 plus raw-daily `group_off` / `co_drop_surge` provisional seed clusters | no |
 | `BR-20260424-029` | `provisional_seed_promotion_criteria_locked` | BR-028 provisional shortlist may enter the curated counterexample set only as `hold/reroute pressure-test seed`; this does not close the still-missing exact target families | no |
 | `BR-20260424-030` | `score_to_projection_precedence_locked` | projection follows `eligible evidence lane -> hold/reroute cap -> actionability ceiling`; `highest score wins` reading is explicitly rejected | no |
+| `BR-20260424-031` | `curated_seed_promotion_and_gap_rescan_complete` | selected provisional shortlist rows are promoted into curated counterexample rows, while exact same-day target families remain absent and widened `±7일` near-window backlog is recorded | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -81,6 +82,7 @@
 - BR-029 separates `curated seed promotion` from `exact family closure`: provisional MLPE/common-cause shortlist can be used as regression seed only if reproducible identity, direct bundle pressure, two-cue evidence, and prohibited-overgeneralization note are all present.
 - BR-030 locks projection precedence: promotion starts from eligible evidence lanes only, common-cause and ambiguity are hold/reroute caps, and actionability cannot outrun the strongest eligible lane.
 - BR-031 actually promotes selected BR-028 shortlist rows into curated counterexample rows and confirms the exact same-day target families are still missing, while widened `±7일` near-window overlap backlog now exists.
+- BR-032 syncs the patch-gate docs after BR-031: `near-window overlap backlog` can be tracked, but it still cannot be substituted for `same-day exact family closure`.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -89,4 +91,4 @@
 - adjudicate BR-023 `group_off` cluster boundaries and `strict_trigger_proximal` vs secondary-window evidence before any subtype promotion discussion.
 - before generating more packet branches, prefer a tracked packet generator or an exact one-shot reproduction script.
 - keep `subtype_production_write_allowed = 0` until a fresh tri-site review proves a subtype can be raised without final verdict drift.
-- after BR-031, the next safe lane remains docs/evidence-first: decide whether `near-window overlap` becomes a separate provisional family, or keep expanding the exact same-day missing families before reopening algorithm gating.
+- after BR-032, the next safe lane remains docs/evidence-first: decide whether `near-window overlap` becomes a separate provisional family, or keep it explicitly as a non-closing backlog while exact same-day missing-family search continues before reopening algorithm gating.

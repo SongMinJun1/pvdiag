@@ -29,7 +29,7 @@
 - 의미:
   - 현재까지 잠긴 Gate/decision을 반영한 구현 순서 초안이다.
   - `Gate 5 checklist`, `stable boundary note 최소 패치 범위`, `반례 세트 V1`까지는 존재한다.
-  - `MLPE ambiguous`, `common-cause risk`의 초기 승인 seed는 생겼지만, 운영 이벤트 연계/현장 확인 seed는 아직 부족하므로 algorithm gating 단계는 여전히 보수적으로 진행해야 한다.
+  - `MLPE ambiguous`, `common-cause risk`의 초기 승인 seed는 생겼지만, BR-031 이후 `exact same-day`와 `±7일 near-window backlog`의 해석 분리가 아직 남아 있으므로 algorithm gating 단계는 여전히 보수적으로 진행해야 한다.
 - 현재 우선 기준:
   - DL-001, DL-002가 Gate 7보다 우선한다.
   - stable/handoff 문서는 별도 계약으로 읽고, runtime redesign 패치를 stable 문서군에 직접 확장하지 않는다.
@@ -169,6 +169,7 @@
   - `common_cause_risk`에서 운영 이벤트/통신 흔들림 연계 사례와 `group_off_event` 직접 중첩 사례를 더 확보해야 한다.
   - `official current`와 direct overlap하는 common-cause 사례는 `2026-04-22` tri-site scan 기준 아직 미관측이라 별도 수집이 필요하다.
   - BR-029 기준으로 provisional shortlist는 curated counterexample seed로 승격될 수 있지만, 이는 `exact missing family closure`와는 별개다.
+  - BR-031 기준 widened `±7일 near-window overlap backlog`는 실제 backlog 로 존재하지만, `same-day exact family`와 분리된 채로 먼저 분류돼야 한다.
 
 ### 6.6 Step 4A. existing signal -> score axis map 정리
 - 내용:
@@ -189,6 +190,7 @@
   - 관련 decision log가 추가로 잠겨 있어야 한다.
   - [DL-20260422-012](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_DECISION_LOG_DL_20260422_012_V1.md) 기준으로 `prefault_B_effective`는 eligibility/explanation additive evidence까지만 허용되고, `고위험 관찰` direct trigger 승격은 별도 decision 전까지 보류한다.
   - [DL-20260424-014](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_DECISION_LOG_DL_20260424_014_V1.md) 기준으로 projection은 `highest score wins`가 아니라 `eligible evidence lane -> hold/reroute cap -> actionability ceiling` 순서를 따라야 한다.
+  - BR-031 backlog 를 common-cause overlap family 로 다시 쓸 거면, `same-day exact`와 분리된 provisional family인지 먼저 문서에서 잠가야 한다.
 
 ### 6.8 Step 6. Lane E taxonomy/action patch
 - 내용:
@@ -248,9 +250,9 @@
 | Step 7 build/release/smoke sync | 모든 source patch | 배포/검증 |
 
 ## 11. 지금 기준 다음 우선순위
-1. BR-028 provisional shortlist를 실제 curated counterexample row로 편입
-2. `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 exact seed 추가
-3. `common_cause_risk`의 운영 이벤트 / `group_off_event` 연계 exact seed 추가
+1. `±7일 near-window overlap backlog`를 separate provisional family로 둘지, 아니면 exact search 보조 backlog 로만 둘지 먼저 잠근다.
+2. `MLPE ambiguous`의 장치 응답 이상형 top1 / 회복 재발 `exact same-day` seed를 계속 추가한다.
+3. `common_cause_risk`의 운영 이벤트 / `group_off_event` / official current 연계 `exact same-day` seed를 계속 추가한다.
 4. 그 다음에야 algorithm gating patch 검토
 
 ## 12. 관련 문서

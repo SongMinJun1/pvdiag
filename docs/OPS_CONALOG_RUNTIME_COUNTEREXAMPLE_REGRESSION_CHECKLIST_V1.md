@@ -70,6 +70,7 @@
 - [ ] `group_off_like`, `work/event calendar hit`, `prefault_B_common_cause_overlap`가 suppressor로 유지되는가
 - [ ] 다수 cluster 흔들림을 singleton precursor나 panel-local hard-evidence 강화 근거로 쓰지 않았는가
 - [ ] official current direct overlap 부재를 무시하고 common-cause rule을 확대하지 않았는가
+- [ ] `±7일 near-window overlap backlog`를 `same-day exact family closure`처럼 읽지 않았는가
 
 ## Current Collection Priority
 ### Priority A
@@ -78,22 +79,26 @@
 
 ### Priority B
 - `common_cause_risk`에서 `work/event calendar hit` 또는 통신 흔들림과 직접 겹치는 사례
-- precursor/current row와 `group_off_event`가 직접 겹치는 사례
+- precursor/current row와 `group_off_event`가 직접 겹치는 `same-day exact` 사례
 
 ### Priority C
-- official current와 동시에 엮이는 common-cause direct overlap 사례
+- official current와 동시에 엮이는 common-cause `same-day exact` direct overlap 사례
+- `±7일 near-window overlap backlog` 대표 사례
 - `vdrop` 또는 `fault_like_day` 반복이 있지만 common-cause hold가 우선이어야 하는 사례
 
-## BR-029 interpretation lock
+## BR-029 / BR-031 interpretation lock
 - BR-028 provisional shortlist는 BR-029 기준을 만족하면 curated counterexample seed로 승격될 수 있다.
 - 단, 그 승격은 `hold/reroute pressure-test seed` 의미만 가진다.
 - 따라서 아래는 계속 `missing family`로 별도 추적한다.
   - `제어응답형 top1`
   - official/current row date direct overlap with common-cause
+- BR-031 기준 widened `±7일 near-window overlap backlog`는 별도 추적 backlog 이다.
+- 따라서 near-window backlog는 pressure-test에는 쓸 수 있지만 `same-day exact family closure` 대체물로 쓰면 안 된다.
 
 ## Minimum Pass Rule Before Algorithm Patch
 - `official_only`, `precursor_only`, `raw_only_only` 각 bucket 대표 사례 3개 이상
 - `mlpe_ambiguous`, `common_cause_risk`는 대표 사례 3개 이상 + Priority A/B seed가 최소 1개 이상 보강
+- `near-window overlap backlog`를 separate provisional family로 쓰려면 representative seed 1개 이상 + `same-day exact 아님` 금지 문구 1개 이상을 같이 유지
 - 위 조건을 만족하지 못하면 algorithm gating patch는 `보류`로 둔다.
 
 ## Decision

@@ -178,8 +178,9 @@
 필수 추가 수집 과제:
 - 작업일 / 운영 이벤트 / 통신 흔들림과 직접 겹치는 사례
 - `vdrop`나 `fault_like_day`가 반복되지만 common-cause를 더 먼저 의심해야 하는 사례
-- precursor/current row와 `group_off_event`가 직접 겹치는 사례
-- official current와 동시에 엮이는 common-cause 사례
+- precursor/current row와 `group_off_event`가 직접 겹치는 `same-day exact` 사례
+- official current와 동시에 엮이는 common-cause `same-day exact` 사례
+- `±7일 near-window overlap backlog`를 separate provisional family로 둘지 여부
 
 ## 8. 반례 해석 규칙
 - `official_only` 사례는 precursor recall 실패의 증거가 아니다.
@@ -246,8 +247,9 @@
 ## 12. 남은 과제
 - `MLPE ambiguous`에서 `장치 응답 이상형` top1 또는 회복/재발까지 확인되는 사례 추가
 - `common_cause risk`에서 작업일 / 운영 이벤트 / 통신 흔들림 겹침 사례 추가
-- `common_cause risk`에서 precursor/current row와 `group_off_event`가 직접 겹치는 사례 추가
-- `common_cause risk`에서 official current direct overlap 사례 추가
+- `common_cause risk`에서 precursor/current row와 `group_off_event`가 직접 겹치는 `same-day exact` 사례 추가
+- `common_cause risk`에서 official current direct overlap `same-day exact` 사례 추가
+- `±7일 near-window overlap backlog`를 separate provisional family로 둘지 문서에서 먼저 결정
 - 반례 세트 row를 decision log와 연결하는 `regression checklist`를 실제 patch gate로 사용
 - 필요 시 `challenge set`와 `counterexample set`를 분리
 
