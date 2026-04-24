@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-081` | `episode_truth_map_complete` | maps 244 episode/truth-review rows into truth-pending buckets; long-gap/backdating 12, durable precursor review 7, patch authorization sums 0 | build episode truth review packet before threshold replay or direct engine edits |
+| `BR-20260425-082` | `episode_truth_review_packet_complete` | collapses 22 selected source-lens rows into 16 review rows; P0 rows 9, P1 rows 7, reviewer labels 0, patch authorization sums 0 | attach reviewed truth labels before threshold replay or direct engine edits |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -93,6 +93,7 @@
 | `BR-20260425-079` | `algorithm_evolution_map_complete` | maps 10 current algorithm layers, 7 evidence gaps, and 6 ordered next actions; P0 gaps 4 and operator/engine/threshold authorization sums 0 | no |
 | `BR-20260425-080` | `subtype_truth_expansion_backlog_complete` | maps 17 subtype hypotheses into truth backlog rows; P0 rows 12, current exact truth support 0, operator/engine/threshold authorization sums 0 | no |
 | `BR-20260425-081` | `episode_truth_map_complete` | maps 244 episode/truth-review rows; all truth_pending, common-cause/group hold 205, long-gap/backdating hold 12, durable precursor review 7, patch authorization sums 0 | no |
+| `BR-20260425-082` | `episode_truth_review_packet_complete` | creates 16 review rows from 22 selected source-lens rows: long-gap/backdating 6, strict-sudden 3, durable precursor 7; reviewer truth labels 0 and patch authorization sums 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -219,3 +220,4 @@
 - after BR-079, use `/private/tmp/panel_day_engine_algorithm_evolution_map_br079_check/panel_day_engine_algorithm_evolution_layer_map_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_079_ALGORITHM_EVOLUTION_MAP_V1.md` as the current algorithm-evolution map; build subtype-truth backlog before threshold replay or direct engine edits.
 - after BR-080, use `/private/tmp/panel_day_engine_subtype_truth_expansion_backlog_br080_check/panel_day_engine_subtype_truth_expansion_backlog_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_080_SUBTYPE_TRUTH_EXPANSION_BACKLOG_V1.md` as the current subtype truth backlog; build episode truth map before threshold replay or direct engine edits.
 - after BR-081, use `/private/tmp/panel_day_engine_episode_truth_map_br081_check/panel_day_engine_episode_truth_map_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_081_EPISODE_TRUTH_MAP_V1.md` as the current episode truth map; build episode truth review packets before threshold replay or direct engine edits.
+- after BR-082, use `/private/tmp/panel_day_engine_episode_truth_review_packet_br082_check/panel_day_engine_episode_truth_review_packet_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_082_EPISODE_TRUTH_REVIEW_PACKET_V1.md` as the current review packet; attach reviewed truth labels before threshold replay or direct engine edits.
