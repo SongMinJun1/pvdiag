@@ -194,6 +194,9 @@
   - new top-level fault label을 직접 만들지 않는다.
   - operator headline으로 직접 승격하지 않는다.
   - first use는 explanation / blocker split / hold-review support로 제한한다.
+- 진행 상태:
+  - BR-040 기준 `report_entry_friction_axis`는 builder + smoke까지 구현 완료
+  - next implementation candidate는 `recovery_recurrence_axis`
 
 ### 6.7 Step 5. Lane D algorithm gating patch
 - 내용:
