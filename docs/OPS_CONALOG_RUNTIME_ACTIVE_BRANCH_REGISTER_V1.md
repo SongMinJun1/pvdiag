@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-116` | `mlpe_field_trial_final_label_validator_complete` | validates filled BR-115 reviewer labels: current label rows 0, smoke opens valid 1 and blocks invalid 3, approvals 0 | send only valid labels to BR-117 truth-intake gate |
+| `BR-20260425-117` | `mlpe_field_trial_label_to_truth_gate_complete` | gates BR-116-valid labels before truth intake: current label rows 0, smoke opens positive 1 and negative 1 while blocking 4 risk/invalid cases, approvals 0 | build a synthetic truth-gate fixture/failure matrix before truth seed promotion |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -128,6 +128,7 @@
 | `BR-20260425-114` | `mlpe_field_trial_returned_capture_adjudication_packet_complete` | current adjudication packet rows 0 and blocked rows 14; smoke matrix opens only BR-113 allowed rows while approvals remain 0 | no |
 | `BR-20260425-115` | `mlpe_field_trial_final_label_intake_schema_complete` | final-label intake template rows 0 because packet rows 0; schema rows 16, allowed-value rows 20, approval sums remain 0 | no |
 | `BR-20260425-116` | `mlpe_field_trial_final_label_validator_complete` | current label rows 0 and issue rows 0; smoke validates 1 complete label and blocks 3 bad labels while approval sums remain 0 | no |
+| `BR-20260425-117` | `mlpe_field_trial_label_to_truth_gate_complete` | current label rows 0; smoke sends 2 labels to truth-gate-ready candidate state and blocks probable/common-cause/artifact/validation-fail cases, approval sums remain 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
