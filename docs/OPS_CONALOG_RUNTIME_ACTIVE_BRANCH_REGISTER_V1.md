@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-124` | `mlpe_field_trial_truth_intake_preflight_checklist_complete` | unchecked preflight checklist generator added: current preflight rows 0, smoke preflight rows 1, checklist rows 6, blocked rows 2, ready rows 0, approvals 0 | build a reviewed preflight input validator only after real checklist rows exist |
+| `BR-20260425-125` | `mlpe_field_trial_truth_intake_preflight_review_validator_complete` | reviewed preflight validator added: current reviewed rows 0, smoke all-checks-passed rows 1, validation-failed rows 3, issue rows 3, approvals 0 | build a source/evidence materialization precheck package only after reviewed preflight candidates exist |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -136,6 +136,7 @@
 | `BR-20260425-122` | `mlpe_field_trial_truth_seed_reviewer_decision_validator_complete` | reviewer decision validator added; current decision rows 0, smoke rows 7 with valid 3, failed 4, future candidate 1, issue rows 5, approval sums remain 0 | no |
 | `BR-20260425-123` | `mlpe_field_trial_future_truth_intake_candidate_package_complete` | future truth-intake candidate package added; current package rows 0, smoke rows 5 with package 1, blocked 4, source write-flag violation 1, approval sums remain 0 | no |
 | `BR-20260425-124` | `mlpe_field_trial_truth_intake_preflight_checklist_complete` | unchecked preflight checklist generator added; current rows 0, smoke preflight rows 1, checklist rows 6 unchecked, blocked rows 2, ready rows 0, approval sums remain 0 | no |
+| `BR-20260425-125` | `mlpe_field_trial_truth_intake_preflight_review_validator_complete` | reviewed preflight validator added; current rows 0, smoke rows 4 with all-checks-passed 1, failed 3, issue rows 3, approval sums remain 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
