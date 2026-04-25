@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-096` | `voltage_preserved_raw_source_attachment_complete` | attaches source-candidate/core daily/raw CSV references to all BR-095 request rows while keeping independent confirmation and approvals at 0 | attach independent physical/maintenance evidence and blocker clearances before truth rebuild or threshold replay |
+| `BR-20260425-097` | `voltage_preserved_confirmation_gap_review_complete` | separates raw/source attachment, vendor pattern support, independent confirmation, and blocker clearance for the 14 voltage-preserved requests while keeping approvals at 0 | attach exact-panel physical/maintenance evidence and explicit blocker clearances before truth rebuild or threshold replay |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -108,6 +108,7 @@
 | `BR-20260425-094` | `runtime_workspace_retention_complete` | adds `--workspace-retention result-only`; fresh tri-site validation kept result artifacts at about 20M and removed about 7.01GiB of duplicate staged workspace data | no |
 | `BR-20260425-095` | `voltage_preserved_evidence_request_packet_complete` | emits 14 evidence request rows and 73 checklist rows; raw waveform independent confirmation rows 0, evidence-ready/truth/threshold/engine approval sums 0 | no |
 | `BR-20260425-096` | `voltage_preserved_raw_source_attachment_complete` | attaches 86 source-candidate traces and 1698 core daily/raw-file reference rows to all 14 requests; raw refs missing 0, physical confirmation/truth/threshold/engine approval sums 0 | no |
+| `BR-20260425-097` | `voltage_preserved_confirmation_gap_review_complete` | review rows 14 split into vendor-supported 5, raw-supported 4, counterexample hold 3, blocker hold 2; vendor exact support 9 but field-confirmed/independent confirmation/truth/threshold/engine approvals all 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -199,6 +200,7 @@
 - BR-095 converts BR-093 voltage-preserved candidates into evidence requests only: request rows `14`, checklist rows `73`, raw waveform independent confirmation rows `0`, and truth/threshold/engine approvals all `0`.
 - BR-095 keeps the 3 `gangui` same-root negative-overlap rows behind `counterexample_clearance` before any truth rebuild.
 - BR-096 closes raw/source traceability for BR-095 rows: `14/14` request rows have raw-source trace attached, `1698/1698` raw file refs found, but independent physical/maintenance confirmation remains `0`.
+- BR-097 separates vendor pattern support from field confirmation: exact vendor rows exist for `9/14`, positive/likely vendor support exists for `7/14`, but vendor field-confirmed rows, independent confirmation rows, truth approval, threshold approval, and engine patch approval all remain `0`.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -254,3 +256,4 @@
 - after BR-094, use `--workspace-retention result-only` for routine runtime pack validation when full staged workspace forensics is not needed; keep `workspace_cleanup_v1.json` as the audit record and rerun with `full` only when staged `sites/` or workspace `data/` copies are explicitly required.
 - after BR-095, attach evidence to the request/checklist rows first; do not rebuild confirmed-positive truth or rerun threshold replay until required independent/clearance axes are populated.
 - after BR-096, treat raw/source traceability as closed for the 14 voltage-preserved requests; the next bottleneck is independent physical/maintenance evidence plus common-cause, measurement-artifact, and counterexample clearance.
+- after BR-097, attach exact-panel physical/maintenance evidence for vendor-supported rows and resolve counterexample/blocker clearances before any truth rebuild, threshold replay, or `panel_day_engine.py` patch.
