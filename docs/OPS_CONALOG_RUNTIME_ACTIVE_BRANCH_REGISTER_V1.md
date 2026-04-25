@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-101` | `mlpe_field_trial_fault_taxonomy_locked` | records the MLPE field-trial fault taxonomy with PV physical families plus MLPE control, telemetry/artifact, group-side, common-cause, and unknown/compound classes | turn the taxonomy into a trial label template/checker before using injected faults for truth expansion |
+| `BR-20260425-102` | `mlpe_field_trial_capture_schema_complete` | converts BR-101 taxonomy into a label-pending capture template/checker with 14 template rows, 36 schema fields, 139 allowed-value rows, and approvals locked to 0 | use the template during 실증 and build a capture readiness packet before any truth intake |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -113,6 +113,7 @@
 | `BR-20260425-099` | `voltage_preserved_truth_acquisition_queue_complete` | acquisition queue rows 45: independent confirmation 14, common-cause clearance 14, measurement-artifact clearance 14, counterexample clearance 3; collector template rows 45, truth intake ready 0 | no |
 | `BR-20260425-100` | `unlabeled_fault_candidate_frontier_complete` | candidate frontier rows 114: seed positive 5, seed non-panel/negative 8, needs-more-info 1, unlabeled 100, strong unlabeled persistent/high/lead 8, trigger-only bulk/common-cause screen 85 | no |
 | `BR-20260425-101` | `mlpe_field_trial_fault_taxonomy_locked` | locks 10 top-level MLPE field-trial families, required label fields, and minimum injection matrix while keeping truth/threshold/engine approvals at 0 | no |
+| `BR-20260425-102` | `mlpe_field_trial_capture_schema_complete` | capture template rows 14, schema fields 36, allowed-value rows 139, checker errors 0, warnings 0; final label fields blank and approval flags 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -209,6 +210,7 @@
 - BR-099 turns the remaining BR-098 blockers into collector-facing work: queue rows `45`, open required axes `45`, collector template rows `45`, and truth/threshold/operator/engine approvals remain `0`.
 - BR-100 confirms the labeled/current fault set is not the full candidate universe: `100` unlabeled rows exist, but only `8` are strong persistent/high/lead data-only candidates and `85` trigger-only rows remain common-cause/bulk screens.
 - BR-101 records the MLPE-specific 실증 taxonomy: PV physical/electrical families stay, but `mlpe_device_or_control_fault`, `measurement_or_communication_artifact`, `inverter_or_group_side_fault`, `site_common_cause_event`, and `unknown_or_compound` must remain separate labels.
+- BR-102 turns BR-101 into an executable capture schema: final labels can stay pending, while missing capture metadata, invalid controlled values, family/subtype mismatches, and nonzero approval flags are checkable.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -269,3 +271,4 @@
 - after BR-099, use `panel_day_engine_voltage_preserved_truth_acquisition_collector_template_v1.csv` as the collection sheet; any collected evidence must be converted back into BR-098 inputs and re-attached before a separate truth-intake gate can be opened.
 - after BR-100, review `panel_day_engine_unlabeled_fault_candidate_priority_v1.csv` starting with the `8` `U1_strong_persistent_lead_review` rows; do not treat trigger-only bulk/common-cause screen rows as positive labels without exact-panel evidence and clearance.
 - after BR-101, build a field-trial label template/checker from the required fields before using injected MLPE fault data for truth intake, threshold replay, or direct engine patch review.
+- after BR-102, use `mlpe_field_trial_capture_template_v1.csv` as the 실증 setup sheet; the next safe branch is a capture readiness packet for filled metadata/raw/peer/waveform availability, not final truth labeling.
