@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-111` | `mlpe_field_trial_capture_return_validator_complete` | validates returned capture rows against the BR-110 watchlist: current planned rows still waiting 14, returned-ready 0, validation-failed 0, approvals 0 | use this validator when real capture CSV returns, then rerun readiness/handoff gates only for returned-ready rows |
+| `BR-20260425-112` | `mlpe_field_trial_capture_return_evidence_resolver_complete` | resolves evidence attachments after BR-111: current planned rows remain waiting events 14, evidence rows 56, required evidence problem rows 0, approvals 0 | when real capture arrives, use BR-111 then BR-112 before rerunning readiness/handoff gates |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -123,6 +123,7 @@
 | `BR-20260425-109` | `mlpe_field_trial_pre_adjudication_dry_run_gate_complete` | pre-adjudication dry-run gate rows 8, passed 8, failed 0; BR-107 opens, BR-108 fails closed, approvals remain 0 | no |
 | `BR-20260425-110` | `mlpe_field_trial_real_capture_intake_watchlist_complete` | watchlist rows 14, dry-run gate passed flag 1, real capture required rows 14, handoff allowed 0, truth/threshold/engine approvals 0 | no |
 | `BR-20260425-111` | `mlpe_field_trial_capture_return_validator_complete` | current planned return rows stay waiting 14 with returned-ready 0 and validation-failed 0; smoke confirms synthetic filled fixture would open returned-ready 14 without truth/threshold/engine approvals | no |
+| `BR-20260425-112` | `mlpe_field_trial_capture_return_evidence_resolver_complete` | current planned rows expand to 56 waiting evidence rows with required evidence problem rows 0; smoke confirms synthetic filled fixture resolves 56/56 files without approvals | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
