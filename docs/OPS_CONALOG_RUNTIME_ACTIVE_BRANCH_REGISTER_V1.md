@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-109` | `mlpe_field_trial_pre_adjudication_dry_run_gate_complete` | bundles BR-107/108 into an executable dry-run gate: 8/8 checks pass, failed rows 0, truth/threshold/engine approvals 0 | run this gate before real capture rows enter final adjudication; wait for external labels before truth intake |
+| `BR-20260425-110` | `mlpe_field_trial_real_capture_intake_watchlist_complete` | converts current planned rows into a real-capture watchlist: 14 rows require real capture, dry-run gate passed, handoff allowed 0, approvals 0 | collect real capture metadata/evidence, then rerun readiness/handoff/dry-run gates before truth intake |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -121,6 +121,7 @@
 | `BR-20260425-107` | `mlpe_field_trial_filled_capture_fixture_complete` | synthetic fixture rows 14, evidence rows 56, BR-103 ready rows 14, BR-106 handoff allowed rows 14, final labels 0 and truth/threshold/engine approvals 0 | no |
 | `BR-20260425-108` | `mlpe_field_trial_partial_capture_failure_matrix_complete` | 6 synthetic partial-capture scenarios hit all expected readiness buckets; only complete label-pending row is handoff-ready and truth/threshold/engine approvals remain 0 | no |
 | `BR-20260425-109` | `mlpe_field_trial_pre_adjudication_dry_run_gate_complete` | pre-adjudication dry-run gate rows 8, passed 8, failed 0; BR-107 opens, BR-108 fails closed, approvals remain 0 | no |
+| `BR-20260425-110` | `mlpe_field_trial_real_capture_intake_watchlist_complete` | watchlist rows 14, dry-run gate passed flag 1, real capture required rows 14, handoff allowed 0, truth/threshold/engine approvals 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -225,6 +226,7 @@
 - BR-107 proves the same gates are not over-blocking: synthetic complete capture rows reach adjudication handoff while truth intake remains blocked.
 - BR-108 proves the same gates fail closed for planned, metadata-missing, path-missing, file-missing, and label-attached truth-gate cases.
 - BR-109 turns BR-107/108 into one executable pre-adjudication dry-run gate so plumbing health can be checked before real capture rows are accepted.
+- BR-110 converts the current planned state into collection work: all 14 rows require real capture before handoff or truth intake can proceed.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -293,3 +295,4 @@
 - after BR-107, preserve the fixture as plumbing regression only; the next safe branch is a quality/failure-mode matrix for partially filled captures, not truth intake.
 - after BR-108, bundle BR-107/108 into a pre-adjudication dry-run gate before any real field capture rows are accepted for final adjudication.
 - after BR-109, the next safe branch is a real-capture intake watchlist/checklist wrapper; still do not build truth rows until final external labels are supplied.
+- after BR-110, do not generate more synthetic truth; the next useful branch should package the real-capture intake watchlist for handoff or create a capture-return validator for future filled rows.
