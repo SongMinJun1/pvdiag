@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-104` | `mlpe_field_trial_operator_intake_guide_complete` | converts BR-102/103 into an operator intake checklist: 14 planning rows, 26 field-guide rows, and truth/engine/threshold approvals locked to 0 | use the checklist during 실증 capture, then rerun BR-103 readiness before final adjudication |
+| `BR-20260425-105` | `mlpe_field_trial_package_manifest_complete` | indexes BR-101~104 field-trial docs/artifacts in one manifest: 13 required rows, 0 missing, approvals locked to 0 | use the manifest as the MLPE field-trial entry point before filled capture rows or final labels arrive |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -116,6 +116,7 @@
 | `BR-20260425-102` | `mlpe_field_trial_capture_schema_complete` | capture template rows 14, schema fields 36, allowed-value rows 139, checker errors 0, warnings 0; final label fields blank and approval flags 0 | no |
 | `BR-20260425-103` | `mlpe_field_trial_capture_readiness_complete` | readiness rows 14, all currently `planned_waiting_for_capture`; metadata-ready/evidence-ready/label-attached/truth/engine approval sums all 0 | no |
 | `BR-20260425-104` | `mlpe_field_trial_operator_intake_guide_complete` | operator checklist rows 14, field guide rows 26, all rows still planning; `unchecked` timestamp/communication quality is treated as still needing operator confirmation | no |
+| `BR-20260425-105` | `mlpe_field_trial_package_manifest_complete` | package manifest rows 13 across taxonomy/capture/readiness/operator/handoff stages, required missing rows 0, truth/threshold/engine approval sums 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -215,6 +216,7 @@
 - BR-102 turns BR-101 into an executable capture schema: final labels can stay pending, while missing capture metadata, invalid controlled values, family/subtype mismatches, and nonzero approval flags are checkable.
 - BR-103 turns BR-102 capture rows into readiness buckets; planned rows are not defects, and only future `capture_ready_label_pending` rows should move to final adjudication.
 - BR-104 turns readiness into operator action: field operators get a row-level fill checklist, and `unchecked` timestamp/communication quality is not treated as done.
+- BR-105 makes the MLPE field-trial lane restartable from one manifest, preventing BR-101~104 artifacts from becoming another scattered evidence stack.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -278,3 +280,4 @@
 - after BR-102, use `mlpe_field_trial_capture_template_v1.csv` as the 실증 setup sheet; the next safe branch is a capture readiness packet for filled metadata/raw/peer/waveform availability, not final truth labeling.
 - after BR-103, wait for filled 실증 capture rows or create an intake guide for operators; do not build final truth rows until readiness shows capture/evidence are complete.
 - after BR-104, do not advance to truth-intake without filled rows and final labels; the next safe branch should be a capture-quality/adjudication handoff guard or a field-trial package manifest, not a threshold or engine patch.
+- after BR-105, use `/private/tmp/mlpe_field_trial_package_manifest_br105_check/mlpe_field_trial_package_manifest_v1.csv` as the field-trial entry point; without filled capture rows, the next safe work is a capture-quality/adjudication handoff guard, not truth intake.
