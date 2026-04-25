@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-119` | `mlpe_field_trial_real_label_intake_runbook_complete` | chains BR-118 fixture, BR-116 validation, and BR-117 truth gate: current label rows 0, fixture mismatch 0, approvals 0 | build a sidecar truth-seed review packet only after real KTC ESS labels produce gate-ready rows |
+| `BR-20260425-120` | `mlpe_field_trial_truth_seed_review_packet_complete` | sidecar packet builder added: current packet rows 0, fixture mismatch 0, canonical truth/threshold/engine approvals 0 | build a sidecar truth-seed reviewer decision schema only after real KTC ESS labels produce packet rows |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -131,6 +131,7 @@
 | `BR-20260425-117` | `mlpe_field_trial_label_to_truth_gate_complete` | current label rows 0; smoke sends 2 labels to truth-gate-ready candidate state and blocks probable/common-cause/artifact/validation-fail cases, approval sums remain 0 | no |
 | `BR-20260425-118` | `mlpe_field_trial_truth_gate_fixture_matrix_complete` | synthetic gate matrix rows 16; expected vs actual mismatches 0; ready 3, blocked 13, truth/threshold/engine approval sums remain 0 | no |
 | `BR-20260425-119` | `mlpe_field_trial_real_label_intake_runbook_complete` | one-command real-label intake chain added; current label rows 0, fixture mismatch 0, truth-seed review candidates 0, approval sums remain 0 | no |
+| `BR-20260425-120` | `mlpe_field_trial_truth_seed_review_packet_complete` | sidecar truth-seed review packet builder added; current packet rows 0, smoke packet rows 2 and blocked rows 1, canonical truth/threshold/engine approval sums remain 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
