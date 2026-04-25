@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-091` | `durable_hold_raw_shape_review_complete` | recomputes selected raw-day waveform proxy metrics for 6 durable holds; positive candidates 0, current-limited holds 2, no-low/weak holds 4 | search for new voltage-preserved positives outside these holds |
+| `BR-20260425-094` | `runtime_workspace_retention_complete` | adds a result-only retention option for runtime pack validation; duplicate staged site/workspace data copies are removed after result artifacts are written | continue confirmation/evidence work without accumulating multi-GB `/private/tmp` workspaces |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -103,6 +103,9 @@
 | `BR-20260425-089` | `episode_truth_durable_shape_review_complete` | BR-089 mixed review input yields positive 1, negative 9, deferred 6; threshold tuning approved 0 | no |
 | `BR-20260425-090` | `subtype_threshold_replay_pilot_complete` | pilot replay rows 112, summary rows 7; 3 broad rules blocked by hold pressure, 4 strict/voltage rules need more positive truth; threshold tuning approved 0 | no |
 | `BR-20260425-091` | `durable_hold_raw_shape_review_complete` | reviews 6 durable holds over 48 selected raw days; no voltage-preserved positives added, 2 current-limited holds separated, threshold tuning approved 0 | no |
+| `BR-20260425-092` | `voltage_preserved_positive_search_complete` | searches outside the 6 durable holds; candidate rows 96, manual-review-ready rows 86, known positive seed rows 1, known negative overlap rows 1, threshold approval 0 | no |
+| `BR-20260425-093` | `voltage_preserved_confirmation_packet_complete` | compresses 86 voltage-preserved source candidates into 14 panel tasks and 7 root families; counterexample-risk packet rows 3, threshold approval 0 | no |
+| `BR-20260425-094` | `runtime_workspace_retention_complete` | adds `--workspace-retention result-only`; fresh tri-site validation kept result artifacts at about 20M and removed about 7.01GiB of duplicate staged workspace data | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -243,3 +246,4 @@
 - after BR-092, the next safe branch is a confirmation packet for `manual_review_ready=1` candidates, with de-duplication and independent evidence before rebuilding truth rows or rerunning BR-090.
 - after BR-093, use `/private/tmp/panel_day_engine_voltage_preserved_confirmation_packet_br093_check/panel_day_engine_voltage_preserved_confirmation_packet_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_093_VOLTAGE_PRESERVED_CONFIRMATION_PACKET_V1.md` as the current confirmation worklist; `86` source candidates are compressed to `14` panel tasks and `7` root families.
 - after BR-093, attach independent confirmation to P0 packet rows before any positive truth rebuild; same-root known negative overlap family remains counterexample-guarded.
+- after BR-094, use `--workspace-retention result-only` for routine runtime pack validation when full staged workspace forensics is not needed; keep `workspace_cleanup_v1.json` as the audit record and rerun with `full` only when staged `sites/` or workspace `data/` copies are explicitly required.
