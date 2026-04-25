@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-113` | `mlpe_field_trial_capture_return_rerun_preflight_complete` | combines BR-111 and BR-112 before readiness/handoff rerun: current rows waiting 14, rerun allowed 0, validation/evidence problems 0, approvals 0 | after real capture returns, rerun BR-103/BR-106 only for BR-113 allowed rows |
+| `BR-20260425-114` | `mlpe_field_trial_returned_capture_adjudication_packet_complete` | creates final-adjudication packet rows only from BR-113 allowed rows: current packet rows 0, blocked rows 14, approvals 0 | when packet rows exist, collect external reviewer labels through a separate label-intake schema |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -125,6 +125,7 @@
 | `BR-20260425-111` | `mlpe_field_trial_capture_return_validator_complete` | current planned return rows stay waiting 14 with returned-ready 0 and validation-failed 0; smoke confirms synthetic filled fixture would open returned-ready 14 without truth/threshold/engine approvals | no |
 | `BR-20260425-112` | `mlpe_field_trial_capture_return_evidence_resolver_complete` | current planned rows expand to 56 waiting evidence rows with required evidence problem rows 0; smoke confirms synthetic filled fixture resolves 56/56 files without approvals | no |
 | `BR-20260425-113` | `mlpe_field_trial_capture_return_rerun_preflight_complete` | current rows remain waiting 14 with readiness/handoff rerun allowed 0; smoke matrix opens only complete returned-ready rows and blocks validation/evidence failures | no |
+| `BR-20260425-114` | `mlpe_field_trial_returned_capture_adjudication_packet_complete` | current adjudication packet rows 0 and blocked rows 14; smoke matrix opens only BR-113 allowed rows while approvals remain 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
