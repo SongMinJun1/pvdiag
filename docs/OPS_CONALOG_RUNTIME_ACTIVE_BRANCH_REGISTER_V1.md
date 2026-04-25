@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-094` | `runtime_workspace_retention_complete` | adds a result-only retention option for runtime pack validation; duplicate staged site/workspace data copies are removed after result artifacts are written | continue confirmation/evidence work without accumulating multi-GB `/private/tmp` workspaces |
+| `BR-20260425-095` | `voltage_preserved_evidence_request_packet_complete` | converts BR-093 voltage-preserved confirmation rows into explicit evidence requests/checklists while keeping raw waveform support non-independent and approvals at 0 | attach reviewer evidence to BR-095 rows before truth rebuild or threshold replay |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -106,6 +106,7 @@
 | `BR-20260425-092` | `voltage_preserved_positive_search_complete` | searches outside the 6 durable holds; candidate rows 96, manual-review-ready rows 86, known positive seed rows 1, known negative overlap rows 1, threshold approval 0 | no |
 | `BR-20260425-093` | `voltage_preserved_confirmation_packet_complete` | compresses 86 voltage-preserved source candidates into 14 panel tasks and 7 root families; counterexample-risk packet rows 3, threshold approval 0 | no |
 | `BR-20260425-094` | `runtime_workspace_retention_complete` | adds `--workspace-retention result-only`; fresh tri-site validation kept result artifacts at about 20M and removed about 7.01GiB of duplicate staged workspace data | no |
+| `BR-20260425-095` | `voltage_preserved_evidence_request_packet_complete` | emits 14 evidence request rows and 73 checklist rows; raw waveform independent confirmation rows 0, evidence-ready/truth/threshold/engine approval sums 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -194,6 +195,8 @@
 - BR-078 completes that refresh: BR-064 through BR-077 are now indexed by branch, evidence layer, judgment role, artifact path, temp-artifact repro command, next action, and patch authorization boundary.
 - BR-079 freezes the current algorithm evolution map before code changes: 10 layers, 7 evidence gaps, and 6 ordered next actions; the next safe branch is subtype-truth backlog, not threshold or engine patch.
 - BR-080 completes that subtype-truth backlog: 17 subtype rows, 12 P0 rows, exact truth support 0; next safe branch is episode truth map, not threshold or engine patch.
+- BR-095 converts BR-093 voltage-preserved candidates into evidence requests only: request rows `14`, checklist rows `73`, raw waveform independent confirmation rows `0`, and truth/threshold/engine approvals all `0`.
+- BR-095 keeps the 3 `gangui` same-root negative-overlap rows behind `counterexample_clearance` before any truth rebuild.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -247,3 +250,4 @@
 - after BR-093, use `/private/tmp/panel_day_engine_voltage_preserved_confirmation_packet_br093_check/panel_day_engine_voltage_preserved_confirmation_packet_v1.csv` and `docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_093_VOLTAGE_PRESERVED_CONFIRMATION_PACKET_V1.md` as the current confirmation worklist; `86` source candidates are compressed to `14` panel tasks and `7` root families.
 - after BR-093, attach independent confirmation to P0 packet rows before any positive truth rebuild; same-root known negative overlap family remains counterexample-guarded.
 - after BR-094, use `--workspace-retention result-only` for routine runtime pack validation when full staged workspace forensics is not needed; keep `workspace_cleanup_v1.json` as the audit record and rerun with `full` only when staged `sites/` or workspace `data/` copies are explicitly required.
+- after BR-095, attach evidence to the request/checklist rows first; do not rebuild confirmed-positive truth or rerun threshold replay until required independent/clearance axes are populated.
