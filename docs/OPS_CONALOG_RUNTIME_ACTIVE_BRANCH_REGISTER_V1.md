@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-106` | `mlpe_field_trial_adjudication_handoff_guard_complete` | blocks adjudication handoff while all 14 rows are still planned; manifest missing rows 0 and all truth/threshold/engine approvals remain 0 | fill BR-104 capture rows, rerun BR-103 readiness, then rerun this guard before final adjudication |
+| `BR-20260425-107` | `mlpe_field_trial_filled_capture_fixture_complete` | synthetic filled-capture fixture proves BR-103/104/106 plumbing opens: 14 readiness-ready rows and 14 handoff-allowed rows, while truth/threshold/engine approvals remain 0 | use the fixture as regression proof; wait for real filled capture rows and final labels before truth intake |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -118,6 +118,7 @@
 | `BR-20260425-104` | `mlpe_field_trial_operator_intake_guide_complete` | operator checklist rows 14, field guide rows 26, all rows still planning; `unchecked` timestamp/communication quality is treated as still needing operator confirmation | no |
 | `BR-20260425-105` | `mlpe_field_trial_package_manifest_complete` | package manifest rows 13 across taxonomy/capture/readiness/operator/handoff stages, required missing rows 0, truth/threshold/engine approval sums 0 | no |
 | `BR-20260425-106` | `mlpe_field_trial_adjudication_handoff_guard_complete` | handoff guard rows 14; all rows `blocked_planned_capture`, adjudication handoff allowed rows 0, truth/threshold/engine approval sums 0 | no |
+| `BR-20260425-107` | `mlpe_field_trial_filled_capture_fixture_complete` | synthetic fixture rows 14, evidence rows 56, BR-103 ready rows 14, BR-106 handoff allowed rows 14, final labels 0 and truth/threshold/engine approvals 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
@@ -219,6 +220,7 @@
 - BR-104 turns readiness into operator action: field operators get a row-level fill checklist, and `unchecked` timestamp/communication quality is not treated as done.
 - BR-105 makes the MLPE field-trial lane restartable from one manifest, preventing BR-101~104 artifacts from becoming another scattered evidence stack.
 - BR-106 makes the no-label/no-capture boundary executable: planned rows block adjudication handoff even when the artifact manifest is complete.
+- BR-107 proves the same gates are not over-blocking: synthetic complete capture rows reach adjudication handoff while truth intake remains blocked.
 
 ## Next Safe Implementation
 - keep `promotion_decision_bucket` as an audit/shadow field only.
@@ -284,3 +286,4 @@
 - after BR-104, do not advance to truth-intake without filled rows and final labels; the next safe branch should be a capture-quality/adjudication handoff guard or a field-trial package manifest, not a threshold or engine patch.
 - after BR-105, use `/private/tmp/mlpe_field_trial_package_manifest_br105_check/mlpe_field_trial_package_manifest_v1.csv` as the field-trial entry point; without filled capture rows, the next safe work is a capture-quality/adjudication handoff guard, not truth intake.
 - after BR-106, the next dependency is external field capture or a synthetic fixture-only dry-run of filled rows; do not open truth-intake, threshold replay, or engine patch branches without final labels.
+- after BR-107, preserve the fixture as plumbing regression only; the next safe branch is a quality/failure-mode matrix for partially filled captures, not truth intake.
