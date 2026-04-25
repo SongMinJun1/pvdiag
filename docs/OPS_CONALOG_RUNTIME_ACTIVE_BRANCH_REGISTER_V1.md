@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-115` | `mlpe_field_trial_final_label_intake_schema_complete` | defines reviewer label intake after BR-114: current template rows 0, schema rows 16, allowed values 20, approvals 0 | validate filled reviewer labels separately before any truth-intake gate |
+| `BR-20260425-116` | `mlpe_field_trial_final_label_validator_complete` | validates filled BR-115 reviewer labels: current label rows 0, smoke opens valid 1 and blocks invalid 3, approvals 0 | send only valid labels to BR-117 truth-intake gate |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -127,6 +127,7 @@
 | `BR-20260425-113` | `mlpe_field_trial_capture_return_rerun_preflight_complete` | current rows remain waiting 14 with readiness/handoff rerun allowed 0; smoke matrix opens only complete returned-ready rows and blocks validation/evidence failures | no |
 | `BR-20260425-114` | `mlpe_field_trial_returned_capture_adjudication_packet_complete` | current adjudication packet rows 0 and blocked rows 14; smoke matrix opens only BR-113 allowed rows while approvals remain 0 | no |
 | `BR-20260425-115` | `mlpe_field_trial_final_label_intake_schema_complete` | final-label intake template rows 0 because packet rows 0; schema rows 16, allowed-value rows 20, approval sums remain 0 | no |
+| `BR-20260425-116` | `mlpe_field_trial_final_label_validator_complete` | current label rows 0 and issue rows 0; smoke validates 1 complete label and blocks 3 bad labels while approval sums remain 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
