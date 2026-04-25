@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-121` | `mlpe_field_trial_truth_seed_reviewer_decision_schema_complete` | reviewer decision schema added: current template rows 0, schema rows 25, allowed-value rows 27, approvals 0 | build a reviewer decision validator before any truth-intake candidate package |
+| `BR-20260425-122` | `mlpe_field_trial_truth_seed_reviewer_decision_validator_complete` | reviewer decision validator added: current decision rows 0, smoke future truth-intake candidates 1, validation failures 4, issue rows 5, approvals 0 | build a sidecar future truth-intake candidate package only after validated reviewer decisions exist |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -133,6 +133,7 @@
 | `BR-20260425-119` | `mlpe_field_trial_real_label_intake_runbook_complete` | one-command real-label intake chain added; current label rows 0, fixture mismatch 0, truth-seed review candidates 0, approval sums remain 0 | no |
 | `BR-20260425-120` | `mlpe_field_trial_truth_seed_review_packet_complete` | sidecar truth-seed review packet builder added; current packet rows 0, smoke packet rows 2 and blocked rows 1, canonical truth/threshold/engine approval sums remain 0 | no |
 | `BR-20260425-121` | `mlpe_field_trial_truth_seed_reviewer_decision_schema_complete` | reviewer decision template/schema added; current template rows 0, smoke template rows 2, allowed-value rows 27, approval sums remain 0 | no |
+| `BR-20260425-122` | `mlpe_field_trial_truth_seed_reviewer_decision_validator_complete` | reviewer decision validator added; current decision rows 0, smoke rows 7 with valid 3, failed 4, future candidate 1, issue rows 5, approval sums remain 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
