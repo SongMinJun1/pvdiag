@@ -15,8 +15,8 @@ except ImportError:
 
 OWNER_BRANCH = "BR-20260425-116"
 DEFAULT_LABEL_INPUT = "/private/tmp/mlpe_field_trial_final_label_intake_schema_br115_check/mlpe_field_trial_final_label_intake_template_v1.csv"
-DEFAULT_SCHEMA = "/private/tmp/mlpe_field_trial_final_label_intake_schema_br115_check/mlpe_field_trial_final_label_intake_schema_v1.csv"
-DEFAULT_ALLOWED_VALUES = "/private/tmp/mlpe_field_trial_final_label_intake_schema_br115_check/mlpe_field_trial_final_label_allowed_values_v1.csv"
+DEFAULT_SCHEMA = "research/prognostics/contracts/mlpe_field_trial_v1/final_label_intake_schema/mlpe_field_trial_final_label_intake_schema_v1.csv"
+DEFAULT_ALLOWED_VALUES = "research/prognostics/contracts/mlpe_field_trial_v1/final_label_intake_schema/mlpe_field_trial_final_label_allowed_values_v1.csv"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_final_label_validator_br116_check"
 
 VALIDATION_OUTPUT_NAME = "mlpe_field_trial_final_label_validation_v1.csv"
