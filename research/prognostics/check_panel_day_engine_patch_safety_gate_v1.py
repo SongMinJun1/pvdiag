@@ -17,7 +17,10 @@ SUMMARY_OUTPUT_NAME = "panel_day_engine_patch_safety_gate_summary_v1.csv"
 VALIDATION_COMMANDS = [
     "python3 -m py_compile pv_ae/panel_day_engine.py",
     "python3 research/prognostics/smoke_test_conalog_full_runtime_pack_v1.py",
-    "python3 release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py --data-root /Users/b9gc/pvdiag/data --output-root /private/tmp/panel_engine_patch_safety_rerun --sites conalog --prefer-existing-site-outs on",
+    "python3 release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py "
+    "--data-root data "
+    "--output-root /private/tmp/panel_engine_patch_safety_rerun "
+    "--sites conalog --prefer-existing-site-outs on",
 ]
 RELATED_TERMS = [
     "panel_day_engine",

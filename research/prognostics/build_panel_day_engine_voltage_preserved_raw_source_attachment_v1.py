@@ -26,7 +26,7 @@ DEFAULT_SOURCE_MAP = (
     "/private/tmp/panel_day_engine_voltage_preserved_confirmation_packet_br093_check/"
     "panel_day_engine_voltage_preserved_confirmation_candidate_map_v1.csv"
 )
-DEFAULT_DATA_ROOT = "/Users/b9gc/pvdiag/data"
+DEFAULT_DATA_ROOT = str(Path(__file__).resolve().parents[2] / "data")
 DEFAULT_OUTPUT_DIR = "/private/tmp/panel_day_engine_voltage_preserved_raw_source_attachment_br096_check"
 
 REQUEST_REQUIRED_COLUMNS = [

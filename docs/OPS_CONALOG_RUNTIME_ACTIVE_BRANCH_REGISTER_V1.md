@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260428-153` | `stale_worktree_repro_path_cleanup_ready_for_review` | replace stale `postmerge_j` worktree repro roots in BR-095..BR-150 docs with current-checkout `--repo-root "$(pwd)"` | Path audit high-risk worktree findings are now 0; triage remaining medium-risk `private_tmp` and `repo_absolute` findings separately |
+| `BR-20260428-154` | `research_data_root_portability_in_progress` | remove user-specific data-root defaults from research/audit builders and handoff command strings | Validate affected smokes and runtime pack smoke, then triage remaining historical docs/temp references separately |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -153,6 +153,7 @@
 | `BR-20260428-151` | `path_portability_audit_implemented` | adds a reproducible builder/smoke so repo absolute paths, transient worktree paths, and volatile temp evidence references can be triaged without bulk rewriting or runtime semantic changes | no |
 | `BR-20260428-152` | `path_portability_self_noise_fixed` | BR-151 audit now skips marked scanner/test literals and uses a checkout-relative repro command, reducing self-generated path findings before real stale-path triage | no |
 | `BR-20260428-153` | `stale_worktree_repro_paths_removed` | replaces 45 stale `postmerge_j` worktree references across BR-095..BR-150 repro docs; path portability high-risk worktree findings drop to 0 | no |
+| `BR-20260428-154` | `research_data_root_portability_ready_for_review` | research/audit data-root defaults now resolve under the current checkout; path portability `repo_absolute` findings drop 624 -> 603 without engine behavior change | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

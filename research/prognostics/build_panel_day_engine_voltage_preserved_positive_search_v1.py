@@ -23,7 +23,7 @@ DEFAULT_HOLD_INPUT = (
     "/private/tmp/panel_day_engine_durable_hold_raw_shape_review_br091_check/"
     "panel_day_engine_durable_hold_raw_shape_review_summary_v1.csv"
 )
-DEFAULT_DATA_ROOT = "/Users/b9gc/pvdiag/data"
+DEFAULT_DATA_ROOT = str(Path(__file__).resolve().parents[2] / "data")
 DEFAULT_OUTPUT_DIR = "/private/tmp/panel_day_engine_voltage_preserved_positive_search_br092_check"
 
 CORE_REQUIRED_COLUMNS = [

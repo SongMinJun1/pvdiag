@@ -19,7 +19,7 @@ DEFAULT_SHAPE_INPUT = (
     "/private/tmp/panel_day_engine_episode_truth_durable_shape_review_br089_check/"
     "panel_day_engine_episode_truth_durable_shape_review_v1.csv"
 )
-DEFAULT_DATA_ROOT = "/Users/b9gc/pvdiag/data"
+DEFAULT_DATA_ROOT = str(Path(__file__).resolve().parents[2] / "data")
 
 SHAPE_REQUIRED_COLUMNS = [
     "shape_review_row_id",

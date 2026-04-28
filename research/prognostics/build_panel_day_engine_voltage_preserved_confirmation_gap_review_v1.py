@@ -20,7 +20,7 @@ NOTE_OUTPUT_NAME = "panel_day_engine_voltage_preserved_confirmation_gap_note_v1.
 JSON_OUTPUT_NAME = "panel_day_engine_voltage_preserved_confirmation_gap_review_v1.json"
 
 DEFAULT_ATTACHMENT_DIR = "/private/tmp/panel_day_engine_voltage_preserved_raw_source_attachment_br096_check"
-DEFAULT_VENDOR_INPUT = "/Users/b9gc/pvdiag/data/manual/vendor_reply_cases.csv"
+DEFAULT_VENDOR_INPUT = str(Path(__file__).resolve().parents[2] / "data" / "manual" / "vendor_reply_cases.csv")
 DEFAULT_MANUAL_SITE_INPUT = "docs/internal/manual_field_evidence_latest.csv"
 DEFAULT_OUTPUT_DIR = "/private/tmp/panel_day_engine_voltage_preserved_confirmation_gap_review_br097_check"
 
