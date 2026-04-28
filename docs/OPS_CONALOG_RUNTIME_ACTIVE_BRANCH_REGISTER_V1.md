@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-161` | `mlpe_template_schema_contract_paths_in_progress` | move MLPE template/schema defaults from volatile temp outputs to repo-tracked contract artifacts | Validate default-path consumers and keep user-filled inputs explicit/guarded |
+| `BR-20260429-162` | `mlpe_generated_dependency_review_in_progress` | classify remaining MLPE generated-artifact and chain-directory defaults before any replacement | Design bounded chain-manifest or explicit-input patch lane |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -161,6 +161,7 @@
 | `BR-20260429-159` | `mlpe_input_default_contract_ready_for_review` | MLPE field-trial input/directory defaults now split into upstream-generated 27, template/schema 10, user-filled 7, and chain-directory bundle 4; next cleanup target is user-filled fail-closed handling | no |
 | `BR-20260429-160` | `mlpe_user_filled_default_fail_closed_ready_for_review` | 7 MLPE user-filled defaults now fail closed unless explicit input or `--allow-user-filled-default` fixture/regression mode is used; existing explicit-input smokes still pass | no |
 | `BR-20260429-161` | `mlpe_template_schema_contract_paths_ready_for_review` | MLPE template/schema defaults now use repo-tracked contract artifacts; `mlpe_template_or_schema_input` audit rows drop `10 -> 0`; user-filled inputs remain explicit/guarded | no |
+| `BR-20260429-162` | `mlpe_generated_dependency_review_ready_for_review` | generated dependency review fixes the next cleanup boundary: 31 rows remain generated/chain inputs, split into capture chain 18, truth-intake chain 12, replay chain 1; static contract replacement candidates 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
