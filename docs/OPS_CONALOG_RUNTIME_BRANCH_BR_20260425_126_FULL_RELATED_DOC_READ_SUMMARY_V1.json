@@ -1,0 +1,31 @@
+{
+  "file_count": 495,
+  "total_bytes": 2593150,
+  "total_lines": 41375,
+  "suffix_counts": {
+    ".md": 427,
+    ".csv": 60,
+    ".json": 8
+  },
+  "role_counts": {
+    "common_cause": 202,
+    "operator_handoff": 257,
+    "gpvs_reference": 61,
+    "evidence_matrix": 172,
+    "topology_grouping": 72,
+    "general_doc": 17,
+    "release_runtime": 329,
+    "truth_review": 47,
+    "project_eval": 31,
+    "performance_audit": 86,
+    "gate_contract": 150,
+    "maintenance_proxy": 33,
+    "decision_log": 89,
+    "runtime_branch": 197,
+    "mlpe_field_trial": 40
+  },
+  "outputs": [
+    "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_126_FULL_RELATED_DOC_READ_INDEX_V1.csv",
+    "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_126_FULL_RELATED_DOC_READ_SUMMARY_V1.csv"
+  ]
+}

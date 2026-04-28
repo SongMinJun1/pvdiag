@@ -136,6 +136,9 @@
 | MLP-004 | gangui | `bf1a912f-6cf0-4f12-8e97-9d9d86576511.1.2` | MLPE ambiguous, 급작 발생형 센서·피드백 우세 but panel-local 경합 | top1 `센서·피드백형` score 6에 top2 `접속·부분개방형`, top3 `다이오드·서브스트링형`이 같이 붙고 사건은 `급작 고장 / 급작 발생`으로 닫혀 장치 응답과 패널 국소 이상을 쉽게 혼동한다 | abrupt device-like top1을 곧바로 장치 확정이나 패널 확정으로 단정하지 말 것 | Gate 2C, Gate 4A |
 | MLP-005 | conalog | `21ca22d1-a6fb-40cd-805c-cd3dcfcbb4ff.0.1` | MLPE ambiguous, 전조형 고장 뒤 급격 종료형 센서·피드백 경합 | top1 `센서·피드백형`, top2 `접속·부분개방형`, top3 `다이오드·서브스트링형`이고 `전조형 고장 / 급격 종료`로 닫혀 precursor 축과 panel-local 축이 함께 흔들린다 | precursor 흔적이 있다고 장치/패널 중 한쪽으로만 단정하지 말 것 | Gate 2C, Gate 3 |
 | MLP-006 | gangui | `4fd0c566-e25e-4d51-96ca-57cc46940593.4.15` | MLPE ambiguous, 진행성 악화형 센서·피드백 vs 열화 경합 | top1 `센서·피드백형`, top2 `접속·부분개방형`, top3 `열화형`이고 `전조형 고장 / 진행성 악화`로 닫혀 장치 응답형과 실제 열화형 해석이 동시에 열린다 | 진행성 악화 패턴을 곧바로 열화형이나 장치 측정형 한쪽으로만 고정하지 말 것 | Gate 2C, Gate 6B |
+| MLP-007 | conalog | `c42997a6-5881-47e7-9035-7de8a2673b54.1.1` | MLPE ambiguous, `장치 응답 이상형` 외부참조와 panel-local/control near-miss가 함께 남는 curated seed | live-chain에서 `장치 응답 이상형`이 외부참조로 붙고 top1 `센서·피드백형`, top2 `접속·부분개방형`, top3 `제어응답형`, 신뢰도 `medium`이라 장치/제어/패널 해석이 동시에 열린다 | 외부참조패턴과 top3 `제어응답형`이 있다고 exact `제어응답형 top1`을 확보한 것으로 읽지 말 것 | Gate 2C, DL-013, DL-014 |
+| MLP-008 | gangui | `bf1a912f-6cf0-4f12-8e97-9d9d86576511.0.7` | MLPE ambiguous, 급작 current 사례에서도 `장치 응답 이상형` 외부참조와 panel-local top1이 충돌하는 curated seed | `장치 응답 이상형` 외부참조가 붙지만 top1은 `다이오드·서브스트링형`, top2는 `센서·피드백형`이라 abrupt current 사례 안에서도 장치/패널 경합이 실제로 존재한다 | 급작 current + 외부참조를 이유로 장치형 확정이나 exact control-family closure로 과대 해석하지 말 것 | Gate 2C, Gate 4A, DL-014 |
+| MLP-009 | ktc_ess | `70ad2d87-cdb6-4842-81b7-71c7599bbf05.1.4` | MLPE ambiguous, 진행성 악화 current에서도 device-response hint와 열화형 top1이 충돌하는 curated seed | `장치 응답 이상형` 외부참조가 붙지만 top1은 `열화형`, top2는 `센서·피드백형`, top3는 `다이오드·서브스트링형`이라 panel-local 열화와 장치 응답형 해석이 동시에 열린다 | 외부 device-response hint만으로 열화형/장치형 중 하나를 성급히 확정하거나 exact `제어응답형 top1` 발견으로 읽지 말 것 | Gate 2C, DL-013, DL-014 |
 
 필수 추가 수집 과제:
 - `센서·피드백형` 외에 `장치 응답 이상형`이 실제 top1으로 뜨는 사례
@@ -159,16 +162,25 @@
 | CCR-004 | gangui | `4fd0c566-e25e-4d51-96ca-57cc46940593.4.26` | common-cause risk, panel-local 다이오드형 후보도 군집 흔들림에 눌리는 사례 | `가장 가까운 후보는 다이오드·국소 회로 이상형`이지만 `동일 base 군집 흔들림(19 panels)`이 동시에 들어가 panel-local 다이오드 해석보다 group/base 검토가 먼저여야 한다 | panel-local 전기 후보가 강하다는 이유만으로 singleton hard-evidence 보강 규칙을 바로 강화하지 말 것 | Gate 2C, Gate 4 |
 | CCR-005 | ktc_ess | `10305b40-b67e-40d1-9cd1-271b6642a3d9.0.17` | common-cause risk, 관찰 단계 원인미확정 보류 사례 | `운영 판정=관찰` 수준인데도 `동일 base 군집 흔들림(9 panels)`과 AE/DTW 누적이 함께 보여, 초기에 panel-local precursor로 올리기보다 common-cause screening이 먼저다 | 초기 전조 누적만 보고 개별 패널 선조치 대상으로 승격하지 말 것 | Gate 2A, Gate 3 |
 | CCR-006 | ktc_ess | `10305b40-b67e-40d1-9cd1-271b6642a3d9.1.16` | common-cause risk, 원인미확정 고위험 관찰 사례 | EWS/AE/DTW가 매우 크고 `동일 base 군집 흔들림(9 panels)`이 직접 들어가 있어, 원인미확정 보류가 panel-local 가설보다 더 적절하다 | 원인미확정 + 다수 군집 흔들림 상태를 억지로 열화형이나 개별 고장형으로 접지 말 것 | Gate 2C, Gate 6B |
+| CCR-007 | gangui | `4fd0c566-e25e-4d51-96ca-57cc46940593.3.6` | common-cause risk, `2025-11-23` group-off same-day raw-daily curated seed | `group_off_date=true`와 함께 `fault_like_weak`, `pre_ews`, `prefault_B`, `prefault_cond_mid/ae/dtw/ews`가 같은 날짜에 겹쳐 panel-local precursor처럼 보이지만 common-cause hold가 직접 필요하다 | same-day helper bundle + weak hard-like 흔적을 singleton precursor 승격 근거로 일반화하지 말 것 | Gate 2A, Gate 2C, DL-013, DL-014 |
+| CCR-008 | gangui | `4fd0c566-e25e-4d51-96ca-57cc46940593.4.15` | common-cause risk, `2025-11-23` group-off same-day confirm-like tension curated seed | `group_off_date=true`와 같은 날짜에 `fault_like_day=true`, `final_fault=true`, `anom_subtype=confirmed_fault`가 겹쳐 강한 hard-like 흔적도 common-cause hold 아래서 다시 읽어야 함을 보여준다 | group-off 같은-day confirm-like 흔적을 바로 singleton hard-evidence precedent나 stable current 대체 근거로 쓰지 말 것 | Gate 2C, Gate 4, DL-014 |
+| CCR-009 | ktc_ess | `10305b40-b67e-40d1-9cd1-271b6642a3d9.1.12` | common-cause risk, `2025-10-26 co_drop_surge` weak hard-like curated seed | `site_event_soft=true`, `site_event_reason=co_drop_surge`, `fault_like_weak`, `mid_i_ratio=0.0`, `critical_confirmed=0`, `final_fault=0`이 겹쳐 site-event와 panel-local hard-like 흔적이 충돌한다 | site-event와 같이 뜬 weak hard-like 하루를 panel-local hard evidence precedent로 확대하지 말 것 | Gate 2C, Gate 4, DL-014 |
+| CCR-010 | ktc_ess | `ed5e3367-fbd4-4c8c-be33-c5d1c5e191b7.0.14` | common-cause risk, `2025-10-26 co_drop_surge` strong hard-like curated seed | `site_event_soft=true`, `site_event_reason=co_drop_surge`, `fault_like_strong`, `prefault_cond_dtw=true`, `mid_i_ratio≈0`, `critical_confirmed=0`, `final_fault=0`이라 stronger hard-like 흔적도 common-cause hold 아래서 재검토돼야 함을 보여준다 | strong hard-like + site-event overlap을 confirm-path 강화나 panel-local 단정 근거로 바로 연결하지 말 것 | Gate 2C, Gate 4, DL-014 |
 
 추가 확인 메모:
-- `2026-04-22` tri-site scan (`/private/tmp/conalog_mlpe_seed_expand_check`) 기준으로는 `official current` row 6건에서 같은 panel 또는 같은 `group_key_base`의 `group_off_event/group_off_like` direct overlap이 `고장날짜 ±7일` 윈도우 안에 관측되지 않았다.
-- 따라서 `official current와 동시에 엮이는 common-cause 사례` 버킷은 아직 빈칸이며, 현재 반례 세트는 precursor/관찰/high-risk 관찰 레인 중심으로만 seed가 채워진 상태로 읽어야 한다.
+- `2026-04-24` widened re-scan 기준으로 `same-day` exact overlap은 여전히 `0`이지만, `±7일` near-window에서는 `9건`이 확인됐다.
+  - 대표 예시:
+    - `ktc_ess / 10305...2.12`: `current_fault` 날짜 `2025-08-16` 기준 `site_event_soft` 날짜 `2025-08-11`과 `5일 차`
+    - `gangui / 4fd0...4.26`: `precursor_onset` `2025-12-09` 기준 `group_off_date` `2025-12-04/03/02`와 `5~7일 차`
+    - `gangui / bf1a...1.0`: `precursor_onset` `2025-11-18` 기준 `group_off_date` `2025-11-23/24`와 `5~6일 차`
+- 따라서 `official current와 동시에 엮이는 common-cause 사례`의 exact same-day family는 아직 빈칸이지만, `near-window overlap backlog`은 별도 추적 가치가 있는 상태로 읽어야 한다.
 
 필수 추가 수집 과제:
 - 작업일 / 운영 이벤트 / 통신 흔들림과 직접 겹치는 사례
 - `vdrop`나 `fault_like_day`가 반복되지만 common-cause를 더 먼저 의심해야 하는 사례
-- precursor/current row와 `group_off_event`가 직접 겹치는 사례
-- official current와 동시에 엮이는 common-cause 사례
+- precursor/current row와 `group_off_event`가 직접 겹치는 `same-day exact` 사례
+- official current와 동시에 엮이는 common-cause `same-day exact` 사례
+- `±7일 near-window overlap backlog`를 separate provisional family로 둘지 여부
 
 ## 8. 반례 해석 규칙
 - `official_only` 사례는 precursor recall 실패의 증거가 아니다.
@@ -187,15 +199,147 @@
 - 발표/운영 방어:
   - “왜 이 규칙을 넓히지 않았는가”를 설명할 때 `prohibited_overgeneralization`을 직접 인용한다.
 
-## 10. 남은 과제
+## 10. BR-026 이후 pressure-test 읽기
+- BR-026 이후에는 아래 bundle 관점으로 각 bucket을 다시 읽는다.
+  - `official_only`: artifact lane separation pressure-test
+  - `precursor_only`: precursor bundle minimum-condition pressure-test
+  - `raw_only_only`: hard evidence bundle + lane split pressure-test
+  - `mlpe_ambiguous`: ambiguity hold bundle pressure-test
+  - `common_cause_risk`: common-cause hold bundle pressure-test
+- 따라서 bucket을 늘리는 것만으로 충분하지 않고, 각 bucket이 `무엇을 승격시키지 못하게 막는지`까지 함께 적어야 한다.
+- 실제 patch turn에서는 [OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md) 를 함께 본다.
+
+## 11. BR-028 scan result note
+- `장치 응답 이상형/제어응답형 top1`은 현재 tri-site raw-only runtime heuristics scan에서 `0건`이다.
+- 대신 live-chain 기준 `장치 응답 이상형` 관련 경합 shortlist `4건`은 확보됐다.
+- report-row 날짜 기준 `site_event/group_off` direct overlap은 `0건`이었고, 즉 official/current/precursor row와 직접 겹치는 common-cause seed는 여전히 미관측이다.
+- 반면 raw-daily level에서는 아래 provisional source가 확보됐다.
+  - `gangui` group-off precursor overlap candidate cluster
+  - `ktc_ess 2025-10-26 co_drop_surge` hard-like overlap cluster
+- 자세한 scan 결과는 [OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_028_MISSING_SEED_SCAN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_028_MISSING_SEED_SCAN_V1.md) 를 본다.
+
+## 11A. BR-029 promotion rule note
+- BR-028에서 찾은 shortlist는 `curated counterexample seed`로 승격될 수 있다.
+- 단, 이 승격은 `hold/reroute pressure-test seed` 의미만 가진다.
+- 아래는 그대로 분리해 유지한다.
+  - `curated seed로는 충분함`
+  - `원래 찾던 exact missing family를 찾았음`
+- 따라서 아래 사실은 BR-029 이후에도 계속 missing 상태로 읽는다.
+  - `제어응답형 top1 = 0`
+  - report-row 날짜 기준 `official/current direct overlap = 0`
+- 자세한 기준은 [OPS_CONALOG_RUNTIME_DECISION_LOG_DL_20260424_013_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_DECISION_LOG_DL_20260424_013_V1.md) 와 [OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_029_PROVISIONAL_SEED_PROMOTION_CRITERIA_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_029_PROVISIONAL_SEED_PROMOTION_CRITERIA_V1.md) 를 본다.
+
+## 11B. BR-031 curation + exact-gap re-scan note
+- BR-031에서는 두 작업을 같이 수행했다.
+  - BR-028 provisional shortlist 중 조건을 만족한 row를 actual curated counterexample row로 편입
+    - `MLP-007..009`
+    - `CCR-007..010`
+  - exact missing-family를 widened re-scan으로 다시 확인
+- 결과는 아래와 같다.
+  - `제어응답형 top1`은 runtime/live-chain 모두 여전히 `0`
+  - report-row 날짜 기준 `official/current direct overlap` same-day도 여전히 `0`
+  - 대신 `±7일` near-window overlap은 `9건` 확인
+- 따라서 BR-031 이후 reading은 아래처럼 분리한다.
+  - curated seed set은 더 강해졌다
+  - exact missing family closure는 아직 아니다
+  - near-window overlap은 새 backlog 축으로 관리할 가치가 있다
+
+## 11C. BR-033 near-window backlog data assessment note
+- BR-033에서는 widened `±7일 near-window overlap backlog`를 event-row가 아니라 independent report-row 기준으로 다시 압축했다.
+- 결과:
+  - `event rows = 9`
+  - `report rows = 5`
+  - `roots = 4`
+  - direct flag family는 `group_off_date`와 `site_event_soft+site_event_hard`로 갈라진다.
+  - slice도 `precursor_onset`과 `current_fault`가 섞여 있다.
+  - gap sign도 `event_before_report`와 `event_after_report`가 섞여 있다.
+- 따라서 현재 near-window backlog는 하나의 coherent family 보다 `두 개의 얇은 proto-cluster`에 더 가깝다.
+- BR-033 reading:
+  - near-window backlog는 `non-closing backlog`
+  - `same-day exact family` 대체물 아님
+  - 하나의 proto-cluster가 `same flag family + same slice + 3 roots + stable sign`을 만족하기 전까지 provisional family로 승격하지 않음
+
+## 11D. BR-034 exact-seed deep scan note
+- BR-034에서는 `제어응답형 top1`과 `same-day direct overlap` missing family를 더 깊게 다시 스캔했다.
+- 결과:
+  - live/runtime heuristics 모두 `제어응답형 top1 = 0`
+  - live-chain score breakdown에서는 `제어응답형 raw_score > 0` panel `4개`가 보였지만, 모두 GPVS/usage 보조 가산 기반이었다
+  - raw-only artifact 날짜까지 확장한 same-day direct overlap scan도 `0`
+- 따라서 BR-034 이후 reading은 아래처럼 잠근다.
+  - `control_score > 0` 는 supportive hint
+  - `제어응답형 top1 family closure` 아님
+  - expanded raw-only date scan도 `same-day direct overlap family closure` 아님
+
+## 11E. BR-035 exact-seed blocker anatomy note
+- BR-035에서는 `same-day direct overlap` missing family를 raw-daily row reservoir와 report-layer blocker로 다시 분해했다.
+- 결과:
+  - raw-daily direct common-cause same-day rows 자체는 `101 rows / 49 panels`로 존재한다.
+  - 그러나 top-level artifact presence는 `precursor 19`, `rawonly 16`, `none 13`, `current 1`로 갈린다.
+  - 즉 same-day exact family가 비어 있는 이유는 raw-row 부재보다 `report-lane entry/date alignment failure`가 더 크다.
+- 따라서 BR-035 이후 reading은 아래처럼 잠근다.
+  - raw-daily same-day row = candidate reservoir
+  - report-layer exact family closure = 별도 조건
+  - 둘을 혼용하지 않는다
+
+## 11F. BR-036 judgment rubric lock note
+- BR-036에서는 BR-033, BR-034, BR-035 결과를 같은 급으로 읽지 않도록 `judgment role`을 잠갔다.
+- 현재 role reading은 아래와 같다.
+  - `exact_family_closure`
+    - 아직 missing
+  - `supportive_hint`
+    - BR-034 `control_score > 0`
+  - `candidate_reservoir`
+    - BR-035 raw-daily same-day direct common-cause rows
+  - `non_closing_backlog`
+    - BR-033 near-window overlap backlog
+  - `structural_blocker`
+    - BR-035 row-universe/date-alignment mismatch
+- 따라서 curated seed나 widened scan이 추가되더라도, 먼저 `judgment role`을 적기 전에는 exact-family closure나 algorithm gating justification으로 쓰면 안 된다.
+
+## 11G. BR-037 group-off report-lane entry blocker note
+- BR-037에서는 `group_off_date` exact raw-row family를 report-lane blocker subtype으로 다시 분해했다.
+- 결과:
+  - `no_report_lane_entry = 1 panel`
+  - `precursor_carryover_without_exact_overlap = 2 panels`
+  - `rawonly_date_displaced = 15 panels`
+  - `rawonly_near_signal_anchor = 1 panel`
+- 핵심 reading:
+  - `group_off_date` family는 아직 exact-family closure가 아니라 blocker-family에 가깝다.
+  - 다만 `rawonly_near_signal_anchor` 1 panel은 next inspect residual로 남는다.
+
+## 11H. BR-058 fault-family regression pressure packet note
+- BR-057/058에서는 local morphology pool을 다시 읽어 target exact closure와 regression pressure를 분리했다.
+- 결과:
+  - `target_exact_closure_candidate_sum = 0`
+  - `operator_promotion_allowed_sum = 0`
+  - `engine_patch_candidate_sum = 0`
+  - `fault_family_regression_pressure_packet rows = 11`
+- packet 구성:
+  - `non_target_hard_same_day_fault_family_seed = 5`
+    - `conalog / 다이오드·서브스트링형 = 3`
+    - `conalog / 접속·부분개방형 = 1`
+    - `gangui / 접속·부분개방형 = 1`
+  - `sensor_feedback_hard_same_day_ambiguity_pressure = 6`
+    - `gangui / 센서·피드백형 = 6`
+- BR-058 reading:
+  - 이 packet은 target exact-family closure가 아니다.
+  - 이 packet은 operator-facing promotion 근거가 아니다.
+  - 이 packet은 future algorithm patch가 과하게 넓어지지 않도록 막는 regression/counterexample pressure다.
+- packet artifact:
+  - `/private/tmp/fault_family_regression_pressure_packet_check/panel_day_engine_fault_family_regression_pressure_packet_v1.csv`
+
+## 12. 남은 과제
 - `MLPE ambiguous`에서 `장치 응답 이상형` top1 또는 회복/재발까지 확인되는 사례 추가
 - `common_cause risk`에서 작업일 / 운영 이벤트 / 통신 흔들림 겹침 사례 추가
-- `common_cause risk`에서 precursor/current row와 `group_off_event`가 직접 겹치는 사례 추가
-- `common_cause risk`에서 official current direct overlap 사례 추가
-- 반례 세트 row를 decision log와 연결하는 `regression checklist` 생성
+- `common_cause risk`에서 precursor/current row와 `group_off_event`가 직접 겹치는 `same-day exact` 사례 추가
+- `common_cause risk`에서 official current direct overlap `same-day exact` 사례 추가
+- `±7일 near-window overlap backlog`는 current state 에서 non-closing backlog로 유지하고, DL-015 criteria를 넘는 proto-cluster가 생기면 그때만 재검토
+- `control_score > 0` panel은 계속 추적하되, exact `제어응답형 top1` seed와 분리해서 관리
+- raw-daily same-day direct row가 report-layer exact family로 올라오지 못하는 blocker case를 계속 축적
+- 반례 세트 row를 decision log와 연결하는 `regression checklist`를 실제 patch gate로 사용
 - 필요 시 `challenge set`와 `counterexample set`를 분리
 
-## 11. 다음 연결 문서
+## 13. 다음 연결 문서
 - 상위 로드맵:
   - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)
 - Gate 7 구현 순서:
@@ -206,5 +350,9 @@
   - [OPS_CONALOG_RUNTIME_GATE4_HARD_EVIDENCE_BOUNDARY_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_GATE4_HARD_EVIDENCE_BOUNDARY_V1.md)
 - Gate 5 출력 정책:
   - [OPS_CONALOG_RUNTIME_GATE5_OUTPUT_POLICY_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_GATE5_OUTPUT_POLICY_V1.md)
+- regression checklist:
+  - [OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md)
+- BR-028 scan note:
+  - [OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_028_MISSING_SEED_SCAN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_028_MISSING_SEED_SCAN_V1.md)
 - cross-gate 감사:
   - [OPS_CONALOG_RUNTIME_CROSS_GATE_DESIGN_GAP_AUDIT_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_CROSS_GATE_DESIGN_GAP_AUDIT_V1.md)
