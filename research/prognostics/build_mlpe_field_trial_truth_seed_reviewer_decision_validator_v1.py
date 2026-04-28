@@ -390,6 +390,7 @@ def main() -> None:
         input_path=decision_path,
         default_path=DEFAULT_DECISION_INPUT,
         allow_user_filled_default=args.allow_user_filled_default,
+        explicit_flag="--decision-input",
     )
     output_dir.mkdir(parents=True, exist_ok=True)
 

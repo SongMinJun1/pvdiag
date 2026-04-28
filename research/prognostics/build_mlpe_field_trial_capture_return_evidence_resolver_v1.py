@@ -300,6 +300,7 @@ def main() -> None:
         input_path=returned_capture_path,
         default_path=DEFAULT_RETURNED_CAPTURE,
         allow_user_filled_default=args.allow_user_filled_default,
+        explicit_flag="--returned-capture",
     )
     output_dir.mkdir(parents=True, exist_ok=True)
 

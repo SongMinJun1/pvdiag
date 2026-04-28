@@ -283,6 +283,7 @@ def main() -> None:
         input_path=label_path,
         default_path=DEFAULT_LABEL_INPUT,
         allow_user_filled_default=args.allow_user_filled_default,
+        explicit_flag="--label-input",
     )
     output_dir.mkdir(parents=True, exist_ok=True)
 
