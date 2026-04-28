@@ -247,22 +247,28 @@ def write_fixtures(root: Path) -> tuple[Path, Path]:
     return trace_path, index_path
 
 
-def run_builder(repo_root: Path, trace_path: Path, index_path: Path, output_dir: Path) -> subprocess.CompletedProcess[str]:
-    return run(
-        [
-            sys.executable,
-            "research/prognostics/build_panel_day_engine_episode_truth_adjudication_worksheet_v1.py",
-            "--repo-root",
-            str(repo_root),
-            "--trace-input",
-            str(trace_path),
-            "--index-input",
-            str(index_path),
-            "--output-dir",
-            str(output_dir),
-        ],
-        cwd=repo_root,
-    )
+def run_builder(
+    repo_root: Path,
+    trace_path: Path | None,
+    index_path: Path | None,
+    output_dir: Path,
+    input_manifest: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    cmd = [
+        sys.executable,
+        "research/prognostics/build_panel_day_engine_episode_truth_adjudication_worksheet_v1.py",
+        "--repo-root",
+        str(repo_root),
+        "--output-dir",
+        str(output_dir),
+    ]
+    if trace_path is not None:
+        cmd.extend(["--trace-input", str(trace_path)])
+    if index_path is not None:
+        cmd.extend(["--index-input", str(index_path)])
+    if input_manifest is not None:
+        cmd.extend(["--input-manifest", str(input_manifest)])
+    return run(cmd, cwd=repo_root)
 
 
 def main() -> None:
@@ -295,9 +301,52 @@ def main() -> None:
         assert_true(draft["reviewer_truth_label"].fillna("").eq("").all(), "draft labels must stay blank")
         assert_true(draft["reviewer_evidence_path"].fillna("").eq("").all(), "draft evidence paths must stay blank")
         assert_true(payload["worksheet_rows"] == 3, "json worksheet row count mismatch")
+        assert_true(payload["trace_input_source"] == "explicit_cli", "explicit trace input should win")
+        assert_true(payload["index_input_source"] == "explicit_cli", "explicit index input should win")
         assert_true(payload["reviewer_truth_label_assigned_count"] == 0, "json should not assign labels")
         assert_true(payload["threshold_replay_ready_count"] == 0, "json should block replay")
         assert_true(int(summary["threshold_replay_ready_count"].sum()) == 0, "summary should block replay")
+
+        manifest_path = root / "episode_truth_inputs.json"
+        manifest_path.write_text(
+            json.dumps(
+                {"inputs": {"trace_input": str(trace_path), "index_input": str(index_path)}},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_proc = run_builder(repo_root, None, None, manifest_out, manifest_path)
+        assert_true(manifest_proc.returncode == 0, manifest_proc.stderr or manifest_proc.stdout)
+        manifest_payload = json.loads((manifest_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(manifest_payload["worksheet_rows"] == 3, "manifest run worksheet row count mismatch")
+        assert_true(manifest_payload["input_manifest"] == str(manifest_path), "manifest path should be recorded")
+        assert_true(manifest_payload["trace_input_source"] == "input_manifest", "trace should resolve from manifest")
+        assert_true(manifest_payload["index_input_source"] == "input_manifest", "index should resolve from manifest")
+
+        bad_manifest_path = root / "bad_episode_truth_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "trace_input": str(root / "missing_trace.csv"),
+                        "index_input": str(root / "missing_index.csv"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_proc = run_builder(repo_root, trace_path, index_path, override_out, bad_manifest_path)
+        assert_true(override_proc.returncode == 0, override_proc.stderr or override_proc.stdout)
+        override_payload = json.loads((override_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(override_payload["trace_input_source"] == "explicit_cli", "trace CLI override should win")
+        assert_true(override_payload["index_input_source"] == "explicit_cli", "index CLI override should win")
 
         unsafe_index = pd.read_csv(index_path, encoding="utf-8-sig")
         unsafe_index["reviewer_truth_label"] = unsafe_index["reviewer_truth_label"].fillna("").astype(str)
