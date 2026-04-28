@@ -2,10 +2,10 @@
   "generated_at_utc": "2026-04-20T12:22:14Z",
   "python_runtime_kind": "windows_embeddable_python",
   "python_version": "3.11.9",
-  "python_exe_path": "/Users/b9gc/pvdiag/release/conalog_full_runtime_v1/package/runtime/windows_x64/python/python.exe",
+  "python_exe_path": "release/conalog_full_runtime_v1/package/runtime/windows_x64/python/python.exe",
   "python_embed_zip_url": "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip",
-  "wheelhouse_path": "/Users/b9gc/pvdiag/release/conalog_full_runtime_v1/package/runtime/windows_x64/wheelhouse",
-  "site_packages_path": "/Users/b9gc/pvdiag/release/conalog_full_runtime_v1/package/runtime/windows_x64/python/Lib/site-packages",
+  "wheelhouse_path": "release/conalog_full_runtime_v1/package/runtime/windows_x64/wheelhouse",
+  "site_packages_path": "release/conalog_full_runtime_v1/package/runtime/windows_x64/python/Lib/site-packages",
   "primary_packages": [
     "numpy==2.3.4",
     "pandas==2.3.3",

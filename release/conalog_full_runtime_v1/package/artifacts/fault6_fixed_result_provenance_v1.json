@@ -1,9 +1,9 @@
 {
-  "generated_at_utc": "2026-04-22T09:16:49Z",
+  "generated_at_utc": "2026-04-28T13:46:03Z",
   "source_chain_ko": "frozen verdict plus frozen heuristic with integrated display-name mapping",
-  "verdict_source_path": "/Users/b9gc/pvdiag/_share/panel_day_engine_panel_multiaxis_verdict_v1.csv",
-  "heuristic_source_path": "/Users/b9gc/pvdiag/_share/panel_day_engine_cause_candidate_heuristics_v1.csv",
-  "legacy_integrated_source_path": "/Users/b9gc/pvdiag/_share/panel_day_engine_integrated_result_table_v1.csv",
+  "verdict_source_path": "_share/panel_day_engine_panel_multiaxis_verdict_v1.csv",
+  "heuristic_source_path": "_share/panel_day_engine_cause_candidate_heuristics_v1.csv",
+  "legacy_integrated_source_path": "_share/panel_day_engine_integrated_result_table_v1.csv",
   "fault_row_count": 6,
   "display_name_map": {
     "다이오드·서브스트링형": "다이오드·서브스트링 이상형",
