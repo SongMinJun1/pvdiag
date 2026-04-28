@@ -129,5 +129,5 @@ After patch:
 ```bash
 python3 -m py_compile pv_ae/panel_day_engine.py research/prognostics/build_panel_day_engine_voltage_preserved_independent_confirmation_attachment_v1.py research/prognostics/smoke_test_panel_day_engine_voltage_preserved_independent_confirmation_attachment_v1.py
 python3 research/prognostics/smoke_test_panel_day_engine_voltage_preserved_independent_confirmation_attachment_v1.py
-python3 research/prognostics/build_panel_day_engine_voltage_preserved_independent_confirmation_attachment_v1.py --repo-root /Users/b9gc/pvdiag_worktrees/postmerge_j --gap-review-dir /private/tmp/panel_day_engine_voltage_preserved_confirmation_gap_review_br097_check --vendor-input /Users/b9gc/pvdiag/data/manual/vendor_reply_cases.csv --manual-site-input docs/internal/manual_field_evidence_latest.csv --output-dir /private/tmp/panel_day_engine_voltage_preserved_independent_confirmation_br098_check
+python3 research/prognostics/build_panel_day_engine_voltage_preserved_independent_confirmation_attachment_v1.py --repo-root "$(pwd)" --gap-review-dir /private/tmp/panel_day_engine_voltage_preserved_confirmation_gap_review_br097_check --vendor-input /Users/b9gc/pvdiag/data/manual/vendor_reply_cases.csv --manual-site-input docs/internal/manual_field_evidence_latest.csv --output-dir /private/tmp/panel_day_engine_voltage_preserved_independent_confirmation_br098_check
 ```

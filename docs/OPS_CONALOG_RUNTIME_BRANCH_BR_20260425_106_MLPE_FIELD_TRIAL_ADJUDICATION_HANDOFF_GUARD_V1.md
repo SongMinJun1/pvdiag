@@ -68,5 +68,5 @@ After patch:
 ```bash
 python3 -m py_compile pv_ae/panel_day_engine.py research/prognostics/build_mlpe_field_trial_adjudication_handoff_guard_v1.py research/prognostics/smoke_test_mlpe_field_trial_adjudication_handoff_guard_v1.py
 python3 research/prognostics/smoke_test_mlpe_field_trial_adjudication_handoff_guard_v1.py
-python3 research/prognostics/build_mlpe_field_trial_adjudication_handoff_guard_v1.py --repo-root /Users/b9gc/pvdiag_worktrees/postmerge_j --readiness-input /private/tmp/mlpe_field_trial_capture_readiness_br103_check/mlpe_field_trial_capture_readiness_packet_v1.csv --manifest-summary-input /private/tmp/mlpe_field_trial_package_manifest_br105_check/mlpe_field_trial_package_manifest_summary_v1.csv --output-dir /private/tmp/mlpe_field_trial_adjudication_handoff_guard_br106_check
+python3 research/prognostics/build_mlpe_field_trial_adjudication_handoff_guard_v1.py --repo-root "$(pwd)" --readiness-input /private/tmp/mlpe_field_trial_capture_readiness_br103_check/mlpe_field_trial_capture_readiness_packet_v1.csv --manifest-summary-input /private/tmp/mlpe_field_trial_package_manifest_br105_check/mlpe_field_trial_package_manifest_summary_v1.csv --output-dir /private/tmp/mlpe_field_trial_adjudication_handoff_guard_br106_check
 ```

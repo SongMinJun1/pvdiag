@@ -91,5 +91,5 @@ After patch:
 ```bash
 python3 -m py_compile pv_ae/panel_day_engine.py research/prognostics/build_mlpe_field_trial_blocked_state_readiness_handoff_audit_v1.py research/prognostics/smoke_test_mlpe_field_trial_blocked_state_readiness_handoff_audit_v1.py
 python3 research/prognostics/smoke_test_mlpe_field_trial_blocked_state_readiness_handoff_audit_v1.py
-python3 research/prognostics/build_mlpe_field_trial_blocked_state_readiness_handoff_audit_v1.py --repo-root /Users/b9gc/pvdiag_worktrees/postmerge_j --queue-input docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_128_TO_150_EXECUTION_QUEUE_V1.csv --commit-scope-json /private/tmp/mlpe_field_trial_commit_scope_dry_run_br148_check/mlpe_field_trial_commit_scope_dry_run_v1.json --output-dir /private/tmp/mlpe_field_trial_blocked_state_readiness_handoff_br149_check
+python3 research/prognostics/build_mlpe_field_trial_blocked_state_readiness_handoff_audit_v1.py --repo-root "$(pwd)" --queue-input docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260425_128_TO_150_EXECUTION_QUEUE_V1.csv --commit-scope-json /private/tmp/mlpe_field_trial_commit_scope_dry_run_br148_check/mlpe_field_trial_commit_scope_dry_run_v1.json --output-dir /private/tmp/mlpe_field_trial_blocked_state_readiness_handoff_br149_check
 ```

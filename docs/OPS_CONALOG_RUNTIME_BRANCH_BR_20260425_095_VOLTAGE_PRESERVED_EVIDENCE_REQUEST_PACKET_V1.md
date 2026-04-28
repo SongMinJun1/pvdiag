@@ -99,5 +99,5 @@
 git status --short --branch
 python3 -m py_compile pv_ae/panel_day_engine.py research/prognostics/build_panel_day_engine_voltage_preserved_evidence_request_packet_v1.py research/prognostics/smoke_test_panel_day_engine_voltage_preserved_evidence_request_packet_v1.py
 python3 research/prognostics/smoke_test_panel_day_engine_voltage_preserved_evidence_request_packet_v1.py
-python3 research/prognostics/build_panel_day_engine_voltage_preserved_evidence_request_packet_v1.py --repo-root /Users/b9gc/pvdiag_worktrees/postmerge_j --confirmation-dir /private/tmp/panel_day_engine_voltage_preserved_confirmation_packet_br093_check --output-dir /private/tmp/panel_day_engine_voltage_preserved_evidence_request_packet_br095_check
+python3 research/prognostics/build_panel_day_engine_voltage_preserved_evidence_request_packet_v1.py --repo-root "$(pwd)" --confirmation-dir /private/tmp/panel_day_engine_voltage_preserved_confirmation_packet_br093_check --output-dir /private/tmp/panel_day_engine_voltage_preserved_evidence_request_packet_br095_check
 ```

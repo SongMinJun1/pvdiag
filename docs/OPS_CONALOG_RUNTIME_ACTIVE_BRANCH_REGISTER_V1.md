@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260428-152` | `path_portability_self_noise_fix_ready_for_review` | tighten the BR-151 audit so scanner-owned regex/template/smoke literals do not inflate real worktree/temp path risk counts | Remaining high-risk worktree rows are now closer to real stale handoff references and should be triaged before historical temp evidence cleanup |
+| `BR-20260428-153` | `stale_worktree_repro_path_cleanup_ready_for_review` | replace stale `postmerge_j` worktree repro roots in BR-095..BR-150 docs with current-checkout `--repo-root "$(pwd)"` | Path audit high-risk worktree findings are now 0; triage remaining medium-risk `private_tmp` and `repo_absolute` findings separately |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -152,6 +152,7 @@
 | `BR-20260425-150-precheck` | `prelabel_runway_checkpoint_complete` | checkpoint confirms the runway is ready to receive real data/labels safely while algorithm completion, performance improvement, truth intake, threshold, and engine patch claims remain blocked | no |
 | `BR-20260428-151` | `path_portability_audit_implemented` | adds a reproducible builder/smoke so repo absolute paths, transient worktree paths, and volatile temp evidence references can be triaged without bulk rewriting or runtime semantic changes | no |
 | `BR-20260428-152` | `path_portability_self_noise_fixed` | BR-151 audit now skips marked scanner/test literals and uses a checkout-relative repro command, reducing self-generated path findings before real stale-path triage | no |
+| `BR-20260428-153` | `stale_worktree_repro_paths_removed` | replaces 45 stale `postmerge_j` worktree references across BR-095..BR-150 repro docs; path portability high-risk worktree findings drop to 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

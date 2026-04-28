@@ -73,5 +73,5 @@ After patch:
 ```bash
 python3 -m py_compile pv_ae/panel_day_engine.py research/prognostics/build_mlpe_field_trial_final_label_intake_schema_v1.py research/prognostics/smoke_test_mlpe_field_trial_final_label_intake_schema_v1.py
 python3 research/prognostics/smoke_test_mlpe_field_trial_final_label_intake_schema_v1.py
-python3 research/prognostics/build_mlpe_field_trial_final_label_intake_schema_v1.py --repo-root /Users/b9gc/pvdiag_worktrees/postmerge_j --packet /private/tmp/mlpe_field_trial_returned_capture_adjudication_packet_br114_check/mlpe_field_trial_returned_capture_adjudication_packet_v1.csv --output-dir /private/tmp/mlpe_field_trial_final_label_intake_schema_br115_check
+python3 research/prognostics/build_mlpe_field_trial_final_label_intake_schema_v1.py --repo-root "$(pwd)" --packet /private/tmp/mlpe_field_trial_returned_capture_adjudication_packet_br114_check/mlpe_field_trial_returned_capture_adjudication_packet_v1.csv --output-dir /private/tmp/mlpe_field_trial_final_label_intake_schema_br115_check
 ```

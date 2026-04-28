@@ -92,5 +92,5 @@ After patch:
 ```bash
 python3 -m py_compile pv_ae/panel_day_engine.py research/prognostics/build_mlpe_field_trial_sidecar_truth_package_contract_v1.py research/prognostics/smoke_test_mlpe_field_trial_sidecar_truth_package_contract_v1.py
 python3 research/prognostics/smoke_test_mlpe_field_trial_sidecar_truth_package_contract_v1.py
-python3 research/prognostics/build_mlpe_field_trial_sidecar_truth_package_contract_v1.py --repo-root /Users/b9gc/pvdiag_worktrees/postmerge_j --output-dir /private/tmp/mlpe_field_trial_sidecar_truth_package_contract_br137_check
+python3 research/prognostics/build_mlpe_field_trial_sidecar_truth_package_contract_v1.py --repo-root "$(pwd)" --output-dir /private/tmp/mlpe_field_trial_sidecar_truth_package_contract_br137_check
 ```
