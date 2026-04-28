@@ -22,7 +22,7 @@ DEFAULT_PRECURSOR_INPUT = Path(
 DEFAULT_RAWONLY_SIGNAL_INPUT = Path(
     "/private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_raw_only_fault_signal_report_v1.csv"
 )
-DEFAULT_DATA_ROOT = Path("/Users/b9gc/pvdiag/data")
+DEFAULT_DATA_ROOT = Path(__file__).resolve().parents[2] / "data"
 
 DETAIL_OUTPUT_NAME = "panel_day_engine_common_cause_exact_seed_search_v1.csv"
 SUMMARY_OUTPUT_NAME = "panel_day_engine_common_cause_exact_seed_search_summary_v1.csv"

@@ -17,27 +17,27 @@ PACK_ROOT_DIRNAME = "evidence_pack_root"
 
 RUNTIME_REPRO_COMMAND = (
     "python3 release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py "
-    "--data-root /Users/b9gc/pvdiag/data "
+    "--data-root data "
     "--output-root /private/tmp/conalog_mlpe_seed_expand_check "
     "--sites conalog gangui ktc_ess"
 )
 REPORT_ENTRY_REPRO_COMMAND = (
     "python3 research/prognostics/build_panel_day_engine_report_entry_friction_axis_v1.py "
-    "--data-root /Users/b9gc/pvdiag/data "
+    "--data-root data "
     "--result-root /private/tmp/conalog_mlpe_seed_expand_check/result "
     "--output-dir /private/tmp/report_entry_friction_axis_sidecar_check "
     "--sites conalog gangui ktc_ess"
 )
 RECOVERY_REPRO_COMMAND = (
     "python3 research/prognostics/build_panel_day_engine_recovery_recurrence_axis_v1.py "
-    "--data-root /Users/b9gc/pvdiag/data "
+    "--data-root data "
     "--result-root /private/tmp/conalog_mlpe_seed_expand_check/result "
     "--output-dir /private/tmp/recovery_recurrence_axis_sidecar_check "
     "--sites conalog gangui ktc_ess"
 )
 COMMON_CAUSE_REPRO_COMMAND = (
     "python3 research/prognostics/build_panel_day_engine_common_cause_synchrony_axis_v1.py "
-    "--data-root /Users/b9gc/pvdiag/data "
+    "--data-root data "
     "--result-root /private/tmp/conalog_mlpe_seed_expand_check/result "
     "--output-dir /private/tmp/common_cause_synchrony_axis_sidecar_check "
     "--sites conalog gangui ktc_ess"

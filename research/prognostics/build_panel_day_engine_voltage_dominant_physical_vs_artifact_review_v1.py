@@ -11,7 +11,7 @@ DEFAULT_SHAPE_INPUT = Path(
     "/private/tmp/local_morphology_family_shape_review_check/"
     "panel_day_engine_local_morphology_family_shape_review_v1.csv"
 )
-DEFAULT_DATA_ROOT = Path("/Users/b9gc/pvdiag/data")
+DEFAULT_DATA_ROOT = Path(__file__).resolve().parents[2] / "data"
 
 DETAIL_OUTPUT_NAME = "panel_day_engine_voltage_dominant_physical_vs_artifact_review_v1.csv"
 SUMMARY_OUTPUT_NAME = "panel_day_engine_voltage_dominant_physical_vs_artifact_review_summary_v1.csv"

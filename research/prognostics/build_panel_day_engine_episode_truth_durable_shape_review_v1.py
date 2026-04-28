@@ -19,7 +19,7 @@ BR088_ADJUDICATION_DEFAULT = (
     "/private/tmp/panel_day_engine_episode_truth_conservative_adjudication_br088_check/"
     "panel_day_engine_episode_truth_conservative_adjudication_v1.csv"
 )
-DEFAULT_DATA_ROOT = "/Users/b9gc/pvdiag/data"
+DEFAULT_DATA_ROOT = str(Path(__file__).resolve().parents[2] / "data")
 
 REQUIRED_BR088_COLUMNS = [
     "adjudication_row_id",

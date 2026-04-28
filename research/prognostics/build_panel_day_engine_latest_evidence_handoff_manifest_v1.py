@@ -25,19 +25,19 @@ BR064_REPRO = (
 BR065_REPRO = (
     "python3 research/prognostics/build_panel_day_engine_local_morphology_family_shape_review_v1.py "
     "--packet-input /private/tmp/fault_family_judgment_candidate_packet_check/panel_day_engine_fault_family_judgment_candidate_packet_v1.csv "
-    "--data-root /Users/b9gc/pvdiag/data "
+    "--data-root data "
     "--output-dir /private/tmp/local_morphology_family_shape_review_check"
 )
 BR067_REPRO = (
     "python3 research/prognostics/build_panel_day_engine_voltage_dominant_physical_vs_artifact_review_v1.py "
     "--shape-input /private/tmp/local_morphology_family_shape_review_check/panel_day_engine_local_morphology_family_shape_review_v1.csv "
-    "--data-root /Users/b9gc/pvdiag/data "
+    "--data-root data "
     "--output-dir /private/tmp/voltage_dominant_physical_vs_artifact_review_check"
 )
 BR068_REPRO = (
     "python3 research/prognostics/build_panel_day_engine_raw_waveform_physical_support_review_v1.py "
     "--review-input /private/tmp/voltage_dominant_physical_vs_artifact_review_check/panel_day_engine_voltage_dominant_physical_vs_artifact_review_v1.csv "
-    "--data-root /Users/b9gc/pvdiag/data "
+    "--data-root data "
     "--output-dir /private/tmp/raw_waveform_physical_support_review_check"
 )
 BR069_REPRO = (
@@ -64,7 +64,7 @@ BR072_REPRO = (
     "--current-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_current_v1.csv "
     "--precursor-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_precursor_report_v1.csv "
     "--rawonly-signal-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_raw_only_fault_signal_report_v1.csv "
-    "--data-root /Users/b9gc/pvdiag/data "
+    "--data-root data "
     "--output-dir /private/tmp/common_cause_exact_seed_search_check"
 )
 BR073_REPRO = (
@@ -78,7 +78,7 @@ BR074_REPRO = (
     "--current-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_current_v1.csv "
     "--precursor-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_precursor_report_v1.csv "
     "--rawonly-signal-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_raw_only_fault_signal_report_v1.csv "
-    "--data-root /Users/b9gc/pvdiag/data "
+    "--data-root data "
     "--output-dir /private/tmp/common_cause_manual_trace_review_check"
 )
 BR075_REPRO = (

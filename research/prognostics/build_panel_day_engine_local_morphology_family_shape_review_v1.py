@@ -11,7 +11,7 @@ DEFAULT_PACKET_INPUT = Path(
     "/private/tmp/fault_family_judgment_candidate_packet_check/"
     "panel_day_engine_fault_family_judgment_candidate_packet_v1.csv"
 )
-DEFAULT_DATA_ROOT = Path("/Users/b9gc/pvdiag/data")
+DEFAULT_DATA_ROOT = Path(__file__).resolve().parents[2] / "data"
 
 DETAIL_OUTPUT_NAME = "panel_day_engine_local_morphology_family_shape_review_v1.csv"
 SUMMARY_OUTPUT_NAME = "panel_day_engine_local_morphology_family_shape_review_summary_v1.csv"
