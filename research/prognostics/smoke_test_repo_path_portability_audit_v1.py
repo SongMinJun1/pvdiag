@@ -45,6 +45,10 @@ def build_fixture(repo_root: Path) -> None:
         "TMP = '/private/tmp/path_portability_fixture/output.csv'\n",  # pp-self
     )
     write_text(
+        repo_root / "research" / "prognostics" / "smoke_test_builder.py",
+        "FIXTURE = '/private/tmp/path_portability_fixture/smoke.csv'\n",  # pp-self
+    )
+    write_text(
         repo_root / "pv_ae" / "panel_day_engine.py",
         "WORKTREE = '/Users/b9gc/pvdiag_worktrees/old_fixture_branch'\n",  # pp-self
     )
@@ -119,17 +123,24 @@ def main() -> None:
         }
         skipped_counts = {row["key"]: int(row["count"]) for row in summary if row["kind"] == "skipped"}
         file_kind_pairs = {(row["file_kind"], row["match_kind"]) for row in file_kind}
-        roles = {row["match_kind"]: row["match_role"] for row in detail}
-        priorities = {row["match_kind"]: row["triage_priority"] for row in detail}
+        roles = {(row["match_kind"], row["relative_path"]): row["match_role"] for row in detail}
+        priorities = {
+            (row["match_kind"], row["relative_path"]): row["triage_priority"]
+            for row in detail
+        }
 
-        assert_true(len(detail) == 3, detail)
-        assert_true(match_counts == {"private_tmp": 1, "repo_absolute": 1, "worktree_absolute": 1}, match_counts)
+        assert_true(len(detail) == 4, detail)
+        assert_true(match_counts == {"private_tmp": 2, "repo_absolute": 1, "worktree_absolute": 1}, match_counts)
         assert_true(
             roles
             == {
-                "private_tmp": "temp_output_default_or_fixture_reference",
-                "repo_absolute": "repo_doc_absolute_reference",
-                "worktree_absolute": "stale_worktree_reference",
+                ("private_tmp", "research/prognostics/builder.py"): "temp_reference_in_research_code",
+                (
+                    "private_tmp",
+                    "research/prognostics/smoke_test_builder.py",
+                ): "test_fixture_temp_reference",
+                ("repo_absolute", "docs/runbook.md"): "repo_doc_absolute_reference",
+                ("worktree_absolute", "pv_ae/panel_day_engine.py"): "stale_worktree_reference",
             },
             roles,
         )
@@ -138,11 +149,15 @@ def main() -> None:
             == {
                 "p0_stale_worktree": 1,
                 "p1_live_temp_reference": 1,
+                "p3_test_fixture_reference": 1,
                 "p3_doc_reference": 1,
             },
             priority_counts,
         )
-        assert_true(priorities["worktree_absolute"] == "p0_stale_worktree", priorities)
+        assert_true(
+            priorities[("worktree_absolute", "pv_ae/panel_day_engine.py")] == "p0_stale_worktree",
+            priorities,
+        )
         assert_true(
             not any(row["relative_path"].endswith("self_noise.py") for row in detail),
             detail,
@@ -156,6 +171,7 @@ def main() -> None:
         assert_true(role_counts["stale_worktree_reference"] == 1, role_counts)
         assert_true(payload["match_kind_counts"]["worktree_absolute"] == 1, payload)
         assert_true(payload["match_role_counts"]["repo_doc_absolute_reference"] == 1, payload)
+        assert_true(payload["match_role_counts"]["test_fixture_temp_reference"] == 1, payload)
         assert_true(payload["triage_priority_counts"]["p0_stale_worktree"] == 1, payload)
 
 
