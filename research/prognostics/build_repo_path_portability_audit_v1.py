@@ -204,6 +204,62 @@ def excerpt_line(line: str, start: int, end: int, radius: int = 90) -> str:
     return " ".join(excerpt.split())
 
 
+def classify_temp_default_match(context: str) -> dict[str, str]:
+    if "default_output_dir" in context or "--output-dir" in context:
+        return {
+            "match_role": "research_temp_output_default_reference",
+            "triage_priority": "p2_temp_output_default_reference",
+            "triage_action": "prefer_required_cli_output_dir_for_reusable_builders",
+        }
+    if "default_" in context and any(
+        key in context
+        for key in (
+            "input",
+            "validation",
+            "schema",
+            "allowed_values",
+            "packet",
+            "capture",
+            "watchlist",
+            "preflight",
+            "checklist",
+            "clearance",
+            "attachment",
+            "request",
+            "guard",
+            "candidate",
+            "summary",
+            "materialization",
+            "sidecar",
+            "runtime_root",
+            "br107_root",
+            "br108_root",
+        )
+    ):
+        return {
+            "match_role": "research_temp_input_artifact_default_reference",
+            "triage_priority": "p1_temp_input_default_reference",
+            "triage_action": "require_explicit_input_or_resolve_from_tracked_manifest",
+        }
+    if "default_" in context and "dir" in context:
+        return {
+            "match_role": "research_temp_directory_default_reference",
+            "triage_priority": "p1_temp_input_default_reference",
+            "triage_action": "inspect_directory_role_before_replacing_default",
+        }
+    if "default=path(" in context or "default=\"/private/tmp/" in context:
+        return {
+            "match_role": "research_temp_cli_default_reference",
+            "triage_priority": "p2_temp_cli_default_reference",
+            "triage_action": "inspect_cli_argument_role_before_replacing_default",
+        }
+    return {
+        "match_role": "research_temp_default_reference",
+        "triage_priority": "p1_live_temp_default_reference",
+        "triage_action": "replace_default_with_required_input_or_cli_output_dir",
+    }
+
+
 def classify_private_tmp_match(relative_path: str, context_excerpt: str, file_kind: str) -> dict[str, str]:
     context = context_excerpt.lower()
     if file_kind == "repo_doc":
@@ -224,12 +280,8 @@ def classify_private_tmp_match(relative_path: str, context_excerpt: str, file_ki
             "triage_priority": "p3_intentional_detection_literal",
             "triage_action": "preserve_detection_literal_or_mark_self_noise_if_scanner_related",
         }
-    if "default_" in context or "default=path(" in context or "default=\"/private/tmp/" in context:
-        return {
-            "match_role": "research_temp_default_reference",
-            "triage_priority": "p1_live_temp_default_reference",
-            "triage_action": "replace_default_with_required_input_or_cli_output_dir",
-        }
+    if "default_" in context or "default=path(" in context or "default=\"/private/tmp/" in context:  # pp-self
+        return classify_temp_default_match(context)
     if "primary_artifact_path" in context:
         return {
             "match_role": "embedded_manifest_temp_artifact_reference",
