@@ -91,6 +91,13 @@ RESOLVE_PYTHON_BAT = PACKAGE_ROOT / "bin" / "resolve_python.bat"
 WINDOWS_RUNTIME_MANIFEST = PACKAGE_ROOT / "runtime" / "windows_x64" / "runtime_manifest_v1.json"
 WINDOWS_RUNTIME_PYTHON_EXE = PACKAGE_ROOT / "runtime" / "windows_x64" / "python" / "python.exe"
 README_PATH = RELEASE_ROOT / "README.md"
+REBUILD_STABILITY_WATCH = [
+    SUMMARY,
+    FAULT6_PROVENANCE,
+    CORE_BASELINE_DIGEST,
+    DEPENDENCY_AUDIT_JSON,
+    WINDOWS_RUNTIME_MANIFEST,
+]
 
 EXPECTED_FAULT6_COLS = [
     "site",
@@ -148,6 +155,11 @@ def main() -> None:
             REQUIRED_SMOKE_SHARE_FIXTURES,
         ):
             before_watch = OUT_WATCH.read_bytes()
+            before_rebuild_metadata = {
+                path: path.read_bytes()
+                for path in REBUILD_STABILITY_WATCH
+                if path.exists()
+            }
 
             missing_display_notes = [
                 label
@@ -418,7 +430,7 @@ def main() -> None:
         if not published.get("fault_panel_result_current_report_v1.md"):
             raise SystemExit("packaged live chain summary must record published root live report")
         current_fault_df = pd.read_csv(root_live_fault_path, encoding="utf-8-sig")
-        if current_fault_df.astype(str).applymap(contains_legacy_heuristic_display_name).any().any():
+        if current_fault_df.astype(str).map(contains_legacy_heuristic_display_name).any().any():
             raise SystemExit("packaged live chain current fault result must not contain legacy softened heuristic labels")
 
         raw_only_summary = json.loads(raw_only_summary_path.read_text(encoding="utf-8"))
@@ -772,6 +784,9 @@ def main() -> None:
     after_watch = OUT_WATCH.read_bytes()
     if before_watch != after_watch:
         raise SystemExit("frozen integrated result table was modified by runtime pack build/test")
+    for path, before_bytes in before_rebuild_metadata.items():
+        if path.read_bytes() != before_bytes:
+            raise SystemExit(f"runtime pack metadata should be stable on rebuild: {path}")
     post_build_fixture_stack.close()
 
     print("[OK] conalog_full_runtime_v1 smoke test passed")

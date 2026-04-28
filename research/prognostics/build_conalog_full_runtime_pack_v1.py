@@ -221,6 +221,36 @@ def normalize_text(value: object) -> str:
     return text
 
 
+def utc_now_text() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def metadata_path(path: Path) -> str:
+    try:
+        return path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        try:
+            return path.absolute().relative_to(REPO_ROOT.absolute()).as_posix()
+        except ValueError:
+            return path.as_posix()
+
+
+def add_stable_generated_at(output_path: Path, payload: dict[str, object]) -> dict[str, object]:
+    generated_at = utc_now_text()
+    if output_path.exists():
+        try:
+            existing = json.loads(output_path.read_text(encoding="utf-8"))
+        except Exception:
+            existing = {}
+        existing_body = {
+            key: value for key, value in existing.items() if key != "generated_at_utc"
+        }
+        existing_generated_at = normalize_text(existing.get("generated_at_utc"))
+        if existing_body == payload and existing_generated_at:
+            generated_at = existing_generated_at
+    return {"generated_at_utc": generated_at, **payload}
+
+
 def truthy_mask(series: pd.Series) -> pd.Series:
     lowered = series.astype(str).str.strip().str.lower()
     return lowered.isin({"1", "true", "t", "yes"})
@@ -491,11 +521,10 @@ def build_ktc_fault2_preview_artifact(preview_df: pd.DataFrame) -> pd.DataFrame:
 
 def build_fault6_provenance_payload(fault_df: pd.DataFrame) -> dict[str, object]:
     payload: dict[str, object] = {
-        "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source_chain_ko": "frozen verdict plus frozen heuristic with integrated display-name mapping",
-        "verdict_source_path": str(VERDICT_PATH),
-        "heuristic_source_path": str(HEURISTIC_PATH),
-        "legacy_integrated_source_path": str(LEGACY_INTEGRATED_TABLE_PATH),
+        "verdict_source_path": metadata_path(VERDICT_PATH),
+        "heuristic_source_path": metadata_path(HEURISTIC_PATH),
+        "legacy_integrated_source_path": metadata_path(LEGACY_INTEGRATED_TABLE_PATH),
         "fault_row_count": int(len(fault_df)),
         "display_name_map": DISPLAY_HEURISTIC_NAME_MAP,
         "legacy_integrated_exact_match": False,
@@ -508,7 +537,7 @@ def build_fault6_provenance_payload(fault_df: pd.DataFrame) -> dict[str, object]
 
     if not LEGACY_INTEGRATED_TABLE_PATH.exists():
         payload["legacy_integrated_compare_status_ko"] = "legacy integrated snapshot missing"
-        return payload
+        return add_stable_generated_at(FAULT6_PROVENANCE_PATH, payload)
 
     legacy_df = pd.read_csv(LEGACY_INTEGRATED_TABLE_PATH, encoding="utf-8-sig", low_memory=False)
     ensure_columns(legacy_df, FAULT6_REQUIRED_COLS, LEGACY_INTEGRATED_TABLE_PATH.name)
@@ -533,7 +562,7 @@ def build_fault6_provenance_payload(fault_df: pd.DataFrame) -> dict[str, object]
     payload["legacy_integrated_compare_status_ko"] = (
         "exact match" if not differing_columns else "difference detected"
     )
-    return payload
+    return add_stable_generated_at(FAULT6_PROVENANCE_PATH, payload)
 
 
 def normalize_core_digest_frame(df: pd.DataFrame, source_name: str) -> pd.DataFrame:
@@ -574,7 +603,6 @@ def build_core_digest_payload(df: pd.DataFrame, source_name: str) -> dict[str, o
 
 def build_core_baseline_digest() -> dict[str, object]:
     payload: dict[str, object] = {
-        "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "sites": {},
         "note_ko": (
             "이 digest는 baseline raw corpus에서 이미 산출된 panel_day_core.csv의 정규화 hash/reference다. "
@@ -588,14 +616,13 @@ def build_core_baseline_digest() -> dict[str, object]:
         df = pd.read_csv(path, low_memory=False)
         payload["sites"][site] = {
             **build_core_digest_payload(df, path.name),
-            "source_path": str(path),
+            "source_path": metadata_path(path),
         }
-    return payload
+    return add_stable_generated_at(CORE_BASELINE_DIGEST_PATH, payload)
 
 
 def build_dependency_audit_payload() -> dict[str, object]:
-    return {
-        "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    payload: dict[str, object] = {
         "runtime_live_full_chain_ready_flag": False,
         "current_pack_mode_ko": "engine_live_plus_fixed_fault_artifacts",
         "hard_cycle": {
@@ -644,6 +671,7 @@ def build_dependency_audit_payload() -> dict[str, object]:
             "pack 자체의 공식 결과표 의미는 바꾸지 않고, 왜 아직 fixed fault artifact를 함께 들고 가는지 설명한다."
         ),
     }
+    return add_stable_generated_at(DEPENDENCY_AUDIT_JSON_PATH, payload)
 
 
 def build_dependency_audit_markdown(payload: dict[str, object]) -> str:
@@ -788,13 +816,12 @@ def materialize_windows_portable_runtime() -> dict[str, object]:
     extract_wheels_into_site_packages(WINDOWS_RUNTIME_WHEELHOUSE, site_packages_dir)
 
     manifest = {
-        "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "python_runtime_kind": "windows_embeddable_python",
         "python_version": WINDOWS_EMBED_PYTHON_VERSION,
-        "python_exe_path": str(WINDOWS_RUNTIME_PYTHON_ROOT / "python.exe"),
+        "python_exe_path": metadata_path(WINDOWS_RUNTIME_PYTHON_ROOT / "python.exe"),
         "python_embed_zip_url": WINDOWS_EMBED_ZIP_URL,
-        "wheelhouse_path": str(WINDOWS_RUNTIME_WHEELHOUSE),
-        "site_packages_path": str(site_packages_dir),
+        "wheelhouse_path": metadata_path(WINDOWS_RUNTIME_WHEELHOUSE),
+        "site_packages_path": metadata_path(site_packages_dir),
         "primary_packages": WINDOWS_RUNTIME_PRIMARY_PACKAGES,
         "wheel_count": len(list(WINDOWS_RUNTIME_WHEELHOUSE.glob("*.whl"))),
         "note_ko": (
@@ -802,6 +829,7 @@ def materialize_windows_portable_runtime() -> dict[str, object]:
             "현장 PC에 별도 Python/pip 설치 없이 실행할 수 있도록 만든 포터블 런타임이다."
         ),
     }
+    manifest = add_stable_generated_at(WINDOWS_RUNTIME_MANIFEST_PATH, manifest)
     WINDOWS_RUNTIME_MANIFEST_PATH.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -1500,32 +1528,32 @@ def main() -> None:
     )
 
     summary = {
-        "release_root": str(RELEASE_ROOT),
-        "package_root": str(PACKAGE_ROOT),
-        "engine_path": str(ENGINE_DST),
-        "import_any_csv_path": str(IMPORT_ANY_CSV_DST),
-        "windows_runtime_root": str(WINDOWS_RUNTIME_ROOT),
-        "windows_runtime_manifest_path": str(WINDOWS_RUNTIME_MANIFEST_PATH),
-        "windows_runtime_python_exe": runtime_manifest.get("python_exe_path", ""),
+        "release_root": metadata_path(RELEASE_ROOT),
+        "package_root": metadata_path(PACKAGE_ROOT),
+        "engine_path": metadata_path(ENGINE_DST),
+        "import_any_csv_path": metadata_path(IMPORT_ANY_CSV_DST),
+        "windows_runtime_root": metadata_path(WINDOWS_RUNTIME_ROOT),
+        "windows_runtime_manifest_path": metadata_path(WINDOWS_RUNTIME_MANIFEST_PATH),
+        "windows_runtime_python_exe": metadata_path(WINDOWS_RUNTIME_PYTHON_ROOT / "python.exe"),
         "windows_runtime_primary_packages": runtime_manifest.get("primary_packages", []),
-        "fault6_artifact_path": str(FAULT6_ARTIFACT_PATH),
-        "fault6_preview_artifact_path": str(FAULT6_PREVIEW_ARTIFACT_PATH),
-        "ktc_fault2_preview_artifact_path": str(KTC_FAULT2_PREVIEW_ARTIFACT_PATH),
-        "fault6_provenance_path": str(FAULT6_PROVENANCE_PATH),
-        "baseline_manifest_path": str(BASELINE_MANIFEST_PATH),
-        "core_baseline_digest_path": str(CORE_BASELINE_DIGEST_PATH),
-        "dependency_audit_json_path": str(DEPENDENCY_AUDIT_JSON_PATH),
-        "dependency_audit_md_path": str(DEPENDENCY_AUDIT_MD_PATH),
+        "fault6_artifact_path": metadata_path(FAULT6_ARTIFACT_PATH),
+        "fault6_preview_artifact_path": metadata_path(FAULT6_PREVIEW_ARTIFACT_PATH),
+        "ktc_fault2_preview_artifact_path": metadata_path(KTC_FAULT2_PREVIEW_ARTIFACT_PATH),
+        "fault6_provenance_path": metadata_path(FAULT6_PROVENANCE_PATH),
+        "baseline_manifest_path": metadata_path(BASELINE_MANIFEST_PATH),
+        "core_baseline_digest_path": metadata_path(CORE_BASELINE_DIGEST_PATH),
+        "dependency_audit_json_path": metadata_path(DEPENDENCY_AUDIT_JSON_PATH),
+        "dependency_audit_md_path": metadata_path(DEPENDENCY_AUDIT_MD_PATH),
         "packaged_runtime_chain_script_count": len(PACKAGED_RUNTIME_CHAIN_SCRIPTS),
         "packaged_runtime_chain_share_input_count": len(PACKAGED_RUNTIME_CHAIN_SHARE_INPUTS),
         "fault6_row_count": int(len(fault_df)),
         "fault6_preview_row_count": int(len(preview_df)),
         "ktc_fault2_preview_row_count": int(len(ktc_fault2_preview_df)),
-        "run_demo_bat_path": str(RUN_DEMO_BAT_PATH),
-        "run_demo_ktc_fault2_bat_path": str(RUN_DEMO_KTC_FAULT2_BAT_PATH),
-        "run_guided_real_bat_path": str(RUN_GUIDED_REAL_BAT_PATH),
-        "run_imported_real_bat_path": str(RUN_IMPORTED_REAL_BAT_PATH),
-        "resolve_python_bat_path": str(RESOLVE_PYTHON_BAT_PATH),
+        "run_demo_bat_path": metadata_path(RUN_DEMO_BAT_PATH),
+        "run_demo_ktc_fault2_bat_path": metadata_path(RUN_DEMO_KTC_FAULT2_BAT_PATH),
+        "run_guided_real_bat_path": metadata_path(RUN_GUIDED_REAL_BAT_PATH),
+        "run_imported_real_bat_path": metadata_path(RUN_IMPORTED_REAL_BAT_PATH),
+        "resolve_python_bat_path": metadata_path(RESOLVE_PYTHON_BAT_PATH),
         "root_live_fault_output_name": "fault_panel_result_current_v1.csv",
         "root_live_preview_output_name": "fault_panel_result_current_preview_v1.csv",
         "root_live_report_output_name": "fault_panel_result_current_report_v1.md",
