@@ -256,18 +256,104 @@
 - `common_cause_risk`
   - common_cause_risk_score가 panel-local 승격을 억제하는지 확인
 
-## 13. 다음 단계
+## 13. projection bundle tightening
+
+### 13.1 목적
+- Gate 2C의 목적은 `신호 -> 축`까지만 적는 데서 멈추지 않고, 어떤 축 조합일 때만 projection으로 올라갈 수 있는지 보수적으로 잠그는 것이다.
+- 이 절은 numeric threshold를 잠그지 않는다.
+- 대신 `어떤 축은 직접 승격 축이 아니고`, `어떤 축 조합일 때만 review/precursor/hard-evidence/action lane으로 갈 수 있는지`를 고정한다.
+
+### 13.2 precursor bundle 최소 조건
+- 아래 둘 중 하나는 반드시 있어야 한다.
+  - `pre_ews`, `ews_warning`, `pre_alarm` 중 하나 이상의 primary warning family
+  - 또는 동일 precursor family의 반복/누적 흔적
+- 그리고 아래 중 하나 이상의 corroboration이 따라야 한다.
+  - `prefault_cond_mid`
+  - `prefault_cond_ae`
+  - `prefault_cond_dtw`
+  - `prefault_cond_ews`
+  - `prealarm_cond_*_mid_or_hi`
+- 즉 `single secondary one-shot`은 `전조 흔적`에서 멈추고, direct `precursor candidate`로 승격하지 않는다.
+- `prefault_B_effective`는 precursor bundle의 additive helper이지만, 이것만으로 `고위험 관찰`이나 direct headline 승격을 만들지 않는다.
+
+### 13.3 hard evidence bundle 최소 조건
+- 아래 gating family 중 하나는 반드시 있어야 한다.
+  - `confirmed_fault`
+  - `critical_confirmed`
+  - `final_fault`
+- `critical_fault` 단독은 analyst/support 강신호로는 읽을 수 있지만, confirm path를 대체하지 않는다.
+- `fault_like_day`와 `v_drop`는 hard evidence bundle을 보조할 수는 있어도 단독 bundle 시작점이 아니다.
+- hard evidence bundle이 성립하면 row는 `fault signal lane`으로 reroute하고, precursor report headline과 혼합하지 않는다.
+
+### 13.4 common-cause hold bundle
+- 아래 중 하나라도 강하게 겹치면 panel-local promotion보다 hold/review가 우선이다.
+  - `group_off_like`
+  - `data_bad`
+  - `mid_peer 부족`
+  - `work/event calendar hit`
+  - `prefault_B_common_cause_overlap`
+- common-cause hold bundle은 `precursor_score`나 `hard_evidence_score`를 삭제하는 축이 아니라,
+  - `singleton_review 금지`
+  - `common_cause_review 우선`
+  - `panel-local cause/action top1 보류`
+  를 강제하는 suppressor bundle로 읽는다.
+
+### 13.5 MLPE ambiguity hold bundle
+- 아래 조합은 `mlpe_ambiguity_score`를 높이고, cause 확정 강도를 낮춘다.
+  - `mid_v_ratio 유지 + mid_i_ratio 급락`
+  - `critical_source`가 장치/제어 해석과 경합
+  - `장치 측정 이상형`, `제어 응답 이상형`, panel-local fault 후보가 동시에 경합
+- ambiguity hold bundle이 높을 때는 아래를 금지한다.
+  - panel hardware top1 단정
+  - maintenance lane direct escalation
+  - explanation-only signal을 cause rank certainty로 번역
+- 허용되는 projection은 아래 수준까지다.
+  - `원인 미확정`
+  - `장치/제어 개입 가능성`
+  - `추가 확인 필요`
+
+### 13.6 actionability ceiling
+- `actionability_score`는 독립 승격 축이 아니다.
+- actionability는 아래 ceiling을 넘지 못한다.
+  - precursor bundle만 있으면 `monitor_only` 또는 `singleton_review`
+  - hard evidence bundle이 있어도 common-cause hold bundle이 높으면 `common_cause_review`
+  - ambiguity hold bundle이 높으면 `maintenance_candidate`를 보수적으로 낮춤
+- 즉 actionability는 `가장 강한 eligible evidence lane`을 넘어서 직접 top-level 상태를 만들 수 없다.
+
+### 13.7 explanation-only 신호 사용 제한
+- 아래 신호는 phenotype 설명과 패턴 요약에는 쓰되, direct projection trigger로 쓰지 않는다.
+  - `critical_source`
+  - `v_drop`
+  - `mid_ratio`
+  - `mid_v_ratio`
+  - `mid_i_ratio`
+  - `anom_subtype:*`
+- explanation-only 신호는 아래 항목을 단독으로 만들 수 없다.
+  - `operational_state`
+  - `cause top1`
+  - `maintenance lane`
+  - `official current headline`
+
+### 13.8 Gate 5 / Gate 6와의 연결
+- Gate 5에서는 위 bundle 규칙을 깨지 않는 범위에서만 artifact wording을 조정한다.
+- Gate 6에서는 위 bundle 규칙을 넘어서 `single signal -> taxonomy/action`으로 바로 번역하지 않는다.
+- 이후 algorithm gating patch가 오더라도, 이 bundle 규칙보다 먼저 `single helper`를 top-level 승격시키는 패치는 금지한다.
+
+## 14. 다음 단계
+- `DL-20260424-014` 기준으로 projection은 `eligible evidence lane -> hold/reroute cap -> actionability ceiling` 순서로만 읽는다.
 - `DL-008`에서 operator-facing artifact에 `event_type/terminal_pattern`을 어디까지 허용할지 잠글 때, 이 score map을 함께 본다.
+- `MLPE ambiguous`와 `common_cause_risk` 반례 seed를 더 보강해, 위 projection bundle이 실제 tri-site 사례와 충돌하지 않는지 먼저 확인한다.
 - algorithm gating patch 전에는
   - counterexample set
+  - counterexample regression checklist
   - Gate 3
   - Gate 4
   - 본 문서
+  - `DL-20260424-014`
   를 함께 확인한다.
 - 이후 필요 시 아래로 확장한다.
   - numeric weighting table
   - score calibration note
-  - regression checklist
 
 ## 14. 관련 문서
 - [OPS_CONALOG_RUNTIME_GATE2_SIGNAL_ROLE_MATRIX_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_GATE2_SIGNAL_ROLE_MATRIX_V1.md)
@@ -277,4 +363,5 @@
 - [OPS_CONALOG_RUNTIME_GATE4_HARD_EVIDENCE_BOUNDARY_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_GATE4_HARD_EVIDENCE_BOUNDARY_V1.md)
 - [OPS_CONALOG_RUNTIME_GATE6B_TAXONOMY_ACTION_POLICY_LOCK_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_GATE6B_TAXONOMY_ACTION_POLICY_LOCK_V1.md)
 - [OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_SET_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_SET_V1.md)
+- [OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_COUNTEREXAMPLE_REGRESSION_CHECKLIST_V1.md)
 - [OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_MLPE_RUNTIME_REDESIGN_V1.md)

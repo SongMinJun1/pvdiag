@@ -1,0 +1,16 @@
+﻿doc_role,file_count,bytes
+release_runtime,329,1921849
+operator_handoff,257,1366327
+common_cause,202,1191652
+runtime_branch,197,1212573
+evidence_matrix,172,888403
+gate_contract,150,882457
+decision_log,89,389875
+performance_audit,86,436298
+topology_grouping,72,698537
+gpvs_reference,61,233509
+truth_review,47,205607
+mlpe_field_trial,40,186044
+maintenance_proxy,33,179270
+project_eval,31,151908
+general_doc,17,47879
