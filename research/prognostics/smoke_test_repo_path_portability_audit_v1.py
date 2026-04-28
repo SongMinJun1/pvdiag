@@ -121,6 +121,11 @@ def main() -> None:
 
         match_counts = {row["key"]: int(row["count"]) for row in summary if row["kind"] == "match_kind"}
         role_counts = {row["key"]: int(row["count"]) for row in summary if row["kind"] == "match_role"}
+        contract_counts = {
+            row["key"]: int(row["count"])
+            for row in summary
+            if row["kind"] == "dependency_contract"
+        }
         priority_counts = {
             row["key"]: int(row["count"])
             for row in summary
@@ -134,6 +139,11 @@ def main() -> None:
             for row in detail
         }
         lanes = {(row["match_kind"], row["relative_path"]): row["workflow_lane"] for row in detail}
+        contracts = {
+            (row["match_kind"], row["relative_path"]): row["dependency_contract"]
+            for row in detail
+            if row["dependency_contract"]
+        }
 
         assert_true(len(detail) == 6, detail)
         assert_true(match_counts == {"private_tmp": 4, "repo_absolute": 1, "worktree_absolute": 1}, match_counts)
@@ -181,6 +191,16 @@ def main() -> None:
             lanes,
         )
         assert_true(
+            contracts[
+                (
+                    "private_tmp",
+                    "research/prognostics/build_mlpe_field_trial_defaults_v1.py",
+                )
+            ]
+            == "mlpe_template_or_schema_input",
+            contracts,
+        )
+        assert_true(
             not any(row["relative_path"].endswith("self_noise.py") for row in detail),
             detail,
         )
@@ -193,10 +213,12 @@ def main() -> None:
         assert_true(role_counts["stale_worktree_reference"] == 1, role_counts)
         assert_true(role_counts["research_temp_output_default_reference"] == 1, role_counts)
         assert_true(role_counts["research_temp_input_artifact_default_reference"] == 1, role_counts)
+        assert_true(contract_counts["mlpe_template_or_schema_input"] == 1, contract_counts)
         assert_true(payload["match_kind_counts"]["worktree_absolute"] == 1, payload)
         assert_true(payload["match_role_counts"]["repo_doc_absolute_reference"] == 1, payload)
         assert_true(payload["match_role_counts"]["test_fixture_temp_reference"] == 1, payload)
         assert_true(payload["workflow_lane_counts"]["mlpe_field_trial"] == 2, payload)
+        assert_true(payload["dependency_contract_counts"]["mlpe_template_or_schema_input"] == 1, payload)
         assert_true(payload["triage_priority_counts"]["p0_stale_worktree"] == 1, payload)
 
 

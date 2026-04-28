@@ -76,6 +76,7 @@ DETAIL_COLUMNS = [
     "risk_level",
     "file_kind",
     "workflow_lane",
+    "dependency_contract",
     "relative_path",
     "line_no",
     "match_index",
@@ -224,6 +225,34 @@ def classify_workflow_lane(relative_path: str) -> str:
     if relative_path.startswith("release/conalog_full_runtime_v1/"):
         return "runtime_release"
     return "other"
+
+
+def classify_dependency_contract(workflow_lane: str, context_excerpt: str, match_role: str) -> str:
+    if workflow_lane != "mlpe_field_trial":
+        return ""
+    if match_role not in {
+        "research_temp_input_artifact_default_reference",
+        "research_temp_directory_default_reference",
+    }:
+        return ""
+
+    context = context_excerpt.lower()
+    left_side = context.split("=", 1)[0]
+    if "default_" in left_side and "dir" in left_side:
+        return "mlpe_chain_directory_bundle_input"
+    if any(
+        key in left_side
+        for key in (
+            "label_input",
+            "returned_capture",
+            "decision_input",
+            "reviewed_checklist",
+        )
+    ):
+        return "mlpe_user_filled_input"
+    if any(key in left_side for key in ("schema", "allowed_values", "capture_input")):
+        return "mlpe_template_or_schema_input"
+    return "mlpe_upstream_generated_artifact_input"
 
 
 def excerpt_line(line: str, start: int, end: int, radius: int = 90) -> str:
@@ -426,12 +455,18 @@ def scan_file(path: Path, repo_root: Path) -> list[dict[str, object]]:
                 match_index += 1
                 excerpt = excerpt_line(line, match.start(), match.end())
                 triage = classify_match(match_kind, match.group(0), file_kind, relative, excerpt)
+                dependency_contract = classify_dependency_contract(
+                    workflow_lane,
+                    excerpt,
+                    triage["match_role"],
+                )
                 rows.append(
                     {
                         "match_kind": match_kind,
                         "risk_level": risk_level,
                         "file_kind": file_kind,
                         "workflow_lane": workflow_lane,
+                        "dependency_contract": dependency_contract,
                         "relative_path": relative,
                         "line_no": line_no,
                         "match_index": match_index,
@@ -479,6 +514,9 @@ def build_summary_rows(
         rows.append({"kind": "file_kind", "key": key, "count": count})
     for key, count in sorted(Counter(str(row["workflow_lane"]) for row in detail_rows).items()):
         rows.append({"kind": "workflow_lane", "key": key, "count": count})
+    dependency_counts = Counter(str(row["dependency_contract"]) for row in detail_rows if row["dependency_contract"])
+    for key, count in sorted(dependency_counts.items()):
+        rows.append({"kind": "dependency_contract", "key": key, "count": count})
     file_counts = Counter(str(row["relative_path"]) for row in detail_rows)
     for key, count in sorted(file_counts.items(), key=lambda x: (-x[1], x[0]))[:50]:
         rows.append({"kind": "top_file", "key": key, "count": count})
@@ -534,6 +572,9 @@ def build_note(
     by_role = Counter(str(row["match_role"]) for row in detail_rows)
     by_priority = Counter(str(row["triage_priority"]) for row in detail_rows)
     by_lane = Counter(str(row["workflow_lane"]) for row in detail_rows)
+    by_contract = Counter(
+        str(row["dependency_contract"]) for row in detail_rows if row["dependency_contract"]
+    )
     top = [
         row
         for row in summary_rows
@@ -580,6 +621,12 @@ def build_note(
     else:
         for key in sorted(by_lane):
             lines.append(f"- {key}: {by_lane[key]}")
+    lines.extend(["", "## Dependency Contracts"])
+    if not by_contract:
+        lines.append("- No dependency contracts found.")
+    else:
+        for key in sorted(by_contract):
+            lines.append(f"- {key}: {by_contract[key]}")
     lines.extend(
         [
             "",
@@ -659,6 +706,13 @@ def main() -> None:
                 ),
                 "workflow_lane_counts": dict(
                     Counter(str(row["workflow_lane"]) for row in detail_rows)
+                ),
+                "dependency_contract_counts": dict(
+                    Counter(
+                        str(row["dependency_contract"])
+                        for row in detail_rows
+                        if row["dependency_contract"]
+                    )
                 ),
                 "skipped_counts": dict(skipped),
             },
