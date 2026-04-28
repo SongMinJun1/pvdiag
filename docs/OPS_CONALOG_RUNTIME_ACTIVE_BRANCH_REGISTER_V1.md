@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-157` | `temp_default_priority_split_in_progress` | split temp-root defaults into input artifacts, directory defaults, output defaults, and CLI defaults before changing builder behavior | Inspect `p1_temp_input_default_reference` first; do not bulk-edit output defaults or historical repro/manifest strings |
+| `BR-20260429-158` | `input_default_workflow_lanes_in_progress` | add workflow-lane classification so temp input defaults are split by MLPE field-trial and panel-engine evidence lanes | Define the MLPE field-trial input default contract first; keep panel-engine evidence defaults separate |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -157,6 +157,7 @@
 | `BR-20260429-155` | `path_portability_role_classifier_ready_for_review` | remaining path findings now split into p1 live temp references 249, p2 historical evidence 1083, p2 historical repro 156, and p3 doc references 446; p0 stale worktree remains 0 | no |
 | `BR-20260429-156` | `live_temp_reference_review_ready_for_review` | non-doc `/private/tmp` research findings now split into temp defaults 113, unresolved research-code refs 69, embedded repro commands 50, embedded manifest refs 12, fixtures 5, and intentional detection literal 1 | no |
 | `BR-20260429-157` | `temp_default_priority_split_ready_for_review` | temp defaults now split into input artifact defaults 53, directory defaults 3, output defaults 47, CLI defaults 10, and generic defaults 0; next cleanup target is the 56 input/directory rows | no |
+| `BR-20260429-158` | `input_default_workflow_lanes_ready_for_review` | `p1_temp_input_default_reference` now splits by workflow lane: MLPE field-trial 48, voltage-preserved 5, common-cause 2, prepatch-scorecard 1 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

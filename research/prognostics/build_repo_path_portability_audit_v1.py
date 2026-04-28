@@ -75,6 +75,7 @@ DETAIL_COLUMNS = [
     "match_kind",
     "risk_level",
     "file_kind",
+    "workflow_lane",
     "relative_path",
     "line_no",
     "match_index",
@@ -194,6 +195,34 @@ def classify_file_kind(relative_path: str) -> str:
         return "runtime_package_surface"
     if relative_path.startswith("release/conalog_full_runtime_v1/"):
         return "runtime_release_surface"
+    return "other"
+
+
+def classify_workflow_lane(relative_path: str) -> str:
+    if relative_path.startswith("docs/"):
+        return "repo_docs"
+    if "mlpe_field_trial" in relative_path:
+        return "mlpe_field_trial"
+    if "voltage_preserved" in relative_path:
+        return "panel_engine_voltage_preserved"
+    if "common_cause" in relative_path:
+        return "panel_engine_common_cause"
+    if "episode_truth" in relative_path:
+        return "panel_engine_episode_truth"
+    if "result_delta" in relative_path or "algorithm_prepatch" in relative_path:
+        return "panel_engine_prepatch_scorecard"
+    if "repo_path_portability" in relative_path:
+        return "repo_path_portability"
+    if "repo_organization" in relative_path:
+        return "repo_organization"
+    if "panel_day_engine" in relative_path:
+        return "panel_day_engine_evidence"
+    if relative_path.startswith("research/prognostics/"):
+        return "research_prognostics_other"
+    if relative_path.startswith("pv_ae/"):
+        return "panel_engine_source"
+    if relative_path.startswith("release/conalog_full_runtime_v1/"):
+        return "runtime_release"
     return "other"
 
 
@@ -382,6 +411,7 @@ def classify_match(
 def scan_file(path: Path, repo_root: Path) -> list[dict[str, object]]:
     relative = repo_rel(path, repo_root)
     file_kind = classify_file_kind(relative)
+    workflow_lane = classify_workflow_lane(relative)
     rows: list[dict[str, object]] = []
     match_index = 0
     try:
@@ -401,6 +431,7 @@ def scan_file(path: Path, repo_root: Path) -> list[dict[str, object]]:
                         "match_kind": match_kind,
                         "risk_level": risk_level,
                         "file_kind": file_kind,
+                        "workflow_lane": workflow_lane,
                         "relative_path": relative,
                         "line_no": line_no,
                         "match_index": match_index,
@@ -446,6 +477,8 @@ def build_summary_rows(
         rows.append({"kind": "triage_action", "key": key, "count": count})
     for key, count in sorted(Counter(str(row["file_kind"]) for row in detail_rows).items()):
         rows.append({"kind": "file_kind", "key": key, "count": count})
+    for key, count in sorted(Counter(str(row["workflow_lane"]) for row in detail_rows).items()):
+        rows.append({"kind": "workflow_lane", "key": key, "count": count})
     file_counts = Counter(str(row["relative_path"]) for row in detail_rows)
     for key, count in sorted(file_counts.items(), key=lambda x: (-x[1], x[0]))[:50]:
         rows.append({"kind": "top_file", "key": key, "count": count})
@@ -500,6 +533,7 @@ def build_note(
     by_risk = Counter(str(row["risk_level"]) for row in detail_rows)
     by_role = Counter(str(row["match_role"]) for row in detail_rows)
     by_priority = Counter(str(row["triage_priority"]) for row in detail_rows)
+    by_lane = Counter(str(row["workflow_lane"]) for row in detail_rows)
     top = [
         row
         for row in summary_rows
@@ -540,6 +574,12 @@ def build_note(
     else:
         for key in sorted(by_role):
             lines.append(f"- {key}: {by_role[key]}")
+    lines.extend(["", "## Workflow Lanes"])
+    if not by_lane:
+        lines.append("- No workflow lanes found.")
+    else:
+        for key in sorted(by_lane):
+            lines.append(f"- {key}: {by_lane[key]}")
     lines.extend(
         [
             "",
@@ -616,6 +656,9 @@ def main() -> None:
                 ),
                 "triage_action_counts": dict(
                     Counter(str(row["triage_action"]) for row in detail_rows)
+                ),
+                "workflow_lane_counts": dict(
+                    Counter(str(row["workflow_lane"]) for row in detail_rows)
                 ),
                 "skipped_counts": dict(skipped),
             },

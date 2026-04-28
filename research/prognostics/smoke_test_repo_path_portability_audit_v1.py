@@ -45,7 +45,7 @@ def build_fixture(repo_root: Path) -> None:
         "TMP = '/private/tmp/path_portability_fixture/output.csv'\n",  # pp-self
     )
     write_text(
-        repo_root / "research" / "prognostics" / "defaults.py",
+        repo_root / "research" / "prognostics" / "build_mlpe_field_trial_defaults_v1.py",
         "DEFAULT_OUTPUT_DIR = '/private/tmp/path_portability_fixture/out'\n"
         "DEFAULT_CAPTURE_INPUT = '/private/tmp/path_portability_fixture/input.csv'\n",  # pp-self
     )
@@ -133,6 +133,7 @@ def main() -> None:
             (row["match_kind"], row["relative_path"]): row["triage_priority"]
             for row in detail
         }
+        lanes = {(row["match_kind"], row["relative_path"]): row["workflow_lane"] for row in detail}
 
         assert_true(len(detail) == 6, detail)
         assert_true(match_counts == {"private_tmp": 4, "repo_absolute": 1, "worktree_absolute": 1}, match_counts)
@@ -142,7 +143,7 @@ def main() -> None:
                 ("private_tmp", "research/prognostics/builder.py"): "temp_reference_in_research_code",
                 (
                     "private_tmp",
-                    "research/prognostics/defaults.py",
+                    "research/prognostics/build_mlpe_field_trial_defaults_v1.py",
                 ): "research_temp_input_artifact_default_reference",
                 (
                     "private_tmp",
@@ -170,6 +171,16 @@ def main() -> None:
             priorities,
         )
         assert_true(
+            lanes[
+                (
+                    "private_tmp",
+                    "research/prognostics/build_mlpe_field_trial_defaults_v1.py",
+                )
+            ]
+            == "mlpe_field_trial",
+            lanes,
+        )
+        assert_true(
             not any(row["relative_path"].endswith("self_noise.py") for row in detail),
             detail,
         )
@@ -185,6 +196,7 @@ def main() -> None:
         assert_true(payload["match_kind_counts"]["worktree_absolute"] == 1, payload)
         assert_true(payload["match_role_counts"]["repo_doc_absolute_reference"] == 1, payload)
         assert_true(payload["match_role_counts"]["test_fixture_temp_reference"] == 1, payload)
+        assert_true(payload["workflow_lane_counts"]["mlpe_field_trial"] == 2, payload)
         assert_true(payload["triage_priority_counts"]["p0_stale_worktree"] == 1, payload)
 
 
