@@ -8,6 +8,7 @@ These files are templates, schemas, and allowed-value tables only. They are not 
 - `capture_schema/mlpe_field_trial_capture_template_v1.csv`
 - `capture_schema/mlpe_field_trial_capture_schema_v1.csv`
 - `capture_schema/mlpe_field_trial_capture_allowed_values_v1.csv`
+- `capture_chain/mlpe_field_trial_capture_chain_manifest_v1.csv`
 - `final_label_intake_schema/mlpe_field_trial_final_label_intake_schema_v1.csv`
 - `final_label_intake_schema/mlpe_field_trial_final_label_allowed_values_v1.csv`
 - `truth_seed_reviewer_decision_schema/mlpe_field_trial_truth_seed_reviewer_decision_schema_v1.csv`
@@ -16,3 +17,4 @@ These files are templates, schemas, and allowed-value tables only. They are not 
 ## Boundary
 - User-filled captures, labels, reviewed checklists, and reviewer decisions must still be supplied explicitly.
 - These contract files do not authorize truth intake, threshold changes, or engine patches.
+- The capture-chain manifest is a resolver map for generated upstream artifacts, not a static evidence artifact.

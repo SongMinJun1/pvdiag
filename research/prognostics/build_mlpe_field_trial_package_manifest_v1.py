@@ -7,12 +7,20 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_chain_manifest_v1 import DEFAULT_CAPTURE_CHAIN_MANIFEST, resolve_capture_chain_dependency
+except ImportError:
+    from research.prognostics.mlpe_field_trial_chain_manifest_v1 import (
+        DEFAULT_CAPTURE_CHAIN_MANIFEST,
+        resolve_capture_chain_dependency,
+    )
+
 
 OWNER_BRANCH = "BR-20260425-105"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_package_manifest_br105_check"
-DEFAULT_SCHEMA_DIR = "/private/tmp/mlpe_field_trial_capture_schema_br102_check"
-DEFAULT_READINESS_DIR = "/private/tmp/mlpe_field_trial_capture_readiness_br103_check"
-DEFAULT_INTAKE_DIR = "/private/tmp/mlpe_field_trial_operator_intake_br104_check"
+DEFAULT_SCHEMA_DIR_ARTIFACT = "capture_schema_dir"
+DEFAULT_READINESS_DIR_ARTIFACT = "capture_readiness_dir"
+DEFAULT_INTAKE_DIR_ARTIFACT = "operator_intake_dir"
 
 MANIFEST_OUTPUT_NAME = "mlpe_field_trial_package_manifest_v1.csv"
 SUMMARY_OUTPUT_NAME = "mlpe_field_trial_package_manifest_summary_v1.csv"
@@ -251,16 +259,32 @@ def write_note(output_dir: Path, summary: pd.DataFrame) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=Path.cwd())
-    parser.add_argument("--schema-dir", default=DEFAULT_SCHEMA_DIR)
-    parser.add_argument("--readiness-dir", default=DEFAULT_READINESS_DIR)
-    parser.add_argument("--intake-dir", default=DEFAULT_INTAKE_DIR)
+    parser.add_argument("--capture-chain-manifest", default=DEFAULT_CAPTURE_CHAIN_MANIFEST)
+    parser.add_argument("--schema-dir", default="")
+    parser.add_argument("--readiness-dir", default="")
+    parser.add_argument("--intake-dir", default="")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    schema_dir = resolve_path(repo_root, args.schema_dir)
-    readiness_dir = resolve_path(repo_root, args.readiness_dir)
-    intake_dir = resolve_path(repo_root, args.intake_dir)
+    schema_dir = resolve_capture_chain_dependency(
+        repo_root,
+        args.schema_dir,
+        DEFAULT_SCHEMA_DIR_ARTIFACT,
+        args.capture_chain_manifest,
+    )
+    readiness_dir = resolve_capture_chain_dependency(
+        repo_root,
+        args.readiness_dir,
+        DEFAULT_READINESS_DIR_ARTIFACT,
+        args.capture_chain_manifest,
+    )
+    intake_dir = resolve_capture_chain_dependency(
+        repo_root,
+        args.intake_dir,
+        DEFAULT_INTAKE_DIR_ARTIFACT,
+        args.capture_chain_manifest,
+    )
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 

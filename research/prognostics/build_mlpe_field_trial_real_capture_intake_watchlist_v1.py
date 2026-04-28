@@ -7,11 +7,19 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_chain_manifest_v1 import DEFAULT_CAPTURE_CHAIN_MANIFEST, resolve_capture_chain_dependency
+except ImportError:
+    from research.prognostics.mlpe_field_trial_chain_manifest_v1 import (
+        DEFAULT_CAPTURE_CHAIN_MANIFEST,
+        resolve_capture_chain_dependency,
+    )
+
 
 OWNER_BRANCH = "BR-20260425-110"
-DEFAULT_OPERATOR_CHECKLIST = "/private/tmp/mlpe_field_trial_operator_intake_br104_check/mlpe_field_trial_operator_intake_checklist_v1.csv"
-DEFAULT_HANDOFF_GUARD = "/private/tmp/mlpe_field_trial_adjudication_handoff_guard_br106_check/mlpe_field_trial_adjudication_handoff_guard_v1.csv"
-DEFAULT_DRY_RUN_GATE_SUMMARY = "/private/tmp/mlpe_field_trial_pre_adjudication_dry_run_gate_br109_check/mlpe_field_trial_pre_adjudication_dry_run_gate_summary_v1.csv"
+DEFAULT_OPERATOR_CHECKLIST_ARTIFACT = "operator_intake_checklist"
+DEFAULT_HANDOFF_GUARD_ARTIFACT = "adjudication_handoff_guard"
+DEFAULT_DRY_RUN_GATE_SUMMARY_ARTIFACT = "pre_adjudication_dry_run_gate_summary"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_real_capture_intake_watchlist_br110_check"
 
 WATCHLIST_OUTPUT_NAME = "mlpe_field_trial_real_capture_intake_watchlist_v1.csv"
@@ -130,16 +138,32 @@ def write_note(output_dir: Path, summary: pd.DataFrame) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=Path.cwd())
-    parser.add_argument("--operator-checklist", default=DEFAULT_OPERATOR_CHECKLIST)
-    parser.add_argument("--handoff-guard", default=DEFAULT_HANDOFF_GUARD)
-    parser.add_argument("--dry-run-gate-summary", default=DEFAULT_DRY_RUN_GATE_SUMMARY)
+    parser.add_argument("--capture-chain-manifest", default=DEFAULT_CAPTURE_CHAIN_MANIFEST)
+    parser.add_argument("--operator-checklist", default="")
+    parser.add_argument("--handoff-guard", default="")
+    parser.add_argument("--dry-run-gate-summary", default="")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    operator_path = resolve_path(repo_root, args.operator_checklist)
-    guard_path = resolve_path(repo_root, args.handoff_guard)
-    dry_run_summary_path = resolve_path(repo_root, args.dry_run_gate_summary)
+    operator_path = resolve_capture_chain_dependency(
+        repo_root,
+        args.operator_checklist,
+        DEFAULT_OPERATOR_CHECKLIST_ARTIFACT,
+        args.capture_chain_manifest,
+    )
+    guard_path = resolve_capture_chain_dependency(
+        repo_root,
+        args.handoff_guard,
+        DEFAULT_HANDOFF_GUARD_ARTIFACT,
+        args.capture_chain_manifest,
+    )
+    dry_run_summary_path = resolve_capture_chain_dependency(
+        repo_root,
+        args.dry_run_gate_summary,
+        DEFAULT_DRY_RUN_GATE_SUMMARY_ARTIFACT,
+        args.capture_chain_manifest,
+    )
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
