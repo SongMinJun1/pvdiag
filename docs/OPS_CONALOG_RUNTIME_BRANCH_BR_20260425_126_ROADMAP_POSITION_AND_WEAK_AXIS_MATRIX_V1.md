@@ -18,7 +18,7 @@ The scan used the clean continuation worktree:
 
 | workspace | status | decision |
 | --- | --- | --- |
-| `/Users/b9gc/pvdiag_worktrees/postmerge_j` | clean before BR-126 scan; `codex/post-merge-base-j` ahead of origin | use for current roadmap/evidence confirmation |
+| `"$(pwd)"` | clean before BR-126 scan; `codex/post-merge-base-j` ahead of origin | use for current roadmap/evidence confirmation |
 | `/Users/b9gc/pvdiag` | dirty/divergent release/final-delivery working tree | do not mix into this roadmap confirmation |
 
 ## Scrape Result
