@@ -7,6 +7,11 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_user_input_contract_v1 import require_explicit_user_filled_input
+except ImportError:
+    from research.prognostics.mlpe_field_trial_user_input_contract_v1 import require_explicit_user_filled_input
+
 
 OWNER_BRANCH = "BR-20260425-117"
 DEFAULT_LABEL_INPUT = "/private/tmp/mlpe_field_trial_final_label_intake_schema_br115_check/mlpe_field_trial_final_label_intake_template_v1.csv"
@@ -252,12 +257,19 @@ def main() -> None:
     parser.add_argument("--label-input", default=DEFAULT_LABEL_INPUT)
     parser.add_argument("--label-validation", default=DEFAULT_LABEL_VALIDATION)
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--allow-user-filled-default", action="store_true")
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
     label_path = resolve_path(repo_root, args.label_input)
     validation_path = resolve_path(repo_root, args.label_validation)
     output_dir = resolve_path(repo_root, args.output_dir)
+    require_explicit_user_filled_input(
+        input_name="final label input",
+        input_path=label_path,
+        default_path=DEFAULT_LABEL_INPUT,
+        allow_user_filled_default=args.allow_user_filled_default,
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     label_input = read_csv(label_path, LABEL_COLUMNS)

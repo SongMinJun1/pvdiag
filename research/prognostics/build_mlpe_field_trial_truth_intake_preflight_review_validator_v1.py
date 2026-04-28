@@ -7,6 +7,11 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_user_input_contract_v1 import require_explicit_user_filled_input
+except ImportError:
+    from research.prognostics.mlpe_field_trial_user_input_contract_v1 import require_explicit_user_filled_input
+
 
 OWNER_BRANCH = "BR-20260425-125"
 DEFAULT_PREFLIGHT = "/private/tmp/mlpe_field_trial_truth_intake_preflight_checklist_br124_check/mlpe_field_trial_truth_intake_preflight_v1.csv"
@@ -404,12 +409,19 @@ def main() -> None:
     parser.add_argument("--preflight", default=DEFAULT_PREFLIGHT)
     parser.add_argument("--reviewed-checklist", default=DEFAULT_REVIEWED_CHECKLIST)
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--allow-user-filled-default", action="store_true")
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
     preflight_path = resolve_path(repo_root, args.preflight)
     checklist_path = resolve_path(repo_root, args.reviewed_checklist)
     output_dir = resolve_path(repo_root, args.output_dir)
+    require_explicit_user_filled_input(
+        input_name="reviewed preflight checklist",
+        input_path=checklist_path,
+        default_path=DEFAULT_REVIEWED_CHECKLIST,
+        allow_user_filled_default=args.allow_user_filled_default,
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     preflight = read_csv(preflight_path, PREFLIGHT_COLUMNS)

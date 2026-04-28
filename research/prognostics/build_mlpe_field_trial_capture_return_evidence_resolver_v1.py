@@ -7,6 +7,11 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_user_input_contract_v1 import require_explicit_user_filled_input
+except ImportError:
+    from research.prognostics.mlpe_field_trial_user_input_contract_v1 import require_explicit_user_filled_input
+
 
 OWNER_BRANCH = "BR-20260425-112"
 DEFAULT_VALIDATION = "/private/tmp/mlpe_field_trial_capture_return_validator_br111_check/mlpe_field_trial_capture_return_validation_v1.csv"
@@ -269,12 +274,19 @@ def main() -> None:
     parser.add_argument("--validation", default=DEFAULT_VALIDATION)
     parser.add_argument("--returned-capture", default=DEFAULT_RETURNED_CAPTURE)
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--allow-user-filled-default", action="store_true")
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
     validation_path = resolve_path(repo_root, args.validation)
     returned_capture_path = resolve_path(repo_root, args.returned_capture)
     output_dir = resolve_path(repo_root, args.output_dir)
+    require_explicit_user_filled_input(
+        input_name="returned capture",
+        input_path=returned_capture_path,
+        default_path=DEFAULT_RETURNED_CAPTURE,
+        allow_user_filled_default=args.allow_user_filled_default,
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     validation = read_csv(validation_path, VALIDATION_COLUMNS)

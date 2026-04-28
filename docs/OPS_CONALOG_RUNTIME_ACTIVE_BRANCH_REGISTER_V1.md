@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-159` | `mlpe_input_default_contract_in_progress` | split MLPE field-trial temp input defaults by dependency contract before any default rewrite | Decide the first safe cleanup bucket; keep user-filled inputs fail-closed unless explicitly supplied |
+| `BR-20260429-160` | `mlpe_user_filled_default_fail_closed_in_progress` | guard user-filled MLPE field-trial defaults so stale temp templates cannot be consumed silently | Move template/schema defaults to package-relative contract paths next |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -159,6 +159,7 @@
 | `BR-20260429-157` | `temp_default_priority_split_ready_for_review` | temp defaults now split into input artifact defaults 53, directory defaults 3, output defaults 47, CLI defaults 10, and generic defaults 0; next cleanup target is the 56 input/directory rows | no |
 | `BR-20260429-158` | `input_default_workflow_lanes_ready_for_review` | `p1_temp_input_default_reference` now splits by workflow lane: MLPE field-trial 48, voltage-preserved 5, common-cause 2, prepatch-scorecard 1 | no |
 | `BR-20260429-159` | `mlpe_input_default_contract_ready_for_review` | MLPE field-trial input/directory defaults now split into upstream-generated 27, template/schema 10, user-filled 7, and chain-directory bundle 4; next cleanup target is user-filled fail-closed handling | no |
+| `BR-20260429-160` | `mlpe_user_filled_default_fail_closed_ready_for_review` | 7 MLPE user-filled defaults now fail closed unless explicit input or `--allow-user-filled-default` fixture/regression mode is used; existing explicit-input smokes still pass | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
