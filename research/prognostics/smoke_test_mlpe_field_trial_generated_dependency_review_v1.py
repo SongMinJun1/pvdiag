@@ -41,15 +41,16 @@ def main() -> None:
 
         assert_true(payload["dependency_rows"] == len(detail), payload)
         assert_true(payload["dependency_rows"] == int(summary[summary["key"].eq("dependency_rows")]["count"].iloc[0]), payload)
-        assert_true(payload["dependency_rows"] == 1, payload)
+        assert_true(payload["dependency_rows"] == 0, payload)
         assert_true(payload["next_patch_lane_counts"].get("mlpe_capture_chain_manifest", 0) == 0, payload)
         assert_true(payload["next_patch_lane_counts"].get("mlpe_truth_intake_chain_manifest", 0) == 0, payload)
-        assert_true(payload["next_patch_lane_counts"].get("mlpe_truth_replay_chain_manifest", 0) == 1, payload)
+        assert_true(payload["next_patch_lane_counts"].get("mlpe_truth_replay_chain_manifest", 0) == 0, payload)
         assert_true(payload["safe_repo_contract_replacement_rows"] == 0, payload)
         assert_true(payload["requires_upstream_generation_rows"] == payload["dependency_rows"], payload)
         assert_true(payload["runtime_semantic_change_allowed_rows"] == 0, payload)
-        assert_true(detail["default_variable"].astype(str).str.startswith("DEFAULT_").all(), detail.to_dict("records"))
-        assert_true(set(detail["requires_explicit_input_or_manifest_flag"].astype(int)) == {1}, detail.to_dict("records"))
+        if len(detail):
+            assert_true(detail["default_variable"].astype(str).str.startswith("DEFAULT_").all(), detail.to_dict("records"))
+            assert_true(set(detail["requires_explicit_input_or_manifest_flag"].astype(int)) == {1}, detail.to_dict("records"))
         assert_true(not summary.empty, "empty summary")
 
     print(json.dumps({"smoke": "ok", "dependency_rows": int(payload["dependency_rows"])}, ensure_ascii=False))

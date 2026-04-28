@@ -1,0 +1,2 @@
+artifact_key,path_kind,static_path,producer_script,producer_output_constant,artifact_name,description
+sidecar_truth_package,file,,research/prognostics/build_mlpe_field_trial_sidecar_truth_package_contract_v1.py,DEFAULT_OUTPUT_DIR,mlpe_field_trial_sidecar_truth_package_dry_run_v1.csv,sidecar truth package dry run

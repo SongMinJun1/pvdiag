@@ -12,6 +12,7 @@ These files are templates, schemas, and allowed-value tables only. They are not 
 - `final_label_intake_schema/mlpe_field_trial_final_label_intake_schema_v1.csv`
 - `final_label_intake_schema/mlpe_field_trial_final_label_allowed_values_v1.csv`
 - `truth_intake_chain/mlpe_field_trial_truth_intake_chain_manifest_v1.csv`
+- `truth_replay_chain/mlpe_field_trial_truth_replay_chain_manifest_v1.csv`
 - `truth_seed_reviewer_decision_schema/mlpe_field_trial_truth_seed_reviewer_decision_schema_v1.csv`
 - `truth_seed_reviewer_decision_schema/mlpe_field_trial_truth_seed_reviewer_decision_allowed_values_v1.csv`
 
@@ -20,3 +21,4 @@ These files are templates, schemas, and allowed-value tables only. They are not 
 - These contract files do not authorize truth intake, threshold changes, or engine patches.
 - The capture-chain manifest is a resolver map for generated upstream artifacts, not a static evidence artifact.
 - The truth-intake-chain manifest is also a resolver map; it does not convert reviewed labels or preflight rows into truth.
+- The truth-replay-chain manifest only resolves the sidecar package handoff into replay scorecard tooling; it does not approve performance claims.
