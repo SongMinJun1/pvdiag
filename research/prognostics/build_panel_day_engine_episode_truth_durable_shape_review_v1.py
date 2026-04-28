@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -188,6 +189,57 @@ def rounded(value: object) -> float:
 def resolve_path(repo_root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path) -> tuple[Path | None, dict[str, Any]]:
+    text = normalize_text(value)
+    if not text:
+        return None, {}
+    manifest_path = resolve_path(repo_root, text)
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"missing episode-truth input manifest: {manifest_path}")
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"episode-truth input manifest must be a JSON object: {manifest_path}")
+    return manifest_path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    candidates: list[Any] = [manifest.get(key)]
+    for section_name in ["inputs", "artifacts"]:
+        section = manifest.get(section_name)
+        if isinstance(section, dict):
+            value = section.get(key)
+            if isinstance(value, dict):
+                candidates.extend([value.get("path"), value.get("artifact_path"), value.get("static_path")])
+            else:
+                candidates.append(value)
+    for value in candidates:
+        text = normalize_text(value)
+        if text:
+            return text
+    return ""
+
+
+def resolve_chain_input(
+    repo_root: Path,
+    arg_value: str | Path,
+    default_value: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    flag_name: str,
+) -> tuple[Path, str]:
+    if normalize_text(arg_value) != normalize_text(default_value):
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise ValueError(
+                f"episode-truth input manifest is missing `{manifest_key}`; "
+                f"add it under top-level or `inputs`, or pass {flag_name}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def read_required_csv(path: Path, required_cols: list[str], name: str) -> pd.DataFrame:
@@ -561,7 +613,9 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
 def write_note(
     path: Path,
     owner_branch: str,
+    input_manifest_path: Path | None,
     br088_input: Path,
+    br088_input_source: str,
     data_root: Path,
     review_df: pd.DataFrame,
     mixed_input_df: pd.DataFrame,
@@ -577,7 +631,8 @@ def write_note(
         "- Keep threshold tuning and direct engine patches blocked.",
         "",
         "## Inputs",
-        f"- BR-088 adjudication: `{br088_input}`",
+        f"- episode-truth input manifest: `{input_manifest_path if input_manifest_path else 'not provided'}`",
+        f"- BR-088 adjudication: `{br088_input}` (`{br088_input_source}`)",
         f"- data root: `{data_root}`",
         "",
         "## Real Result",
@@ -616,7 +671,9 @@ def write_json(
     owner_branch: str,
     repo_root: Path,
     output_dir: Path,
+    input_manifest_path: Path | None,
     br088_input: Path,
+    br088_input_source: str,
     data_root: Path,
     review_df: pd.DataFrame,
     mixed_input_df: pd.DataFrame,
@@ -626,7 +683,9 @@ def write_json(
         "owner_branch": owner_branch,
         "repo_root": str(repo_root),
         "output_dir": str(output_dir),
+        "input_manifest": str(input_manifest_path) if input_manifest_path else "",
         "br088_input": str(br088_input),
+        "br088_input_source": br088_input_source,
         "data_root": str(data_root),
         "review_rows": int(len(review_df)),
         "mixed_review_input_rows": int(len(mixed_input_df)),
@@ -662,6 +721,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Review BR-088 deferred durable precursor rows for shape-backed positives.")
     parser.add_argument("--repo-root", default=".", help="Repository root. Defaults to current directory.")
     parser.add_argument("--br088-input", default=BR088_ADJUDICATION_DEFAULT, help="BR-088 adjudication CSV.")
+    parser.add_argument(
+        "--input-manifest",
+        default="",
+        help=(
+            "Optional JSON manifest with `br088_input`. "
+            "Explicit --br088-input values take precedence."
+        ),
+    )
     parser.add_argument("--data-root", default=DEFAULT_DATA_ROOT, help="Data root containing <site>/out/panel_day_core.csv.")
     parser.add_argument(
         "--output-dir",
@@ -675,7 +742,10 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
-    br088_input = resolve_path(repo_root, args.br088_input)
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    br088_input, br088_input_source = resolve_chain_input(
+        repo_root, args.br088_input, BR088_ADJUDICATION_DEFAULT, input_manifest, "br088_input", "--br088-input"
+    )
     data_root = resolve_path(repo_root, args.data_root)
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -690,13 +760,25 @@ def main() -> None:
     mixed_input_df.to_csv(output_dir / MIXED_REVIEW_INPUT_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary_df.to_csv(output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     action_df.to_csv(output_dir / ACTION_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(output_dir / NOTE_OUTPUT_NAME, args.owner_branch, br088_input, data_root, review_df, mixed_input_df, summary_df)
+    write_note(
+        output_dir / NOTE_OUTPUT_NAME,
+        args.owner_branch,
+        input_manifest_path,
+        br088_input,
+        br088_input_source,
+        data_root,
+        review_df,
+        mixed_input_df,
+        summary_df,
+    )
     write_json(
         output_dir / JSON_OUTPUT_NAME,
         args.owner_branch,
         repo_root,
         output_dir,
+        input_manifest_path,
         br088_input,
+        br088_input_source,
         data_root,
         review_df,
         mixed_input_df,
@@ -707,6 +789,8 @@ def main() -> None:
         json.dumps(
             {
                 "owner_branch": args.owner_branch,
+                "input_manifest": str(input_manifest_path) if input_manifest_path else "",
+                "br088_input_source": br088_input_source,
                 "review_rows": int(len(review_df)),
                 "mixed_review_input_rows": int(len(mixed_input_df)),
                 "positive_replay_candidate_rows": int(review_df["positive_replay_candidate"].sum()),

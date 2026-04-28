@@ -223,22 +223,28 @@ def write_fixtures(root: Path) -> tuple[Path, Path]:
     return br088_path, data_root
 
 
-def run_builder(repo_root: Path, br088_path: Path, data_root: Path, output_dir: Path) -> subprocess.CompletedProcess[str]:
-    return run(
-        [
-            sys.executable,
-            "research/prognostics/build_panel_day_engine_episode_truth_durable_shape_review_v1.py",
-            "--repo-root",
-            str(repo_root),
-            "--br088-input",
-            str(br088_path),
-            "--data-root",
-            str(data_root),
-            "--output-dir",
-            str(output_dir),
-        ],
-        cwd=repo_root,
-    )
+def run_builder(
+    repo_root: Path,
+    br088_path: Path | None,
+    data_root: Path,
+    output_dir: Path,
+    input_manifest: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    cmd = [
+        sys.executable,
+        "research/prognostics/build_panel_day_engine_episode_truth_durable_shape_review_v1.py",
+        "--repo-root",
+        str(repo_root),
+        "--data-root",
+        str(data_root),
+        "--output-dir",
+        str(output_dir),
+    ]
+    if br088_path is not None:
+        cmd.extend(["--br088-input", str(br088_path)])
+    if input_manifest is not None:
+        cmd.extend(["--input-manifest", str(input_manifest)])
+    return run(cmd, cwd=repo_root)
 
 
 def main() -> None:
@@ -267,7 +273,37 @@ def main() -> None:
         assert_true(payload["positive_replay_candidate_rows"] == 1, "json positive count mismatch")
         assert_true(payload["negative_replay_candidate_rows"] == 1, "json negative count mismatch")
         assert_true(payload["threshold_tuning_approved"] == 0, "json must block tuning")
+        assert_true(payload["br088_input_source"] == "explicit_cli", "explicit BR-088 input should win")
         assert_true(int(summary["threshold_tuning_approved_sum"].sum()) == 0, "summary must block tuning")
+
+        manifest_path = root / "episode_truth_durable_shape_inputs.json"
+        manifest_path.write_text(
+            json.dumps({"inputs": {"br088_input": str(br088_path)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_proc = run_builder(repo_root, None, data_root, manifest_out, manifest_path)
+        assert_true(manifest_proc.returncode == 0, manifest_proc.stderr or manifest_proc.stdout)
+        manifest_payload = json.loads((manifest_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(manifest_payload["review_rows"] == 3, "manifest run review row count mismatch")
+        assert_true(manifest_payload["input_manifest"] == str(manifest_path), "manifest path should be recorded")
+        assert_true(manifest_payload["br088_input_source"] == "input_manifest", "BR-088 should resolve from manifest")
+
+        bad_manifest_path = root / "bad_episode_truth_durable_shape_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {"inputs": {"br088_input": str(root / "missing_br088.csv")}},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_proc = run_builder(repo_root, br088_path, data_root, override_out, bad_manifest_path)
+        assert_true(override_proc.returncode == 0, override_proc.stderr or override_proc.stdout)
+        override_payload = json.loads((override_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(override_payload["br088_input_source"] == "explicit_cli", "BR-088 CLI override should win")
 
         unsafe = pd.read_csv(br088_path, encoding="utf-8-sig")
         unsafe["engine_patch_allowed"] = 0
