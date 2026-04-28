@@ -45,6 +45,11 @@ def build_fixture(repo_root: Path) -> None:
         "TMP = '/private/tmp/path_portability_fixture/output.csv'\n",  # pp-self
     )
     write_text(
+        repo_root / "research" / "prognostics" / "defaults.py",
+        "DEFAULT_OUTPUT_DIR = '/private/tmp/path_portability_fixture/out'\n"
+        "DEFAULT_CAPTURE_INPUT = '/private/tmp/path_portability_fixture/input.csv'\n",  # pp-self
+    )
+    write_text(
         repo_root / "research" / "prognostics" / "smoke_test_builder.py",
         "FIXTURE = '/private/tmp/path_portability_fixture/smoke.csv'\n",  # pp-self
     )
@@ -129,12 +134,16 @@ def main() -> None:
             for row in detail
         }
 
-        assert_true(len(detail) == 4, detail)
-        assert_true(match_counts == {"private_tmp": 2, "repo_absolute": 1, "worktree_absolute": 1}, match_counts)
+        assert_true(len(detail) == 6, detail)
+        assert_true(match_counts == {"private_tmp": 4, "repo_absolute": 1, "worktree_absolute": 1}, match_counts)
         assert_true(
             roles
             == {
                 ("private_tmp", "research/prognostics/builder.py"): "temp_reference_in_research_code",
+                (
+                    "private_tmp",
+                    "research/prognostics/defaults.py",
+                ): "research_temp_input_artifact_default_reference",
                 (
                     "private_tmp",
                     "research/prognostics/smoke_test_builder.py",
@@ -148,7 +157,9 @@ def main() -> None:
             priority_counts
             == {
                 "p0_stale_worktree": 1,
+                "p1_temp_input_default_reference": 1,
                 "p1_live_temp_reference": 1,
+                "p2_temp_output_default_reference": 1,
                 "p3_test_fixture_reference": 1,
                 "p3_doc_reference": 1,
             },
@@ -169,6 +180,8 @@ def main() -> None:
         assert_true("Do not bulk rewrite" in note, note)
         assert_true("## Triage Roles" in note, note)
         assert_true(role_counts["stale_worktree_reference"] == 1, role_counts)
+        assert_true(role_counts["research_temp_output_default_reference"] == 1, role_counts)
+        assert_true(role_counts["research_temp_input_artifact_default_reference"] == 1, role_counts)
         assert_true(payload["match_kind_counts"]["worktree_absolute"] == 1, payload)
         assert_true(payload["match_role_counts"]["repo_doc_absolute_reference"] == 1, payload)
         assert_true(payload["match_role_counts"]["test_fixture_temp_reference"] == 1, payload)
