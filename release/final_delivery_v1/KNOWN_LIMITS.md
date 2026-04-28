@@ -1,5 +1,6 @@
 # Known Limits
 
+- sibling runtime redesign pack(`release/conalog_full_runtime_v1/*`)은 별도 계약이며, 여기의 stable reading flow를 대체하지 않음
 - GPVS 는 reference-only 임
 - heuristic 은 triage-only 임
 - runtime 은 feasibility/readiness 이며 production SLA 가 아님

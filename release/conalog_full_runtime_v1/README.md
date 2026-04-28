@@ -160,6 +160,19 @@ python package/app/run_full_algorithm_pack.py \
 
 이 옵션은 baseline 검증/QA용임. 즉 `data/<site>/out`를 package runtime workspace로 복사한 뒤 `bootstrap verdict -> fault_event_audit -> final verdict -> GPVS evidence -> heuristic`만 다시 수행함.
 
+대용량 임시 workspace를 남기고 싶지 않은 검증 환경에서는 아래처럼 `result-only` 보존 정책을 사용할 수 있음.
+
+```bash
+python package/app/run_full_algorithm_pack.py \
+  --data-root "C:\\path\\to\\data_root" \
+  --output-root "C:\\path\\to\\result_folder" \
+  --prefer-existing-site-outs on \
+  --workspace-retention result-only
+```
+
+`--workspace-retention result-only`는 실행이 끝난 뒤 `result/`, `shadow_compare_v1.json`, `run_metadata_v1.json`, `workspace_cleanup_v1.json`, chain `_share` 산출물은 남기고, 재생성 가능한 대용량 중복 복사본인 `sites/`, `live_chain_workspace/data`, `raw_only_chain_workspace/data`를 제거함.
+기본값은 기존 동작을 유지하는 `full`임.
+
 출력은 기본적으로 아래처럼 생성됨.
 
 - `sites/conalog/output/panel_day_core.csv`

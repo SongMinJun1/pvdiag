@@ -221,6 +221,16 @@ def parse_args() -> argparse.Namespace:
         default="on",
         help="After engine execution, run the packaged raw-only audit -> verdict -> heuristic chain. Defaults to on.",
     )
+    parser.add_argument(
+        "--workspace-retention",
+        choices=["full", "result-only"],
+        default="full",
+        help=(
+            "Controls post-run retention for large intermediate workspaces. "
+            "full keeps the historical behavior. result-only keeps result artifacts and share outputs, "
+            "then removes duplicate site/output and chain data copies."
+        ),
+    )
     parser.add_argument("--dry-run", action="store_true", help="Validate paths and emit the execution plan without running the engine.")
     return parser.parse_args()
 
@@ -461,6 +471,73 @@ def copy_tree(source: Path, target: Path) -> None:
         raise SystemExit(f"missing source tree: {source}")
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source, target, dirs_exist_ok=True)
+
+
+def path_size_bytes(path: Path) -> int:
+    if not path.exists():
+        return 0
+    if path.is_file() or path.is_symlink():
+        return int(path.lstat().st_size)
+    total = 0
+    for child in path.rglob("*"):
+        try:
+            total += int(child.lstat().st_size)
+        except OSError:
+            continue
+    return total
+
+
+def remove_workspace_path(path: Path) -> dict[str, object]:
+    exists_before = path.exists() or path.is_symlink()
+    size_before = path_size_bytes(path)
+    if exists_before:
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+    return {
+        "path": str(path),
+        "exists_before": bool(exists_before),
+        "size_bytes_before": int(size_before),
+        "removed": bool(exists_before),
+    }
+
+
+def apply_workspace_retention(output_root: Path, retention: str) -> dict[str, object]:
+    report: dict[str, object] = {
+        "workspace_retention": retention,
+        "status": "full_workspace_retained",
+        "removed_paths": [],
+        "kept_paths": [
+            str(output_root / "result"),
+            str(output_root / "shadow_compare_v1.json"),
+            str(output_root / "run_metadata_v1.json"),
+        ],
+        "bytes_removed_estimate": 0,
+        "note_ko": (
+            "full 모드는 기존처럼 site output/workspace data를 모두 보존한다. "
+            "result-only 모드는 재생성 가능한 대용량 중복 data copy만 제거하고 result 및 _share 산출물은 보존한다."
+        ),
+    }
+    if retention == "full":
+        return report
+
+    removable_paths = [
+        output_root / "sites",
+        output_root / "live_chain_workspace" / "data",
+        output_root / "raw_only_chain_workspace" / "data",
+    ]
+    removed = [remove_workspace_path(path) for path in removable_paths]
+    report["removed_paths"] = removed
+    report["bytes_removed_estimate"] = int(sum(int(item["size_bytes_before"]) for item in removed))
+    report["status"] = "result_and_share_artifacts_retained"
+    for share_path in [
+        output_root / "live_chain_workspace" / "_share",
+        output_root / "raw_only_chain_workspace" / "_share",
+    ]:
+        if share_path.exists():
+            report["kept_paths"].append(str(share_path))
+    return report
 
 
 def copy_existing_site_outs(reuse_root: Path, output_root: Path, sites: list[str]) -> dict[str, str]:
@@ -3328,17 +3405,20 @@ def main() -> None:
         "baseline_comparison": baseline_comparison,
         "live_chain": live_chain_plan,
         "raw_only_chain": raw_only_chain_plan,
+        "workspace_retention": args.workspace_retention,
         "shadow_compare_reference_path": str(baseline_core_digest_path()),
         "fault6_provenance_path": str(fault6_provenance_path()),
         "dependency_audit_json_path": str(dependency_audit_json_path()),
         "dependency_audit_md_path": str(dependency_audit_md_path()),
         "shadow_compare_report_path": str(output_root / "shadow_compare_v1.json"),
+        "workspace_cleanup_report_path": str(output_root / "workspace_cleanup_v1.json"),
         "dry_run": bool(args.dry_run),
         "note_ko": (
             "이 pack은 conalog/gangui/ktc_ess baseline sites에 대해 실제 panel_day_engine.py 를 실행하고, "
             "현재 frozen fault 결과표도 함께 export 한다. "
             "fault6 결과표 provenance도 함께 남겨, 이 표가 frozen verdict+heuristic direct assembly인지 확인할 수 있다. "
-            "추가로 baseline core output shadow compare 경로를 남겨, same baseline 입력일 때 engine core output이 유지되는지도 점검한다."
+            "추가로 baseline core output shadow compare 경로를 남겨, same baseline 입력일 때 engine core output이 유지되는지도 점검한다. "
+            "workspace_retention=result-only를 사용하면 재생성 가능한 대용량 site/workspace data copy를 실행 후 제거한다."
         ),
     }
 
@@ -3476,6 +3556,9 @@ def main() -> None:
             encoding="utf-8-sig",
         )
 
+    workspace_cleanup = apply_workspace_retention(output_root, args.workspace_retention)
+    workspace_cleanup_path = output_root / "workspace_cleanup_v1.json"
+    write_json(workspace_cleanup_path, workspace_cleanup)
     metadata = {
         **plan,
         "dry_run": False,
@@ -3483,6 +3566,7 @@ def main() -> None:
         "shadow_compare": shadow_compare,
         "live_chain": live_chain_result,
         "raw_only_chain": raw_only_chain_result,
+        "workspace_cleanup": workspace_cleanup,
         "detailed_report_path": str(detailed_report_path),
         "precursor_report_path": str(precursor_report_path),
         "fault_signal_report_path": str(fault_signal_report_path),
@@ -3496,12 +3580,17 @@ def main() -> None:
     print(f"[OK] precursor report: {precursor_report_path}")
     print(f"[OK] raw-only fault signal report: {fault_signal_report_path}")
     print(f"[OK] master report: {master_report_path}")
+    print(f"[OK] workspace cleanup: {workspace_cleanup_path}")
     if live_chain_result.get("requested"):
         print(f"[OK] live chain status: {live_chain_result.get('status_ko')}")
     if raw_only_chain_result.get("requested"):
         print(f"[OK] raw-only chain status: {raw_only_chain_result.get('status_ko')}")
-    for site in sites:
-        print(f"[OK] site output: {output_root / 'sites' / site / 'output' / 'panel_day_core.csv'}")
+    if args.workspace_retention == "full":
+        for site in sites:
+            print(f"[OK] site output: {output_root / 'sites' / site / 'output' / 'panel_day_core.csv'}")
+    else:
+        removed_bytes = int(workspace_cleanup.get("bytes_removed_estimate", 0))
+        print(f"[OK] workspace retention: result-only removed approximately {removed_bytes} bytes")
 
 
 if __name__ == "__main__":
