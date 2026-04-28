@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -171,6 +172,57 @@ def numeric_int(value: object) -> int:
 def resolve_path(repo_root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path) -> tuple[Path | None, dict[str, Any]]:
+    text = normalize_text(value)
+    if not text:
+        return None, {}
+    manifest_path = resolve_path(repo_root, text)
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"missing episode-truth input manifest: {manifest_path}")
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"episode-truth input manifest must be a JSON object: {manifest_path}")
+    return manifest_path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    candidates: list[Any] = [manifest.get(key)]
+    for section_name in ["inputs", "artifacts"]:
+        section = manifest.get(section_name)
+        if isinstance(section, dict):
+            value = section.get(key)
+            if isinstance(value, dict):
+                candidates.extend([value.get("path"), value.get("artifact_path"), value.get("static_path")])
+            else:
+                candidates.append(value)
+    for value in candidates:
+        text = normalize_text(value)
+        if text:
+            return text
+    return ""
+
+
+def resolve_chain_input(
+    repo_root: Path,
+    arg_value: str | Path,
+    default_value: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    flag_name: str,
+) -> tuple[Path, str]:
+    if normalize_text(arg_value) != normalize_text(default_value):
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise ValueError(
+                f"episode-truth input manifest is missing `{manifest_key}`; "
+                f"add it under top-level or `inputs`, or pass {flag_name}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def read_required_csv(path: Path, required_cols: list[str], name: str) -> pd.DataFrame:
@@ -477,7 +529,9 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
 def write_note(
     path: Path,
     owner_branch: str,
+    input_manifest_path: Path | None,
     worksheet_input: Path,
+    worksheet_input_source: str,
     adjudication_df: pd.DataFrame,
     review_input_df: pd.DataFrame,
     summary_df: pd.DataFrame,
@@ -492,7 +546,8 @@ def write_note(
         "- Do not create positive labels, threshold replay approval, or engine patch authorization.",
         "",
         "## Input",
-        f"- BR-087 worksheet: `{worksheet_input}`",
+        f"- episode-truth input manifest: `{input_manifest_path if input_manifest_path else 'not provided'}`",
+        f"- BR-087 worksheet: `{worksheet_input}` (`{worksheet_input_source}`)",
         "",
         "## Real Result",
         f"- owner_branch: `{owner_branch}`",
@@ -532,7 +587,9 @@ def write_json(
     owner_branch: str,
     repo_root: Path,
     output_dir: Path,
+    input_manifest_path: Path | None,
     worksheet_input: Path,
+    worksheet_input_source: str,
     adjudication_df: pd.DataFrame,
     review_input_df: pd.DataFrame,
     summary_df: pd.DataFrame,
@@ -541,7 +598,9 @@ def write_json(
         "owner_branch": owner_branch,
         "repo_root": str(repo_root),
         "output_dir": str(output_dir),
+        "input_manifest": str(input_manifest_path) if input_manifest_path else "",
         "worksheet_input": str(worksheet_input),
+        "worksheet_input_source": worksheet_input_source,
         "adjudication_rows": int(len(adjudication_df)),
         "review_input_rows": int(len(review_input_df)),
         "filled_negative_rows": int(adjudication_df["negative_replay_candidate"].sum())
@@ -592,6 +651,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo-root", default=".", help="Repository root. Defaults to current directory.")
     parser.add_argument("--worksheet-input", default=BR087_WORKSHEET_DEFAULT, help="BR-087 worksheet CSV.")
     parser.add_argument(
+        "--input-manifest",
+        default="",
+        help=(
+            "Optional JSON manifest with `worksheet_input`. "
+            "Explicit --worksheet-input values take precedence."
+        ),
+    )
+    parser.add_argument(
         "--output-dir",
         default="/private/tmp/panel_day_engine_episode_truth_conservative_adjudication_br088_check",
         help="Output directory for BR-088 artifacts.",
@@ -603,7 +670,10 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
-    worksheet_input = resolve_path(repo_root, args.worksheet_input)
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    worksheet_input, worksheet_input_source = resolve_chain_input(
+        repo_root, args.worksheet_input, BR087_WORKSHEET_DEFAULT, input_manifest, "worksheet_input", "--worksheet-input"
+    )
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -617,13 +687,24 @@ def main() -> None:
     review_input_df.to_csv(output_dir / REVIEW_INPUT_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary_df.to_csv(output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     action_df.to_csv(output_dir / ACTION_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(output_dir / NOTE_OUTPUT_NAME, args.owner_branch, worksheet_input, adjudication_df, review_input_df, summary_df)
+    write_note(
+        output_dir / NOTE_OUTPUT_NAME,
+        args.owner_branch,
+        input_manifest_path,
+        worksheet_input,
+        worksheet_input_source,
+        adjudication_df,
+        review_input_df,
+        summary_df,
+    )
     write_json(
         output_dir / JSON_OUTPUT_NAME,
         args.owner_branch,
         repo_root,
         output_dir,
+        input_manifest_path,
         worksheet_input,
+        worksheet_input_source,
         adjudication_df,
         review_input_df,
         summary_df,
@@ -633,6 +714,8 @@ def main() -> None:
         json.dumps(
             {
                 "owner_branch": args.owner_branch,
+                "input_manifest": str(input_manifest_path) if input_manifest_path else "",
+                "worksheet_input_source": worksheet_input_source,
                 "adjudication_rows": int(len(adjudication_df)),
                 "review_input_rows": int(len(review_input_df)),
                 "filled_negative_rows": int(adjudication_df["negative_replay_candidate"].sum()),
