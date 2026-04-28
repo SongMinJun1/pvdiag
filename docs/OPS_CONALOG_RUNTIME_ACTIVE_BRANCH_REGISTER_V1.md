@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-167` | `mlpe_user_filled_guard_ux_ready_for_review` | keep 7 user-filled inputs fail-closed while making missing-input errors name the required explicit CLI flag and fixture-only escape hatch | Next branch can review MLPE output defaults separately |
+| `BR-20260429-168` | `mlpe_output_default_review_ready_for_review` | review 36 MLPE output defaults as write-location defaults, not input dependencies; keep explicit `--output-dir` as the reproducible-run rule | Next cleanup can inspect broader `p1_live_temp_reference` rows or non-MLPE output defaults |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -167,6 +167,7 @@
 | `BR-20260429-165` | `mlpe_truth_replay_chain_manifest_resolution_ready_for_review` | final replay-chain generated default now resolves through a tracked manifest; generated dependency review rows drop `1 -> 0`, with user-filled guard rows still 7 | no |
 | `BR-20260429-166` | `mlpe_generated_dependency_closure_ready_for_review` | closure audit confirms generated dependency review rows remain `0`; path dependency contracts now only show 7 guarded user-filled inputs, with MLPE output defaults separate at 36 | no |
 | `BR-20260429-167` | `mlpe_user_filled_guard_ux_ready_for_review` | guarded user-filled failures now state the refused default, why it is unsafe, the required explicit input flag, and `--allow-user-filled-default` fixture-only path; guard count intentionally remains 7 | no |
+| `BR-20260429-168` | `mlpe_output_default_review_ready_for_review` | dedicated review confirms MLPE output defaults are write destinations: 36 rows, 36 `--output-dir` overrides, input/generated dependency rows 0, runtime semantic change rows 0, mass rewrite recommended rows 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
