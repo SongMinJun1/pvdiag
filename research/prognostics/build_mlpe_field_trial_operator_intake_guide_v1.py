@@ -9,7 +9,7 @@ import pandas as pd
 
 
 OWNER_BRANCH = "BR-20260425-104"
-DEFAULT_CAPTURE_INPUT = "/private/tmp/mlpe_field_trial_capture_schema_br102_check/mlpe_field_trial_capture_template_v1.csv"
+DEFAULT_CAPTURE_INPUT = "research/prognostics/contracts/mlpe_field_trial_v1/capture_schema/mlpe_field_trial_capture_template_v1.csv"
 DEFAULT_READINESS_INPUT = "/private/tmp/mlpe_field_trial_capture_readiness_br103_check/mlpe_field_trial_capture_readiness_packet_v1.csv"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_operator_intake_br104_check"
 

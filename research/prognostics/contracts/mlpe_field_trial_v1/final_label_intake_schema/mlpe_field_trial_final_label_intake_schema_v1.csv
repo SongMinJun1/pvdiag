@@ -1,0 +1,17 @@
+﻿owner_branch,column,required_when_packet_row_exists,edit_policy
+BR-20260425-115,owner_branch,0,system_locked
+BR-20260425-115,trial_event_id,1,external_reviewer_fill
+BR-20260425-115,packet_status,0,system_locked
+BR-20260425-115,source_preflight_bucket,0,system_locked
+BR-20260425-115,reviewer_final_fault_family,1,external_reviewer_fill
+BR-20260425-115,reviewer_final_fault_subtype,1,external_reviewer_fill
+BR-20260425-115,reviewer_truth_confidence,1,external_reviewer_fill
+BR-20260425-115,reviewer_common_cause_clearance,1,external_reviewer_fill
+BR-20260425-115,reviewer_measurement_artifact_clearance,1,external_reviewer_fill
+BR-20260425-115,reviewer_label_source,1,external_reviewer_fill
+BR-20260425-115,reviewer,1,external_reviewer_fill
+BR-20260425-115,reviewed_at,1,external_reviewer_fill
+BR-20260425-115,reviewer_notes,0,external_reviewer_fill
+BR-20260425-115,truth_intake_allowed,0,system_locked
+BR-20260425-115,threshold_patch_allowed,0,system_locked
+BR-20260425-115,engine_patch_allowed,0,system_locked

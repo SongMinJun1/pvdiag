@@ -1,0 +1,37 @@
+﻿owner_branch,field,required_stage,allowed_values_csv,blank_allowed_when,description
+BR-20260425-102,owner_branch,template_or_optional,,always_or_by_label_status,
+BR-20260425-102,trial_event_id,not_planned_capture,,capture_status=planned,Stable field-trial event id.
+BR-20260425-102,site,not_planned_capture,,capture_status=planned,Site id.
+BR-20260425-102,root_id,template_or_optional,,always_or_by_label_status,"Root/string/group id, if available."
+BR-20260425-102,panel_id,not_planned_capture,,capture_status=planned,Target panel id.
+BR-20260425-102,mlpe_device_id,not_planned_capture,,capture_status=planned,Optimizer/MLPE id or mapped device id.
+BR-20260425-102,start_ts,not_planned_capture,,capture_status=planned,Injection or observed event start timestamp.
+BR-20260425-102,end_ts,not_planned_capture,,capture_status=planned,Injection or observed event end timestamp.
+BR-20260425-102,capture_status,template_or_optional,"planned,captured,label_pending,label_attached,discarded",always_or_by_label_status,Capture lifecycle state.
+BR-20260425-102,injection_case,not_planned_capture,"normal_clear_day_baseline,partial_shading_panel_local,uniform_soiling_or_cover,high_contact_resistance_or_series_resistance,partial_open_or_full_open,bypass_diode_or_substring_loss,optimizer_current_limit_or_clipping,telemetry_dropout_or_stuck_value,group_or_inverter_curtailment,site_or_root_common_cause_event,mppt_tracking_anomaly,rapid_shutdown_or_safety_state,degradation_emulation,compound_fault",capture_status=planned,Planned or observed injection case.
+BR-20260425-102,planned_fault_family,not_planned_capture,"normal,panel_surface_environment_fault,panel_physical_degradation_fault,panel_electrical_submodule_fault,connection_or_open_fault,mlpe_device_or_control_fault,measurement_or_communication_artifact,inverter_or_group_side_fault,site_common_cause_event,unknown_or_compound",capture_status=planned,"Planned/injection family, not final truth."
+BR-20260425-102,planned_fault_subtype,not_planned_capture,,capture_status=planned,Planned/injection subtype under planned family.
+BR-20260425-102,affected_scope,not_planned_capture,"panel,substring,string,root,site,unknown",capture_status=planned,Intended or observed electrical scope.
+BR-20260425-102,injection_mode,not_planned_capture,"physical,electrical_emulator,mlpe_control,telemetry,environment,observed_only",capture_status=planned,How the event is introduced or observed.
+BR-20260425-102,injection_strength,not_planned_capture,,capture_status=planned,"Numeric or structured intensity, e.g. shade ratio/resistance/current limit."
+BR-20260425-102,expected_signature,not_planned_capture,"normal_reference,v_drop_i_preserved,i_drop_v_preserved,p_drop_both,voltage_current_ratio_shift,zero_or_near_zero_output,stale_or_missing_telemetry,multi_panel_synchronous_drop,unknown",capture_status=planned,Expected V/I/P/telemetry shape.
+BR-20260425-102,planned_panel_local_flag,template_or_optional,"0,1",always_or_by_label_status,1 only when event is panel-local by design.
+BR-20260425-102,planned_common_cause_flag,template_or_optional,"0,1",always_or_by_label_status,1 when event intentionally affects site/root/group.
+BR-20260425-102,planned_measurement_artifact_flag,template_or_optional,"0,1",always_or_by_label_status,1 for telemetry/sensor/data manipulation.
+BR-20260425-102,mlpe_state,not_planned_capture,"normal,clipping,mppt_anomaly,rapid_shutdown,dropout,control_delay,unknown",capture_status=planned,Observed/planned MLPE control state.
+BR-20260425-102,raw_data_path,not_planned_capture,,capture_status=planned,Path to target raw data slice.
+BR-20260425-102,peer_data_path,not_planned_capture,,capture_status=planned,Path to same root/group/site peer data slice.
+BR-20260425-102,weather_data_path,template_or_optional,,always_or_by_label_status,Optional weather/irradiance proxy path.
+BR-20260425-102,waveform_slice_path,not_planned_capture,,capture_status=planned,Path to curated start/peak/recovery waveform slice.
+BR-20260425-102,timestamp_quality,not_planned_capture,"unchecked,ok,skewed,missing,mixed",capture_status=planned,Timestamp quality status.
+BR-20260425-102,communication_quality,not_planned_capture,"unchecked,ok,dropout,stale,missing,mixed",capture_status=planned,MLPE communication quality status.
+BR-20260425-102,final_fault_family,template_or_optional,"normal,panel_surface_environment_fault,panel_physical_degradation_fault,panel_electrical_submodule_fault,connection_or_open_fault,mlpe_device_or_control_fault,measurement_or_communication_artifact,inverter_or_group_side_fault,site_common_cause_event,unknown_or_compound",always_or_by_label_status,Blank until final adjudication.
+BR-20260425-102,final_fault_subtype,template_or_optional,,always_or_by_label_status,Blank until final adjudication.
+BR-20260425-102,final_truth_confidence,template_or_optional,"confirmed_injected,confirmed_observed,probable,ambiguous,negative_control",always_or_by_label_status,Blank until final adjudication.
+BR-20260425-102,final_label_attached,template_or_optional,"0,1",always_or_by_label_status,0 until final label is attached.
+BR-20260425-102,label_status,template_or_optional,"label_pending,label_attached,discarded",always_or_by_label_status,Label lifecycle state.
+BR-20260425-102,operator_promotion_allowed,template_or_optional,0,always_or_by_label_status,Always 0 in capture schema branch.
+BR-20260425-102,engine_patch_allowed,template_or_optional,0,always_or_by_label_status,Always 0 in capture schema branch.
+BR-20260425-102,threshold_patch_allowed,template_or_optional,0,always_or_by_label_status,Always 0 in capture schema branch.
+BR-20260425-102,reviewer,template_or_optional,,always_or_by_label_status,Reviewer id/name.
+BR-20260425-102,review_note,template_or_optional,,always_or_by_label_status,Free-form note.
