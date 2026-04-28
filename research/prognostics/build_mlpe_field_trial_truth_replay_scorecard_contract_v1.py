@@ -8,9 +8,17 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_chain_manifest_v1 import DEFAULT_TRUTH_REPLAY_CHAIN_MANIFEST, resolve_truth_replay_chain_dependency
+except ImportError:
+    from research.prognostics.mlpe_field_trial_chain_manifest_v1 import (
+        DEFAULT_TRUTH_REPLAY_CHAIN_MANIFEST,
+        resolve_truth_replay_chain_dependency,
+    )
+
 
 OWNER_BRANCH = "BR-20260425-139"
-DEFAULT_SIDECAR_PACKAGE = "/private/tmp/mlpe_field_trial_sidecar_truth_package_contract_br137_check/mlpe_field_trial_sidecar_truth_package_dry_run_v1.csv"
+DEFAULT_SIDECAR_PACKAGE_ARTIFACT = "sidecar_truth_package"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_truth_replay_scorecard_contract_br139_check"
 
 CONTRACT_OUTPUT_NAME = "mlpe_field_trial_truth_replay_scorecard_contract_v1.csv"
@@ -713,14 +721,20 @@ def write_note(output_dir: Path, summary: pd.DataFrame) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build the BR-139 truth replay scorecard contract and fail-closed dry run.")
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
-    parser.add_argument("--sidecar-package", type=Path, default=Path(DEFAULT_SIDECAR_PACKAGE))
+    parser.add_argument("--truth-replay-chain-manifest", default=DEFAULT_TRUTH_REPLAY_CHAIN_MANIFEST)
+    parser.add_argument("--sidecar-package", type=Path, default=None)
     parser.add_argument("--baseline-replay-input", type=Path, default=None)
     parser.add_argument("--candidate-replay-input", type=Path, default=None)
     parser.add_argument("--output-dir", type=Path, default=Path(DEFAULT_OUTPUT_DIR))
     args = parser.parse_args()
 
     repo_root = args.repo_root.resolve()
-    sidecar_path = resolve_path(repo_root, args.sidecar_package)
+    sidecar_path = resolve_truth_replay_chain_dependency(
+        repo_root,
+        args.sidecar_package,
+        DEFAULT_SIDECAR_PACKAGE_ARTIFACT,
+        args.truth_replay_chain_manifest,
+    )
     baseline_path = resolve_path(repo_root, args.baseline_replay_input) if args.baseline_replay_input else None
     candidate_path = resolve_path(repo_root, args.candidate_replay_input) if args.candidate_replay_input else None
     output_dir = resolve_path(repo_root, args.output_dir)
