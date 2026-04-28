@@ -6,6 +6,7 @@ import json
 import re
 import shutil
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -198,6 +199,57 @@ def split_semicolon(value: object) -> list[str]:
 def resolve_path(repo_root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path) -> tuple[Path | None, dict[str, Any]]:
+    text = normalize_text(value)
+    if not text:
+        return None, {}
+    manifest_path = resolve_path(repo_root, text)
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"missing episode-truth input manifest: {manifest_path}")
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"episode-truth input manifest must be a JSON object: {manifest_path}")
+    return manifest_path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    candidates: list[Any] = [manifest.get(key)]
+    for section_name in ["inputs", "artifacts"]:
+        section = manifest.get(section_name)
+        if isinstance(section, dict):
+            value = section.get(key)
+            if isinstance(value, dict):
+                candidates.extend([value.get("path"), value.get("artifact_path"), value.get("static_path")])
+            else:
+                candidates.append(value)
+    for value in candidates:
+        text = normalize_text(value)
+        if text:
+            return text
+    return ""
+
+
+def resolve_chain_input(
+    repo_root: Path,
+    arg_value: str | Path,
+    default_value: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    flag_name: str,
+) -> tuple[Path, str]:
+    if normalize_text(arg_value) != normalize_text(default_value):
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise ValueError(
+                f"episode-truth input manifest is missing `{manifest_key}`; "
+                f"add it under top-level or `inputs`, or pass {flag_name}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def read_required_csv(path: Path, required_cols: list[str], name: str) -> pd.DataFrame:
@@ -513,7 +565,9 @@ def build_action_queue(owner_branch: str) -> pd.DataFrame:
 def write_note(
     output_path: Path,
     owner_branch: str,
+    input_manifest_path: Path | None,
     reviewed_rows_input: Path,
+    reviewed_rows_input_source: str,
     index_df: pd.DataFrame,
     template_df: pd.DataFrame,
     cards_dir: Path,
@@ -530,7 +584,8 @@ def write_note(
         "- Do not authorize threshold replay, operator-facing output changes, or `panel_day_engine.py` edits.",
         "",
         "## Inputs",
-        f"- reviewed rows input: `{reviewed_rows_input}`",
+        f"- episode-truth input manifest: `{input_manifest_path if input_manifest_path else 'not provided'}`",
+        f"- reviewed rows input: `{reviewed_rows_input}` (`{reviewed_rows_input_source}`)",
         "",
         "## Outputs",
         f"- index: `{output_path.parent / INDEX_OUTPUT_NAME}`",
@@ -575,7 +630,9 @@ def write_json(
     owner_branch: str,
     repo_root: Path,
     output_dir: Path,
+    input_manifest_path: Path | None,
     reviewed_rows_input: Path,
+    reviewed_rows_input_source: str,
     index_df: pd.DataFrame,
     template_df: pd.DataFrame,
     summary_df: pd.DataFrame,
@@ -585,7 +642,9 @@ def write_json(
         "owner_branch": owner_branch,
         "repo_root": str(repo_root),
         "output_dir": str(output_dir),
+        "input_manifest": str(input_manifest_path) if input_manifest_path else "",
         "reviewed_rows_input": str(reviewed_rows_input),
+        "reviewed_rows_input_source": reviewed_rows_input_source,
         "input_rows": int(len(index_df)),
         "evidence_card_count": int(len(list(cards_dir.glob("*.md")))),
         "review_input_template_rows": int(len(template_df)),
@@ -627,6 +686,14 @@ def parse_args() -> argparse.Namespace:
         help="BR-084 reviewed episode truth rows CSV.",
     )
     parser.add_argument(
+        "--input-manifest",
+        default="",
+        help=(
+            "Optional JSON manifest with `reviewed_rows_input`. "
+            "Explicit --reviewed-rows-input values take precedence."
+        ),
+    )
+    parser.add_argument(
         "--output-dir",
         default="/private/tmp/panel_day_engine_episode_truth_evidence_attachment_br085_check",
         help="Output directory for BR-085 evidence attachment artifacts.",
@@ -638,7 +705,15 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
-    reviewed_rows_input = resolve_path(repo_root, args.reviewed_rows_input)
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    reviewed_rows_input, reviewed_rows_input_source = resolve_chain_input(
+        repo_root,
+        args.reviewed_rows_input,
+        BR084_ROWS_DEFAULT,
+        input_manifest,
+        "reviewed_rows_input",
+        "--reviewed-rows-input",
+    )
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     cards_dir = output_dir / CARDS_DIR_NAME
@@ -657,13 +732,24 @@ def main() -> None:
     template_df.to_csv(output_dir / TEMPLATE_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary_df.to_csv(output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     action_df.to_csv(output_dir / ACTION_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(output_dir / NOTE_OUTPUT_NAME, args.owner_branch, reviewed_rows_input, index_df, template_df, cards_dir)
+    write_note(
+        output_dir / NOTE_OUTPUT_NAME,
+        args.owner_branch,
+        input_manifest_path,
+        reviewed_rows_input,
+        reviewed_rows_input_source,
+        index_df,
+        template_df,
+        cards_dir,
+    )
     write_json(
         output_dir / JSON_OUTPUT_NAME,
         args.owner_branch,
         repo_root,
         output_dir,
+        input_manifest_path,
         reviewed_rows_input,
+        reviewed_rows_input_source,
         index_df,
         template_df,
         summary_df,
@@ -674,6 +760,8 @@ def main() -> None:
         json.dumps(
             {
                 "owner_branch": args.owner_branch,
+                "input_manifest": str(input_manifest_path) if input_manifest_path else "",
+                "reviewed_rows_input_source": reviewed_rows_input_source,
                 "input_rows": int(len(index_df)),
                 "evidence_card_count": int(len(list(cards_dir.glob("*.md")))),
                 "review_input_template_rows": int(len(template_df)),
