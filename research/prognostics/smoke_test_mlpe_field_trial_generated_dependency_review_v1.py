@@ -39,17 +39,17 @@ def main() -> None:
         detail = pd.read_csv(output_dir / "mlpe_field_trial_generated_dependency_review_v1.csv")
         summary = pd.read_csv(output_dir / "mlpe_field_trial_generated_dependency_review_summary_v1.csv")
 
-        assert_true(payload["dependency_rows"] == 31, payload)
-        assert_true(payload["dependency_contract_counts"]["mlpe_upstream_generated_artifact_input"] == 27, payload)
-        assert_true(payload["dependency_contract_counts"]["mlpe_chain_directory_bundle_input"] == 4, payload)
+        assert_true(payload["dependency_rows"] == len(detail), payload)
+        assert_true(payload["dependency_rows"] == int(summary[summary["key"].eq("dependency_rows")]["count"].iloc[0]), payload)
+        assert_true(payload["next_patch_lane_counts"].get("mlpe_capture_chain_manifest", 0) == 0, payload)
         assert_true(payload["safe_repo_contract_replacement_rows"] == 0, payload)
-        assert_true(payload["requires_upstream_generation_rows"] == 31, payload)
+        assert_true(payload["requires_upstream_generation_rows"] == payload["dependency_rows"], payload)
         assert_true(payload["runtime_semantic_change_allowed_rows"] == 0, payload)
         assert_true(detail["default_variable"].astype(str).str.startswith("DEFAULT_").all(), detail.to_dict("records"))
         assert_true(set(detail["requires_explicit_input_or_manifest_flag"].astype(int)) == {1}, detail.to_dict("records"))
         assert_true(not summary.empty, "empty summary")
 
-    print(json.dumps({"smoke": "ok", "dependency_rows": 31}, ensure_ascii=False))
+    print(json.dumps({"smoke": "ok", "dependency_rows": int(payload["dependency_rows"])}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

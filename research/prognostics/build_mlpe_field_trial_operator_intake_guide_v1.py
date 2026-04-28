@@ -7,10 +7,18 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_chain_manifest_v1 import DEFAULT_CAPTURE_CHAIN_MANIFEST, resolve_capture_chain_dependency
+except ImportError:
+    from research.prognostics.mlpe_field_trial_chain_manifest_v1 import (
+        DEFAULT_CAPTURE_CHAIN_MANIFEST,
+        resolve_capture_chain_dependency,
+    )
+
 
 OWNER_BRANCH = "BR-20260425-104"
 DEFAULT_CAPTURE_INPUT = "research/prognostics/contracts/mlpe_field_trial_v1/capture_schema/mlpe_field_trial_capture_template_v1.csv"
-DEFAULT_READINESS_INPUT = "/private/tmp/mlpe_field_trial_capture_readiness_br103_check/mlpe_field_trial_capture_readiness_packet_v1.csv"
+DEFAULT_READINESS_ARTIFACT = "capture_readiness_packet"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_operator_intake_br104_check"
 
 CHECKLIST_OUTPUT_NAME = "mlpe_field_trial_operator_intake_checklist_v1.csv"
@@ -330,14 +338,20 @@ def write_runbook(output_dir: Path, checklist: pd.DataFrame, summary: pd.DataFra
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=Path.cwd())
+    parser.add_argument("--capture-chain-manifest", default=DEFAULT_CAPTURE_CHAIN_MANIFEST)
     parser.add_argument("--capture-input", default=DEFAULT_CAPTURE_INPUT)
-    parser.add_argument("--readiness-input", default=DEFAULT_READINESS_INPUT)
+    parser.add_argument("--readiness-input", default="")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
     capture_input = resolve_path(repo_root, args.capture_input)
-    readiness_input = resolve_path(repo_root, args.readiness_input)
+    readiness_input = resolve_capture_chain_dependency(
+        repo_root,
+        args.readiness_input,
+        DEFAULT_READINESS_ARTIFACT,
+        args.capture_chain_manifest,
+    )
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 

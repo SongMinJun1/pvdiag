@@ -7,10 +7,18 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_chain_manifest_v1 import DEFAULT_CAPTURE_CHAIN_MANIFEST, resolve_capture_chain_dependency
+except ImportError:
+    from research.prognostics.mlpe_field_trial_chain_manifest_v1 import (
+        DEFAULT_CAPTURE_CHAIN_MANIFEST,
+        resolve_capture_chain_dependency,
+    )
+
 
 OWNER_BRANCH = "BR-20260425-113"
-DEFAULT_VALIDATION = "/private/tmp/mlpe_field_trial_capture_return_validator_br111_check/mlpe_field_trial_capture_return_validation_v1.csv"
-DEFAULT_EVIDENCE_RESOLUTION = "/private/tmp/mlpe_field_trial_capture_return_evidence_resolver_br112_check/mlpe_field_trial_capture_return_evidence_resolution_v1.csv"
+DEFAULT_VALIDATION_ARTIFACT = "capture_return_validation"
+DEFAULT_EVIDENCE_RESOLUTION_ARTIFACT = "capture_return_evidence_resolution"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_capture_return_rerun_preflight_br113_check"
 
 PREFLIGHT_OUTPUT_NAME = "mlpe_field_trial_capture_return_rerun_preflight_v1.csv"
@@ -242,14 +250,25 @@ def write_note(output_dir: Path, summary: pd.DataFrame) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=Path.cwd())
-    parser.add_argument("--validation", default=DEFAULT_VALIDATION)
-    parser.add_argument("--evidence-resolution", default=DEFAULT_EVIDENCE_RESOLUTION)
+    parser.add_argument("--capture-chain-manifest", default=DEFAULT_CAPTURE_CHAIN_MANIFEST)
+    parser.add_argument("--validation", default="")
+    parser.add_argument("--evidence-resolution", default="")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    validation_path = resolve_path(repo_root, args.validation)
-    evidence_path = resolve_path(repo_root, args.evidence_resolution)
+    validation_path = resolve_capture_chain_dependency(
+        repo_root,
+        args.validation,
+        DEFAULT_VALIDATION_ARTIFACT,
+        args.capture_chain_manifest,
+    )
+    evidence_path = resolve_capture_chain_dependency(
+        repo_root,
+        args.evidence_resolution,
+        DEFAULT_EVIDENCE_RESOLUTION_ARTIFACT,
+        args.capture_chain_manifest,
+    )
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 

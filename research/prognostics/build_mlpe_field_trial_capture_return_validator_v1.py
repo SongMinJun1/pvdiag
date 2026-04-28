@@ -12,9 +12,17 @@ try:
 except ImportError:
     from research.prognostics.mlpe_field_trial_user_input_contract_v1 import require_explicit_user_filled_input
 
+try:
+    from mlpe_field_trial_chain_manifest_v1 import DEFAULT_CAPTURE_CHAIN_MANIFEST, resolve_capture_chain_dependency
+except ImportError:
+    from research.prognostics.mlpe_field_trial_chain_manifest_v1 import (
+        DEFAULT_CAPTURE_CHAIN_MANIFEST,
+        resolve_capture_chain_dependency,
+    )
+
 
 OWNER_BRANCH = "BR-20260425-111"
-DEFAULT_WATCHLIST = "/private/tmp/mlpe_field_trial_real_capture_intake_watchlist_br110_check/mlpe_field_trial_real_capture_intake_watchlist_v1.csv"
+DEFAULT_WATCHLIST_ARTIFACT = "real_capture_intake_watchlist"
 DEFAULT_RETURNED_CAPTURE = "/private/tmp/mlpe_field_trial_capture_schema_br102_check/mlpe_field_trial_capture_template_v1.csv"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_capture_return_validator_br111_check"
 
@@ -391,14 +399,20 @@ def write_note(output_dir: Path, summary: pd.DataFrame) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=Path.cwd())
-    parser.add_argument("--watchlist", default=DEFAULT_WATCHLIST)
+    parser.add_argument("--capture-chain-manifest", default=DEFAULT_CAPTURE_CHAIN_MANIFEST)
+    parser.add_argument("--watchlist", default="")
     parser.add_argument("--returned-capture", default=DEFAULT_RETURNED_CAPTURE)
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--allow-user-filled-default", action="store_true")
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    watchlist_path = resolve_path(repo_root, args.watchlist)
+    watchlist_path = resolve_capture_chain_dependency(
+        repo_root,
+        args.watchlist,
+        DEFAULT_WATCHLIST_ARTIFACT,
+        args.capture_chain_manifest,
+    )
     returned_capture_path = resolve_path(repo_root, args.returned_capture)
     output_dir = resolve_path(repo_root, args.output_dir)
     require_explicit_user_filled_input(

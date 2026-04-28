@@ -7,9 +7,17 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_chain_manifest_v1 import DEFAULT_CAPTURE_CHAIN_MANIFEST, resolve_capture_chain_dependency
+except ImportError:
+    from research.prognostics.mlpe_field_trial_chain_manifest_v1 import (
+        DEFAULT_CAPTURE_CHAIN_MANIFEST,
+        resolve_capture_chain_dependency,
+    )
+
 
 OWNER_BRANCH = "BR-20260425-114"
-DEFAULT_PREFLIGHT = "/private/tmp/mlpe_field_trial_capture_return_rerun_preflight_br113_check/mlpe_field_trial_capture_return_rerun_preflight_v1.csv"
+DEFAULT_PREFLIGHT_ARTIFACT = "capture_return_rerun_preflight"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_returned_capture_adjudication_packet_br114_check"
 
 PACKET_OUTPUT_NAME = "mlpe_field_trial_returned_capture_adjudication_packet_v1.csv"
@@ -197,12 +205,18 @@ def write_note(output_dir: Path, summary: pd.DataFrame) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=Path.cwd())
-    parser.add_argument("--preflight", default=DEFAULT_PREFLIGHT)
+    parser.add_argument("--capture-chain-manifest", default=DEFAULT_CAPTURE_CHAIN_MANIFEST)
+    parser.add_argument("--preflight", default="")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    preflight_path = resolve_path(repo_root, args.preflight)
+    preflight_path = resolve_capture_chain_dependency(
+        repo_root,
+        args.preflight,
+        DEFAULT_PREFLIGHT_ARTIFACT,
+        args.capture_chain_manifest,
+    )
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
