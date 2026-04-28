@@ -111,11 +111,38 @@ def main() -> None:
         payload = json.loads((output_dir / JSON_NAME).read_text(encoding="utf-8"))
 
         match_counts = {row["key"]: int(row["count"]) for row in summary if row["kind"] == "match_kind"}
+        role_counts = {row["key"]: int(row["count"]) for row in summary if row["kind"] == "match_role"}
+        priority_counts = {
+            row["key"]: int(row["count"])
+            for row in summary
+            if row["kind"] == "triage_priority"
+        }
         skipped_counts = {row["key"]: int(row["count"]) for row in summary if row["kind"] == "skipped"}
         file_kind_pairs = {(row["file_kind"], row["match_kind"]) for row in file_kind}
+        roles = {row["match_kind"]: row["match_role"] for row in detail}
+        priorities = {row["match_kind"]: row["triage_priority"] for row in detail}
 
         assert_true(len(detail) == 3, detail)
         assert_true(match_counts == {"private_tmp": 1, "repo_absolute": 1, "worktree_absolute": 1}, match_counts)
+        assert_true(
+            roles
+            == {
+                "private_tmp": "temp_output_default_or_fixture_reference",
+                "repo_absolute": "repo_doc_absolute_reference",
+                "worktree_absolute": "stale_worktree_reference",
+            },
+            roles,
+        )
+        assert_true(
+            priority_counts
+            == {
+                "p0_stale_worktree": 1,
+                "p1_live_temp_reference": 1,
+                "p3_doc_reference": 1,
+            },
+            priority_counts,
+        )
+        assert_true(priorities["worktree_absolute"] == "p0_stale_worktree", priorities)
         assert_true(
             not any(row["relative_path"].endswith("self_noise.py") for row in detail),
             detail,
@@ -125,7 +152,11 @@ def main() -> None:
         assert_true(("research_prognostics", "private_tmp") in file_kind_pairs, file_kind)
         assert_true(("source_engine", "worktree_absolute") in file_kind_pairs, file_kind)
         assert_true("Do not bulk rewrite" in note, note)
+        assert_true("## Triage Roles" in note, note)
+        assert_true(role_counts["stale_worktree_reference"] == 1, role_counts)
         assert_true(payload["match_kind_counts"]["worktree_absolute"] == 1, payload)
+        assert_true(payload["match_role_counts"]["repo_doc_absolute_reference"] == 1, payload)
+        assert_true(payload["triage_priority_counts"]["p0_stale_worktree"] == 1, payload)
 
 
 if __name__ == "__main__":
