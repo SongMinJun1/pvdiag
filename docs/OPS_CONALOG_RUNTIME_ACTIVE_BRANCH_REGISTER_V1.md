@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-155` | `path_portability_role_classifier_in_progress` | classify remaining repo absolute and temp evidence references by role, priority, and next action | Validate role classifier outputs, then review only `p1_live_temp_reference` rows before touching historical docs |
+| `BR-20260429-156` | `live_temp_reference_review_in_progress` | split non-doc `/private/tmp` findings into live defaults, research-code references, embedded repro/manifest references, fixtures, and intentional detection literals | Inspect `research_temp_default_reference` first; do not bulk-edit historical repro or manifest strings |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -155,6 +155,7 @@
 | `BR-20260428-153` | `stale_worktree_repro_paths_removed` | replaces 45 stale `postmerge_j` worktree references across BR-095..BR-150 repro docs; path portability high-risk worktree findings drop to 0 | no |
 | `BR-20260428-154` | `research_data_root_portability_ready_for_review` | research/audit data-root defaults now resolve under the current checkout; path portability `repo_absolute` findings drop 624 -> 603 without engine behavior change | no |
 | `BR-20260429-155` | `path_portability_role_classifier_ready_for_review` | remaining path findings now split into p1 live temp references 249, p2 historical evidence 1083, p2 historical repro 156, and p3 doc references 446; p0 stale worktree remains 0 | no |
+| `BR-20260429-156` | `live_temp_reference_review_ready_for_review` | non-doc `/private/tmp` research findings now split into temp defaults 113, unresolved research-code refs 69, embedded repro commands 50, embedded manifest refs 12, fixtures 5, and intentional detection literal 1 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

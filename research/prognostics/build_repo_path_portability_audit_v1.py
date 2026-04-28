@@ -204,7 +204,58 @@ def excerpt_line(line: str, start: int, end: int, radius: int = 90) -> str:
     return " ".join(excerpt.split())
 
 
-def classify_match(match_kind: str, matched_text: str, file_kind: str) -> dict[str, str]:
+def classify_private_tmp_match(relative_path: str, context_excerpt: str, file_kind: str) -> dict[str, str]:
+    context = context_excerpt.lower()
+    if file_kind == "repo_doc":
+        return {
+            "match_role": "historical_temp_evidence_reference",
+            "triage_priority": "p2_historical_evidence_reference",
+            "triage_action": "preserve_if_historical_evidence_else_materialize_stable_output",
+        }
+    if relative_path.startswith("research/prognostics/smoke_test_"):
+        return {
+            "match_role": "test_fixture_temp_reference",
+            "triage_priority": "p3_test_fixture_reference",
+            "triage_action": "preserve_test_fixture_unless_it_masks_live_default",
+        }
+    if "startswith(\"/private/tmp/" in context or "startswith('/private/tmp/" in context:  # pp-self
+        return {
+            "match_role": "intentional_temp_path_detection_literal",
+            "triage_priority": "p3_intentional_detection_literal",
+            "triage_action": "preserve_detection_literal_or_mark_self_noise_if_scanner_related",
+        }
+    if "default_" in context or "default=path(" in context or "default=\"/private/tmp/" in context:
+        return {
+            "match_role": "research_temp_default_reference",
+            "triage_priority": "p1_live_temp_default_reference",
+            "triage_action": "replace_default_with_required_input_or_cli_output_dir",
+        }
+    if "primary_artifact_path" in context:
+        return {
+            "match_role": "embedded_manifest_temp_artifact_reference",
+            "triage_priority": "p2_embedded_manifest_reference",
+            "triage_action": "preserve_until_manifest_is_rebuilt_with_stable_artifact_paths",
+        }
+    if context.strip().startswith("\"--") or context.strip().startswith("'--") or "python3 " in context:
+        return {
+            "match_role": "embedded_repro_command_temp_reference",
+            "triage_priority": "p2_historical_repro_reference",
+            "triage_action": "preserve_if_historical_repro_else_refresh_to_repo_relative",
+        }
+    return {
+        "match_role": "temp_reference_in_research_code",
+        "triage_priority": "p1_live_temp_reference",
+        "triage_action": "inspect_then_replace_with_cli_arg_or_manifest_input",
+    }
+
+
+def classify_match(
+    match_kind: str,
+    matched_text: str,
+    file_kind: str,
+    relative_path: str,
+    context_excerpt: str,
+) -> dict[str, str]:
     if match_kind == "worktree_absolute":
         return {
             "match_role": "stale_worktree_reference",
@@ -213,17 +264,7 @@ def classify_match(match_kind: str, matched_text: str, file_kind: str) -> dict[s
         }
 
     if match_kind == "private_tmp":
-        if file_kind == "repo_doc":
-            return {
-                "match_role": "historical_temp_evidence_reference",
-                "triage_priority": "p2_historical_evidence_reference",
-                "triage_action": "preserve_if_historical_evidence_else_materialize_stable_output",
-            }
-        return {
-            "match_role": "temp_output_default_or_fixture_reference",
-            "triage_priority": "p1_live_temp_reference",
-            "triage_action": "replace_default_with_cli_output_dir_or_tempfile_when_live_code",
-        }
+        return classify_private_tmp_match(relative_path, context_excerpt, file_kind)
 
     if match_kind != "repo_absolute":
         return {
@@ -301,7 +342,8 @@ def scan_file(path: Path, repo_root: Path) -> list[dict[str, object]]:
         for match_kind, pattern, risk_level, portability_role, recommended_action in PATH_PATTERNS:
             for match in pattern.finditer(line):
                 match_index += 1
-                triage = classify_match(match_kind, match.group(0), file_kind)
+                excerpt = excerpt_line(line, match.start(), match.end())
+                triage = classify_match(match_kind, match.group(0), file_kind, relative, excerpt)
                 rows.append(
                     {
                         "match_kind": match_kind,
@@ -311,7 +353,7 @@ def scan_file(path: Path, repo_root: Path) -> list[dict[str, object]]:
                         "line_no": line_no,
                         "match_index": match_index,
                         "matched_text": match.group(0),
-                        "context_excerpt": excerpt_line(line, match.start(), match.end()),
+                        "context_excerpt": excerpt,
                         "match_role": triage["match_role"],
                         "triage_priority": triage["triage_priority"],
                         "triage_action": triage["triage_action"],
