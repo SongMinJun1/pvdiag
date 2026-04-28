@@ -1,5 +1,10 @@
 # Quickstart
 
+## 문서 경계
+- 본 quickstart 는 `stable/final_delivery` 실행 흐름만 다룬다.
+- sibling runtime redesign pack의 artifact 읽기 순서나 `official current / precursor / raw-only fault signal report` semantics는 여기서 설명하지 않는다.
+- runtime artifact semantics 상세는 `release/conalog_full_runtime_v1/README.md` 와 [OPS_CONALOG_STABLE_RUNTIME_MAPPING_NOTE_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_STABLE_RUNTIME_MAPPING_NOTE_V1.md) 를 참조한다.
+
 ## 1. demonstration
 - `package/bin/run_demo.bat`
 - packaged example input 으로 `package/app/run_conalog_infer.py` 를 직접 실행하는 thin wrapper 임
