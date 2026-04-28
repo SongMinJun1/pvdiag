@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260425-125` | `mlpe_field_trial_truth_intake_preflight_review_validator_complete` | reviewed preflight validator added: current reviewed rows 0, smoke all-checks-passed rows 1, validation-failed rows 3, issue rows 3, approvals 0 | build a source/evidence materialization precheck package only after reviewed preflight candidates exist |
+| `BR-20260425-150-precheck` | `prelabel_runway_checkpoint_complete` | checkpoint rows 8, passed 8, blocked 0, issues 0, prelabel checkpoint ready 1, algorithm/performance claim allowed 0, real data required 1 | This does not mark official BR-150 or algorithm completion; next semantic progress requires real KTC ESS data or replay/selected-rule/shadow evidence |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -137,6 +137,19 @@
 | `BR-20260425-123` | `mlpe_field_trial_future_truth_intake_candidate_package_complete` | future truth-intake candidate package added; current package rows 0, smoke rows 5 with package 1, blocked 4, source write-flag violation 1, approval sums remain 0 | no |
 | `BR-20260425-124` | `mlpe_field_trial_truth_intake_preflight_checklist_complete` | unchecked preflight checklist generator added; current rows 0, smoke preflight rows 1, checklist rows 6 unchecked, blocked rows 2, ready rows 0, approval sums remain 0 | no |
 | `BR-20260425-125` | `mlpe_field_trial_truth_intake_preflight_review_validator_complete` | reviewed preflight validator added; current rows 0, smoke rows 4 with all-checks-passed 1, failed 3, issue rows 3, approval sums remain 0 | no |
+| `BR-20260425-126` | `roadmap_position_and_weak_axis_matrix_complete` | roadmap evidence/design scrape now includes the full related-doc read index and master continuity register: 495 files / 41375 lines, BR-001..BR-125, decision logs, gates, non-BR project design corpus, release/handoff docs; current lane is MLPE field-trial truth-intake infrastructure | no |
+| `BR-20260425-127` | `source_evidence_materialization_precheck_complete` | source/evidence materialization precheck builder and smoke added; current real rows 0, smoke passes 1/4 and blocks missing evidence, source failure, and write-flag violation | no |
+| `BR-20260425-128` | `to_150_execution_queue_locked` | execution queue rows 23: BR-128 complete_this_branch, 7 open-now contract gates, and downstream real-data/replay/prepatch/release stages explicitly blocked until inputs exist | no |
+| `BR-20260425-129` | `real_capture_intake_contract_complete` | real capture intake contract reuses BR-102 schema; missing CSV dry run blocks closed, synthetic good row opens intake-ready, bad row blocks on path/approval/label issues; current real rows remain 0 | no |
+| `BR-20260425-131` | `source_evidence_resolver_contract_complete` | resolver contract defines 6 groups: capture validation, capture row, raw slice, peer context, waveform slice, optional weather; missing real rows fail closed and fixture verifies good/bad path behavior | no |
+| `BR-20260425-133` | `common_cause_clearance_contract_complete` | clearance contract defines 6 groups: source evidence ready, peer context, site breadth, root/group breadth, temporal synchrony, reviewer note; missing source rows fail closed and fixture verifies good/bad clearance behavior | no |
+| `BR-20260425-135` | `artifact_mlpe_control_clearance_contract_complete` | clearance contract defines 7 groups: source evidence ready, timestamp quality, communication quality, telemetry artifact, MLPE control state, panel physical separation, reviewer note; missing source rows fail closed and fixture verifies good/bad clearance behavior | no |
+| `BR-20260425-137` | `sidecar_truth_package_contract_complete` | package contract defines 8 groups: materialization, common-cause clearance, artifact/MLPE-control clearance, identity, truth payload, provenance, write boundary, reviewer note; current candidate rows 0 and fixture verifies good/bad package behavior | no |
+| `BR-20260425-139` | `truth_replay_scorecard_contract_complete` | scorecard contract defines 10 groups: sidecar truth, baseline/candidate replay, identity, site/family support, precision/recall/F1, lead time, false alarm, confidence, unsupported-claim guard; current metric rows 0 and fixture verifies metric computation without performance claim approval | no |
+| `BR-20260425-143` | `panel_engine_prepatch_gate_refresh_complete` | prepatch gate defines 12 groups: selected rule, replay support, shadow result, 3-gate runbook, source/package plan, docs plan, validation plan, delta acceptance, large-data exclusion, reviewer note, write boundary, and BR-144-only engine authorization; current ready candidates 0 | no |
+| `BR-20260425-148-precheck` | `commit_scope_dry_run_audit_complete` | dirty files 43 split into runtime docs/control 25, field-trial builders 9, field-trial smokes 9; risk files 0, issue rows 0, commit-scope ready flag 1 | no |
+| `BR-20260425-149-precheck` | `blocked_state_readiness_handoff_complete` | handoff audit confirms 8 complete rows, 15 blocked rows, 0 open rows, all required docs/builders/smokes present, commit-scope ready 1, patch/write approvals 0 | no |
+| `BR-20260425-150-precheck` | `prelabel_runway_checkpoint_complete` | checkpoint confirms the runway is ready to receive real data/labels safely while algorithm completion, performance improvement, truth intake, threshold, and engine patch claims remain blocked | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
