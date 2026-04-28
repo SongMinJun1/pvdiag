@@ -2486,7 +2486,8 @@ def main():
     out["critical_stage"] = "none"
 
     if tuning_level == "p2":
-        crit_rows = out[(out["critical_fault"] == True) & (out["mid_peer"] >= float(args.critical_peer_min))].copy()
+        critical_fault_mask = out["critical_fault"].fillna(False).astype(bool)
+        crit_rows = out[critical_fault_mask & (out["mid_peer"] >= float(args.critical_peer_min))].copy()
         if len(crit_rows) > 0:
             g = (crit_rows.groupby("panel_id")
                          .agg(days=("date", "nunique"),
@@ -2502,8 +2503,8 @@ def main():
                 g[(g["days"] >= int(args.critical_min_days)) & (g["v_span"] > float(args.critical_vspan_max))]["panel_id"].astype(str).tolist()
             )
 
-            out.loc[out["panel_id"].astype(str).isin(confirmed_panels) & (out["critical_fault"] == True), "critical_confirmed"] = True
-            out.loc[out["panel_id"].astype(str).isin(suspect_panels) & (out["critical_fault"] == True), "critical_suspect"] = True
+            out.loc[out["panel_id"].astype(str).isin(confirmed_panels) & critical_fault_mask, "critical_confirmed"] = True
+            out.loc[out["panel_id"].astype(str).isin(suspect_panels) & critical_fault_mask, "critical_suspect"] = True
             # Stage labeling priority: confirmed > suspect > like
             out.loc[out["critical_like_eff"].astype(bool), "critical_stage"] = "like"
             out.loc[out["critical_suspect"].astype(bool), "critical_stage"] = "suspect"

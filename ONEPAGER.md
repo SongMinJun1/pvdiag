@@ -61,6 +61,9 @@
 | effective | `critical_like_eff` | trust(`v_ref_ok`) + gate(`data_bad`, `group_off`) 적용 후 운영 사용 라벨 |
 | decision | `critical_confirmed`, `critical_suspect`, `final_fault` | 연속일/안정성 기준을 적용한 최종 의사결정 |
 
+- BR-063 implementation note: `critical_fault` decision rows are now selected through an explicit `critical_fault_mask`.
+- This is a source/package mirror cleanup only; it does not change the `critical_like_eff`, `critical_confirmed`, `critical_suspect`, or `final_fault` definitions.
+
 ## rank_day 해석 주의
 - `*_rank_day`는 **같은 날짜의 다른 패널과 비교한 횡단면 순위**다.
 - 이는 시간축 미래 누수는 아니지만, panel-only strict online(패널 단독 과거만 사용) 지표와는 다르다.
