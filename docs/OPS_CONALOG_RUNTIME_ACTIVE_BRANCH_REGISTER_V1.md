@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260428-154` | `research_data_root_portability_in_progress` | remove user-specific data-root defaults from research/audit builders and handoff command strings | Validate affected smokes and runtime pack smoke, then triage remaining historical docs/temp references separately |
+| `BR-20260429-155` | `path_portability_role_classifier_in_progress` | classify remaining repo absolute and temp evidence references by role, priority, and next action | Validate role classifier outputs, then review only `p1_live_temp_reference` rows before touching historical docs |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -154,6 +154,7 @@
 | `BR-20260428-152` | `path_portability_self_noise_fixed` | BR-151 audit now skips marked scanner/test literals and uses a checkout-relative repro command, reducing self-generated path findings before real stale-path triage | no |
 | `BR-20260428-153` | `stale_worktree_repro_paths_removed` | replaces 45 stale `postmerge_j` worktree references across BR-095..BR-150 repro docs; path portability high-risk worktree findings drop to 0 | no |
 | `BR-20260428-154` | `research_data_root_portability_ready_for_review` | research/audit data-root defaults now resolve under the current checkout; path portability `repo_absolute` findings drop 624 -> 603 without engine behavior change | no |
+| `BR-20260429-155` | `path_portability_role_classifier_ready_for_review` | remaining path findings now split into p1 live temp references 249, p2 historical evidence 1083, p2 historical repro 156, and p3 doc references 446; p0 stale worktree remains 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

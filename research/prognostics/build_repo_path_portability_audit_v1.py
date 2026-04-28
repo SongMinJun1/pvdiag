@@ -80,6 +80,9 @@ DETAIL_COLUMNS = [
     "match_index",
     "matched_text",
     "context_excerpt",
+    "match_role",
+    "triage_priority",
+    "triage_action",
     "portability_role",
     "recommended_action",
 ]
@@ -201,6 +204,88 @@ def excerpt_line(line: str, start: int, end: int, radius: int = 90) -> str:
     return " ".join(excerpt.split())
 
 
+def classify_match(match_kind: str, matched_text: str, file_kind: str) -> dict[str, str]:
+    if match_kind == "worktree_absolute":
+        return {
+            "match_role": "stale_worktree_reference",
+            "triage_priority": "p0_stale_worktree",
+            "triage_action": "replace_with_repo_relative_or_regenerate_from_repro_command",
+        }
+
+    if match_kind == "private_tmp":
+        if file_kind == "repo_doc":
+            return {
+                "match_role": "historical_temp_evidence_reference",
+                "triage_priority": "p2_historical_evidence_reference",
+                "triage_action": "preserve_if_historical_evidence_else_materialize_stable_output",
+            }
+        return {
+            "match_role": "temp_output_default_or_fixture_reference",
+            "triage_priority": "p1_live_temp_reference",
+            "triage_action": "replace_default_with_cli_output_dir_or_tempfile_when_live_code",
+        }
+
+    if match_kind != "repo_absolute":
+        return {
+            "match_role": "unclassified_path_reference",
+            "triage_priority": "p2_review",
+            "triage_action": "inspect_before_rewrite",
+        }
+
+    repo_priority = "p1_repo_absolute_live_surface"
+    repo_action_override = ""
+    if file_kind == "repo_doc":
+        repo_priority = "p2_historical_repro_reference"
+        repo_action_override = "preserve_if_historical_repro_else_refresh_to_repo_relative"
+
+    repo_suffix = matched_text.removeprefix("/Users/b9gc/pvdiag").lstrip("/")  # pp-self
+    if not repo_suffix:
+        return {
+            "match_role": "repo_root_absolute_reference",
+            "triage_priority": repo_priority,
+            "triage_action": repo_action_override or "prefer_explicit_repo_root_or_pwd",
+        }
+    if repo_suffix.startswith("data/"):
+        return {
+            "match_role": "repo_data_absolute_reference",
+            "triage_priority": repo_priority,
+            "triage_action": repo_action_override
+            or "prefer_data_or_explicit_data_root_when_command_is_current",
+        }
+    if repo_suffix.startswith("docs/"):
+        return {
+            "match_role": "repo_doc_absolute_reference",
+            "triage_priority": "p3_doc_reference",
+            "triage_action": "prefer_repo_relative_doc_path_when_touching_doc",
+        }
+    if repo_suffix.startswith("research/"):
+        return {
+            "match_role": "repo_research_absolute_reference",
+            "triage_priority": repo_priority,
+            "triage_action": repo_action_override
+            or "prefer_repo_relative_or_repo_root_arg_for_live_research_command",
+        }
+    if repo_suffix.startswith("release/"):
+        return {
+            "match_role": "repo_release_absolute_reference",
+            "triage_priority": repo_priority,
+            "triage_action": repo_action_override
+            or "prefer_repo_relative_release_path_or_runtime_root_arg",
+        }
+    if repo_suffix.startswith("pv_ae/"):
+        return {
+            "match_role": "repo_source_absolute_reference",
+            "triage_priority": repo_priority,
+            "triage_action": repo_action_override
+            or "prefer_repo_relative_source_path_or_package_lookup",
+        }
+    return {
+        "match_role": "repo_absolute_reference",
+        "triage_priority": repo_priority,
+        "triage_action": repo_action_override or "prefer_repo_relative_path_or_explicit_repo_root_cli_arg",
+    }
+
+
 def scan_file(path: Path, repo_root: Path) -> list[dict[str, object]]:
     relative = repo_rel(path, repo_root)
     file_kind = classify_file_kind(relative)
@@ -216,6 +301,7 @@ def scan_file(path: Path, repo_root: Path) -> list[dict[str, object]]:
         for match_kind, pattern, risk_level, portability_role, recommended_action in PATH_PATTERNS:
             for match in pattern.finditer(line):
                 match_index += 1
+                triage = classify_match(match_kind, match.group(0), file_kind)
                 rows.append(
                     {
                         "match_kind": match_kind,
@@ -226,6 +312,9 @@ def scan_file(path: Path, repo_root: Path) -> list[dict[str, object]]:
                         "match_index": match_index,
                         "matched_text": match.group(0),
                         "context_excerpt": excerpt_line(line, match.start(), match.end()),
+                        "match_role": triage["match_role"],
+                        "triage_priority": triage["triage_priority"],
+                        "triage_action": triage["triage_action"],
                         "portability_role": portability_role,
                         "recommended_action": recommended_action,
                     }
@@ -255,6 +344,12 @@ def build_summary_rows(
         rows.append({"kind": "match_kind", "key": key, "count": count})
     for key, count in sorted(Counter(str(row["risk_level"]) for row in detail_rows).items()):
         rows.append({"kind": "risk_level", "key": key, "count": count})
+    for key, count in sorted(Counter(str(row["match_role"]) for row in detail_rows).items()):
+        rows.append({"kind": "match_role", "key": key, "count": count})
+    for key, count in sorted(Counter(str(row["triage_priority"]) for row in detail_rows).items()):
+        rows.append({"kind": "triage_priority", "key": key, "count": count})
+    for key, count in sorted(Counter(str(row["triage_action"]) for row in detail_rows).items()):
+        rows.append({"kind": "triage_action", "key": key, "count": count})
     for key, count in sorted(Counter(str(row["file_kind"]) for row in detail_rows).items()):
         rows.append({"kind": "file_kind", "key": key, "count": count})
     file_counts = Counter(str(row["relative_path"]) for row in detail_rows)
@@ -309,6 +404,8 @@ def build_note(
 ) -> str:
     by_kind = Counter(str(row["match_kind"]) for row in detail_rows)
     by_risk = Counter(str(row["risk_level"]) for row in detail_rows)
+    by_role = Counter(str(row["match_role"]) for row in detail_rows)
+    by_priority = Counter(str(row["triage_priority"]) for row in detail_rows)
     top = [
         row
         for row in summary_rows
@@ -337,13 +434,25 @@ def build_note(
         lines.append(f"- {key}: {by_kind[key]}")
     for key in sorted(by_risk):
         lines.append(f"- risk_{key}: {by_risk[key]}")
+    lines.extend(["", "## Triage Priorities"])
+    if not by_priority:
+        lines.append("- No triage priorities found.")
+    else:
+        for key in sorted(by_priority):
+            lines.append(f"- {key}: {by_priority[key]}")
+    lines.extend(["", "## Triage Roles"])
+    if not by_role:
+        lines.append("- No triage roles found.")
+    else:
+        for key in sorted(by_role):
+            lines.append(f"- {key}: {by_role[key]}")
     lines.extend(
         [
             "",
             "## Interpretation",
             "- `repo_absolute` usually means a command, doc link, or generated metadata "
-            "still depends on `/Users/b9gc/pvdiag` instead of a repo-relative path or "
-            "explicit `--repo-root`.",  # pp-self
+            "still depends on `/Users/b9gc/pvdiag` instead of a repo-relative path or ",  # pp-self
+            "explicit `--repo-root`.",
             "- `worktree_absolute` is the highest cleanup priority because old "
             "`/Users/b9gc/pvdiag_worktrees/...` paths are intentionally transient.",  # pp-self
             "- `private_tmp` often points to historical evidence outputs. Do not bulk "
@@ -407,6 +516,13 @@ def main() -> None:
                 },
                 "match_kind_counts": dict(Counter(str(row["match_kind"]) for row in detail_rows)),
                 "risk_level_counts": dict(Counter(str(row["risk_level"]) for row in detail_rows)),
+                "match_role_counts": dict(Counter(str(row["match_role"]) for row in detail_rows)),
+                "triage_priority_counts": dict(
+                    Counter(str(row["triage_priority"]) for row in detail_rows)
+                ),
+                "triage_action_counts": dict(
+                    Counter(str(row["triage_action"]) for row in detail_rows)
+                ),
                 "skipped_counts": dict(skipped),
             },
             ensure_ascii=False,
