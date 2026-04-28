@@ -7,11 +7,19 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_chain_manifest_v1 import DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST, resolve_truth_intake_chain_dependency
+except ImportError:
+    from research.prognostics.mlpe_field_trial_chain_manifest_v1 import (
+        DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST,
+        resolve_truth_intake_chain_dependency,
+    )
+
 
 OWNER_BRANCH = "BR-20260425-137"
-DEFAULT_MATERIALIZATION_PRECHECK = "/private/tmp/mlpe_field_trial_truth_materialization_precheck_br127_check/mlpe_field_trial_truth_materialization_precheck_v1.csv"
-DEFAULT_COMMON_CAUSE_CLEARANCE = "/private/tmp/mlpe_field_trial_common_cause_clearance_contract_br133_check/mlpe_field_trial_common_cause_clearance_dry_run_v1.csv"
-DEFAULT_ARTIFACT_MLPE_CONTROL_CLEARANCE = "/private/tmp/mlpe_field_trial_artifact_mlpe_control_clearance_contract_br135_check/mlpe_field_trial_artifact_mlpe_control_clearance_dry_run_v1.csv"
+DEFAULT_MATERIALIZATION_PRECHECK_ARTIFACT = "truth_materialization_precheck"
+DEFAULT_COMMON_CAUSE_CLEARANCE_ARTIFACT = "common_cause_clearance"
+DEFAULT_ARTIFACT_MLPE_CONTROL_CLEARANCE_ARTIFACT = "artifact_mlpe_control_clearance"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_sidecar_truth_package_contract_br137_check"
 
 CONTRACT_OUTPUT_NAME = "mlpe_field_trial_sidecar_truth_package_contract_v1.csv"
@@ -576,17 +584,33 @@ def write_note(output_dir: Path, summary: pd.DataFrame) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build the BR-137 sidecar truth package contract and fail-closed dry run.")
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
-    parser.add_argument("--materialization-precheck", type=Path, default=Path(DEFAULT_MATERIALIZATION_PRECHECK))
-    parser.add_argument("--common-cause-clearance", type=Path, default=Path(DEFAULT_COMMON_CAUSE_CLEARANCE))
-    parser.add_argument("--artifact-mlpe-control-clearance", type=Path, default=Path(DEFAULT_ARTIFACT_MLPE_CONTROL_CLEARANCE))
+    parser.add_argument("--truth-intake-chain-manifest", default=DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST)
+    parser.add_argument("--materialization-precheck", type=Path, default=None)
+    parser.add_argument("--common-cause-clearance", type=Path, default=None)
+    parser.add_argument("--artifact-mlpe-control-clearance", type=Path, default=None)
     parser.add_argument("--sidecar-package-input", type=Path, default=None)
     parser.add_argument("--output-dir", type=Path, default=Path(DEFAULT_OUTPUT_DIR))
     args = parser.parse_args()
 
     repo_root = args.repo_root.resolve()
-    materialization_path = resolve_path(repo_root, args.materialization_precheck)
-    common_path = resolve_path(repo_root, args.common_cause_clearance)
-    artifact_path = resolve_path(repo_root, args.artifact_mlpe_control_clearance)
+    materialization_path = resolve_truth_intake_chain_dependency(
+        repo_root,
+        args.materialization_precheck,
+        DEFAULT_MATERIALIZATION_PRECHECK_ARTIFACT,
+        args.truth_intake_chain_manifest,
+    )
+    common_path = resolve_truth_intake_chain_dependency(
+        repo_root,
+        args.common_cause_clearance,
+        DEFAULT_COMMON_CAUSE_CLEARANCE_ARTIFACT,
+        args.truth_intake_chain_manifest,
+    )
+    artifact_path = resolve_truth_intake_chain_dependency(
+        repo_root,
+        args.artifact_mlpe_control_clearance,
+        DEFAULT_ARTIFACT_MLPE_CONTROL_CLEARANCE_ARTIFACT,
+        args.truth_intake_chain_manifest,
+    )
     package_input_path = resolve_path(repo_root, args.sidecar_package_input) if args.sidecar_package_input else None
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

@@ -10,6 +10,10 @@ DEFAULT_CAPTURE_CHAIN_MANIFEST = (
     "research/prognostics/contracts/mlpe_field_trial_v1/capture_chain/"
     "mlpe_field_trial_capture_chain_manifest_v1.csv"
 )
+DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST = (
+    "research/prognostics/contracts/mlpe_field_trial_v1/truth_intake_chain/"
+    "mlpe_field_trial_truth_intake_chain_manifest_v1.csv"
+)
 
 MANIFEST_COLUMNS = [
     "artifact_key",
@@ -89,6 +93,18 @@ def resolve_capture_chain_dependency(
     explicit_path: str | Path | None,
     artifact_key: str,
     manifest_path: str | Path = DEFAULT_CAPTURE_CHAIN_MANIFEST,
+) -> Path:
+    text = normalize_text(explicit_path)
+    if text:
+        return resolve_path(repo_root, text)
+    return resolve_manifest_artifact(repo_root, artifact_key, manifest_path)
+
+
+def resolve_truth_intake_chain_dependency(
+    repo_root: Path,
+    explicit_path: str | Path | None,
+    artifact_key: str,
+    manifest_path: str | Path = DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST,
 ) -> Path:
     text = normalize_text(explicit_path)
     if text:

@@ -7,10 +7,18 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_chain_manifest_v1 import DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST, resolve_truth_intake_chain_dependency
+except ImportError:
+    from research.prognostics.mlpe_field_trial_chain_manifest_v1 import (
+        DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST,
+        resolve_truth_intake_chain_dependency,
+    )
+
 
 OWNER_BRANCH = "BR-20260425-124"
-DEFAULT_CANDIDATE_PACKAGE = "/private/tmp/mlpe_field_trial_truth_seed_future_truth_intake_candidate_package_br123_check/mlpe_field_trial_truth_seed_future_truth_intake_candidate_package_v1.csv"
-DEFAULT_BLOCKED = "/private/tmp/mlpe_field_trial_truth_seed_future_truth_intake_candidate_package_br123_check/mlpe_field_trial_truth_seed_future_truth_intake_blocked_rows_v1.csv"
+DEFAULT_CANDIDATE_PACKAGE_ARTIFACT = "future_truth_intake_candidate_package"
+DEFAULT_BLOCKED_ARTIFACT = "future_truth_intake_blocked_rows"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_truth_intake_preflight_checklist_br124_check"
 
 PREFLIGHT_OUTPUT_NAME = "mlpe_field_trial_truth_intake_preflight_v1.csv"
@@ -360,14 +368,25 @@ def write_note(output_dir: Path, summary: pd.DataFrame) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=Path.cwd())
-    parser.add_argument("--candidate-package", default=DEFAULT_CANDIDATE_PACKAGE)
-    parser.add_argument("--blocked", default=DEFAULT_BLOCKED)
+    parser.add_argument("--truth-intake-chain-manifest", default=DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST)
+    parser.add_argument("--candidate-package", default="")
+    parser.add_argument("--blocked", default="")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    candidate_path = resolve_path(repo_root, args.candidate_package)
-    blocked_path = resolve_path(repo_root, args.blocked)
+    candidate_path = resolve_truth_intake_chain_dependency(
+        repo_root,
+        args.candidate_package,
+        DEFAULT_CANDIDATE_PACKAGE_ARTIFACT,
+        args.truth_intake_chain_manifest,
+    )
+    blocked_path = resolve_truth_intake_chain_dependency(
+        repo_root,
+        args.blocked,
+        DEFAULT_BLOCKED_ARTIFACT,
+        args.truth_intake_chain_manifest,
+    )
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
