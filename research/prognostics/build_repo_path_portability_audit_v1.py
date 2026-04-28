@@ -15,6 +15,7 @@ SUMMARY_OUTPUT_NAME = "repo_path_portability_summary_v1.csv"
 FILE_KIND_OUTPUT_NAME = "repo_path_portability_file_kind_v1.csv"
 NOTE_OUTPUT_NAME = "repo_path_portability_note_v1.md"
 JSON_OUTPUT_NAME = "repo_path_portability_summary_v1.json"
+SELF_LITERAL_SKIP_MARKER = "pp-self"
 
 DEFAULT_SCAN_ROOTS = [
     "docs",
@@ -49,21 +50,21 @@ EXCLUDED_REL_PREFIXES = [
 PATH_PATTERNS = [
     (
         "worktree_absolute",
-        re.compile(r"/Users/b9gc/pvdiag_worktrees/[^\s`'\"),\]}<>]*"),
+        re.compile(r"/Users/b9gc/pvdiag_worktrees/[^\s`'\"),\]}<>]*"),  # pp-self
         "high",
         "stale_transient_worktree_reference",
         "replace_with_repo_relative_or_regenerate_from_repro_command",
     ),
     (
         "repo_absolute",
-        re.compile(r"/Users/b9gc/pvdiag(?!_worktrees)(?:/[^\s`'\"),\]}<>]*)?"),
+        re.compile(r"/Users/b9gc/pvdiag(?!_worktrees)(?:/[^\s`'\"),\]}<>]*)?"),  # pp-self
         "medium",
         "local_machine_repo_reference",
         "prefer_repo_relative_path_or_explicit_repo_root_cli_arg",
     ),
     (
         "private_tmp",
-        re.compile(r"/private/tmp/[^\s`'\"),\]}<>]*"),
+        re.compile(r"/private/tmp/[^\s`'\"),\]}<>]*"),  # pp-self
         "medium",
         "volatile_temp_evidence_reference",
         "keep_as_historical_evidence_pointer_or_rebuild_into_named_output_dir",
@@ -210,6 +211,8 @@ def scan_file(path: Path, repo_root: Path) -> list[dict[str, object]]:
     except UnicodeDecodeError:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     for line_no, line in enumerate(lines, start=1):
+        if SELF_LITERAL_SKIP_MARKER in line:
+            continue
         for match_kind, pattern, risk_level, portability_role, recommended_action in PATH_PATTERNS:
             for match in pattern.finditer(line):
                 match_index += 1
@@ -317,7 +320,7 @@ def build_note(
         "",
         "## Purpose",
         "- Detect local absolute repo paths, transient worktree paths, and volatile "
-        "`/private/tmp` evidence references before they leak into stable runtime/package surfaces.",
+        "`/private/tmp` evidence references before they leak into stable runtime/package surfaces.",  # pp-self
         "- This is an audit/reporting guard only. It does not rewrite historical "
         "evidence pointers and does not change runtime semantics.",
         "",
@@ -340,9 +343,9 @@ def build_note(
             "## Interpretation",
             "- `repo_absolute` usually means a command, doc link, or generated metadata "
             "still depends on `/Users/b9gc/pvdiag` instead of a repo-relative path or "
-            "explicit `--repo-root`.",
+            "explicit `--repo-root`.",  # pp-self
             "- `worktree_absolute` is the highest cleanup priority because old "
-            "`/Users/b9gc/pvdiag_worktrees/...` paths are intentionally transient.",
+            "`/Users/b9gc/pvdiag_worktrees/...` paths are intentionally transient.",  # pp-self
             "- `private_tmp` often points to historical evidence outputs. Do not bulk "
             "rewrite these unless the replacement artifact and repro command are recorded.",
             "- Runtime pack JSON metadata absolute-path churn was already handled separately; "
@@ -362,7 +365,7 @@ def build_note(
             "## Next Action",
             "- Use this output as a triage map: fix live commands and stale worktree paths "
             "first, preserve historical `/private/tmp` evidence references unless a stable "
-            "artifact replacement exists.",
+            "artifact replacement exists.",  # pp-self
         ]
     )
     return "\n".join(lines) + "\n"
