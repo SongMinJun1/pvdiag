@@ -7,10 +7,18 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_chain_manifest_v1 import DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST, resolve_truth_intake_chain_dependency
+except ImportError:
+    from research.prognostics.mlpe_field_trial_chain_manifest_v1 import (
+        DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST,
+        resolve_truth_intake_chain_dependency,
+    )
+
 
 OWNER_BRANCH = "BR-20260425-127"
-DEFAULT_REVIEW_VALIDATION = "/private/tmp/mlpe_field_trial_truth_intake_preflight_review_validator_br125_check/mlpe_field_trial_truth_intake_preflight_review_validation_v1.csv"
-DEFAULT_REVIEW_ISSUES = "/private/tmp/mlpe_field_trial_truth_intake_preflight_review_validator_br125_check/mlpe_field_trial_truth_intake_preflight_review_issues_v1.csv"
+DEFAULT_REVIEW_VALIDATION_ARTIFACT = "truth_intake_preflight_review_validation"
+DEFAULT_REVIEW_ISSUES_ARTIFACT = "truth_intake_preflight_review_issues"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_truth_materialization_precheck_br127_check"
 
 PRECHECK_OUTPUT_NAME = "mlpe_field_trial_truth_materialization_precheck_v1.csv"
@@ -367,15 +375,26 @@ def write_note(output_dir: Path, summary: pd.DataFrame, evidence_path: Path | No
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=Path.cwd())
-    parser.add_argument("--review-validation", default=DEFAULT_REVIEW_VALIDATION)
-    parser.add_argument("--review-issues", default=DEFAULT_REVIEW_ISSUES)
+    parser.add_argument("--truth-intake-chain-manifest", default=DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST)
+    parser.add_argument("--review-validation", default="")
+    parser.add_argument("--review-issues", default="")
     parser.add_argument("--materialization-evidence-manifest", default="")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    validation_path = resolve_path(repo_root, args.review_validation)
-    review_issues_path = resolve_path(repo_root, args.review_issues)
+    validation_path = resolve_truth_intake_chain_dependency(
+        repo_root,
+        args.review_validation,
+        DEFAULT_REVIEW_VALIDATION_ARTIFACT,
+        args.truth_intake_chain_manifest,
+    )
+    review_issues_path = resolve_truth_intake_chain_dependency(
+        repo_root,
+        args.review_issues,
+        DEFAULT_REVIEW_ISSUES_ARTIFACT,
+        args.truth_intake_chain_manifest,
+    )
     evidence_path = resolve_path(repo_root, args.materialization_evidence_manifest) if normalize_text(args.materialization_evidence_manifest) else None
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

@@ -7,9 +7,17 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_chain_manifest_v1 import DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST, resolve_truth_intake_chain_dependency
+except ImportError:
+    from research.prognostics.mlpe_field_trial_chain_manifest_v1 import (
+        DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST,
+        resolve_truth_intake_chain_dependency,
+    )
+
 
 OWNER_BRANCH = "BR-20260425-121"
-DEFAULT_PACKET = "/private/tmp/mlpe_field_trial_truth_seed_review_packet_br120_check/mlpe_field_trial_truth_seed_review_packet_v1.csv"
+DEFAULT_PACKET_ARTIFACT = "truth_seed_review_packet"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_truth_seed_reviewer_decision_schema_br121_check"
 
 TEMPLATE_OUTPUT_NAME = "mlpe_field_trial_truth_seed_reviewer_decision_template_v1.csv"
@@ -284,12 +292,18 @@ def write_note(output_dir: Path, summary: pd.DataFrame) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=Path.cwd())
-    parser.add_argument("--packet", default=DEFAULT_PACKET)
+    parser.add_argument("--truth-intake-chain-manifest", default=DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST)
+    parser.add_argument("--packet", default="")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    packet_path = resolve_path(repo_root, args.packet)
+    packet_path = resolve_truth_intake_chain_dependency(
+        repo_root,
+        args.packet,
+        DEFAULT_PACKET_ARTIFACT,
+        args.truth_intake_chain_manifest,
+    )
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 

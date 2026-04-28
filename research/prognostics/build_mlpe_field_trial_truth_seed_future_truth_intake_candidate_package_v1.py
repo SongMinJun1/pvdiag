@@ -7,10 +7,18 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from mlpe_field_trial_chain_manifest_v1 import DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST, resolve_truth_intake_chain_dependency
+except ImportError:
+    from research.prognostics.mlpe_field_trial_chain_manifest_v1 import (
+        DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST,
+        resolve_truth_intake_chain_dependency,
+    )
+
 
 OWNER_BRANCH = "BR-20260425-123"
-DEFAULT_VALIDATION = "/private/tmp/mlpe_field_trial_truth_seed_reviewer_decision_validator_br122_check/mlpe_field_trial_truth_seed_reviewer_decision_validation_v1.csv"
-DEFAULT_ISSUES = "/private/tmp/mlpe_field_trial_truth_seed_reviewer_decision_validator_br122_check/mlpe_field_trial_truth_seed_reviewer_decision_validation_issues_v1.csv"
+DEFAULT_VALIDATION_ARTIFACT = "truth_seed_reviewer_decision_validation"
+DEFAULT_ISSUES_ARTIFACT = "truth_seed_reviewer_decision_validation_issues"
 DEFAULT_OUTPUT_DIR = "/private/tmp/mlpe_field_trial_truth_seed_future_truth_intake_candidate_package_br123_check"
 
 CANDIDATE_OUTPUT_NAME = "mlpe_field_trial_truth_seed_future_truth_intake_candidate_package_v1.csv"
@@ -303,14 +311,25 @@ def write_note(output_dir: Path, summary: pd.DataFrame) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=Path.cwd())
-    parser.add_argument("--validation", default=DEFAULT_VALIDATION)
-    parser.add_argument("--issues", default=DEFAULT_ISSUES)
+    parser.add_argument("--truth-intake-chain-manifest", default=DEFAULT_TRUTH_INTAKE_CHAIN_MANIFEST)
+    parser.add_argument("--validation", default="")
+    parser.add_argument("--issues", default="")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    validation_path = resolve_path(repo_root, args.validation)
-    issues_path = resolve_path(repo_root, args.issues)
+    validation_path = resolve_truth_intake_chain_dependency(
+        repo_root,
+        args.validation,
+        DEFAULT_VALIDATION_ARTIFACT,
+        args.truth_intake_chain_manifest,
+    )
+    issues_path = resolve_truth_intake_chain_dependency(
+        repo_root,
+        args.issues,
+        DEFAULT_ISSUES_ARTIFACT,
+        args.truth_intake_chain_manifest,
+    )
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
