@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-168` | `mlpe_output_default_review_ready_for_review` | review 36 MLPE output defaults as write-location defaults, not input dependencies; keep explicit `--output-dir` as the reproducible-run rule | Next cleanup can inspect broader `p1_live_temp_reference` rows or non-MLPE output defaults |
+| `BR-20260429-169` | `live_temp_reference_review_ready_for_review` | split 69 live temp references into 62 manifest/explicit-input candidates and 7 repro/detection literals before any path rewrite | Next cleanup should choose one workflow lane and add manifest/explicit-input contracts, not bulk-rewrite all temp paths |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -168,6 +168,7 @@
 | `BR-20260429-166` | `mlpe_generated_dependency_closure_ready_for_review` | closure audit confirms generated dependency review rows remain `0`; path dependency contracts now only show 7 guarded user-filled inputs, with MLPE output defaults separate at 36 | no |
 | `BR-20260429-167` | `mlpe_user_filled_guard_ux_ready_for_review` | guarded user-filled failures now state the refused default, why it is unsafe, the required explicit input flag, and `--allow-user-filled-default` fixture-only path; guard count intentionally remains 7 | no |
 | `BR-20260429-168` | `mlpe_output_default_review_ready_for_review` | dedicated review confirms MLPE output defaults are write destinations: 36 rows, 36 `--output-dir` overrides, input/generated dependency rows 0, runtime semantic change rows 0, mass rewrite recommended rows 0 | no |
+| `BR-20260429-169` | `live_temp_reference_review_ready_for_review` | unresolved `p1_live_temp_reference` rows split into static directory 48, static artifact 10, runtime result bundle 4, embedded repro 5, detector literal 2; runtime semantics and bulk rewrite permissions remain 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
