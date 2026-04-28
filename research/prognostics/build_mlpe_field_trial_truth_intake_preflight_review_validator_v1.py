@@ -435,6 +435,7 @@ def main() -> None:
         input_path=checklist_path,
         default_path=DEFAULT_REVIEWED_CHECKLIST,
         allow_user_filled_default=args.allow_user_filled_default,
+        explicit_flag="--reviewed-checklist",
     )
     output_dir.mkdir(parents=True, exist_ok=True)
 
