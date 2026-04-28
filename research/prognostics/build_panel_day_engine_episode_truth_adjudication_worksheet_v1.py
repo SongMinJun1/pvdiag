@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -208,6 +209,57 @@ def numeric_int(value: object) -> int:
 def resolve_path(repo_root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path) -> tuple[Path | None, dict[str, Any]]:
+    text = normalize_text(value)
+    if not text:
+        return None, {}
+    manifest_path = resolve_path(repo_root, text)
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"missing episode-truth input manifest: {manifest_path}")
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"episode-truth input manifest must be a JSON object: {manifest_path}")
+    return manifest_path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    candidates: list[Any] = [manifest.get(key)]
+    for section_name in ["inputs", "artifacts"]:
+        section = manifest.get(section_name)
+        if isinstance(section, dict):
+            value = section.get(key)
+            if isinstance(value, dict):
+                candidates.extend([value.get("path"), value.get("artifact_path"), value.get("static_path")])
+            else:
+                candidates.append(value)
+    for value in candidates:
+        text = normalize_text(value)
+        if text:
+            return text
+    return ""
+
+
+def resolve_chain_input(
+    repo_root: Path,
+    arg_value: str | Path,
+    default_value: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    flag_name: str,
+) -> tuple[Path, str]:
+    if normalize_text(arg_value) != normalize_text(default_value):
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise ValueError(
+                f"episode-truth input manifest is missing `{manifest_key}`; "
+                f"add it under top-level or `inputs`, or pass {flag_name}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def read_required_csv(path: Path, required_cols: list[str], name: str) -> pd.DataFrame:
@@ -476,8 +528,11 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
 def write_note(
     path: Path,
     owner_branch: str,
+    input_manifest_path: Path | None,
     trace_input: Path,
+    trace_input_source: str,
     index_input: Path,
+    index_input_source: str,
     worksheet_df: pd.DataFrame,
     draft_df: pd.DataFrame,
     summary_df: pd.DataFrame,
@@ -492,8 +547,9 @@ def write_note(
         "- Keep the BR-084 review input draft blank until a reviewer fills labels and evidence paths.",
         "",
         "## Inputs",
-        f"- BR-086 trace input: `{trace_input}`",
-        f"- BR-085 index input: `{index_input}`",
+        f"- episode-truth input manifest: `{input_manifest_path if input_manifest_path else 'not provided'}`",
+        f"- BR-086 trace input: `{trace_input}` (`{trace_input_source}`)",
+        f"- BR-085 index input: `{index_input}` (`{index_input_source}`)",
         "",
         "## Real Result",
         f"- owner_branch: `{owner_branch}`",
@@ -531,8 +587,11 @@ def write_json(
     owner_branch: str,
     repo_root: Path,
     output_dir: Path,
+    input_manifest_path: Path | None,
     trace_input: Path,
+    trace_input_source: str,
     index_input: Path,
+    index_input_source: str,
     worksheet_df: pd.DataFrame,
     draft_df: pd.DataFrame,
     summary_df: pd.DataFrame,
@@ -541,8 +600,11 @@ def write_json(
         "owner_branch": owner_branch,
         "repo_root": str(repo_root),
         "output_dir": str(output_dir),
+        "input_manifest": str(input_manifest_path) if input_manifest_path else "",
         "trace_input": str(trace_input),
+        "trace_input_source": trace_input_source,
         "index_input": str(index_input),
+        "index_input_source": index_input_source,
         "worksheet_rows": int(len(worksheet_df)),
         "draft_review_input_rows": int(len(draft_df)),
         "trace_ready_worksheet_rows": int(worksheet_df["trace_ready_all"].sum()) if not worksheet_df.empty else 0,
@@ -583,6 +645,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--trace-input", default=BR086_TRACE_DEFAULT, help="BR-086 source trace audit CSV.")
     parser.add_argument("--index-input", default=BR085_INDEX_DEFAULT, help="BR-085 evidence attachment index CSV.")
     parser.add_argument(
+        "--input-manifest",
+        default="",
+        help=(
+            "Optional JSON manifest with `trace_input` and `index_input` paths. "
+            "Explicit --trace-input/--index-input values take precedence."
+        ),
+    )
+    parser.add_argument(
         "--output-dir",
         default="/private/tmp/panel_day_engine_episode_truth_adjudication_worksheet_br087_check",
         help="Output directory for BR-087 worksheet artifacts.",
@@ -594,8 +664,13 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
-    trace_input = resolve_path(repo_root, args.trace_input)
-    index_input = resolve_path(repo_root, args.index_input)
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    trace_input, trace_input_source = resolve_chain_input(
+        repo_root, args.trace_input, BR086_TRACE_DEFAULT, input_manifest, "trace_input", "--trace-input"
+    )
+    index_input, index_input_source = resolve_chain_input(
+        repo_root, args.index_input, BR085_INDEX_DEFAULT, input_manifest, "index_input", "--index-input"
+    )
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -611,13 +686,40 @@ def main() -> None:
     draft_df.to_csv(output_dir / DRAFT_INPUT_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary_df.to_csv(output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     action_df.to_csv(output_dir / ACTION_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(output_dir / NOTE_OUTPUT_NAME, args.owner_branch, trace_input, index_input, worksheet_df, draft_df, summary_df)
-    write_json(output_dir / JSON_OUTPUT_NAME, args.owner_branch, repo_root, output_dir, trace_input, index_input, worksheet_df, draft_df, summary_df)
+    write_note(
+        output_dir / NOTE_OUTPUT_NAME,
+        args.owner_branch,
+        input_manifest_path,
+        trace_input,
+        trace_input_source,
+        index_input,
+        index_input_source,
+        worksheet_df,
+        draft_df,
+        summary_df,
+    )
+    write_json(
+        output_dir / JSON_OUTPUT_NAME,
+        args.owner_branch,
+        repo_root,
+        output_dir,
+        input_manifest_path,
+        trace_input,
+        trace_input_source,
+        index_input,
+        index_input_source,
+        worksheet_df,
+        draft_df,
+        summary_df,
+    )
 
     print(
         json.dumps(
             {
                 "owner_branch": args.owner_branch,
+                "input_manifest": str(input_manifest_path) if input_manifest_path else "",
+                "trace_input_source": trace_input_source,
+                "index_input_source": index_input_source,
                 "worksheet_rows": int(len(worksheet_df)),
                 "draft_review_input_rows": int(len(draft_df)),
                 "trace_ready_worksheet_rows": int(worksheet_df["trace_ready_all"].sum()) if not worksheet_df.empty else 0,

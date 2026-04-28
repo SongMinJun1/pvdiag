@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-170` | `episode_truth_input_manifest_contract_ready_for_review` | narrow live-temp cleanup to panel-engine episode truth: 14 rows split into 12 manifest-required explicit inputs and 2 repro-only references | Next branch can add an episode-truth manifest resolver or explicit-input guard to one consumer group |
+| `BR-20260429-171` | `episode_truth_worksheet_manifest_resolution_ready_for_review` | first episode-truth consumer now supports `--input-manifest` while preserving explicit CLI precedence and legacy defaults | Continue one-consumer-at-a-time manifest resolution across remaining episode-truth builders |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -170,6 +170,7 @@
 | `BR-20260429-168` | `mlpe_output_default_review_ready_for_review` | dedicated review confirms MLPE output defaults are write destinations: 36 rows, 36 `--output-dir` overrides, input/generated dependency rows 0, runtime semantic change rows 0, mass rewrite recommended rows 0 | no |
 | `BR-20260429-169` | `live_temp_reference_review_ready_for_review` | unresolved `p1_live_temp_reference` rows split into static directory 48, static artifact 10, runtime result bundle 4, embedded repro 5, detector literal 2; runtime semantics and bulk rewrite permissions remain 0 | no |
 | `BR-20260429-170` | `episode_truth_input_manifest_contract_ready_for_review` | episode-truth live-temp references now have a consumer contract: 14 rows, 12 manifest-required and explicit-input-supported, 2 repro-only, runtime semantic and bulk rewrite permissions 0 | no |
+| `BR-20260429-171` | `episode_truth_worksheet_manifest_resolution_ready_for_review` | BR-087 adjudication worksheet resolves trace/index inputs from optional manifest or explicit CLI, records resolution source, and keeps patch authorization sums at 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
