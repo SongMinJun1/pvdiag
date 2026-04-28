@@ -198,20 +198,25 @@ def write_fixture(root: Path) -> Path:
     return worksheet_path
 
 
-def run_builder(repo_root: Path, worksheet_path: Path, output_dir: Path) -> subprocess.CompletedProcess[str]:
-    return run(
-        [
-            sys.executable,
-            "research/prognostics/build_panel_day_engine_episode_truth_conservative_adjudication_v1.py",
-            "--repo-root",
-            str(repo_root),
-            "--worksheet-input",
-            str(worksheet_path),
-            "--output-dir",
-            str(output_dir),
-        ],
-        cwd=repo_root,
-    )
+def run_builder(
+    repo_root: Path,
+    worksheet_path: Path | None,
+    output_dir: Path,
+    input_manifest: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    cmd = [
+        sys.executable,
+        "research/prognostics/build_panel_day_engine_episode_truth_conservative_adjudication_v1.py",
+        "--repo-root",
+        str(repo_root),
+        "--output-dir",
+        str(output_dir),
+    ]
+    if worksheet_path is not None:
+        cmd.extend(["--worksheet-input", str(worksheet_path)])
+    if input_manifest is not None:
+        cmd.extend(["--input-manifest", str(input_manifest)])
+    return run(cmd, cwd=repo_root)
 
 
 def main() -> None:
@@ -241,6 +246,36 @@ def main() -> None:
         assert_true(payload["filled_negative_rows"] == 2, "json negative count mismatch")
         assert_true(payload["filled_positive_rows"] == 0, "json should not create positives")
         assert_true(payload["deferred_rows"] == 1, "json deferred count mismatch")
+        assert_true(payload["worksheet_input_source"] == "explicit_cli", "explicit worksheet input should win")
+
+        manifest_path = root / "episode_truth_conservative_inputs.json"
+        manifest_path.write_text(
+            json.dumps({"inputs": {"worksheet_input": str(worksheet_path)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_proc = run_builder(repo_root, None, manifest_out, manifest_path)
+        assert_true(manifest_proc.returncode == 0, manifest_proc.stderr or manifest_proc.stdout)
+        manifest_payload = json.loads((manifest_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(manifest_payload["adjudication_rows"] == 3, "manifest run adjudication row count mismatch")
+        assert_true(manifest_payload["input_manifest"] == str(manifest_path), "manifest path should be recorded")
+        assert_true(manifest_payload["worksheet_input_source"] == "input_manifest", "worksheet should resolve from manifest")
+
+        bad_manifest_path = root / "bad_episode_truth_conservative_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {"inputs": {"worksheet_input": str(root / "missing_worksheet.csv")}},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_proc = run_builder(repo_root, worksheet_path, override_out, bad_manifest_path)
+        assert_true(override_proc.returncode == 0, override_proc.stderr or override_proc.stdout)
+        override_payload = json.loads((override_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(override_payload["worksheet_input_source"] == "explicit_cli", "worksheet CLI override should win")
 
         unsafe = pd.read_csv(worksheet_path, encoding="utf-8-sig")
         unsafe["engine_patch_allowed"] = 0
