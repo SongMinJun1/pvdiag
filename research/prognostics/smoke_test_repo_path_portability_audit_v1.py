@@ -38,15 +38,15 @@ def read_csv(path: Path) -> list[dict[str, str]]:
 def build_fixture(repo_root: Path) -> None:
     write_text(
         repo_root / "docs" / "runbook.md",
-        "Use /Users/b9gc/pvdiag/docs/runbook.md as a repo absolute example.\n",
+        "Use /Users/b9gc/pvdiag/docs/runbook.md as a repo absolute example.\n",  # pp-self
     )
     write_text(
         repo_root / "research" / "prognostics" / "builder.py",
-        "TMP = '/private/tmp/path_portability_fixture/output.csv'\n",
+        "TMP = '/private/tmp/path_portability_fixture/output.csv'\n",  # pp-self
     )
     write_text(
         repo_root / "pv_ae" / "panel_day_engine.py",
-        "WORKTREE = '/Users/b9gc/pvdiag_worktrees/old_fixture_branch'\n",
+        "WORKTREE = '/Users/b9gc/pvdiag_worktrees/old_fixture_branch'\n",  # pp-self
     )
     write_text(
         repo_root
@@ -57,11 +57,15 @@ def build_fixture(repo_root: Path) -> None:
         / "windows_x64"
         / "python"
         / "excluded.py",
-        "EXCLUDED = '/private/tmp/should_not_be_scanned'\n",
+        "EXCLUDED = '/private/tmp/should_not_be_scanned'\n",  # pp-self
     )
     write_text(
         repo_root / "release" / "conalog_full_runtime_v1" / "package" / "app" / "run.py",
         "print('package surface without absolute path')\n",
+    )
+    write_text(
+        repo_root / "research" / "prognostics" / "self_noise.py",
+        "PATTERN = '/Users/b9gc/pvdiag_worktrees/self_noise_fixture'  # pp-self\n",
     )
 
 
@@ -112,6 +116,10 @@ def main() -> None:
 
         assert_true(len(detail) == 3, detail)
         assert_true(match_counts == {"private_tmp": 1, "repo_absolute": 1, "worktree_absolute": 1}, match_counts)
+        assert_true(
+            not any(row["relative_path"].endswith("self_noise.py") for row in detail),
+            detail,
+        )
         assert_true(skipped_counts.get("excluded_runtime_payload", 0) == 1, skipped_counts)
         assert_true(("repo_doc", "repo_absolute") in file_kind_pairs, file_kind)
         assert_true(("research_prognostics", "private_tmp") in file_kind_pairs, file_kind)

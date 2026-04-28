@@ -7,7 +7,7 @@
 - Keep this as an audit-only cleanup lane: no `pv_ae/panel_day_engine.py` behavior change, no production rerun, and no bulk rewrite of historical evidence pointers.
 
 ## Why This Exists
-- The post-merge audit found many references to `/Users/b9gc/pvdiag`, `/Users/b9gc/pvdiag_worktrees/...`, and `/private/tmp/...`.
+- The post-merge audit found many repo-local absolute paths, transient worktree paths, and temp-output references.
 - Some are valid historical evidence/repro pointers, but transient worktree paths and live-command absolute repo paths can confuse future handoff work.
 - The safe move is to make the surface measurable first, then triage only the rows that have a stable replacement.
 
@@ -33,7 +33,7 @@ After patch:
 ```bash
 python3 -m py_compile pv_ae/panel_day_engine.py research/prognostics/build_repo_path_portability_audit_v1.py research/prognostics/smoke_test_repo_path_portability_audit_v1.py
 python3 research/prognostics/smoke_test_repo_path_portability_audit_v1.py
-python3 research/prognostics/build_repo_path_portability_audit_v1.py --repo-root /Users/b9gc/pvdiag_worktrees/final_base_validation --output-dir /private/tmp/pvdiag_repo_path_portability_audit_v1
+python3 research/prognostics/build_repo_path_portability_audit_v1.py --repo-root "$(pwd)" --output-dir "${TMPDIR:-/tmp}/pvdiag_repo_path_portability_audit_v1"
 git diff --check
 ```
 

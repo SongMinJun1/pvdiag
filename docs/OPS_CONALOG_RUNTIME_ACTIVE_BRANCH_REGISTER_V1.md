@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260428-151` | `path_portability_audit_ready_for_review` | audit-only builder/smoke for local absolute repo paths, transient worktree paths, and `/private/tmp` evidence references after runtime metadata stabilization | Triage stale worktree/live-command absolute paths first; preserve historical temp evidence pointers unless a stable artifact replacement exists |
+| `BR-20260428-152` | `path_portability_self_noise_fix_ready_for_review` | tighten the BR-151 audit so scanner-owned regex/template/smoke literals do not inflate real worktree/temp path risk counts | Remaining high-risk worktree rows are now closer to real stale handoff references and should be triaged before historical temp evidence cleanup |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -151,6 +151,7 @@
 | `BR-20260425-149-precheck` | `blocked_state_readiness_handoff_complete` | handoff audit confirms 8 complete rows, 15 blocked rows, 0 open rows, all required docs/builders/smokes present, commit-scope ready 1, patch/write approvals 0 | no |
 | `BR-20260425-150-precheck` | `prelabel_runway_checkpoint_complete` | checkpoint confirms the runway is ready to receive real data/labels safely while algorithm completion, performance improvement, truth intake, threshold, and engine patch claims remain blocked | no |
 | `BR-20260428-151` | `path_portability_audit_implemented` | adds a reproducible builder/smoke so repo absolute paths, transient worktree paths, and volatile temp evidence references can be triaged without bulk rewriting or runtime semantic changes | no |
+| `BR-20260428-152` | `path_portability_self_noise_fixed` | BR-151 audit now skips marked scanner/test literals and uses a checkout-relative repro command, reducing self-generated path findings before real stale-path triage | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
