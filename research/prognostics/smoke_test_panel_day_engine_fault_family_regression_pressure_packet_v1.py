@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import tempfile
@@ -130,6 +131,82 @@ def main() -> None:
         assert_true(int(detail["engine_patch_candidate_flag"].sum()) == 0, detail.to_string())
         assert_true(int(summary["cases"].sum()) == 2, summary.to_string())
         assert_true("does not close target exact-family evidence" in note, note)
+        assert_true("evidence input manifest: `not provided`" in note, "note missing no-manifest marker")
+        assert_true("`readiness_input`: `explicit_cli`" in note, "note missing explicit readiness source")
+
+        manifest = root / "regression_pressure_inputs.json"
+        manifest.write_text(
+            json.dumps({"inputs": {"readiness_input": str(input_path)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_result = run(
+            [
+                sys.executable,
+                str(script),
+                "--input-manifest",
+                str(manifest),
+                "--output-dir",
+                str(manifest_out),
+            ],
+            repo_root,
+        )
+        assert_true(manifest_result.returncode == 0, manifest_result.stderr or manifest_result.stdout)
+        manifest_detail = pd.read_csv(manifest_out / DETAIL_NAME, encoding="utf-8-sig")
+        manifest_note = (manifest_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true(
+            manifest_detail["packet_bucket"].tolist() == detail["packet_bucket"].tolist(),
+            "manifest packet buckets drifted",
+        )
+        assert_true(f"evidence input manifest: `{manifest}`" in manifest_note, "note missing manifest path")
+        assert_true("`readiness_input`: `input_manifest`" in manifest_note, "note missing manifest readiness source")
+
+        bad_manifest = root / "bad_regression_pressure_inputs.json"
+        bad_manifest.write_text(
+            json.dumps(
+                {"inputs": {"readiness_input": str(root / "missing_readiness.csv")}},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_result = run(
+            [
+                sys.executable,
+                str(script),
+                "--readiness-input",
+                str(input_path),
+                "--input-manifest",
+                str(bad_manifest),
+                "--output-dir",
+                str(override_out),
+            ],
+            repo_root,
+        )
+        assert_true(override_result.returncode == 0, override_result.stderr or override_result.stdout)
+        override_note = (override_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true("`readiness_input`: `explicit_cli`" in override_note, "override readiness source drifted")
+
+        missing_key_manifest = root / "missing_key_regression_pressure_inputs.json"
+        missing_key_manifest.write_text(json.dumps({"inputs": {}}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        missing_key_result = run(
+            [
+                sys.executable,
+                str(script),
+                "--input-manifest",
+                str(missing_key_manifest),
+                "--output-dir",
+                str(root / "missing_key_out"),
+            ],
+            repo_root,
+        )
+        assert_true(missing_key_result.returncode != 0, "missing-key manifest unexpectedly passed")
+        assert_true(
+            "missing `readiness_input`" in (missing_key_result.stderr + missing_key_result.stdout),
+            missing_key_result.stderr + missing_key_result.stdout,
+        )
 
 
 if __name__ == "__main__":

@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -99,9 +102,65 @@ def parse_args() -> argparse.Namespace:
             "without changing runtime semantics."
         )
     )
+    parser.add_argument("--input-manifest", default=None)
     parser.add_argument("--readiness-input", type=Path, default=DEFAULT_READINESS_INPUT)
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args()
+
+
+def resolve_path(base_root: Path, path_value: str | Path) -> Path:
+    path = Path(path_value)
+    return path if path.is_absolute() else base_root / path
+
+
+def load_input_manifest(base_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(base_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_chain_input(
+    base_root: Path,
+    cli_value: str | Path,
+    legacy_default: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    cli_flag: str,
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if cli_flag in explicit_flags:
+        return resolve_path(base_root, cli_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise KeyError(
+                f"panel-day evidence input manifest is missing `{manifest_key}`; "
+                f"pass {cli_flag} explicitly or add inputs.{manifest_key}"
+            )
+        return resolve_path(base_root, manifest_value), "input_manifest"
+    return resolve_path(base_root, legacy_default), "legacy_default"
 
 
 def normalize_text(value: object) -> str:
@@ -259,7 +318,14 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
     return "\n".join([header, separator] + rows)
 
 
-def write_note(output_dir: Path, readiness: pd.DataFrame, detail: pd.DataFrame, summary: pd.DataFrame) -> None:
+def write_note(
+    output_dir: Path,
+    readiness: pd.DataFrame,
+    detail: pd.DataFrame,
+    summary: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> None:
     source_class_counts = readiness["post_br056_closure_class"].value_counts().sort_index().to_dict()
     packet_counts = detail["packet_bucket"].value_counts().sort_index().to_dict() if not detail.empty else {}
     target_sum = int(detail["target_exact_closure_candidate_flag"].sum()) if not detail.empty else 0
@@ -272,6 +338,14 @@ def write_note(output_dir: Path, readiness: pd.DataFrame, detail: pd.DataFrame, 
             "## Source Review Context",
             f"- source readiness rows: `{len(readiness)}`",
             f"- source closure class counts: `{source_class_counts}`",
+            f"- evidence input manifest: `{input_manifest_path if input_manifest_path else 'not provided'}`",
+            "",
+            "## Input Resolution Sources",
+            *(
+                [f"- `{key}`: `{value}`" for key, value in sorted((input_resolution_sources or {}).items())]
+                if input_resolution_sources
+                else ["- no manifest-wrapped inputs"]
+            ),
             "",
             "## Packet Result",
             f"- packet rows: `{len(detail)}`",
@@ -297,12 +371,36 @@ def write_note(output_dir: Path, readiness: pd.DataFrame, detail: pd.DataFrame, 
 def main() -> None:
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    readiness = read_readiness(args.readiness_input)
+
+    base_root = Path.cwd()
+    input_manifest_path, input_manifest = load_input_manifest(base_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--readiness-input",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    readiness_path, readiness_source = resolve_chain_input(
+        base_root,
+        args.readiness_input,
+        DEFAULT_READINESS_INPUT,
+        input_manifest,
+        "readiness_input",
+        "--readiness-input",
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "readiness_input": readiness_source,
+    }
+
+    readiness = read_readiness(readiness_path)
     detail = build_detail(readiness)
     summary = build_summary(detail)
     detail.to_csv(args.output_dir / DETAIL_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(args.output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(args.output_dir, readiness, detail, summary)
+    write_note(args.output_dir, readiness, detail, summary, input_manifest_path, input_resolution_sources)
 
 
 if __name__ == "__main__":
