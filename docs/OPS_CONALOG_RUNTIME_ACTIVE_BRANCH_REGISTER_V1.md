@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260430-242` | `single_file_delivery_artifact_ready_for_review` | generated `pvdiag_single.py` delivery path added with builder, manifest, self-test, and modular-vs-single comparison helper; runtime semantics unchanged | Validate generated artifact against modular runner output, then use it as professor-facing handoff file |
+| `BR-20260430-243` | `single_file_handoff_polish_ready_for_review` | professor-facing quickstart and handoff checker added for generated `pvdiag_single.py`; checker validates manifest payload, runtime exclusion, compile, and self-test | Use `PVDIAG_SINGLE_QUICKSTART.md` plus `tools/check_pvdiag_single_handoff.py` before sending the single-file artifact |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -242,6 +242,7 @@
 | `BR-20260430-240` | `path_portability_axis_closeout_decision_ready_for_review` | final cleanup PR required 0, closeout ready 1, status closed_as_current_blocker, next workstream allowed 1; remaining path literals stay owner-touch context | no |
 | `BR-20260430-241` | `roadmap_reentry_after_portability_closeout_ready_for_review` | roadmap reentry ready 1, path-portability closeout ready 1, queue rows 23, blocked rows 15, real capture required 1, truth/threshold/engine/operator approvals 0 | no |
 | `BR-20260430-242` | `single_file_delivery_artifact_ready_for_review` | generated single-file handoff added: payload excludes Windows runtime and external packages, self-test extracts embedded runner, comparison helper checks key CSV row/schema plus master/xlsx existence | no |
+| `BR-20260430-243` | `single_file_handoff_polish_ready_for_review` | quickstart and handoff checker added; readiness check confirms required payload modules, excludes runtime/cache rows, compiles `pvdiag_single.py`, and runs self-test | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
