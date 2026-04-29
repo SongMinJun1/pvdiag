@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-206` | `mlpe_real_label_intake_runbook_manifest_resolution_ready_for_review` | BR-119 MLPE real-label intake runbook resolves reviewer label input from optional manifest or explicit CLI, records input source, forwards manifest provenance to BR-116/117, and keeps runbook/truth/threshold/engine approvals unchanged | Continue MLPE field-trial input manifest resolution with the next unresolved user-filled input dependency |
+| `BR-20260429-207` | `mlpe_truth_intake_preflight_review_manifest_resolution_ready_for_review` | BR-125 MLPE reviewed preflight validator resolves reviewed checklist input from optional manifest or explicit CLI, records input source, and keeps review validation buckets plus truth/threshold/engine approvals unchanged | Continue MLPE field-trial input manifest resolution with the next unresolved user-filled input dependency |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -206,6 +206,7 @@
 | `BR-20260429-204` | `mlpe_final_label_validator_manifest_resolution_ready_for_review` | BR-116 MLPE final-label validator resolves 1 volatile reviewer label input from optional manifest or explicit CLI and fails closed on missing manifest key; no label-validation bucket, truth-gate candidate, truth-intake, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-205` | `mlpe_label_to_truth_gate_manifest_resolution_ready_for_review` | BR-117 MLPE label-to-truth gate resolves 1 volatile reviewer label input from optional manifest or explicit CLI and fails closed on missing manifest key; no truth-gate bucket, truth candidate role, truth-intake, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-206` | `mlpe_real_label_intake_runbook_manifest_resolution_ready_for_review` | BR-119 MLPE real-label intake runbook resolves 1 volatile reviewer label input from optional manifest or explicit CLI, forwards manifest provenance to BR-116/117, and fails closed on missing manifest key; no runbook stage, truth-seed review candidate, truth-intake, threshold, engine, or operator-facing semantics changed | no |
+| `BR-20260429-207` | `mlpe_truth_intake_preflight_review_manifest_resolution_ready_for_review` | BR-125 MLPE reviewed preflight validator resolves 1 volatile reviewed-checklist input from optional manifest or explicit CLI and fails closed on missing manifest key; no review-validation bucket, future materialization precheck candidate, canonical truth, truth-intake, threshold, engine, or operator-facing semantics changed | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
