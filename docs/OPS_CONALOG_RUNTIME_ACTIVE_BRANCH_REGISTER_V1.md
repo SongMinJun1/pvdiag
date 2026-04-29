@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-219` | `static_artifact_reference_contract_gap_ready_for_review` | static artifact references are not fully contract-closed yet: 10 rows, 6 source files, contract closed 8, gap 2, explicit CLI rows 10, input-manifest/resolver rows 8, missing checks 4, rewrite/runtime semantic permission rows 0 | Patch the 2 static artifact contract gaps before any default rewrite |
+| `BR-20260429-220` | `static_artifact_reference_contract_closure_ready_for_review` | static artifact references are contract-closed: 10 rows, 6 source files, contract closed 10, gap 0, explicit CLI/input-manifest/resolver/default-retained rows 10, missing checks 0, rewrite/runtime semantic permission rows 0 | Move to remaining non-directory/non-artifact live-temp buckets only after this closure stays green |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -219,6 +219,7 @@
 | `BR-20260429-217` | `voltage_preserved_static_directory_contract_closure_ready_for_review` | closure audit confirms the voltage-preserved static directory lane is already manifest/explicit-input aware: 4/4 `--input-manifest`, 4/4 explicit CLI flags, 4/4 resolver rows, missing checks 0, bulk rewrite/runtime semantic permission rows 0 | no |
 | `BR-20260429-218` | `panel_day_engine_evidence_static_directory_contract_closure_ready_for_review` | closure audit confirms the panel-day evidence static directory lane is manifest/explicit-input aware: 20/20 `--input-manifest`, 20/20 explicit CLI flags, 20/20 resolver rows, missing checks 0, bulk rewrite/runtime semantic permission rows 0 | no |
 | `BR-20260429-219` | `static_artifact_reference_contract_gap_ready_for_review` | gap audit confirms static artifact references are not fully contract-closed: 10 artifact rows, 8 closed, 2 need input-manifest/resolver support, explicit CLI rows 10, missing checks 4, bulk rewrite/runtime semantic permission rows 0 | no |
+| `BR-20260429-220` | `static_artifact_reference_contract_closure_ready_for_review` | closes the 2 BR-219 static artifact contract gaps by adding optional input-manifest/resolver support; closure audit now reports 10/10 closed, missing checks 0, bulk rewrite/runtime semantic permission rows 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

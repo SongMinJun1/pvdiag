@@ -12,9 +12,9 @@ import pandas as pd
 
 EXPECTED_ROWS = 10
 EXPECTED_SOURCE_FILES = 6
-EXPECTED_CLOSED_ROWS = 8
-EXPECTED_GAP_ROWS = 2
-EXPECTED_MISSING_CHECKS = 4
+EXPECTED_CLOSED_ROWS = 10
+EXPECTED_GAP_ROWS = 0
+EXPECTED_MISSING_CHECKS = 0
 
 
 def assert_true(condition: bool, message: object) -> None:
@@ -65,16 +65,16 @@ def main() -> None:
         assert_true(payload["runtime_semantic_change_allowed_rows"] == 0, payload)
         assert_true(payload["bulk_rewrite_allowed_rows"] == 0, payload)
         assert_true(payload["missing_check_count"] == EXPECTED_MISSING_CHECKS, payload)
-        assert_true(payload["contract_complete"] == 0, payload)
+        assert_true(payload["contract_complete"] == 1, payload)
         assert_true(len(detail) == EXPECTED_ROWS, detail.to_dict("records"))
-        assert_true(set(detail["contract_status"]) == {"closed", "needs_patch"}, detail.to_dict("records"))
+        assert_true(set(detail["contract_status"]) == {"closed"}, detail.to_dict("records"))
         assert_true(int(detail["contract_status"].eq("needs_patch").sum()) == EXPECTED_GAP_ROWS, detail)
         assert_true(
             payload["static_artifact_rows"]
             == int(summary[summary["key"].eq("static_artifact_rows")]["count"].iloc[0]),
             payload,
         )
-        assert_true("not fully contract-closed" in note, note)
+        assert_true("fully contract-closed" in note, note)
 
     print("smoke ok: static_artifact_reference_contract_gap_v1")
 

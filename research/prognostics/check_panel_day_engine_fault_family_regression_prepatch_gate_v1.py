@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -70,6 +73,7 @@ def parse_args() -> argparse.Namespace:
             "algorithm patch discussion."
         )
     )
+    parser.add_argument("--input-manifest", default=None)
     parser.add_argument("--packet-input", type=Path, default=DEFAULT_PACKET_INPUT)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
@@ -78,6 +82,61 @@ def parse_args() -> argparse.Namespace:
         help="Write gate outputs but return success even when required gates fail.",
     )
     return parser.parse_args()
+
+
+def resolve_path(base_root: Path, path_value: str | Path) -> Path:
+    path = Path(path_value)
+    return path if path.is_absolute() else base_root / path
+
+
+def load_input_manifest(base_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(base_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_chain_input(
+    base_root: Path,
+    cli_value: str | Path,
+    legacy_default: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    cli_flag: str,
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if cli_flag in explicit_flags:
+        return resolve_path(base_root, cli_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise KeyError(
+                f"panel-day prepatch input manifest is missing `{manifest_key}`; "
+                f"pass {cli_flag} explicitly or add inputs.{manifest_key}"
+            )
+        return resolve_path(base_root, manifest_value), "input_manifest"
+    return resolve_path(base_root, legacy_default), "legacy_default"
 
 
 def normalize_text(value: object) -> str:
@@ -302,8 +361,22 @@ def build_summary(detail: pd.DataFrame, packet: pd.DataFrame) -> pd.DataFrame:
 def main() -> None:
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    packet_exists = args.packet_input.exists()
-    packet, missing_cols = read_packet(args.packet_input)
+    base_root = Path.cwd()
+    _, input_manifest = load_input_manifest(base_root, args.input_manifest)
+    explicit_flags = {
+        flag for flag in ["--packet-input"] if cli_flag_provided(flag, sys.argv[1:])
+    }
+    packet_path, _ = resolve_chain_input(
+        base_root,
+        args.packet_input,
+        DEFAULT_PACKET_INPUT,
+        input_manifest,
+        "packet_input",
+        "--packet-input",
+        explicit_flags,
+    )
+    packet_exists = packet_path.exists()
+    packet, missing_cols = read_packet(packet_path)
     detail = build_detail(packet, missing_cols, packet_exists)
     summary = build_summary(detail, packet)
     detail.to_csv(args.output_dir / DETAIL_OUTPUT_NAME, index=False, encoding="utf-8-sig")

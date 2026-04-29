@@ -85,6 +85,59 @@ EXPECTED_CONTRACTS = {
     ): (["packet_input"], ["--packet-input"]),
 }
 
+EXPECTED_CONTRACTS_BY_FILE_TEXT = {
+    (
+        "research/prognostics/build_panel_day_engine_exact_family_closure_readiness_review_v1.py",
+        "/private/tmp/local_morphology_exact_seed_search_check/"
+        "panel_day_engine_local_morphology_exact_seed_search_v1.csv",
+    ): (["local_morphology_input"], ["--local-morphology-input"]),
+    (
+        "research/prognostics/build_panel_day_engine_exact_family_closure_readiness_review_v1.py",
+        "/private/tmp/no_report_heuristic_gap_review_check/"
+        "panel_day_engine_no_report_heuristic_gap_review_v1.csv",
+    ): (["gap_review_input"], ["--gap-review-input"]),
+    (
+        "research/prognostics/build_panel_day_engine_exact_family_closure_readiness_review_v1.py",
+        "/private/tmp/non_fault_morphology_observation_sidecar_check/"
+        "panel_day_engine_non_fault_morphology_observation_sidecar_v1.csv",
+    ): (["observation_sidecar_input"], ["--observation-sidecar-input"]),
+    (
+        "research/prognostics/build_panel_day_engine_fault_family_regression_pressure_packet_v1.py",
+        "/private/tmp/exact_family_closure_readiness_review_check/"
+        "panel_day_engine_exact_family_closure_readiness_review_v1.csv",
+    ): (["readiness_input"], ["--readiness-input"]),
+    (
+        "research/prognostics/build_panel_day_engine_non_fault_morphology_observation_sidecar_v1.py",
+        "/private/tmp/no_report_heuristic_gap_review_check/"
+        "panel_day_engine_no_report_heuristic_gap_review_v1.csv",
+    ): (["gap_review_input"], ["--gap-review-input"]),
+    (
+        "research/prognostics/check_panel_day_engine_algorithm_prepatch_runbook_v1.py",
+        "/private/tmp/fault_family_regression_pressure_packet_check/"
+        "panel_day_engine_fault_family_regression_pressure_packet_v1.csv",
+    ): (["packet_input"], ["--packet-input"]),
+    (
+        "research/prognostics/check_panel_day_engine_algorithm_prepatch_runbook_v1.py",
+        "/private/tmp/common_cause_exact_seed_search_check/"
+        "panel_day_engine_common_cause_exact_seed_search_v1.csv",
+    ): (["common_cause_exact_search_input"], ["--common-cause-exact-search-input"]),
+    (
+        "research/prognostics/check_panel_day_engine_algorithm_prepatch_runbook_v1.py",
+        "/private/tmp/common_cause_manual_trace_review_check/"
+        "panel_day_engine_common_cause_manual_trace_review_v1.csv",
+    ): (["common_cause_trace_input"], ["--common-cause-trace-input"]),
+    (
+        "research/prognostics/check_panel_day_engine_common_cause_semantic_prepatch_gate_v1.py",
+        "/private/tmp/common_cause_exact_seed_search_check/"
+        "panel_day_engine_common_cause_exact_seed_search_v1.csv",
+    ): (["exact_search_input"], ["--exact-search-input"]),
+    (
+        "research/prognostics/check_panel_day_engine_fault_family_regression_prepatch_gate_v1.py",
+        "/private/tmp/fault_family_regression_pressure_packet_check/"
+        "panel_day_engine_fault_family_regression_pressure_packet_v1.csv",
+    ): (["packet_input"], ["--packet-input"]),
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -127,9 +180,11 @@ def build_gap(repo_root: Path, max_file_bytes: int) -> list[dict[str, object]]:
     for idx, row in enumerate(artifact_rows, start=1):
         source_file = str(row["source_file"])
         line_no = int(row["line_no"])
-        expected_manifest_keys, explicit_cli_flags = EXPECTED_CONTRACTS.get(
-            (source_file, line_no),
-            ([], []),
+        matched_text = str(row["matched_text"])
+        expected_manifest_keys, explicit_cli_flags = (
+            EXPECTED_CONTRACTS.get((source_file, line_no))
+            or EXPECTED_CONTRACTS_BY_FILE_TEXT.get((source_file, matched_text))
+            or ([], [])
         )
         source_text = read_source(repo_root, source_file)
         checks: list[str] = []
@@ -161,7 +216,7 @@ def build_gap(repo_root: Path, max_file_bytes: int) -> list[dict[str, object]]:
                 "contract_id": f"BR219-{idx:03d}",
                 "source_file": source_file,
                 "line_no": line_no,
-                "matched_text": str(row["matched_text"]),
+                "matched_text": matched_text,
                 "workflow_lane": str(row["workflow_lane"]),
                 "expected_manifest_keys": "|".join(expected_manifest_keys),
                 "explicit_cli_flags": "|".join(explicit_cli_flags),
