@@ -53,6 +53,7 @@ pvdiag_single.py
 
 quickstart, manifest, checker, runtime pack은 내부 검증용입니다.
 교수님께 전달하는 파일은 export된 `pvdiag_single.py` 한 개입니다.
+전달 전 내부 체크리스트는 `PVDIAG_SINGLE_DELIVERY_CHECKLIST.md`, checksum snapshot은 `pvdiag_single_delivery_snapshot_v1.json`입니다.
 
 ## 명시 실행
 
@@ -89,6 +90,12 @@ pvdiag_single_run.log
 
 ```bash
 python pvdiag_single.py --single-self-test
+```
+
+repo 안에서 전체 전달 closeout을 다시 확인하려면 아래를 실행합니다.
+
+```bash
+python tools/check_pvdiag_single_delivery_closeout.py --export-output-dir /tmp/pvdiag_single_closeout --clean-output-dir
 ```
 
 ## 주의
