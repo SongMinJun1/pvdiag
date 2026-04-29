@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-187` | `fault_family_regression_pressure_manifest_resolution_ready_for_review` | BR-058 fault-family regression pressure packet resolves BR-057 exact-family closure readiness input from optional manifest or explicit CLI, records input source, and keeps regression/patch boundaries unchanged | Continue evidence-lane manifest resolution with the next single-row evidence consumer |
+| `BR-20260429-188` | `local_morphology_shape_manifest_resolution_ready_for_review` | BR-065 local morphology family-shape review resolves BR-064 judgment packet input from optional manifest or explicit CLI, records input source, and keeps shape/patch boundaries unchanged | Continue evidence-lane manifest resolution with the next downstream single-row evidence consumer |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -187,6 +187,7 @@
 | `BR-20260429-185` | `physical_evidence_request_manifest_resolution_ready_for_review` | BR-070 physical evidence request packet resolves 2 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no request priority/status/bundle, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-186` | `subtype_threshold_replay_manifest_resolution_ready_for_review` | BR-090 subtype-threshold replay pilot resolves 2 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no replay rules, pilot decisions, threshold tuning approval, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-187` | `fault_family_regression_pressure_manifest_resolution_ready_for_review` | BR-058 fault-family regression pressure packet resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest keys; no packet bucket, regression assertion, threshold, engine, or operator-facing semantics changed | no |
+| `BR-20260429-188` | `local_morphology_shape_manifest_resolution_ready_for_review` | BR-065 local morphology family-shape review resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest keys; no family-shape bucket, morphology metric, threshold, engine, or operator-facing semantics changed | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
