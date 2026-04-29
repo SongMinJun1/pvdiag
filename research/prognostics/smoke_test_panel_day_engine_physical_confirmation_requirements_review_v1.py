@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 from pathlib import Path
@@ -94,6 +95,89 @@ def main() -> None:
         assert_true("direct_physical_measurement" in str(gap["required_next_evidence"]), gap)
         assert_true(len(summary) == 2, f"unexpected summary rows: {len(summary)}")
         assert_true("threshold patch allowed sum: `0`" in note, "note missing threshold guardrail")
+        assert_true("evidence input manifest: `not provided`" in note, "note missing no-manifest marker")
+        assert_true("`raw_review_input`: `explicit_cli`" in note, "note missing explicit raw review source")
+
+        manifest = root / "physical_confirmation_inputs.json"
+        manifest.write_text(
+            json.dumps({"inputs": {"raw_review_input": str(raw_review)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_cmd = [
+            "python3",
+            str(script),
+            "--input-manifest",
+            str(manifest),
+            "--manual-evidence-input",
+            str(manual),
+            "--output-dir",
+            str(manifest_out),
+        ]
+        manifest_result = subprocess.run(manifest_cmd, cwd=repo_root, text=True, capture_output=True)
+        assert_true(
+            manifest_result.returncode == 0,
+            f"manifest builder failed:\nSTDOUT={manifest_result.stdout}\nSTDERR={manifest_result.stderr}",
+        )
+        manifest_detail = pd.read_csv(manifest_out / DETAIL_NAME, low_memory=False)
+        manifest_note = (manifest_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true(
+            manifest_detail["confirmation_bucket"].tolist()
+            == detail["confirmation_bucket"].tolist(),
+            "manifest buckets drifted",
+        )
+        assert_true(f"evidence input manifest: `{manifest}`" in manifest_note, "note missing manifest path")
+        assert_true("`raw_review_input`: `input_manifest`" in manifest_note, "note missing manifest raw review source")
+
+        bad_manifest = root / "bad_physical_confirmation_inputs.json"
+        bad_manifest.write_text(
+            json.dumps(
+                {"inputs": {"raw_review_input": str(root / "missing_raw_review.csv")}},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_cmd = [
+            "python3",
+            str(script),
+            "--raw-review-input",
+            str(raw_review),
+            "--manual-evidence-input",
+            str(manual),
+            "--input-manifest",
+            str(bad_manifest),
+            "--output-dir",
+            str(override_out),
+        ]
+        override_result = subprocess.run(override_cmd, cwd=repo_root, text=True, capture_output=True)
+        assert_true(
+            override_result.returncode == 0,
+            f"override builder failed:\nSTDOUT={override_result.stdout}\nSTDERR={override_result.stderr}",
+        )
+        override_note = (override_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true("`raw_review_input`: `explicit_cli`" in override_note, "override raw review source drifted")
+
+        missing_key_manifest = root / "missing_key_physical_confirmation_inputs.json"
+        missing_key_manifest.write_text(json.dumps({"inputs": {}}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        missing_key_cmd = [
+            "python3",
+            str(script),
+            "--input-manifest",
+            str(missing_key_manifest),
+            "--manual-evidence-input",
+            str(manual),
+            "--output-dir",
+            str(root / "missing_key_out"),
+        ]
+        missing_key_result = subprocess.run(missing_key_cmd, cwd=repo_root, text=True, capture_output=True)
+        assert_true(missing_key_result.returncode != 0, "missing-key manifest unexpectedly passed")
+        assert_true(
+            "missing `raw_review_input`" in (missing_key_result.stderr + missing_key_result.stdout),
+            missing_key_result.stderr + missing_key_result.stdout,
+        )
     print("smoke ok: panel_day_engine_physical_confirmation_requirements_review_v1")
 
 

@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-190` | `raw_waveform_manifest_resolution_ready_for_review` | BR-068 raw waveform physical-support review resolves BR-067 review input from optional manifest or explicit CLI, records input source, and keeps raw waveform support/patch boundaries unchanged | Continue evidence-lane manifest resolution with the next downstream single-row evidence consumer |
+| `BR-20260429-191` | `physical_confirmation_manifest_resolution_ready_for_review` | BR-069 physical confirmation requirements review resolves BR-068 raw review input from optional manifest or explicit CLI, records input source, and keeps confirmation/threshold/patch boundaries unchanged | Continue evidence-lane manifest resolution with the next unresolved `/private/tmp` input dependency |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -190,6 +190,7 @@
 | `BR-20260429-188` | `local_morphology_shape_manifest_resolution_ready_for_review` | BR-065 local morphology family-shape review resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest keys; no family-shape bucket, morphology metric, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-189` | `voltage_artifact_manifest_resolution_ready_for_review` | BR-067 voltage-dominant physical-vs-artifact review resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest keys; no physical/artifact bucket, peer/reference metric, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-190` | `raw_waveform_manifest_resolution_ready_for_review` | BR-068 raw waveform physical-support review resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest keys; no raw waveform support bucket, score, raw ratio metric, threshold, engine, or operator-facing semantics changed | no |
+| `BR-20260429-191` | `physical_confirmation_manifest_resolution_ready_for_review` | BR-069 physical confirmation requirements review resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest keys; no confirmation bucket, readiness, axis matching, threshold, engine, or operator-facing semantics changed | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
