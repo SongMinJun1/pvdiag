@@ -241,6 +241,18 @@ def main() -> None:
         assert_true(payload["positive_truth_candidate_approved_sum"] == 0, payload)
         assert_true(payload["threshold_tuning_approved_sum"] == 0, payload)
 
+        artifact_payload = json.loads(
+            (out_dir / "panel_day_engine_voltage_preserved_positive_search_v1.json").read_text(encoding="utf-8")
+        )
+        note = (out_dir / "panel_day_engine_voltage_preserved_positive_search_note_v1.md").read_text(
+            encoding="utf-8"
+        )
+        assert_true(artifact_payload["input_resolution_sources"]["shape_input"] == "explicit_cli", artifact_payload)
+        assert_true(artifact_payload["input_resolution_sources"]["hold_input"] == "explicit_cli", artifact_payload)
+        assert_true("evidence input manifest: `not provided`" in note, note)
+        assert_true("`shape_input`: `explicit_cli`" in note, note)
+        assert_true("`hold_input`: `explicit_cli`" in note, note)
+
         candidates = pd.read_csv(out_dir / "panel_day_engine_voltage_preserved_positive_search_candidates_v1.csv")
         summary = pd.read_csv(out_dir / "panel_day_engine_voltage_preserved_positive_search_summary_v1.csv")
         assert_true(set(candidates["known_review_role"]) == {
@@ -252,6 +264,133 @@ def main() -> None:
         assert_true(int(candidates["manual_review_ready"].sum()) == 1, candidates)
         assert_true("block_known_negative_counterexample_overlap" in set(candidates["truth_search_action"]), candidates)
         assert_true(len(summary) == 3, summary)
+
+        manifest_path = tmp_root / "voltage_preserved_inputs.json"
+        manifest_path.write_text(
+            json.dumps(
+                {"inputs": {"shape_input": str(shape_input), "hold_input": str(hold_input)}},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = tmp_root / "manifest_out"
+        manifest = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_voltage_preserved_positive_search_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--input-manifest",
+                str(manifest_path),
+                "--data-root",
+                str(data_root),
+                "--sites",
+                "fixture",
+                "--output-dir",
+                str(manifest_out),
+            ],
+            repo_root,
+        )
+        assert_true(manifest.returncode == 0, manifest.stderr or manifest.stdout)
+        manifest_candidates = pd.read_csv(
+            manifest_out / "panel_day_engine_voltage_preserved_positive_search_candidates_v1.csv",
+            encoding="utf-8-sig",
+        )
+        manifest_payload = json.loads(
+            (manifest_out / "panel_day_engine_voltage_preserved_positive_search_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        manifest_note = (
+            manifest_out / "panel_day_engine_voltage_preserved_positive_search_note_v1.md"
+        ).read_text(encoding="utf-8")
+        assert_true(manifest_payload["candidate_rows"] == payload["candidate_rows"], manifest_payload)
+        assert_true(
+            manifest_candidates["known_review_role"].tolist() == candidates["known_review_role"].tolist(),
+            manifest_candidates.to_string(),
+        )
+        assert_true(
+            manifest_candidates["truth_search_action"].tolist() == candidates["truth_search_action"].tolist(),
+            manifest_candidates.to_string(),
+        )
+        assert_true(manifest_payload["input_resolution_sources"]["shape_input"] == "input_manifest", manifest_payload)
+        assert_true(manifest_payload["input_resolution_sources"]["hold_input"] == "input_manifest", manifest_payload)
+        assert_true(f"evidence input manifest: `{manifest_path}`" in manifest_note, manifest_note)
+        assert_true("`shape_input`: `input_manifest`" in manifest_note, manifest_note)
+        assert_true("`hold_input`: `input_manifest`" in manifest_note, manifest_note)
+
+        bad_manifest_path = tmp_root / "bad_voltage_preserved_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "shape_input": str(tmp_root / "missing_shape.csv"),
+                        "hold_input": str(tmp_root / "missing_hold.csv"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = tmp_root / "override_out"
+        override = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_voltage_preserved_positive_search_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--shape-input",
+                str(shape_input),
+                "--hold-input",
+                str(hold_input),
+                "--input-manifest",
+                str(bad_manifest_path),
+                "--data-root",
+                str(data_root),
+                "--sites",
+                "fixture",
+                "--output-dir",
+                str(override_out),
+            ],
+            repo_root,
+        )
+        assert_true(override.returncode == 0, override.stderr or override.stdout)
+        override_payload = json.loads(
+            (override_out / "panel_day_engine_voltage_preserved_positive_search_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert_true(override_payload["input_resolution_sources"]["shape_input"] == "explicit_cli", override_payload)
+        assert_true(override_payload["input_resolution_sources"]["hold_input"] == "explicit_cli", override_payload)
+
+        missing_key_manifest_path = tmp_root / "missing_key_voltage_preserved_inputs.json"
+        missing_key_manifest_path.write_text(
+            json.dumps({"inputs": {"shape_input": str(shape_input)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        missing_key = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_voltage_preserved_positive_search_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--input-manifest",
+                str(missing_key_manifest_path),
+                "--data-root",
+                str(data_root),
+                "--sites",
+                "fixture",
+                "--output-dir",
+                str(tmp_root / "missing_key_out"),
+            ],
+            repo_root,
+        )
+        assert_true(missing_key.returncode != 0, "missing-key manifest unexpectedly passed")
+        assert_true("missing `hold_input`" in (missing_key.stderr + missing_key.stdout), missing_key.stderr)
         print(json.dumps({"smoke": "ok", "candidate_rows": int(len(candidates))}, ensure_ascii=False))
 
 
