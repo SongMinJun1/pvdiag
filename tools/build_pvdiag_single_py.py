@@ -85,6 +85,9 @@ PAYLOAD_STRUCTURE_NOTE = (
 
 __PAYLOAD_FILE_INDEX__
 
+EMBEDDED_TEXT_FILES: dict[str, str] = {}
+EMBEDDED_FILE_SHA256: dict[str, str] = {}
+
 REQUIRED_MODULES = {
     "pandas": "pandas",
     "numpy": "numpy",
@@ -175,6 +178,63 @@ def resolve_output_root(value: Path | None) -> Path:
         output_root = script_dir() / "pvdiag_results" / f"run_{stamp}"
     output_root.mkdir(parents=True, exist_ok=True)
     return output_root
+
+
+def single_source_path() -> Path:
+    try:
+        return Path(__file__).resolve()
+    except NameError:
+        return Path(sys.argv[0]).resolve()
+
+
+def load_embedded_payload_from_source() -> tuple[dict[str, str], dict[str, str]]:
+    source = single_source_path()
+    try:
+        source_lines = source.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise SystemExit(f"could not read generated single-file source: {source}") from exc
+
+    start_prefix = "# pvdiag_payload_file "
+    line_prefix = "#|"
+    payload: dict[str, str] = {}
+    hashes: dict[str, str] = {}
+    current_meta: dict[str, object] | None = None
+    current_lines: list[str] = []
+
+    for line_no, line in enumerate(source_lines, start=1):
+        if line.startswith(start_prefix):
+            if current_meta is not None:
+                raise SystemExit(f"nested embedded payload block at line {line_no}")
+            try:
+                current_meta = json.loads(line[len(start_prefix) :])
+            except json.JSONDecodeError as exc:
+                raise SystemExit(f"invalid embedded payload metadata at line {line_no}") from exc
+            current_lines = []
+            continue
+        if line == "# pvdiag_payload_end":
+            if current_meta is None:
+                raise SystemExit(f"embedded payload end without start at line {line_no}")
+            path = str(current_meta.get("path", ""))
+            if not path:
+                raise SystemExit(f"embedded payload metadata missing path before line {line_no}")
+            text = "\n".join(current_lines)
+            if bool(current_meta.get("endswith_newline", False)):
+                text += "\n"
+            payload[path] = text
+            hashes[path] = str(current_meta.get("sha256", ""))
+            current_meta = None
+            current_lines = []
+            continue
+        if current_meta is not None:
+            if not line.startswith(line_prefix):
+                raise SystemExit(f"embedded payload source line missing '#|' prefix at line {line_no}")
+            current_lines.append(line[len(line_prefix) :])
+
+    if current_meta is not None:
+        raise SystemExit("unterminated embedded payload block")
+    if not payload:
+        raise SystemExit("generated single-file source does not contain readable embedded payload blocks")
+    return payload, hashes
 
 
 def embedded_payload_bytes() -> bytes:
@@ -371,6 +431,9 @@ def main(argv: list[str] | None = None) -> int:
 __EMBEDDED_PAYLOAD_REGION__
 
 
+EMBEDDED_TEXT_FILES, EMBEDDED_FILE_SHA256 = load_embedded_payload_from_source()
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
 '''
@@ -436,37 +499,39 @@ def payload_bytes_for_digest(payload: dict[str, str]) -> bytes:
     )
 
 
-def render_embedded_text_json_chunks(payload: dict[str, str]) -> list[str]:
-    json_text = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    chunk_size = 8_000
-    rows = ["EMBEDDED_TEXT_JSON_CHUNKS = ("]
-    for index in range(0, len(json_text), chunk_size):
-        rows.append(f"    {json_text[index:index + chunk_size]!r},")
-    rows.append(")")
-    return rows
-
-
-def render_embedded_file_sha256(payload: dict[str, str]) -> str:
-    rows = ["EMBEDDED_FILE_SHA256 = {"]
-    for path, text in sorted(payload.items()):
-        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
-        rows.append(f"    {path!r}: {digest!r},")
-    rows.append("}")
-    return "\n".join(rows)
-
-
 def render_embedded_payload_region(payload: dict[str, str]) -> str:
     rows = [
-        "# region Embedded source payload (auto-generated; collapse this block in VS Code)",
-        "# This generated block contains the 11-file source-text runtime payload.",
-        "# Use --single-list-payload to inspect roles or --single-extract-source DIR to unpack readable files.",
-        *render_embedded_text_json_chunks(payload),
-        "",
-        "EMBEDDED_TEXT_FILES = json.loads(\"\".join(EMBEDDED_TEXT_JSON_CHUNKS))",
-        "",
-        render_embedded_file_sha256(payload),
-        "# endregion",
+        "# region Embedded readable source payload (auto-generated; collapse this block in VS Code)",
+        "# The lines below are the original payload files, stored as readable comments.",
+        "# Each '#|' line becomes one source line when pvdiag_single.py restores the runtime.",
+        "# Use --single-list-payload to inspect roles or --single-extract-source DIR to unpack normal files.",
     ]
+    for row in payload_index_rows(payload):
+        path = str(row["path"])
+        text = payload[path]
+        metadata = {
+            **row,
+            "endswith_newline": text.endswith("\n"),
+        }
+        rows.extend(
+            [
+                "# -----------------------------------------------------------------------------",
+                f"# region payload: {row['role']}",
+                "# pvdiag_payload_file "
+                + json.dumps(metadata, ensure_ascii=False, sort_keys=True, separators=(", ", ": ")),
+            ]
+        )
+        for source_line in text.splitlines():
+            rows.append("#|" + source_line)
+        rows.extend(
+            [
+                "# pvdiag_payload_end",
+                "# endregion",
+            ]
+        )
+    rows.append(
+        "# endregion",
+    )
     return "\n".join(rows)
 
 
@@ -566,7 +631,7 @@ def write_manifest(path: Path, repo_root: Path, files: list[Path], payload: dict
         "generated_by": "tools/build_pvdiag_single_py.py",
         "delivery_artifact": DEFAULT_OUTPUT.as_posix(),
         "payload_mode": "source_text",
-        "payload_container": "json_chunks",
+        "payload_container": "readable_comment_blocks",
         "payload_file_count": len(files),
         "payload_text_bytes": len(payload_bytes),
         "payload_text_sha256": hashlib.sha256(payload_bytes).hexdigest(),
@@ -597,7 +662,7 @@ def main() -> None:
                 "output": str(output),
                 "manifest": str(manifest_output),
                 "payload_mode": "source_text",
-                "payload_container": "json_chunks",
+                "payload_container": "readable_comment_blocks",
                 "payload_file_count": len(files),
                 "payload_text_bytes": len(payload_bytes),
                 "single_file_bytes": output.stat().st_size,

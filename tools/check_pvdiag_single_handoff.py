@@ -80,13 +80,13 @@ def main() -> None:
         fail("manifest still includes single-file excluded payload paths:\n" + "\n".join(unexpected))
     if payload.get("payload_mode") != "source_text":
         fail(f"unexpected payload mode: {payload.get('payload_mode')}")
-    if payload.get("payload_container") != "json_chunks":
+    if payload.get("payload_container") != "readable_comment_blocks":
         fail(f"unexpected payload container: {payload.get('payload_container')}")
     runtime_rows = sorted(path for path in files if "/runtime/windows_x64/" in path or path.endswith(".pyc"))
     if runtime_rows:
         fail("single payload contains excluded runtime/cache rows:\n" + "\n".join(runtime_rows[:20]))
     single_line_count = len(single_text.splitlines())
-    if single_line_count > 1_000:
+    if single_line_count > 15_000:
         fail(f"single-file artifact is too line-heavy: {single_line_count} lines")
     if int(payload.get("payload_text_bytes", 0)) > 8_000_000:
         fail(f"payload too large: {payload.get('payload_text_bytes')}")
@@ -96,12 +96,16 @@ def main() -> None:
         )
     if "PAYLOAD_B64" in single_text or "import base64" in single_text or "import zipfile" in single_text:
         fail("single-file artifact still contains the old base64/zip payload path")
-    if "EMBEDDED_TEXT_JSON_CHUNKS" not in single_text or "PAYLOAD_MODE = \"source_text\"" not in single_text:
-        fail("single-file artifact does not expose the source-text payload markers")
+    if "EMBEDDED_TEXT_JSON_CHUNKS" in single_text:
+        fail("single-file artifact still uses compressed JSON chunk payload")
+    if "# pvdiag_payload_file " not in single_text or "#|" not in single_text:
+        fail("single-file artifact does not expose readable source payload blocks")
+    if "PAYLOAD_MODE = \"source_text\"" not in single_text:
+        fail("single-file artifact does not expose the source-text payload mode marker")
     if "PAYLOAD_FILE_INDEX" not in single_text or "PAYLOAD_STRUCTURE_NOTE" not in single_text:
         fail("single-file artifact does not expose the visible payload structure index")
-    if "# region Embedded source payload" not in single_text or "# endregion" not in single_text:
-        fail("single-file artifact does not wrap the payload blob in a foldable editor region")
+    if "# region Embedded readable source payload" not in single_text or "# endregion" not in single_text:
+        fail("single-file artifact does not wrap the readable payload in a foldable editor region")
 
     compile_proc = subprocess.run(
         [sys.executable, "-m", "py_compile", str(single)],
@@ -169,7 +173,7 @@ def main() -> None:
                 "payload_text_bytes": int(payload.get("payload_text_bytes", 0)),
                 "single_line_count": single_line_count,
                 "visible_payload_index": int("PAYLOAD_FILE_INDEX" in single_text),
-                "foldable_payload_region": int("# region Embedded source payload" in single_text),
+                "foldable_payload_region": int("# region Embedded readable source payload" in single_text),
                 "excluded_runtime_windows_x64": bool(payload.get("excluded_runtime_windows_x64")),
                 "self_test_ran": int(not args.skip_self_test),
                 "payload_list_ran": int(not args.skip_self_test),

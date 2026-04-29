@@ -1,9 +1,9 @@
 {
-  "generated_at_utc": "2026-04-29T18:56:09.300728+00:00",
+  "generated_at_utc": "2026-04-29T19:27:17.880496+00:00",
   "generated_by": "tools/build_pvdiag_single_py.py",
   "delivery_artifact": "release/conalog_full_runtime_v1/pvdiag_single.py",
   "payload_mode": "source_text",
-  "payload_container": "json_chunks",
+  "payload_container": "readable_comment_blocks",
   "payload_file_count": 11,
   "payload_text_bytes": 422550,
   "payload_text_sha256": "2a8d406edeff59ba839e5efd8e8cb593993f09b4fab68c6199d662c5885fabfb",

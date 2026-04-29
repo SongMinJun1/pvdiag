@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260430-254` | `single_file_payload_folding_ready_for_review` | moves the bulky `EMBEDDED_TEXT_JSON_CHUNKS` blob below the executable body and wraps it in `# region Embedded source payload` so VS Code users can fold it while keeping payload index/list/extract UX | Delivery file stays compact and inspectable without letting the payload wall dominate the top-level code view |
+| `BR-20260430-255` | `single_file_readable_payload_ready_for_review` | replaces the compact JSON chunk payload with readable `# pvdiag_payload_file` metadata and `#|` source comment blocks while keeping payload index/list/extract UX | Delivery file becomes longer but professor-facing inspection is direct, not hidden behind a compressed-looking blob |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -254,6 +254,7 @@
 | `BR-20260430-252` | `single_file_line_diet_ready_for_review` | source-text payload container switches from expanded per-line literals to JSON chunks; optional provenance/dependency sidecars and empty namespace markers are excluded after omit-audit, leaving 11 payload files, 339 lines, and 477767 bytes | no |
 | `BR-20260430-253` | `single_file_payload_transparency_ready_for_review` | generated file now has a visible 11-row payload role index and two no-dependency inspection commands: `--single-list-payload` and `--single-extract-source`; closeout verifies both | no |
 | `BR-20260430-254` | `single_file_payload_folding_ready_for_review` | generated file keeps the JSON chunk payload but moves it after the runnable body and wraps it in a VS Code foldable region; handoff/smoke require the fold markers | no |
+| `BR-20260430-255` | `single_file_readable_payload_ready_for_review` | generated file removes `EMBEDDED_TEXT_JSON_CHUNKS` and stores the 11-file source payload as readable comment blocks with exact SHA/byte validation and source extraction preserved | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

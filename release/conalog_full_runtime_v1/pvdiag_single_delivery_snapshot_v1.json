@@ -1,22 +1,22 @@
 {
   "snapshot_schema": "pvdiag_single_delivery_snapshot_v1",
-  "release_id": "pvdiag_single_br254_payload_folding_20260430",
+  "release_id": "pvdiag_single_br255_readable_payload_20260430",
   "professor_deliverable_file_count": 1,
   "professor_deliverable_files": [
     "pvdiag_single.py"
   ],
   "single_file": {
     "path": "release/conalog_full_runtime_v1/pvdiag_single.py",
-    "bytes": 482999,
-    "line_count": 404,
-    "sha256": "7cf0af0d5232021648ad06b20ec98e48c9de2d82596cc8189fa86319b7a9166f"
+    "bytes": 463602,
+    "line_count": 9975,
+    "sha256": "8a45f03153afae60ec741b957ed386cb9b33cedb4ff894c6ccddbae52513c7e1"
   },
   "embedded_payload": {
     "payload_mode": "source_text",
-    "payload_container": "json_chunks",
+    "payload_container": "readable_comment_blocks",
     "payload_file_count": 11,
     "payload_text_bytes": 422550,
-    "generated_at_utc": "2026-04-29T18:56:09.300728+00:00",
+    "generated_at_utc": "2026-04-29T19:27:17.880496+00:00",
     "excluded_runtime_windows_x64": true,
     "excluded_single_file_payload_rels": [
       "app/import_any_csv_root.py",
@@ -66,13 +66,14 @@
     "checksum_equality_check": 1,
     "exported_self_test_check": 1,
     "visible_payload_index_check": 1,
+    "readable_payload_block_check": 1,
     "foldable_payload_region_check": 1,
     "source_extract_check": 1,
     "handoff_doc_snippet_check": 1,
     "failure_ux_smoke_check": 1,
     "algorithm_semantics_changed": 0,
     "source_text_payload_without_base64_zip": 1,
-    "source_text_payload_chunked": 1,
+    "source_text_payload_readable_comment_blocks": 1,
     "single_file_payload_trimmed": 1,
     "field_trial_csv_required_for_truth_label_evaluation": 1
   },
