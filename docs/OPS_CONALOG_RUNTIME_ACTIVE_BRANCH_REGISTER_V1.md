@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260430-240` | `path_portability_axis_closeout_decision_ready_for_review` | closeout decision marks path-portability closed as a current blocker: final cleanup PR required 0, closeout ready 1, current blocker rows 0, zero-literal cleanup claim 0 | Return to algorithm or field-trial readiness roadmap work unless a checkpoint row fails |
+| `BR-20260430-241` | `roadmap_reentry_after_portability_closeout_ready_for_review` | reentry confirms path-portability closed and MLPE/algorithm roadmap resumes: queue rows 23, open rows 0, BR-130 waiting real data 1, truth/threshold/engine/operator approvals 0 | Start BR-130 only when real KTC ESS capture CSV/labels are supplied; otherwise owner-scoped bookkeeping only |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -240,6 +240,7 @@
 | `BR-20260430-238` | `path_portability_final_rescan_ready_for_review` | broad final rescan reports current blocking path debt 0 and generated residual closure complete 1, while explicitly keeping zero-literal cleanup false because historical/provenance path text remains visible | no |
 | `BR-20260430-239` | `path_portability_cleanup_axis_checkpoint_ready_for_review` | checkpoint rows 10/10 pass, fail rows 0, current blocker rows 0, return to algorithm or field-trial readiness allowed 1, while zero-literal cleanup claim remains 0 | no |
 | `BR-20260430-240` | `path_portability_axis_closeout_decision_ready_for_review` | final cleanup PR required 0, closeout ready 1, status closed_as_current_blocker, next workstream allowed 1; remaining path literals stay owner-touch context | no |
+| `BR-20260430-241` | `roadmap_reentry_after_portability_closeout_ready_for_review` | roadmap reentry ready 1, path-portability closeout ready 1, queue rows 23, blocked rows 15, real capture required 1, truth/threshold/engine/operator approvals 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
