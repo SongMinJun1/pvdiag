@@ -47,6 +47,7 @@
 
 교수님 전달용으로 `pvdiag_single.py`를 생성할 수 있음.
 이 파일은 원본 모듈을 손으로 합친 파일이 아니라, `tools/build_pvdiag_single_py.py`가 `package/app`, `package/pv_ae`, `package/research`, 작은 `package/artifacts`를 zip/base64 payload로 묶어 만든 generated artifact임.
+짧은 전달용 사용법은 `PVDIAG_SINGLE_QUICKSTART.md`를 보면 됨.
 
 핵심 원칙은 아래와 같음.
 
@@ -81,6 +82,12 @@ python release/conalog_full_runtime_v1/pvdiag_single.py \
 python tools/compare_pvdiag_single_results.py \
   --modular-output-root /tmp/pvdiag_modular_check \
   --single-output-root /tmp/pvdiag_single_check
+```
+
+전달 직전 handoff check:
+
+```bash
+python tools/check_pvdiag_single_handoff.py
 ```
 
 `fault6_fixed_result_table_v1.csv`는 현재 frozen verdict와 heuristic을 그대로 묶어, integrated table과 동일한 front-facing 표시명으로 다시 적재한 6개 고장 패널 결과표임.
