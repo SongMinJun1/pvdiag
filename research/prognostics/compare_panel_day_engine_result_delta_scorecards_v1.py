@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -73,10 +76,65 @@ def parse_args() -> argparse.Namespace:
             "does not evaluate truth-label accuracy."
         )
     )
+    parser.add_argument("--input-manifest", type=Path, default=None)
     parser.add_argument("--baseline-scorecard-summary", type=Path, default=DEFAULT_SCORECARD_SUMMARY)
     parser.add_argument("--post-scorecard-summary", type=Path, default=DEFAULT_SCORECARD_SUMMARY)
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args()
+
+
+def resolve_path(repo_root: Path, value: str | Path) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_manifest_input(
+    repo_root: Path,
+    key: str,
+    flag: str,
+    arg_value: str | Path,
+    manifest: dict[str, Any],
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if flag in explicit_flags:
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, key)
+        if not manifest_value:
+            raise KeyError(
+                f"scorecard compare input manifest is missing `{key}`; "
+                f"pass {flag} explicitly or add inputs.{key}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def read_single_row(path: Path) -> pd.Series:
@@ -172,7 +230,11 @@ def numeric_delta(detail: pd.DataFrame, metric_name: str) -> float:
     return 0.0 if pd.isna(converted) else float(converted)
 
 
-def build_compare(args: argparse.Namespace) -> tuple[pd.DataFrame, pd.DataFrame, str]:
+def build_compare(
+    args: argparse.Namespace,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, str]:
     baseline = read_single_row(args.baseline_scorecard_summary)
     post = read_single_row(args.post_scorecard_summary)
     rows = []
@@ -227,11 +289,17 @@ def build_compare(args: argparse.Namespace) -> tuple[pd.DataFrame, pd.DataFrame,
         "next_required_action": next_action,
     }
     summary = pd.DataFrame([summary_row], columns=SUMMARY_COLS)
-    note = render_note(summary.iloc[0], detail)
+    note = render_note(summary.iloc[0], detail, input_manifest_path, input_resolution_sources)
     return detail, summary, note
 
 
-def render_note(summary: pd.Series, detail: pd.DataFrame) -> str:
+def render_note(
+    summary: pd.Series,
+    detail: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> str:
+    source_map = input_resolution_sources or {}
     lines = [
         "# panel_day_engine_result_delta_scorecard_compare_note_v1",
         "",
@@ -239,6 +307,13 @@ def render_note(summary: pd.Series, detail: pd.DataFrame) -> str:
         "- This compare artifact is audit-only.",
         "- It compares two result delta scorecard summaries.",
         "- It still does not claim accuracy/F1 improvement without truth-label evaluation.",
+        "",
+        "## Inputs",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
+        "",
+        "## Input Resolution Sources",
+        f"- `baseline_scorecard_summary`: `{source_map.get('baseline_scorecard_summary', 'legacy_default')}`",
+        f"- `post_scorecard_summary`: `{source_map.get('post_scorecard_summary', 'legacy_default')}`",
         "",
         "## Summary",
         f"- overall_status: `{summary['overall_status']}`",
@@ -266,8 +341,36 @@ def render_note(summary: pd.Series, detail: pd.DataFrame) -> str:
 
 def main() -> None:
     args = parse_args()
+    repo_root = Path(__file__).resolve().parents[2]
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in ["--baseline-scorecard-summary", "--post-scorecard-summary"]
+        if cli_flag_provided(flag, argv)
+    }
+    args.baseline_scorecard_summary, baseline_source = resolve_manifest_input(
+        repo_root,
+        "baseline_scorecard_summary",
+        "--baseline-scorecard-summary",
+        args.baseline_scorecard_summary,
+        input_manifest,
+        explicit_flags,
+    )
+    args.post_scorecard_summary, post_source = resolve_manifest_input(
+        repo_root,
+        "post_scorecard_summary",
+        "--post-scorecard-summary",
+        args.post_scorecard_summary,
+        input_manifest,
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "baseline_scorecard_summary": baseline_source,
+        "post_scorecard_summary": post_source,
+    }
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    detail, summary, note = build_compare(args)
+    detail, summary, note = build_compare(args, input_manifest_path, input_resolution_sources)
     detail.to_csv(args.output_dir / DETAIL_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(args.output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     (args.output_dir / NOTE_OUTPUT_NAME).write_text(note, encoding="utf-8")

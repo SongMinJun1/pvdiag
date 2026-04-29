@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -81,6 +83,7 @@ def parse_args() -> argparse.Namespace:
         )
     )
     parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--input-manifest", type=Path, default=None)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--packet-input", type=Path, default=DEFAULT_PACKET_INPUT)
     parser.add_argument(
@@ -111,6 +114,60 @@ def parse_args() -> argparse.Namespace:
         help="Write runbook outputs but return success even when a sub-gate fails.",
     )
     return parser.parse_args()
+
+
+def resolve_path(repo_root: Path, value: str | Path) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_manifest_input(
+    repo_root: Path,
+    key: str,
+    flag: str,
+    arg_value: str | Path,
+    manifest: dict[str, Any],
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if flag in explicit_flags:
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, key)
+        if not manifest_value:
+            raise KeyError(
+                f"prepatch runbook input manifest is missing `{key}`; "
+                f"pass {flag} explicitly or add inputs.{key}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def normalize_text(value: object) -> str:
@@ -314,6 +371,60 @@ def build_summary(
 
 def main() -> None:
     args = parse_args()
+    repo_root = args.repo_root.resolve()
+    _, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--packet-input",
+            "--common-cause-strong-blocker-input",
+            "--common-cause-exact-search-input",
+            "--common-cause-structural-input",
+            "--common-cause-trace-input",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    args.packet_input, _ = resolve_manifest_input(
+        repo_root,
+        "packet_input",
+        "--packet-input",
+        args.packet_input,
+        input_manifest,
+        explicit_flags,
+    )
+    args.common_cause_strong_blocker_input, _ = resolve_manifest_input(
+        repo_root,
+        "common_cause_strong_blocker_input",
+        "--common-cause-strong-blocker-input",
+        args.common_cause_strong_blocker_input,
+        input_manifest,
+        explicit_flags,
+    )
+    args.common_cause_exact_search_input, _ = resolve_manifest_input(
+        repo_root,
+        "common_cause_exact_search_input",
+        "--common-cause-exact-search-input",
+        args.common_cause_exact_search_input,
+        input_manifest,
+        explicit_flags,
+    )
+    args.common_cause_structural_input, _ = resolve_manifest_input(
+        repo_root,
+        "common_cause_structural_input",
+        "--common-cause-structural-input",
+        args.common_cause_structural_input,
+        input_manifest,
+        explicit_flags,
+    )
+    args.common_cause_trace_input, _ = resolve_manifest_input(
+        repo_root,
+        "common_cause_trace_input",
+        "--common-cause-trace-input",
+        args.common_cause_trace_input,
+        input_manifest,
+        explicit_flags,
+    )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     panel_dir = args.output_dir / "panel_engine_patch_safety_gate"
     fault_dir = args.output_dir / "fault_family_regression_prepatch_gate"

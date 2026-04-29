@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-215` | `prepatch_scorecard_static_directory_contract_gap_ready_for_review` | prepatch scorecard static directory references are split into closed vs gap rows: 4 rows, 3 source files, contract closed 0, gap 4, explicit CLI rows 4, input-manifest/resolver rows 0, rewrite/runtime semantic permission rows 0 | Patch the 4 prepatch scorecard contract gaps with input-manifest/resolver support before any default rewrite |
+| `BR-20260429-216` | `prepatch_scorecard_static_directory_contract_closure_ready_for_review` | prepatch scorecard static directory contract is closed: 4 rows, 3 source files, contract closed 4, gap 0, explicit CLI rows 4, input-manifest/resolver rows 4, rewrite/runtime semantic permission rows 0 | Move to the remaining voltage-preserved static directory lane only after preserving this closure smoke as a regression guard |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -215,6 +215,7 @@
 | `BR-20260429-213` | `common_cause_static_directory_contract_gap_ready_for_review` | gap audit confirms common-cause is not fully contract-closed: 8 directory rows, 3 closed, 5 need input-manifest/resolver support, explicit CLI rows 8, missing checks 10, bulk rewrite/runtime semantic permission rows 0 | no |
 | `BR-20260429-214` | `common_cause_static_directory_contract_closure_ready_for_review` | closes the 5 BR-213 common-cause input-contract gaps by adding optional `--input-manifest` resolver support to structural blocker, strong blocker, and semantic prepatch gate scripts; closure audit now reports 8/8 closed, missing checks 0, bulk rewrite/runtime semantic permission rows 0 | no |
 | `BR-20260429-215` | `prepatch_scorecard_static_directory_contract_gap_ready_for_review` | gap audit confirms prepatch scorecard is not contract-closed yet: 4 directory rows, 0 closed, 4 need input-manifest/resolver support, explicit CLI rows 4, missing checks 8, bulk rewrite/runtime semantic permission rows 0 | no |
+| `BR-20260429-216` | `prepatch_scorecard_static_directory_contract_closure_ready_for_review` | closes the 4 BR-215 prepatch scorecard input-contract gaps by adding optional `--input-manifest` resolver support to result delta scorecard, algorithm prepatch runbook, and scorecard compare scripts; closure audit now reports 4/4 closed, missing checks 0, bulk rewrite/runtime semantic permission rows 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

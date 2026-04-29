@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import tempfile
@@ -51,6 +52,22 @@ def assert_true(condition: bool, message: str) -> None:
         raise SystemExit(message)
 
 
+def write_input_manifest(path: Path, baseline: Path, post: Path) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "inputs": {
+                    "baseline_scorecard_summary": str(baseline),
+                    "post_scorecard_summary": str(post),
+                }
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     script = repo_root / "research" / "prognostics" / "compare_panel_day_engine_result_delta_scorecards_v1.py"
@@ -62,16 +79,18 @@ def main() -> None:
         write_summary(baseline)
         write_summary(post_same)
         write_summary(post_changed, raw_only_candidate_row_count=73, fault_panel_count=73)
+        neutral_manifest = root / "neutral_manifest.json"
+        changed_manifest = root / "changed_manifest.json"
+        write_input_manifest(neutral_manifest, baseline, post_same)
+        write_input_manifest(changed_manifest, baseline, post_changed)
 
         neutral_out = root / "neutral_out"
         neutral = run(
             [
                 sys.executable,
                 str(script),
-                "--baseline-scorecard-summary",
-                str(baseline),
-                "--post-scorecard-summary",
-                str(post_same),
+                "--input-manifest",
+                str(neutral_manifest),
                 "--output-dir",
                 str(neutral_out),
             ],
@@ -85,16 +104,16 @@ def main() -> None:
         assert_true(int(neutral_summary.iloc[0]["changed_metric_count"]) == 0, neutral_summary.to_string())
         assert_true(int(neutral_detail["changed_flag"].sum()) == 0, neutral_detail.to_string())
         assert_true("none" in neutral_note, neutral_note)
+        assert_true("`baseline_scorecard_summary`: `input_manifest`" in neutral_note, neutral_note)
+        assert_true("`post_scorecard_summary`: `input_manifest`" in neutral_note, neutral_note)
 
         changed_out = root / "changed_out"
         changed = run(
             [
                 sys.executable,
                 str(script),
-                "--baseline-scorecard-summary",
-                str(baseline),
-                "--post-scorecard-summary",
-                str(post_changed),
+                "--input-manifest",
+                str(changed_manifest),
                 "--output-dir",
                 str(changed_out),
             ],

@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -58,10 +60,65 @@ def parse_args() -> argparse.Namespace:
             "The scorecard distinguishes actual result deltas from safety/evidence improvements."
         )
     )
+    parser.add_argument("--input-manifest", type=Path, default=None)
     parser.add_argument("--runtime-root", type=Path, default=DEFAULT_RUNTIME_ROOT)
     parser.add_argument("--prepatch-runbook-summary", type=Path, default=DEFAULT_PREPATCH_SUMMARY)
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args()
+
+
+def resolve_path(repo_root: Path, value: str | Path) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_manifest_input(
+    repo_root: Path,
+    key: str,
+    flag: str,
+    arg_value: str | Path,
+    manifest: dict[str, Any],
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if flag in explicit_flags:
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, key)
+        if not manifest_value:
+            raise KeyError(
+                f"prepatch scorecard input manifest is missing `{key}`; "
+                f"pass {flag} explicitly or add inputs.{key}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def normalize_text(value: object) -> str:
@@ -182,7 +239,11 @@ def summarize_shadow_compare(shadow: dict[str, object]) -> tuple[list[dict[str, 
     return metrics, summary
 
 
-def build_scorecard(args: argparse.Namespace) -> tuple[pd.DataFrame, pd.DataFrame, str]:
+def build_scorecard(
+    args: argparse.Namespace,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, str]:
     runtime_root = args.runtime_root
     result_root = runtime_root / "result"
     share_root = runtime_root / "raw_only_chain_workspace" / "_share"
@@ -397,11 +458,17 @@ def build_scorecard(args: argparse.Namespace) -> tuple[pd.DataFrame, pd.DataFram
     }
     detail = pd.DataFrame(detail_rows, columns=DETAIL_COLS)
     summary = pd.DataFrame([summary_row], columns=SUMMARY_COLS)
-    note = render_note(summary.iloc[0], detail)
+    note = render_note(summary.iloc[0], detail, input_manifest_path, input_resolution_sources)
     return detail, summary, note
 
 
-def render_note(summary: pd.Series, detail: pd.DataFrame) -> str:
+def render_note(
+    summary: pd.Series,
+    detail: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> str:
+    source_map = input_resolution_sources or {}
     lines = [
         "# panel_day_engine_result_delta_scorecard_note_v1",
         "",
@@ -409,6 +476,12 @@ def render_note(summary: pd.Series, detail: pd.DataFrame) -> str:
         "- This scorecard is audit-only.",
         "- It does not claim accuracy/F1 improvement because no new truth-label evaluation was run.",
         "- It records whether runtime core results changed, and what candidate/result context exists now.",
+        "",
+        "## Inputs",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
+        "",
+        "## Input Resolution Sources",
+        f"- `prepatch_runbook_summary`: `{source_map.get('prepatch_runbook_summary', 'legacy_default')}`",
         "",
         "## Summary",
         f"- overall_status: `{summary['overall_status']}`",
@@ -437,8 +510,28 @@ def render_note(summary: pd.Series, detail: pd.DataFrame) -> str:
 
 def main() -> None:
     args = parse_args()
+    repo_root = Path(__file__).resolve().parents[2]
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in ["--prepatch-runbook-summary"]
+        if cli_flag_provided(flag, argv)
+    }
+    prepatch_runbook_summary, prepatch_runbook_summary_source = resolve_manifest_input(
+        repo_root,
+        "prepatch_runbook_summary",
+        "--prepatch-runbook-summary",
+        args.prepatch_runbook_summary,
+        input_manifest,
+        explicit_flags,
+    )
+    args.prepatch_runbook_summary = prepatch_runbook_summary
+    input_resolution_sources = {
+        "prepatch_runbook_summary": prepatch_runbook_summary_source,
+    }
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    detail, summary, note = build_scorecard(args)
+    detail, summary, note = build_scorecard(args, input_manifest_path, input_resolution_sources)
     detail.to_csv(args.output_dir / DETAIL_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(args.output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     (args.output_dir / NOTE_OUTPUT_NAME).write_text(note, encoding="utf-8")

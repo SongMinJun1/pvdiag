@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import tempfile
@@ -105,6 +106,25 @@ def common_args(paths: dict[str, Path]) -> list[str]:
     ]
 
 
+def write_input_manifest(path: Path, packet: Path, common_paths: dict[str, Path]) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "inputs": {
+                    "packet_input": str(packet),
+                    "common_cause_strong_blocker_input": str(common_paths["strong"]),
+                    "common_cause_exact_search_input": str(common_paths["exact"]),
+                    "common_cause_structural_input": str(common_paths["structural"]),
+                    "common_cause_trace_input": str(common_paths["trace"]),
+                }
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     common_helpers = load_common_cause_smoke_helpers(repo_root)
@@ -121,6 +141,8 @@ def main() -> None:
         packet = root / "valid_packet.csv"
         write_csv(packet, valid_packet_rows())
         common_paths = common_helpers.write_valid_inputs(root / "common_valid")
+        valid_manifest = root / "valid_input_manifest.json"
+        write_input_manifest(valid_manifest, packet, common_paths)
         out_root = root / "out"
         valid = run(
             [
@@ -130,9 +152,8 @@ def main() -> None:
                 str(repo_root),
                 "--changed-paths-file",
                 str(changed_paths),
-                "--packet-input",
-                str(packet),
-                *common_args(common_paths),
+                "--input-manifest",
+                str(valid_manifest),
                 "--output-dir",
                 str(out_root),
             ],
@@ -153,6 +174,8 @@ def main() -> None:
         bad_rows = valid_packet_rows()
         bad_rows[0] = dict(bad_rows[0], target_exact_closure_candidate_flag=1)
         write_csv(bad_packet, bad_rows)
+        bad_manifest = root / "bad_input_manifest.json"
+        write_input_manifest(bad_manifest, bad_packet, common_paths)
         bad_out = root / "bad_out"
         invalid = run(
             [
@@ -162,9 +185,8 @@ def main() -> None:
                 str(repo_root),
                 "--changed-paths-file",
                 str(changed_paths),
-                "--packet-input",
-                str(bad_packet),
-                *common_args(common_paths),
+                "--input-manifest",
+                str(bad_manifest),
                 "--output-dir",
                 str(bad_out),
             ],
@@ -183,9 +205,8 @@ def main() -> None:
                 str(repo_root),
                 "--changed-paths-file",
                 str(changed_paths),
-                "--packet-input",
-                str(bad_packet),
-                *common_args(common_paths),
+                "--input-manifest",
+                str(bad_manifest),
                 "--output-dir",
                 str(allow_fail_out),
                 "--allow-fail",
@@ -198,6 +219,8 @@ def main() -> None:
         bad_trace = pd.read_csv(bad_common_paths["trace"], encoding="utf-8-sig")
         bad_trace.loc[0, "semantic_patch_candidate_flag"] = 1
         bad_trace.to_csv(bad_common_paths["trace"], index=False, encoding="utf-8-sig")
+        bad_common_manifest = root / "bad_common_input_manifest.json"
+        write_input_manifest(bad_common_manifest, packet, bad_common_paths)
         bad_common_out = root / "bad_common_out"
         bad_common = run(
             [
@@ -207,9 +230,8 @@ def main() -> None:
                 str(repo_root),
                 "--changed-paths-file",
                 str(changed_paths),
-                "--packet-input",
-                str(packet),
-                *common_args(bad_common_paths),
+                "--input-manifest",
+                str(bad_common_manifest),
                 "--output-dir",
                 str(bad_common_out),
             ],
