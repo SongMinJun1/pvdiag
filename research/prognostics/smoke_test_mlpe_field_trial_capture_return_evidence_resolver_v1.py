@@ -160,6 +160,30 @@ def resolve_evidence(repo_root: Path, validation: Path, returned_capture: Path, 
     return json.loads(proc.stdout)
 
 
+def resolve_evidence_with_manifest(
+    repo_root: Path,
+    validation: Path,
+    input_manifest: Path,
+    output_dir: Path,
+) -> dict[str, object]:
+    proc = run_checked(
+        [
+            sys.executable,
+            "research/prognostics/build_mlpe_field_trial_capture_return_evidence_resolver_v1.py",
+            "--repo-root",
+            str(repo_root),
+            "--validation",
+            str(validation),
+            "--input-manifest",
+            str(input_manifest),
+            "--output-dir",
+            str(output_dir),
+        ],
+        repo_root,
+    )
+    return json.loads(proc.stdout)
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     with tempfile.TemporaryDirectory(prefix="mlpe_capture_return_evidence_resolver_smoke_") as tmpdir:
@@ -175,6 +199,99 @@ def main() -> None:
         assert_true(waiting_payload["evidence_file_exists_rows"] == 0, waiting_payload)
         assert_true(waiting_payload["required_evidence_problem_rows"] == 0, waiting_payload)
         assert_true(waiting_payload["truth_intake_allowed_sum"] == 0, waiting_payload)
+        waiting_artifact = json.loads(
+            (tmp / "waiting_evidence" / "mlpe_field_trial_capture_return_evidence_resolution_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        waiting_note = (
+            tmp / "waiting_evidence" / "mlpe_field_trial_capture_return_evidence_resolution_note_v1.md"
+        ).read_text(encoding="utf-8")
+        assert_true(waiting_artifact["input_resolution_sources"]["returned_capture"] == "explicit_cli", waiting_artifact)
+        assert_true("evidence input manifest: `not provided`" in waiting_note, waiting_note)
+        assert_true("`returned_capture`: `explicit_cli`" in waiting_note, waiting_note)
+
+        manifest_path = tmp / "capture_return_evidence_resolver_inputs.json"
+        manifest_path.write_text(
+            json.dumps(
+                {"inputs": {"returned_capture": str(planned_capture)}},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_payload = resolve_evidence_with_manifest(
+            repo_root,
+            waiting_validation,
+            manifest_path,
+            tmp / "manifest_evidence",
+        )
+        manifest_artifact = json.loads(
+            (tmp / "manifest_evidence" / "mlpe_field_trial_capture_return_evidence_resolution_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        manifest_note = (
+            tmp / "manifest_evidence" / "mlpe_field_trial_capture_return_evidence_resolution_note_v1.md"
+        ).read_text(encoding="utf-8")
+        assert_true(manifest_payload["waiting_events"] == waiting_payload["waiting_events"], manifest_payload)
+        assert_true(manifest_artifact["input_resolution_sources"]["returned_capture"] == "input_manifest", manifest_artifact)
+        assert_true(f"evidence input manifest: `{manifest_path}`" in manifest_note, manifest_note)
+        assert_true("`returned_capture`: `input_manifest`" in manifest_note, manifest_note)
+
+        bad_manifest_path = tmp / "bad_capture_return_evidence_resolver_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {"inputs": {"returned_capture": str(tmp / "missing_returned_capture.csv")}},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_proc = run_checked(
+            [
+                sys.executable,
+                "research/prognostics/build_mlpe_field_trial_capture_return_evidence_resolver_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--validation",
+                str(waiting_validation),
+                "--input-manifest",
+                str(bad_manifest_path),
+                "--returned-capture",
+                str(planned_capture),
+                "--output-dir",
+                str(tmp / "override_evidence"),
+            ],
+            repo_root,
+        )
+        override_payload = json.loads(override_proc.stdout)
+        assert_true(override_payload["input_resolution_sources"]["returned_capture"] == "explicit_cli", override_payload)
+
+        missing_key_manifest = tmp / "missing_key_capture_return_evidence_resolver_inputs.json"
+        missing_key_manifest.write_text(json.dumps({"inputs": {}}, indent=2) + "\n", encoding="utf-8")
+        missing_key_proc = run(
+            [
+                sys.executable,
+                "research/prognostics/build_mlpe_field_trial_capture_return_evidence_resolver_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--validation",
+                str(waiting_validation),
+                "--input-manifest",
+                str(missing_key_manifest),
+                "--output-dir",
+                str(tmp / "missing_key_evidence"),
+            ],
+            repo_root,
+        )
+        assert_true(missing_key_proc.returncode != 0, "missing-key manifest unexpectedly passed")
+        assert_true(
+            "missing `returned_capture`" in (missing_key_proc.stderr + missing_key_proc.stdout),
+            missing_key_proc.stderr,
+        )
 
         fixture_dir = tmp / "fixture"
         fixture_proc = run_checked(
