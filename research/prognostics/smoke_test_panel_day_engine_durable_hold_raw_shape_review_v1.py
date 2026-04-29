@@ -232,6 +232,7 @@ def main() -> None:
         payload = json.loads(
             (output_dir / "panel_day_engine_durable_hold_raw_shape_review_v1.json").read_text(encoding="utf-8")
         )
+        note = (output_dir / "panel_day_engine_durable_hold_raw_shape_review_note_v1.md").read_text(encoding="utf-8")
         assert_true(len(summary) == 2, summary.to_string())
         assert_true(len(days) == 4, days.to_string())
         decisions = set(summary["raw_shape_decision"])
@@ -239,6 +240,107 @@ def main() -> None:
         assert_true("stay_hold_no_low_shape_on_selected_raw_days" in decisions, decisions)
         assert_true(int(summary["positive_truth_candidate"].sum()) == 0, summary.to_string())
         assert_true(payload["threshold_tuning_approved_sum"] == 0, payload)
+        assert_true(payload["input_resolution_sources"]["shape_input"] == "explicit_cli", payload)
+        assert_true("evidence input manifest: `not provided`" in note, note)
+        assert_true("`shape_input`: `explicit_cli`" in note, note)
+
+        manifest_path = tmp_root / "durable_hold_inputs.json"
+        manifest_path.write_text(
+            json.dumps({"inputs": {"shape_input": str(shape_path)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = tmp_root / "manifest_out"
+        manifest = run(
+            [
+                sys.executable,
+                str(build_script),
+                "--repo-root",
+                str(repo_root),
+                "--input-manifest",
+                str(manifest_path),
+                "--data-root",
+                str(data_root),
+                "--output-dir",
+                str(manifest_out),
+                "--max-days-per-hold",
+                "2",
+            ],
+            cwd=repo_root,
+        )
+        assert_true(manifest.returncode == 0, manifest.stderr or manifest.stdout)
+        manifest_summary = pd.read_csv(
+            manifest_out / "panel_day_engine_durable_hold_raw_shape_review_summary_v1.csv",
+            encoding="utf-8-sig",
+        )
+        manifest_payload = json.loads(
+            (manifest_out / "panel_day_engine_durable_hold_raw_shape_review_v1.json").read_text(encoding="utf-8")
+        )
+        manifest_note = (manifest_out / "panel_day_engine_durable_hold_raw_shape_review_note_v1.md").read_text(
+            encoding="utf-8"
+        )
+        assert_true(
+            manifest_summary["raw_shape_decision"].tolist() == summary["raw_shape_decision"].tolist(),
+            manifest_summary.to_string(),
+        )
+        assert_true(manifest_payload["input_resolution_sources"]["shape_input"] == "input_manifest", manifest_payload)
+        assert_true(f"evidence input manifest: `{manifest_path}`" in manifest_note, manifest_note)
+        assert_true("`shape_input`: `input_manifest`" in manifest_note, manifest_note)
+
+        bad_manifest_path = tmp_root / "bad_durable_hold_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps({"inputs": {"shape_input": str(tmp_root / "missing_shape.csv")}}, ensure_ascii=False, indent=2)
+            + "\n",
+            encoding="utf-8",
+        )
+        override = run(
+            [
+                sys.executable,
+                str(build_script),
+                "--repo-root",
+                str(repo_root),
+                "--shape-input",
+                str(shape_path),
+                "--data-root",
+                str(data_root),
+                "--input-manifest",
+                str(bad_manifest_path),
+                "--output-dir",
+                str(tmp_root / "override_out"),
+                "--max-days-per-hold",
+                "2",
+            ],
+            cwd=repo_root,
+        )
+        assert_true(override.returncode == 0, override.stderr or override.stdout)
+        override_payload = json.loads(
+            (tmp_root / "override_out" / "panel_day_engine_durable_hold_raw_shape_review_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert_true(override_payload["input_resolution_sources"]["shape_input"] == "explicit_cli", override_payload)
+
+        missing_key_manifest_path = tmp_root / "missing_key_durable_hold_inputs.json"
+        missing_key_manifest_path.write_text(
+            json.dumps({"inputs": {}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        missing_key = run(
+            [
+                sys.executable,
+                str(build_script),
+                "--repo-root",
+                str(repo_root),
+                "--input-manifest",
+                str(missing_key_manifest_path),
+                "--data-root",
+                str(data_root),
+                "--output-dir",
+                str(tmp_root / "missing_key_out"),
+            ],
+            cwd=repo_root,
+        )
+        assert_true(missing_key.returncode != 0, "missing-key manifest unexpectedly passed")
+        assert_true("missing `shape_input`" in (missing_key.stderr + missing_key.stdout), missing_key.stderr)
 
         unsafe_shape = tmp_root / "unsafe_shape.csv"
         unsafe_df = pd.read_csv(shape_path, encoding="utf-8-sig")
