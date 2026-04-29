@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-232` | `latest_handoff_manifest_portability_closure_audit_ready_for_review` | regenerated latest handoff outputs close portability: 14/14 rows closed, 12 parameterized manifest rows, 2 repo-doc rows preserved, repro/artifact temp literals 0 | Next branch should refresh the merged base after PR #166/#167 land, then continue only if a fresh scan finds more stale generated handoff/output literals |
+| `BR-20260429-233` | `generated_handoff_post_br232_rescan_ready_for_review` | fresh scan after PR #166/#167 shows generated handoff/repro literals 50 -> 9; latest handoff rows 41 -> 0; remaining lanes are evidence manifest 7, episode note 1, validation output 1 | Next branch should plan the evidence manifest repro refresh; keep episode note deferred and validation output preserved |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -232,6 +232,7 @@
 | `BR-20260429-230` | `latest_handoff_manifest_repro_refresh_dry_run_ready_for_review` | dry-run replacement keeps 2 repo-doc commands unchanged and proposes 12 manifestized command replacements; old `/private/tmp` repro literals 41, proposed repro literals 0, global manifest key conflict 1 proves branch-local manifests are required | no |
 | `BR-20260429-231` | `latest_handoff_manifest_repro_apply_generator_ready_for_review` | applies the BR-230 dry-run to the latest handoff generator: regenerated rows show 12 manifestized repro commands, 12 parameterized artifact paths, 2 repo-doc rows preserved, repro/artifact `/private/tmp` rows 0, patch authorization sums 0 | no |
 | `BR-20260429-232` | `latest_handoff_manifest_portability_closure_audit_ready_for_review` | regenerates and audits the latest handoff outputs after BR-231: generated rows 14, parameterized manifestized 12, repo-doc preserved 2, closure failures 0, generated note stale `/private/tmp` phrase 0 | no |
+| `BR-20260429-233` | `generated_handoff_post_br232_rescan_ready_for_review` | post-BR232 fresh scan confirms latest handoff closure: generated handoff/repro literals 9, latest handoff 0, evidence manifest 7, episode note 1, validation output 1, manual edit/runtime/operator sums 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
