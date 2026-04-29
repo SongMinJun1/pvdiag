@@ -229,11 +229,18 @@ def main() -> None:
         payload = json.loads(
             (output_dir / "panel_day_engine_subtype_threshold_replay_pilot_v1.json").read_text(encoding="utf-8")
         )
+        note = (output_dir / "panel_day_engine_subtype_threshold_replay_pilot_note_v1.md").read_text(encoding="utf-8")
 
         assert_true(len(summary) == 7, summary.to_string())
         assert_true(len(cases) == 21, cases.to_string())
         assert_true(int(summary["threshold_tuning_approved"].sum()) == 0, summary.to_string())
         assert_true(payload["threshold_tuning_approved_sum"] == 0, payload)
+        assert_true(payload["input_manifest"] == "not provided", payload)
+        assert_true(payload["input_resolution_sources"]["shape_input"] == "explicit_cli", payload)
+        assert_true(payload["input_resolution_sources"]["reviewed_truth_input"] == "explicit_cli", payload)
+        assert_true("evidence input manifest: `not provided`" in note, "note missing no-manifest marker")
+        assert_true("`shape_input`: `explicit_cli`" in note, "note missing explicit shape source")
+        assert_true("`reviewed_truth_input`: `explicit_cli`" in note, "note missing explicit truth source")
 
         by_rule = summary.set_index("rule_id")
         assert_true(
@@ -253,6 +260,142 @@ def main() -> None:
         assert_true(
             int(by_rule.loc["voltage_preserved_gap_vlow_iok_2d", "false_positive_hits"]) == 0,
             by_rule.loc["voltage_preserved_gap_vlow_iok_2d"].to_dict(),
+        )
+
+        manifest = tmp_root / "threshold_replay_inputs.json"
+        manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "shape_input": str(shape_path),
+                        "reviewed_truth_input": str(truth_path),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = tmp_root / "manifest_out"
+        manifest_result = run(
+            [
+                sys.executable,
+                str(build_script),
+                "--repo-root",
+                str(repo_root),
+                "--input-manifest",
+                str(manifest),
+                "--threshold-candidate-input",
+                str(threshold_path),
+                "--output-dir",
+                str(manifest_out),
+            ],
+            cwd=repo_root,
+        )
+        assert_true(manifest_result.returncode == 0, manifest_result.stderr or manifest_result.stdout)
+        manifest_summary = pd.read_csv(
+            manifest_out / "panel_day_engine_subtype_threshold_replay_pilot_summary_v1.csv",
+            encoding="utf-8-sig",
+        )
+        manifest_payload = json.loads(
+            (manifest_out / "panel_day_engine_subtype_threshold_replay_pilot_v1.json").read_text(encoding="utf-8")
+        )
+        manifest_note = (manifest_out / "panel_day_engine_subtype_threshold_replay_pilot_note_v1.md").read_text(
+            encoding="utf-8"
+        )
+        assert_true(
+            manifest_summary["pilot_decision"].tolist() == summary["pilot_decision"].tolist(),
+            "manifest pilot decisions drifted",
+        )
+        assert_true(manifest_payload["input_manifest"] == str(manifest), manifest_payload)
+        assert_true(manifest_payload["input_resolution_sources"]["shape_input"] == "input_manifest", manifest_payload)
+        assert_true(
+            manifest_payload["input_resolution_sources"]["reviewed_truth_input"] == "input_manifest",
+            manifest_payload,
+        )
+        assert_true(f"evidence input manifest: `{manifest}`" in manifest_note, "note missing manifest path")
+        assert_true("`shape_input`: `input_manifest`" in manifest_note, "note missing manifest shape source")
+        assert_true("`reviewed_truth_input`: `input_manifest`" in manifest_note, "note missing manifest truth source")
+
+        bad_manifest = tmp_root / "bad_threshold_replay_inputs.json"
+        bad_manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "shape_input": str(tmp_root / "missing_shape.csv"),
+                        "reviewed_truth_input": str(tmp_root / "missing_truth.csv"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = tmp_root / "override_out"
+        override_result = run(
+            [
+                sys.executable,
+                str(build_script),
+                "--repo-root",
+                str(repo_root),
+                "--shape-input",
+                str(shape_path),
+                "--reviewed-truth-input",
+                str(truth_path),
+                "--threshold-candidate-input",
+                str(threshold_path),
+                "--input-manifest",
+                str(bad_manifest),
+                "--output-dir",
+                str(override_out),
+            ],
+            cwd=repo_root,
+        )
+        assert_true(override_result.returncode == 0, override_result.stderr or override_result.stdout)
+        override_payload = json.loads(
+            (override_out / "panel_day_engine_subtype_threshold_replay_pilot_v1.json").read_text(encoding="utf-8")
+        )
+        assert_true(override_payload["input_resolution_sources"]["shape_input"] == "explicit_cli", override_payload)
+        assert_true(
+            override_payload["input_resolution_sources"]["reviewed_truth_input"] == "explicit_cli",
+            override_payload,
+        )
+
+        missing_key_manifest = tmp_root / "missing_key_threshold_replay_inputs.json"
+        missing_key_manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "shape_input": str(shape_path),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        missing_key_result = run(
+            [
+                sys.executable,
+                str(build_script),
+                "--repo-root",
+                str(repo_root),
+                "--input-manifest",
+                str(missing_key_manifest),
+                "--threshold-candidate-input",
+                str(threshold_path),
+                "--output-dir",
+                str(tmp_root / "missing_key_out"),
+            ],
+            cwd=repo_root,
+        )
+        assert_true(missing_key_result.returncode != 0, "missing-key manifest unexpectedly passed")
+        assert_true(
+            "missing `reviewed_truth_input`" in (missing_key_result.stderr + missing_key_result.stdout),
+            missing_key_result.stderr + missing_key_result.stdout,
         )
 
         unsafe_truth = tmp_root / "truth_unsafe.csv"

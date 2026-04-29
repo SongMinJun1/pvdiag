@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-185` | `physical_evidence_request_manifest_resolution_ready_for_review` | BR-070 physical evidence request packet resolves BR-069 confirmation/checklist inputs from optional manifest or explicit CLI, records input sources, and keeps request/patch boundaries unchanged | Continue evidence-lane manifest resolution with the next explicit-input-supported `/private/tmp` evidence consumer |
+| `BR-20260429-186` | `subtype_threshold_replay_manifest_resolution_ready_for_review` | BR-090 subtype-threshold replay pilot resolves BR-089 shape review and BR-084 reviewed-truth inputs from optional manifest or explicit CLI, records input sources, and keeps replay/patch boundaries unchanged | Continue evidence-lane manifest resolution with remaining single-row evidence consumers |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -185,6 +185,7 @@
 | `BR-20260429-183` | `exact_family_closure_manifest_resolution_ready_for_review` | BR-057 exact-family closure readiness review resolves 3 evidence CSV inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no closure class, truth, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-184` | `fault_family_judgment_manifest_resolution_ready_for_review` | BR-064 fault-family judgment candidate packet resolves 2 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no judgment bucket, criteria, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-185` | `physical_evidence_request_manifest_resolution_ready_for_review` | BR-070 physical evidence request packet resolves 2 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no request priority/status/bundle, threshold, engine, or operator-facing semantics changed | no |
+| `BR-20260429-186` | `subtype_threshold_replay_manifest_resolution_ready_for_review` | BR-090 subtype-threshold replay pilot resolves 2 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no replay rules, pilot decisions, threshold tuning approval, threshold, engine, or operator-facing semantics changed | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

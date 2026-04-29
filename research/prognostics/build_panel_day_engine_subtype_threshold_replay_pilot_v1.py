@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -174,6 +175,56 @@ def safe_div(numer: int | float, denom: int | float) -> float:
 def resolve_path(repo_root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_chain_input(
+    repo_root: Path,
+    cli_value: str | Path,
+    legacy_default: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    cli_flag: str,
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if cli_flag in explicit_flags:
+        return resolve_path(repo_root, cli_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise KeyError(
+                f"panel-day evidence input manifest is missing `{manifest_key}`; "
+                f"pass {cli_flag} explicitly or add inputs.{manifest_key}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, legacy_default), "legacy_default"
 
 
 def read_required_csv(path: Path, required_cols: list[str], name: str) -> pd.DataFrame:
@@ -594,6 +645,8 @@ def write_note(
     threshold_candidate_input: Path,
     cases_df: pd.DataFrame,
     summary_df: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
 ) -> None:
     compact_cols = [
         "rule_id",
@@ -617,6 +670,14 @@ def write_note(
         f"- BR-089 shape review: `{shape_input}`",
         f"- BR-084 mixed reviewed truth rows: `{reviewed_truth_input}`",
         f"- BR-017 threshold candidate axes: `{threshold_candidate_input}`",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path else 'not provided'}`",
+        "",
+        "## Input Resolution Sources",
+        *(
+            [f"- `{key}`: `{value}`" for key, value in sorted((input_resolution_sources or {}).items())]
+            if input_resolution_sources
+            else ["- no manifest-wrapped inputs"]
+        ),
         "",
         "## Real Result",
         f"- owner_branch: `{owner_branch}`",
@@ -649,6 +710,8 @@ def write_json(
     threshold_candidate_input: Path,
     cases_df: pd.DataFrame,
     summary_df: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
 ) -> None:
     payload = {
         "owner_branch": owner_branch,
@@ -657,6 +720,8 @@ def write_json(
         "shape_input": str(shape_input),
         "reviewed_truth_input": str(reviewed_truth_input),
         "threshold_candidate_input": str(threshold_candidate_input),
+        "input_manifest": str(input_manifest_path) if input_manifest_path else "not provided",
+        "input_resolution_sources": input_resolution_sources or {},
         "case_rows": int(len(cases_df)),
         "summary_rows": int(len(summary_df)),
         "threshold_tuning_approved_sum": int(summary_df["threshold_tuning_approved"].sum())
@@ -685,6 +750,7 @@ def write_json(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Pilot subtype-threshold replay against BR-089 mixed truth rows.")
     parser.add_argument("--repo-root", default=".", help="Repository root. Defaults to current directory.")
+    parser.add_argument("--input-manifest", default=None)
     parser.add_argument("--shape-input", default=DEFAULT_SHAPE_INPUT, help="BR-089 durable shape review CSV.")
     parser.add_argument(
         "--reviewed-truth-input",
@@ -708,8 +774,38 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
-    shape_input = resolve_path(repo_root, args.shape_input)
-    reviewed_truth_input = resolve_path(repo_root, args.reviewed_truth_input)
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--shape-input",
+            "--reviewed-truth-input",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    shape_input, shape_source = resolve_chain_input(
+        repo_root,
+        args.shape_input,
+        DEFAULT_SHAPE_INPUT,
+        input_manifest,
+        "shape_input",
+        "--shape-input",
+        explicit_flags,
+    )
+    reviewed_truth_input, reviewed_truth_source = resolve_chain_input(
+        repo_root,
+        args.reviewed_truth_input,
+        DEFAULT_REVIEWED_TRUTH_INPUT,
+        input_manifest,
+        "reviewed_truth_input",
+        "--reviewed-truth-input",
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "reviewed_truth_input": reviewed_truth_source,
+        "shape_input": shape_source,
+    }
     threshold_candidate_input = resolve_path(repo_root, args.threshold_candidate_input)
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -736,6 +832,8 @@ def main() -> None:
         threshold_candidate_input,
         cases_df,
         summary_df,
+        input_manifest_path,
+        input_resolution_sources,
     )
     write_json(
         output_dir / JSON_OUTPUT_NAME,
@@ -747,6 +845,8 @@ def main() -> None:
         threshold_candidate_input,
         cases_df,
         summary_df,
+        input_manifest_path,
+        input_resolution_sources,
     )
 
     print(
