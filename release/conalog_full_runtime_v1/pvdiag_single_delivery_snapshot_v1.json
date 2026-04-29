@@ -1,0 +1,59 @@
+{
+  "snapshot_schema": "pvdiag_single_delivery_snapshot_v1",
+  "release_id": "pvdiag_single_br247_20260430",
+  "professor_deliverable_file_count": 1,
+  "professor_deliverable_files": [
+    "pvdiag_single.py"
+  ],
+  "single_file": {
+    "path": "release/conalog_full_runtime_v1/pvdiag_single.py",
+    "bytes": 210666,
+    "sha256": "dbe21adbfd9811fa24fb810396a80602502dc91d748640da1ac17f1d6e66ad7d"
+  },
+  "embedded_payload": {
+    "payload_file_count": 24,
+    "payload_zip_bytes": 150086,
+    "generated_at_utc": "2026-04-29T16:08:21.048076+00:00",
+    "excluded_runtime_windows_x64": true
+  },
+  "external_package_prerequisites": [
+    "pandas",
+    "numpy",
+    "torch",
+    "openpyxl",
+    "tqdm"
+  ],
+  "expected_result_artifacts": [
+    "result/fault_panel_result_master_report_v1.md",
+    "result/fault_panel_result_detailed_report_v1.xlsx",
+    "result/fault_panel_result_precursor_report_v1.csv",
+    "result/fault_panel_result_raw_only_fault_signal_report_v1.csv"
+  ],
+  "validation_scope": {
+    "handoff_check_ran": 1,
+    "export_one_file_check": 1,
+    "checksum_equality_check": 1,
+    "exported_self_test_check": 1,
+    "handoff_doc_snippet_check": 1,
+    "algorithm_semantics_changed": 0,
+    "field_trial_csv_required_for_truth_label_evaluation": 1
+  },
+  "handoff_docs_checked": {
+    "quickstart": "release/conalog_full_runtime_v1/PVDIAG_SINGLE_QUICKSTART.md",
+    "quickstart_snippets": [
+      "python tools/export_pvdiag_single_delivery.py --output-dir /tmp/pvdiag_professor_delivery",
+      "pvdiag_single.py",
+      "pip install pandas numpy torch openpyxl tqdm",
+      "--data-root",
+      "--output-root"
+    ],
+    "checklist": "release/conalog_full_runtime_v1/PVDIAG_SINGLE_DELIVERY_CHECKLIST.md",
+    "checklist_snippets": [
+      "보낼 파일은 `pvdiag_single.py` 한 개",
+      "pandas numpy torch openpyxl tqdm",
+      "python pvdiag_single.py --single-self-test",
+      "실증 CSV"
+    ]
+  },
+  "field_trial_next_step": "When real ktc_ess CSVs arrive, run the exported pvdiag_single.py with --data-root and review the expected result artifacts before any truth-label claim."
+}

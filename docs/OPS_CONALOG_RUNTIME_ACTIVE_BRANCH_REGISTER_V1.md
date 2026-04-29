@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260430-244` | `single_file_delivery_export_ready_for_review` | final professor-facing export helper added; output folder must contain exactly one file, `pvdiag_single.py`, after handoff readiness check and checksum verification | Use `tools/export_pvdiag_single_delivery.py` to create the one-file handoff folder before sending |
+| `BR-20260430-247` | `single_file_release_snapshot_ready_for_review` | final dry-run, delivery checklist, and checksum snapshot added for the one-file professor handoff; closeout checker validates export, self-test, docs, and snapshot | Use the exported `pvdiag_single.py` plus the snapshot SHA-256 when handing off; real field-trial CSV evaluation remains user-run |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -244,6 +244,9 @@
 | `BR-20260430-242` | `single_file_delivery_artifact_ready_for_review` | generated single-file handoff added: payload excludes Windows runtime and external packages, self-test extracts embedded runner, comparison helper checks key CSV row/schema plus master/xlsx existence | no |
 | `BR-20260430-243` | `single_file_handoff_polish_ready_for_review` | quickstart and handoff checker added; readiness check confirms required payload modules, excludes runtime/cache rows, compiles `pvdiag_single.py`, and runs self-test | no |
 | `BR-20260430-244` | `single_file_delivery_export_ready_for_review` | final export helper creates a professor-facing folder with exactly `pvdiag_single.py`; handoff check, one-file assertion, checksum equality, and exported self-test pass | no |
+| `BR-20260430-245` | `single_file_final_dry_run_ready_for_review` | closeout checker verifies fresh export folder, one-file delivery, source/export checksum equality, and exported self-test outside the repo tree | no |
+| `BR-20260430-246` | `single_file_delivery_checklist_ready_for_review` | internal delivery checklist added: one-file send boundary, package prerequisites, run command, expected outputs, and failure triage are explicit | no |
+| `BR-20260430-247` | `single_file_release_snapshot_ready_for_review` | deterministic snapshot records `pvdiag_single.py` size/SHA-256, embedded payload summary, external package prerequisites, expected result artifacts, and validation boundary | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
