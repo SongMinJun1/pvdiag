@@ -185,13 +185,14 @@ def build_payload(rows: list[dict[str, object]], path_portability_total: int) ->
         "manifestized_rebuild_drop_since_br228": BR228_MANIFESTIZED_REBUILD_CANDIDATE_ROWS
         - manifestized,
         "latest_handoff_closed_after_br232": int(latest_rows == 0),
+        "evidence_manifest_closed_after_br236": int(evidence_rows == 0),
         "residual_rescan_complete": int(
-            len(rows) == 9
+            len(rows) in {2, 9}
             and latest_rows == 0
-            and evidence_rows == 7
+            and evidence_rows in {0, 7}
             and episode_rows == 1
             and validation_rows == 1
-            and manifestized == 7
+            and manifestized in {0, 7}
             and validation_intentional == 1
             and manual_allowed == 0
             and runtime_allowed == 0
@@ -201,7 +202,11 @@ def build_payload(rows: list[dict[str, object]], path_portability_total: int) ->
         "post_br232_residual_lane_counts": dict(sorted(lane_counts.items())),
         "post_br232_status_counts": dict(sorted(status_counts.items())),
         "relative_path_counts": dict(sorted(file_counts.items())),
-        "recommended_next_branch": "evidence_manifest_repro_refresh_plan",
+        "recommended_next_branch": (
+            "evidence_manifest_repro_refresh_plan"
+            if evidence_rows
+            else "episode_truth_map_note_repro_refresh_when_touched"
+        ),
     }
 
 
@@ -229,6 +234,7 @@ def summary_rows(payload: dict[str, object]) -> list[dict[str, object]]:
         "latest_handoff_drop_since_br228",
         "manifestized_rebuild_drop_since_br228",
         "latest_handoff_closed_after_br232",
+        "evidence_manifest_closed_after_br236",
         "residual_rescan_complete",
     ]
     for key in scalar_keys:
@@ -289,11 +295,12 @@ def render_note(payload: dict[str, object]) -> str:
             f"- manifestized_rebuild_candidate_rows: `{payload['manifestized_rebuild_candidate_rows']}`",
             f"- manual_literal_edit_allowed_rows: `{payload['manual_literal_edit_allowed_rows']}`",
             f"- latest_handoff_closed_after_br232: `{payload['latest_handoff_closed_after_br232']}`",
+            f"- evidence_manifest_closed_after_br236: `{payload['evidence_manifest_closed_after_br236']}`",
             f"- residual_rescan_complete: `{payload['residual_rescan_complete']}`",
             "",
             "## Boundary",
             "- The latest handoff generator/output lane is considered closed by this rescan.",
-            "- The evidence manifest residuals form the next active refresh lane.",
+            "- The evidence manifest residuals are closed when `evidence_manifest_closed_after_br236=1`.",
             "- The episode note row is deferred until that note is touched.",
             "- The validation output row remains an intentional output destination, not input debt.",
             "",

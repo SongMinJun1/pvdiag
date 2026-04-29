@@ -124,6 +124,18 @@ def main() -> None:
             "repro_mode",
         ].unique().tolist()
         assert_true(group_off_modes == ["manual_oneoff"], str(group_off_modes))
+        generated_repro = detail_df.loc[
+            detail_df["repro_mode"].isin(["runtime_run", "builder"]),
+            "repro_command",
+        ]
+        assert_true(
+            generated_repro.str.contains("/private/tmp/").sum() == 0,
+            generated_repro.to_list(),
+        )
+        assert_true(
+            generated_repro.str.contains("${EVIDENCE_MANIFEST_OUTPUT_ROOT}", regex=False).all(),
+            generated_repro.to_list(),
+        )
 
         report_entry_summary = summary_df.loc[
             summary_df["evidence_family"].eq("report_entry_friction_axis"),
