@@ -348,6 +348,15 @@ def main() -> None:
         assert_true(override_payload["trace_input_source"] == "explicit_cli", "trace CLI override should win")
         assert_true(override_payload["index_input_source"] == "explicit_cli", "index CLI override should win")
 
+        missing_key_manifest_path = root / "missing_key_episode_truth_inputs.json"
+        missing_key_manifest_path.write_text(
+            json.dumps({"inputs": {"index_input": str(index_path)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        missing_key_proc = run_builder(repo_root, None, None, root / "missing_key_out", missing_key_manifest_path)
+        assert_true(missing_key_proc.returncode != 0, missing_key_proc.stdout)
+        assert_true("missing `trace_input`" in missing_key_proc.stderr, missing_key_proc.stderr)
+
         unsafe_index = pd.read_csv(index_path, encoding="utf-8-sig")
         unsafe_index["reviewer_truth_label"] = unsafe_index["reviewer_truth_label"].fillna("").astype(str)
         unsafe_index.loc[0, "reviewer_truth_label"] = "real_precursor"

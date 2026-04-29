@@ -270,6 +270,15 @@ def main() -> None:
         override_payload = json.loads((override_out / JSON_NAME).read_text(encoding="utf-8"))
         assert_true(override_payload["reviewed_rows_input_source"] == "explicit_cli", override_payload)
 
+        missing_key_manifest_path = root / "missing_key_episode_truth_evidence_attachment_inputs.json"
+        missing_key_manifest_path.write_text(
+            json.dumps({"inputs": {}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        missing_key_completed = run_builder(repo_root, script, None, root / "missing_key_out", missing_key_manifest_path)
+        assert_true(missing_key_completed.returncode != 0, missing_key_completed.stdout)
+        assert_true("missing `reviewed_rows_input`" in missing_key_completed.stderr, missing_key_completed.stderr)
+
         unsafe_rows_path = root / "unsafe_rows.csv"
         write_rows(unsafe_rows_path, unsafe=True)
         unsafe_completed = run_builder(repo_root, script, unsafe_rows_path, root / "unsafe_out")
