@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-181` | `subtype_truth_backlog_manifest_resolution_ready_for_review` | BR-080 subtype truth backlog resolves BR-079/064/065/069/072 evidence inputs from optional manifest or explicit CLI, records input sources, and keeps truth/threshold/patch boundaries unchanged | Continue evidence-lane manifest resolution with `build_panel_day_engine_direction_assumption_audit_v1.py` |
+| `BR-20260429-182` | `direction_assumption_manifest_resolution_ready_for_review` | BR-083 direction assumption audit resolves BR-079/080/081/082 upstream roots from optional manifest or explicit CLI, records root sources, and keeps audit/patch boundaries unchanged | Continue evidence-lane manifest resolution with `build_panel_day_engine_exact_family_closure_readiness_review_v1.py` |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -181,6 +181,7 @@
 | `BR-20260429-179` | `episode_truth_manifest_resolution_closure_ready_for_review` | closure audit confirms all BR-170 required consumers are manifest-aware and smoke-covered: 8 consumers, 12 manifest keys, unresolved consumers 0, missing checks 0, patch authorization sums 0 | no |
 | `BR-20260429-180` | `panel_day_evidence_input_manifest_contract_ready_for_review` | evidence-lane temp references split into 30 rows: 26 manifest-required and explicit-input-supported, 4 literal/repro-only, unmapped required 0, runtime/bulk rewrite permissions 0 | no |
 | `BR-20260429-181` | `subtype_truth_backlog_manifest_resolution_ready_for_review` | BR-080 subtype truth backlog resolves 5 evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no subtype/truth/threshold/patch authorization semantics changed | no |
+| `BR-20260429-182` | `direction_assumption_manifest_resolution_ready_for_review` | BR-083 direction assumption audit resolves 4 upstream roots from optional manifest or explicit CLI and fails closed on missing manifest keys; no audit check, truth, threshold, engine, or operator-facing semantics changed | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

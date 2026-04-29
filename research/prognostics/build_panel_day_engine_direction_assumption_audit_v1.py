@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -104,6 +105,61 @@ def value_to_text(value: Any) -> str:
     if isinstance(value, (dict, list)):
         return json.dumps(value, ensure_ascii=False, sort_keys=True)
     return str(value)
+
+
+def resolve_path(repo_root: Path, path_value: str | Path) -> Path:
+    path = Path(path_value)
+    return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_chain_input(
+    repo_root: Path,
+    cli_value: str | Path,
+    legacy_default: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    cli_flag: str,
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if cli_flag in explicit_flags:
+        return resolve_path(repo_root, cli_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise KeyError(
+                f"panel-day evidence input manifest is missing `{manifest_key}`; "
+                f"pass {cli_flag} explicitly or add inputs.{manifest_key}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, legacy_default), "legacy_default"
 
 
 def read_json(path: Path, name: str) -> dict[str, Any]:
@@ -741,7 +797,15 @@ def build_action_queue(owner_branch: str, audit_df: pd.DataFrame) -> pd.DataFram
     return pd.DataFrame(rows, columns=ACTION_COLUMNS)
 
 
-def write_note(output_dir: Path, owner_branch: str, audit_df: pd.DataFrame, summary_df: pd.DataFrame, action_df: pd.DataFrame) -> None:
+def write_note(
+    output_dir: Path,
+    owner_branch: str,
+    audit_df: pd.DataFrame,
+    summary_df: pd.DataFrame,
+    action_df: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> None:
     fail_count = int(audit_df["audit_status"].eq("FAIL").sum())
     p0_fail_count = int((audit_df["audit_status"].eq("FAIL") & audit_df["severity"].eq("P0")).sum())
     note = f"""# Panel Day Engine Direction Assumption Audit V1
@@ -765,15 +829,19 @@ def write_note(output_dir: Path, owner_branch: str, audit_df: pd.DataFrame, summ
 - operator-facing change allowed sum: `{int(audit_df["operator_facing_change_allowed"].sum() + action_df["operator_facing_change_allowed"].sum())}`
 - engine patch allowed sum: `{int(audit_df["engine_patch_allowed"].sum() + action_df["engine_patch_allowed"].sum())}`
 - threshold patch allowed sum: `{int(audit_df["threshold_patch_allowed"].sum() + action_df["threshold_patch_allowed"].sum())}`
+- evidence input manifest: `{input_manifest_path if input_manifest_path else 'not provided'}`
 
 ## Reading
 - If `P0 fail count` is non-zero, stop before reviewed truth rows, threshold replay, or engine work.
 - A pass means prior evidence/review scaffolding is internally consistent; it still does not approve production semantics.
 - Direct `panel_day_engine.py` edits remain behind the BR-076 3-gate runbook.
 
+## Input Resolution Sources
+{chr(10).join(f"- `{key}`: `{value}`" for key, value in sorted((input_resolution_sources or {}).items())) if input_resolution_sources else "- no manifest-wrapped inputs"}
+
 ## Repro Command
 ```bash
-python3 research/prognostics/build_panel_day_engine_direction_assumption_audit_v1.py --repo-root /private/tmp/pvdiag_postmerge_j --output-dir {output_dir}
+python3 research/prognostics/build_panel_day_engine_direction_assumption_audit_v1.py --repo-root "$(pwd)" --output-dir {output_dir}
 ```
 """
     (output_dir / NOTE_OUTPUT_NAME).write_text(note, encoding="utf-8")
@@ -787,6 +855,8 @@ def build_outputs(
     br080_root: Path,
     br081_root: Path,
     br082_root: Path,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
 ) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
     audit_df = build_audit(owner_branch, br079_root, br080_root, br081_root, br082_root)
@@ -796,7 +866,8 @@ def build_outputs(
     audit_df.to_csv(output_dir / AUDIT_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary_df.to_csv(output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     action_df.to_csv(output_dir / ACTION_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(output_dir, owner_branch, audit_df, summary_df, action_df)
+    input_resolution_sources = input_resolution_sources or {}
+    write_note(output_dir, owner_branch, audit_df, summary_df, action_df, input_manifest_path, input_resolution_sources)
 
     fail_count = int(audit_df["audit_status"].eq("FAIL").sum())
     p0_fail_count = int((audit_df["audit_status"].eq("FAIL") & audit_df["severity"].eq("P0")).sum())
@@ -815,6 +886,12 @@ def build_outputs(
         "operator_facing_change_allowed_sum": int(audit_df["operator_facing_change_allowed"].sum() + action_df["operator_facing_change_allowed"].sum()),
         "engine_patch_allowed_sum": int(audit_df["engine_patch_allowed"].sum() + action_df["engine_patch_allowed"].sum()),
         "threshold_patch_allowed_sum": int(audit_df["threshold_patch_allowed"].sum() + action_df["threshold_patch_allowed"].sum()),
+        "input_manifest": str(input_manifest_path) if input_manifest_path else "",
+        "input_resolution_sources": input_resolution_sources,
+        "br079_root_source": input_resolution_sources.get("br079_root", ""),
+        "br080_root_source": input_resolution_sources.get("br080_root", ""),
+        "br081_root_source": input_resolution_sources.get("br081_root", ""),
+        "br082_root_source": input_resolution_sources.get("br082_root", ""),
         "recommended_next_branch": "panel_day_engine_reviewed_episode_truth_rows_v1" if fail_count == 0 else "repair_direction_assumption_audit_failures_first",
         "direct_engine_patch_boundary": "BR-076 3-gate prepatch runbook required before direct panel_day_engine.py algorithm review",
         "outputs": {
@@ -833,6 +910,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument("--output-dir", type=Path, default=Path("/private/tmp/panel_day_engine_direction_assumption_audit_br083_check"))
     parser.add_argument("--owner-branch", default="BR-20260425-083")
+    parser.add_argument("--input-manifest", default=None)
     parser.add_argument("--br079-root", type=Path, default=Path(BR079_ROOT_DEFAULT))
     parser.add_argument("--br080-root", type=Path, default=Path(BR080_ROOT_DEFAULT))
     parser.add_argument("--br081-root", type=Path, default=Path(BR081_ROOT_DEFAULT))
@@ -843,14 +921,70 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     repo_root = args.repo_root.resolve()
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--br079-root",
+            "--br080-root",
+            "--br081-root",
+            "--br082-root",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    br079_root, br079_root_source = resolve_chain_input(
+        repo_root,
+        args.br079_root,
+        BR079_ROOT_DEFAULT,
+        input_manifest,
+        "br079_root",
+        "--br079-root",
+        explicit_flags,
+    )
+    br080_root, br080_root_source = resolve_chain_input(
+        repo_root,
+        args.br080_root,
+        BR080_ROOT_DEFAULT,
+        input_manifest,
+        "br080_root",
+        "--br080-root",
+        explicit_flags,
+    )
+    br081_root, br081_root_source = resolve_chain_input(
+        repo_root,
+        args.br081_root,
+        BR081_ROOT_DEFAULT,
+        input_manifest,
+        "br081_root",
+        "--br081-root",
+        explicit_flags,
+    )
+    br082_root, br082_root_source = resolve_chain_input(
+        repo_root,
+        args.br082_root,
+        BR082_ROOT_DEFAULT,
+        input_manifest,
+        "br082_root",
+        "--br082-root",
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "br079_root": br079_root_source,
+        "br080_root": br080_root_source,
+        "br081_root": br081_root_source,
+        "br082_root": br082_root_source,
+    }
     payload = build_outputs(
         repo_root=repo_root,
         output_dir=args.output_dir,
         owner_branch=args.owner_branch,
-        br079_root=args.br079_root,
-        br080_root=args.br080_root,
-        br081_root=args.br081_root,
-        br082_root=args.br082_root,
+        br079_root=br079_root,
+        br080_root=br080_root,
+        br081_root=br081_root,
+        br082_root=br082_root,
+        input_manifest_path=input_manifest_path,
+        input_resolution_sources=input_resolution_sources,
     )
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 

@@ -297,6 +297,136 @@ def main() -> None:
         assert_true(action["sequence"].tolist() == sorted(action["sequence"].tolist()), action.to_string())
         assert_true(action.iloc[0]["action_id"] == "ACT-001", action.to_string())
         assert_true("BR-076" in note_text, note_text)
+        assert_true(payload["input_manifest"] == "", payload)
+        assert_true(payload["br079_root_source"] == "explicit_cli", payload)
+        assert_true(payload["br080_root_source"] == "explicit_cli", payload)
+        assert_true(payload["br081_root_source"] == "explicit_cli", payload)
+        assert_true(payload["br082_root_source"] == "explicit_cli", payload)
+
+        manifest_path = Path(tmpdir) / "direction_assumption_inputs.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "br079_root": str(br079),
+                        "br080_root": str(br080),
+                        "br081_root": str(br081),
+                        "br082_root": str(br082),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = Path(tmpdir) / "manifest_out"
+        manifest_completed = run(
+            [
+                sys.executable,
+                str(script),
+                "--repo-root",
+                str(repo_root),
+                "--output-dir",
+                str(manifest_out),
+                "--owner-branch",
+                "BR-TEST-083",
+                "--input-manifest",
+                str(manifest_path),
+            ],
+            repo_root,
+        )
+        assert_true(manifest_completed.returncode == 0, manifest_completed.stderr or manifest_completed.stdout)
+        manifest_payload = json.loads((manifest_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(manifest_payload["total_checks"] == payload["total_checks"], manifest_payload)
+        assert_true(manifest_payload["fail_count"] == 0, manifest_payload)
+        assert_true(manifest_payload["input_manifest"] == str(manifest_path), manifest_payload)
+        assert_true(manifest_payload["br079_root_source"] == "input_manifest", manifest_payload)
+        assert_true(manifest_payload["br080_root_source"] == "input_manifest", manifest_payload)
+        assert_true(manifest_payload["br081_root_source"] == "input_manifest", manifest_payload)
+        assert_true(manifest_payload["br082_root_source"] == "input_manifest", manifest_payload)
+
+        bad_manifest_path = Path(tmpdir) / "bad_direction_assumption_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "br079_root": str(Path(tmpdir) / "missing_br079"),
+                        "br080_root": str(Path(tmpdir) / "missing_br080"),
+                        "br081_root": str(Path(tmpdir) / "missing_br081"),
+                        "br082_root": str(Path(tmpdir) / "missing_br082"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = Path(tmpdir) / "override_out"
+        override_completed = run(
+            [
+                sys.executable,
+                str(script),
+                "--repo-root",
+                str(repo_root),
+                "--output-dir",
+                str(override_out),
+                "--owner-branch",
+                "BR-TEST-083",
+                "--br079-root",
+                str(br079),
+                "--br080-root",
+                str(br080),
+                "--br081-root",
+                str(br081),
+                "--br082-root",
+                str(br082),
+                "--input-manifest",
+                str(bad_manifest_path),
+            ],
+            repo_root,
+        )
+        assert_true(override_completed.returncode == 0, override_completed.stderr or override_completed.stdout)
+        override_payload = json.loads((override_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(override_payload["br079_root_source"] == "explicit_cli", override_payload)
+        assert_true(override_payload["br080_root_source"] == "explicit_cli", override_payload)
+        assert_true(override_payload["br081_root_source"] == "explicit_cli", override_payload)
+        assert_true(override_payload["br082_root_source"] == "explicit_cli", override_payload)
+
+        missing_key_manifest_path = Path(tmpdir) / "missing_key_direction_assumption_inputs.json"
+        missing_key_manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "br079_root": str(br079),
+                        "br080_root": str(br080),
+                        "br081_root": str(br081),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        missing_key_completed = run(
+            [
+                sys.executable,
+                str(script),
+                "--repo-root",
+                str(repo_root),
+                "--output-dir",
+                str(Path(tmpdir) / "missing_key_out"),
+                "--owner-branch",
+                "BR-TEST-083",
+                "--input-manifest",
+                str(missing_key_manifest_path),
+            ],
+            repo_root,
+        )
+        assert_true(missing_key_completed.returncode != 0, missing_key_completed.stdout)
+        assert_true("missing `br082_root`" in missing_key_completed.stderr, missing_key_completed.stderr)
 
     print("smoke_test_panel_day_engine_direction_assumption_audit_v1.py: PASS")
 
