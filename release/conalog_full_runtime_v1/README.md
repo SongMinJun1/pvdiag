@@ -43,6 +43,46 @@
 - `package/artifacts/runtime_chain_dependency_audit_v1.json`
 - `package/artifacts/runtime_chain_dependency_audit_v1.md`
 
+## 단일 Python 파일 전달물
+
+교수님 전달용으로 `pvdiag_single.py`를 생성할 수 있음.
+이 파일은 원본 모듈을 손으로 합친 파일이 아니라, `tools/build_pvdiag_single_py.py`가 `package/app`, `package/pv_ae`, `package/research`, 작은 `package/artifacts`를 zip/base64 payload로 묶어 만든 generated artifact임.
+
+핵심 원칙은 아래와 같음.
+
+- 원본 개발 구조는 계속 모듈형으로 유지함.
+- `pvdiag_single.py`는 손으로 수정하지 않고 builder로 재생성함.
+- 외부 Python 패키지는 포함하지 않음.
+- 필요 패키지는 `pandas`, `numpy`, `torch`, `openpyxl`, `tqdm`임.
+- Windows embedded runtime(`package/runtime/windows_x64/python`)은 700MB급 런타임이므로 단일 파일 payload에서 제외함.
+
+생성 명령:
+
+```bash
+python tools/build_pvdiag_single_py.py
+```
+
+실행 명령:
+
+```bash
+python release/conalog_full_runtime_v1/pvdiag_single.py \
+  --data-root data \
+  --output-root /tmp/pvdiag_single_check \
+  --reuse-existing-site-outs-root data
+```
+
+`--data-root`가 없으면 `pvdiag_single.py` 옆의 `data/` 폴더를 먼저 찾고, 없으면 콘솔에서 경로를 입력받음.
+`--output-root`가 없으면 `pvdiag_single.py` 옆에 `pvdiag_results/run_YYYYMMDD_HHMMSS/`를 자동 생성함.
+
+검증은 modular runner 출력과 single-file 출력의 주요 CSV schema/row count, master report 존재, detailed xlsx 존재를 비교함.
+비교 helper:
+
+```bash
+python tools/compare_pvdiag_single_results.py \
+  --modular-output-root /tmp/pvdiag_modular_check \
+  --single-output-root /tmp/pvdiag_single_check
+```
+
 `fault6_fixed_result_table_v1.csv`는 현재 frozen verdict와 heuristic을 그대로 묶어, integrated table과 동일한 front-facing 표시명으로 다시 적재한 6개 고장 패널 결과표임.
 즉, 이 파일은 현재 합의된 고정 결과표를 유지하되, runtime pack 내부에서는 integrated snapshot 자체를 직접 의존하지 않도록 정리한 artifact임.
 
