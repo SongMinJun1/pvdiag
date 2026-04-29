@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-184` | `fault_family_judgment_manifest_resolution_ready_for_review` | BR-064 fault-family judgment candidate packet resolves cross-axis review and regression-pressure packet inputs from optional manifest or explicit CLI, records input sources, and keeps judgment/patch boundaries unchanged | Continue evidence-lane manifest resolution with `build_panel_day_engine_physical_evidence_request_packet_v1.py` |
+| `BR-20260429-185` | `physical_evidence_request_manifest_resolution_ready_for_review` | BR-070 physical evidence request packet resolves BR-069 confirmation/checklist inputs from optional manifest or explicit CLI, records input sources, and keeps request/patch boundaries unchanged | Continue evidence-lane manifest resolution with the next explicit-input-supported `/private/tmp` evidence consumer |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -184,6 +184,7 @@
 | `BR-20260429-182` | `direction_assumption_manifest_resolution_ready_for_review` | BR-083 direction assumption audit resolves 4 upstream roots from optional manifest or explicit CLI and fails closed on missing manifest keys; no audit check, truth, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-183` | `exact_family_closure_manifest_resolution_ready_for_review` | BR-057 exact-family closure readiness review resolves 3 evidence CSV inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no closure class, truth, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-184` | `fault_family_judgment_manifest_resolution_ready_for_review` | BR-064 fault-family judgment candidate packet resolves 2 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no judgment bucket, criteria, threshold, engine, or operator-facing semantics changed | no |
+| `BR-20260429-185` | `physical_evidence_request_manifest_resolution_ready_for_review` | BR-070 physical evidence request packet resolves 2 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no request priority/status/bundle, threshold, engine, or operator-facing semantics changed | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

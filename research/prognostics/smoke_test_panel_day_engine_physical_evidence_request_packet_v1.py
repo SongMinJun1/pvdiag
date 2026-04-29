@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 from pathlib import Path
@@ -87,6 +88,124 @@ def main() -> None:
         assert_true(int(requests["threshold_patch_allowed_flag"].sum()) == 0, "threshold patch must stay zero")
         assert_true(len(summary) == 1, f"unexpected summary rows: {len(summary)}")
         assert_true("threshold patch allowed sum: `0`" in note, "note missing threshold guardrail")
+        assert_true("evidence input manifest: `not provided`" in note, "note missing no-manifest marker")
+        assert_true("`confirmation_input`: `explicit_cli`" in note, "note missing explicit confirmation source")
+        assert_true("`checklist_input`: `explicit_cli`" in note, "note missing explicit checklist source")
+
+        manifest = root / "physical_evidence_inputs.json"
+        manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "confirmation_input": str(confirmation),
+                        "checklist_input": str(checklist),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_result = subprocess.run(
+            [
+                "python3",
+                str(script),
+                "--input-manifest",
+                str(manifest),
+                "--output-dir",
+                str(manifest_out),
+            ],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+        )
+        assert_true(
+            manifest_result.returncode == 0,
+            f"manifest builder failed:\nSTDOUT={manifest_result.stdout}\nSTDERR={manifest_result.stderr}",
+        )
+        manifest_requests = pd.read_csv(manifest_out / REQUEST_NAME, low_memory=False)
+        manifest_note = (manifest_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true(
+            manifest_requests["requested_evidence_bundle"].tolist()
+            == requests["requested_evidence_bundle"].tolist(),
+            "manifest request bundle drifted",
+        )
+        assert_true(f"evidence input manifest: `{manifest}`" in manifest_note, "note missing manifest path")
+        assert_true("`confirmation_input`: `input_manifest`" in manifest_note, "note missing manifest confirmation source")
+        assert_true("`checklist_input`: `input_manifest`" in manifest_note, "note missing manifest checklist source")
+
+        bad_manifest = root / "bad_physical_evidence_inputs.json"
+        bad_manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "confirmation_input": str(root / "missing_confirmation.csv"),
+                        "checklist_input": str(root / "missing_checklist.csv"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_result = subprocess.run(
+            [
+                "python3",
+                str(script),
+                "--confirmation-input",
+                str(confirmation),
+                "--checklist-input",
+                str(checklist),
+                "--input-manifest",
+                str(bad_manifest),
+                "--output-dir",
+                str(override_out),
+            ],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+        )
+        assert_true(
+            override_result.returncode == 0,
+            f"override builder failed:\nSTDOUT={override_result.stdout}\nSTDERR={override_result.stderr}",
+        )
+        override_note = (override_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true("`confirmation_input`: `explicit_cli`" in override_note, "override confirmation source drifted")
+        assert_true("`checklist_input`: `explicit_cli`" in override_note, "override checklist source drifted")
+
+        missing_key_manifest = root / "missing_key_physical_evidence_inputs.json"
+        missing_key_manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "confirmation_input": str(confirmation),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        missing_key_result = subprocess.run(
+            [
+                "python3",
+                str(script),
+                "--input-manifest",
+                str(missing_key_manifest),
+                "--output-dir",
+                str(root / "missing_key_out"),
+            ],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+        )
+        assert_true(missing_key_result.returncode != 0, "missing-key manifest unexpectedly passed")
+        assert_true("missing `checklist_input`" in missing_key_result.stderr, missing_key_result.stderr)
     print("smoke ok: panel_day_engine_physical_evidence_request_packet_v1")
 
 
