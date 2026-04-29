@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -122,6 +125,7 @@ def parse_args() -> argparse.Namespace:
             "they are bridgeable evidence or must remain hold/context."
         )
     )
+    parser.add_argument("--input-manifest", type=Path, default=None)
     parser.add_argument("--blocker-input", type=Path, default=DEFAULT_BLOCKER_INPUT)
     parser.add_argument("--current-input", type=Path, default=DEFAULT_CURRENT_INPUT)
     parser.add_argument("--precursor-input", type=Path, default=DEFAULT_PRECURSOR_INPUT)
@@ -129,6 +133,60 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-root", type=Path, default=DEFAULT_DATA_ROOT)
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args()
+
+
+def resolve_path(repo_root: Path, value: str | Path) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_manifest_input(
+    repo_root: Path,
+    key: str,
+    flag: str,
+    arg_value: str | Path,
+    manifest: dict[str, Any],
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if flag in explicit_flags:
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, key)
+        if not manifest_value:
+            raise KeyError(
+                f"panel-day evidence input manifest is missing `{key}`; "
+                f"pass {flag} explicitly or add inputs.{key}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def normalize_text(value: object) -> str:
@@ -439,13 +497,29 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
     return "\n".join([header, separator] + rows)
 
 
-def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame) -> None:
+def write_note(
+    output_dir: Path,
+    detail: pd.DataFrame,
+    summary: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> None:
+    source_map = input_resolution_sources or {}
     lines = [
         "# panel_day_engine_common_cause_manual_trace_review_note_v1",
         "",
         "## Purpose",
         "- Trace BR-073 manual targets against raw and report dates.",
         "- Distinguish raw-only report bridge candidates from official/current closure.",
+        "",
+        "## Inputs",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
+        "",
+        "## Input Resolution Sources",
+        f"- `blocker_input`: `{source_map.get('blocker_input', 'legacy_default')}`",
+        f"- `current_input`: `{source_map.get('current_input', 'legacy_default')}`",
+        f"- `precursor_input`: `{source_map.get('precursor_input', 'legacy_default')}`",
+        f"- `rawonly_signal_input`: `{source_map.get('rawonly_signal_input', 'legacy_default')}`",
         "",
         "## Guardrails",
         f"- detail rows: `{len(detail)}`",
@@ -472,11 +546,62 @@ def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame) ->
 
 def main() -> None:
     args = parse_args()
+    repo_root = Path(__file__).resolve().parents[2]
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--blocker-input",
+            "--current-input",
+            "--precursor-input",
+            "--rawonly-signal-input",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    blocker_input, blocker_input_source = resolve_manifest_input(
+        repo_root,
+        "blocker_input",
+        "--blocker-input",
+        args.blocker_input,
+        input_manifest,
+        explicit_flags,
+    )
+    current_input, current_input_source = resolve_manifest_input(
+        repo_root,
+        "current_input",
+        "--current-input",
+        args.current_input,
+        input_manifest,
+        explicit_flags,
+    )
+    precursor_input, precursor_input_source = resolve_manifest_input(
+        repo_root,
+        "precursor_input",
+        "--precursor-input",
+        args.precursor_input,
+        input_manifest,
+        explicit_flags,
+    )
+    rawonly_signal_input, rawonly_signal_input_source = resolve_manifest_input(
+        repo_root,
+        "rawonly_signal_input",
+        "--rawonly-signal-input",
+        args.rawonly_signal_input,
+        input_manifest,
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "blocker_input": blocker_input_source,
+        "current_input": current_input_source,
+        "precursor_input": precursor_input_source,
+        "rawonly_signal_input": rawonly_signal_input_source,
+    }
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    blockers = normalize_blockers(read_csv(args.blocker_input))
-    current = date_map(read_csv(args.current_input, required=False), ["고장날짜"])
-    precursor = date_map(read_csv(args.precursor_input, required=False), ["전조날짜"])
-    rawonly = date_map(read_csv(args.rawonly_signal_input, required=False), ["신호 기준일", "전조 시작일"])
+    blockers = normalize_blockers(read_csv(blocker_input))
+    current = date_map(read_csv(current_input, required=False), ["고장날짜"])
+    precursor = date_map(read_csv(precursor_input, required=False), ["전조날짜"])
+    rawonly = date_map(read_csv(rawonly_signal_input, required=False), ["신호 기준일", "전조 시작일"])
     raw_by_site = {site: load_site_raw(args.data_root, site) for site in sorted(blockers["site"].unique())}
     detail = build_detail(blockers, raw_by_site, current, precursor, rawonly)
     summary = build_summary(detail)
@@ -490,7 +615,7 @@ def main() -> None:
         raise SystemExit("manual trace review must not allow threshold patch")
     detail.to_csv(args.output_dir / DETAIL_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(args.output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(args.output_dir, detail, summary)
+    write_note(args.output_dir, detail, summary, input_manifest_path, input_resolution_sources)
 
 
 if __name__ == "__main__":

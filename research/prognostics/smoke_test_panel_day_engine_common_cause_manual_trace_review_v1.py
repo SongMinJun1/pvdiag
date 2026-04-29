@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 from pathlib import Path
@@ -283,6 +284,148 @@ def main() -> None:
         assert_true(int(detail["threshold_patch_allowed_flag"].sum()) == 0, "threshold patch must stay zero")
         assert_true(int(summary["cases"].sum()) == 4, summary.to_string())
         assert_true("semantic patch candidate sum: `0`" in note, "note missing semantic guardrail")
+        assert_true("evidence input manifest: `not provided`" in note, note)
+        assert_true("`blocker_input`: `explicit_cli`" in note, note)
+        assert_true("`current_input`: `explicit_cli`" in note, note)
+        assert_true("`precursor_input`: `explicit_cli`" in note, note)
+        assert_true("`rawonly_signal_input`: `explicit_cli`" in note, note)
+
+        manifest = root / "common_cause_manual_trace_inputs.json"
+        manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "blocker_input": str(blocker_input),
+                        "current_input": str(current),
+                        "precursor_input": str(precursor),
+                        "rawonly_signal_input": str(rawonly),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_result = subprocess.run(
+            [
+                "python3",
+                str(script),
+                "--input-manifest",
+                str(manifest),
+                "--data-root",
+                str(data_root),
+                "--output-dir",
+                str(manifest_out),
+            ],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+        )
+        assert_true(
+            manifest_result.returncode == 0,
+            f"manifest builder failed:\nSTDOUT={manifest_result.stdout}\nSTDERR={manifest_result.stderr}",
+        )
+        manifest_detail = pd.read_csv(manifest_out / DETAIL_NAME, low_memory=False)
+        manifest_summary = pd.read_csv(manifest_out / SUMMARY_NAME, low_memory=False)
+        manifest_note = (manifest_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true(
+            manifest_detail["trace_outcome_bucket"].tolist() == detail["trace_outcome_bucket"].tolist(),
+            manifest_detail.to_string(),
+        )
+        assert_true(int(manifest_summary["cases"].sum()) == 4, manifest_summary.to_string())
+        assert_true(f"evidence input manifest: `{manifest}`" in manifest_note, manifest_note)
+        assert_true("`blocker_input`: `input_manifest`" in manifest_note, manifest_note)
+        assert_true("`current_input`: `input_manifest`" in manifest_note, manifest_note)
+        assert_true("`precursor_input`: `input_manifest`" in manifest_note, manifest_note)
+        assert_true("`rawonly_signal_input`: `input_manifest`" in manifest_note, manifest_note)
+
+        bad_manifest = root / "bad_common_cause_manual_trace_inputs.json"
+        bad_manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "blocker_input": str(root / "missing_blocker.csv"),
+                        "current_input": str(root / "missing_current.csv"),
+                        "precursor_input": str(root / "missing_precursor.csv"),
+                        "rawonly_signal_input": str(root / "missing_rawonly.csv"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_result = subprocess.run(
+            [
+                "python3",
+                str(script),
+                "--input-manifest",
+                str(bad_manifest),
+                "--blocker-input",
+                str(blocker_input),
+                "--current-input",
+                str(current),
+                "--precursor-input",
+                str(precursor),
+                "--rawonly-signal-input",
+                str(rawonly),
+                "--data-root",
+                str(data_root),
+                "--output-dir",
+                str(override_out),
+            ],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+        )
+        assert_true(
+            override_result.returncode == 0,
+            f"override builder failed:\nSTDOUT={override_result.stdout}\nSTDERR={override_result.stderr}",
+        )
+        override_note = (override_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true("`blocker_input`: `explicit_cli`" in override_note, override_note)
+        assert_true("`rawonly_signal_input`: `explicit_cli`" in override_note, override_note)
+
+        missing_key_manifest = root / "missing_key_common_cause_manual_trace_inputs.json"
+        missing_key_manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "blocker_input": str(blocker_input),
+                        "current_input": str(current),
+                        "precursor_input": str(precursor),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        missing_key_result = subprocess.run(
+            [
+                "python3",
+                str(script),
+                "--input-manifest",
+                str(missing_key_manifest),
+                "--data-root",
+                str(data_root),
+                "--output-dir",
+                str(root / "missing_key_out"),
+            ],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+        )
+        assert_true(missing_key_result.returncode != 0, "missing-key manifest unexpectedly passed")
+        assert_true(
+            "missing `rawonly_signal_input`" in (missing_key_result.stderr + missing_key_result.stdout),
+            missing_key_result.stderr,
+        )
     print("smoke ok: panel_day_engine_common_cause_manual_trace_review_v1")
 
 
