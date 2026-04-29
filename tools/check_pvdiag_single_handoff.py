@@ -100,6 +100,8 @@ def main() -> None:
         fail("single-file artifact does not expose the source-text payload markers")
     if "PAYLOAD_FILE_INDEX" not in single_text or "PAYLOAD_STRUCTURE_NOTE" not in single_text:
         fail("single-file artifact does not expose the visible payload structure index")
+    if "# region Embedded source payload" not in single_text or "# endregion" not in single_text:
+        fail("single-file artifact does not wrap the payload blob in a foldable editor region")
 
     compile_proc = subprocess.run(
         [sys.executable, "-m", "py_compile", str(single)],
@@ -167,6 +169,7 @@ def main() -> None:
                 "payload_text_bytes": int(payload.get("payload_text_bytes", 0)),
                 "single_line_count": single_line_count,
                 "visible_payload_index": int("PAYLOAD_FILE_INDEX" in single_text),
+                "foldable_payload_region": int("# region Embedded source payload" in single_text),
                 "excluded_runtime_windows_x64": bool(payload.get("excluded_runtime_windows_x64")),
                 "self_test_ran": int(not args.skip_self_test),
                 "payload_list_ran": int(not args.skip_self_test),

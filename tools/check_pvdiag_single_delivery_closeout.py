@@ -175,7 +175,7 @@ def main() -> None:
     single_manifest = load_single_manifest(repo_root)
     snapshot = {
         "snapshot_schema": "pvdiag_single_delivery_snapshot_v1",
-        "release_id": "pvdiag_single_br253_payload_transparency_20260430",
+        "release_id": "pvdiag_single_br254_payload_folding_20260430",
         "professor_deliverable_file_count": 1,
         "professor_deliverable_files": ["pvdiag_single.py"],
         "single_file": {
@@ -202,6 +202,7 @@ def main() -> None:
             "checksum_equality_check": 1,
             "exported_self_test_check": 1,
             "visible_payload_index_check": 1,
+            "foldable_payload_region_check": 1,
             "source_extract_check": 1,
             "handoff_doc_snippet_check": 1,
             "failure_ux_smoke_check": 1,

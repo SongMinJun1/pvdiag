@@ -85,12 +85,6 @@ PAYLOAD_STRUCTURE_NOTE = (
 
 __PAYLOAD_FILE_INDEX__
 
-__EMBEDDED_TEXT_JSON_CHUNKS__
-
-EMBEDDED_TEXT_FILES = json.loads("".join(EMBEDDED_TEXT_JSON_CHUNKS))
-
-__EMBEDDED_FILE_SHA256__
-
 REQUIRED_MODULES = {
     "pandas": "pandas",
     "numpy": "numpy",
@@ -374,6 +368,9 @@ def main(argv: list[str] | None = None) -> int:
             shutil.rmtree(runtime_root, ignore_errors=True)
 
 
+__EMBEDDED_PAYLOAD_REGION__
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
 '''
@@ -439,14 +436,14 @@ def payload_bytes_for_digest(payload: dict[str, str]) -> bytes:
     )
 
 
-def render_embedded_text_json_chunks(payload: dict[str, str]) -> str:
+def render_embedded_text_json_chunks(payload: dict[str, str]) -> list[str]:
     json_text = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     chunk_size = 8_000
     rows = ["EMBEDDED_TEXT_JSON_CHUNKS = ("]
     for index in range(0, len(json_text), chunk_size):
         rows.append(f"    {json_text[index:index + chunk_size]!r},")
     rows.append(")")
-    return "\n".join(rows)
+    return rows
 
 
 def render_embedded_file_sha256(payload: dict[str, str]) -> str:
@@ -455,6 +452,21 @@ def render_embedded_file_sha256(payload: dict[str, str]) -> str:
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
         rows.append(f"    {path!r}: {digest!r},")
     rows.append("}")
+    return "\n".join(rows)
+
+
+def render_embedded_payload_region(payload: dict[str, str]) -> str:
+    rows = [
+        "# region Embedded source payload (auto-generated; collapse this block in VS Code)",
+        "# This generated block contains the 11-file source-text runtime payload.",
+        "# Use --single-list-payload to inspect roles or --single-extract-source DIR to unpack readable files.",
+        *render_embedded_text_json_chunks(payload),
+        "",
+        "EMBEDDED_TEXT_FILES = json.loads(\"\".join(EMBEDDED_TEXT_JSON_CHUNKS))",
+        "",
+        render_embedded_file_sha256(payload),
+        "# endregion",
+    ]
     return "\n".join(rows)
 
 
@@ -532,8 +544,7 @@ def render_single(payload: dict[str, str]) -> str:
         .replace("__PAYLOAD_TEXT_BYTES__", str(len(payload_bytes)))
         .replace("__PAYLOAD_FILE_COUNT__", str(len(payload)))
         .replace("__PAYLOAD_FILE_INDEX__", render_payload_file_index(payload))
-        .replace("__EMBEDDED_TEXT_JSON_CHUNKS__", render_embedded_text_json_chunks(payload))
-        .replace("__EMBEDDED_FILE_SHA256__", render_embedded_file_sha256(payload))
+        .replace("__EMBEDDED_PAYLOAD_REGION__", render_embedded_payload_region(payload))
     )
 
 

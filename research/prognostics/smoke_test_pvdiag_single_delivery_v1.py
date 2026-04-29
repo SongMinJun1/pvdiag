@@ -41,6 +41,8 @@ def main() -> None:
     assert_true("EMBEDDED_TEXT_JSON_CHUNKS" in single_text, single)
     assert_true("PAYLOAD_FILE_INDEX" in single_text, single)
     assert_true("PAYLOAD_STRUCTURE_NOTE" in single_text, single)
+    assert_true("# region Embedded source payload" in single_text, single)
+    assert_true("# endregion" in single_text, single)
     assert_true(len(single_text.splitlines()) < 1_000, single)
     assert_true("PAYLOAD_B64" not in single_text, single)
     assert_true("import base64" not in single_text, single)
