@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -260,6 +261,56 @@ def rounded(value: object) -> float:
 def resolve_path(repo_root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_packet_input(
+    repo_root: Path,
+    packet_input_value: str | Path,
+    confirmation_dir_value: str | Path,
+    manifest: dict[str, Any],
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if "--packet-input" in explicit_flags:
+        return resolve_path(repo_root, packet_input_value), "explicit_cli"
+    if "--confirmation-dir" in explicit_flags:
+        return resolve_path(repo_root, confirmation_dir_value) / PACKET_INPUT_NAME, "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, "packet_input")
+        if not manifest_value:
+            raise KeyError(
+                "panel-day evidence input manifest is missing `packet_input`; "
+                "pass --packet-input/--confirmation-dir explicitly or add inputs.packet_input"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, confirmation_dir_value) / PACKET_INPUT_NAME, "legacy_default"
 
 
 def read_required_csv(path: Path, required_cols: list[str], name: str) -> pd.DataFrame:
@@ -604,7 +655,10 @@ def write_note(
     request_df: pd.DataFrame,
     checklist_df: pd.DataFrame,
     summary_df: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
 ) -> None:
+    source_map = input_resolution_sources or {}
     priority_counts = (
         request_df["request_priority"].value_counts().sort_index().to_dict() if not request_df.empty else {}
     )
@@ -632,6 +686,10 @@ def write_note(
         "",
         "## Input",
         f"- BR-093 packet: `{packet_input}`",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
+        "",
+        "## Input Resolution Sources",
+        f"- `packet_input`: `{source_map.get('packet_input', 'legacy_default')}`",
         "",
         "## Real Result",
         f"- owner_branch: `{owner_branch}`",
@@ -667,12 +725,16 @@ def write_json(
     request_df: pd.DataFrame,
     checklist_df: pd.DataFrame,
     summary_df: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
 ) -> None:
     payload: dict[str, Any] = {
         "owner_branch": owner_branch,
         "repo_root": str(repo_root),
         "output_dir": str(output_dir),
         "packet_input": str(packet_input),
+        "input_manifest": str(input_manifest_path) if input_manifest_path is not None else "",
+        "input_resolution_sources": input_resolution_sources or {},
         "evidence_request_rows": int(len(request_df)),
         "checklist_rows": int(len(checklist_df)),
         "request_priority_counts": request_df["request_priority"].value_counts().sort_index().to_dict()
@@ -727,6 +789,11 @@ def parse_args() -> argparse.Namespace:
         description="Build BR-095 evidence request/checklist packet from BR-093 voltage-preserved confirmation rows."
     )
     parser.add_argument("--repo-root", default=".", help="Repository root. Defaults to current directory.")
+    parser.add_argument(
+        "--input-manifest",
+        default=None,
+        help="Optional JSON manifest for the BR-093 packet input.",
+    )
     parser.add_argument("--confirmation-dir", default=DEFAULT_CONFIRMATION_DIR, help="BR-093 confirmation output dir.")
     parser.add_argument("--packet-input", default="", help="Optional direct BR-093 packet CSV.")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="Output directory for BR-095 artifacts.")
@@ -737,12 +804,26 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
-    confirmation_dir = resolve_path(repo_root, args.confirmation_dir)
-    packet_input = (
-        resolve_path(repo_root, args.packet_input)
-        if normalize_text(args.packet_input)
-        else confirmation_dir / PACKET_INPUT_NAME
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--packet-input",
+            "--confirmation-dir",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    packet_input, packet_input_source = resolve_packet_input(
+        repo_root,
+        args.packet_input,
+        args.confirmation_dir,
+        input_manifest,
+        explicit_flags,
     )
+    input_resolution_sources = {
+        "packet_input": packet_input_source,
+    }
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -756,7 +837,16 @@ def main() -> None:
     checklist_df.to_csv(output_dir / CHECKLIST_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary_df.to_csv(output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     action_df.to_csv(output_dir / ACTION_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(output_dir / NOTE_OUTPUT_NAME, args.owner_branch, packet_input, request_df, checklist_df, summary_df)
+    write_note(
+        output_dir / NOTE_OUTPUT_NAME,
+        args.owner_branch,
+        packet_input,
+        request_df,
+        checklist_df,
+        summary_df,
+        input_manifest_path,
+        input_resolution_sources,
+    )
     write_json(
         output_dir / JSON_OUTPUT_NAME,
         args.owner_branch,
@@ -766,6 +856,8 @@ def main() -> None:
         request_df,
         checklist_df,
         summary_df,
+        input_manifest_path,
+        input_resolution_sources,
     )
 
     print(

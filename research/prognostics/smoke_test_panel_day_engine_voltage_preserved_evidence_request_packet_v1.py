@@ -174,6 +174,18 @@ def main() -> None:
         assert_true(payload["positive_truth_candidate_approved_sum"] == 0, payload)
         assert_true(payload["threshold_tuning_approved_sum"] == 0, payload)
 
+        artifact_payload = json.loads(
+            (output_dir / "panel_day_engine_voltage_preserved_evidence_request_packet_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        note = (output_dir / "panel_day_engine_voltage_preserved_evidence_request_note_v1.md").read_text(
+            encoding="utf-8"
+        )
+        assert_true(artifact_payload["input_resolution_sources"]["packet_input"] == "explicit_cli", artifact_payload)
+        assert_true("evidence input manifest: `not provided`" in note, note)
+        assert_true("`packet_input`: `explicit_cli`" in note, note)
+
         request = pd.read_csv(
             output_dir / "panel_day_engine_voltage_preserved_evidence_request_packet_v1.csv"
         )
@@ -202,6 +214,98 @@ def main() -> None:
             checklist,
         )
         assert_true(int(summary.loc[summary["summary_scope"].eq("overall"), "request_rows"].iloc[0]) == 3, summary)
+
+        manifest_path = tmp_root / "evidence_request_inputs.json"
+        manifest_path.write_text(
+            json.dumps({"inputs": {"packet_input": str(packet_input)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = tmp_root / "manifest_out"
+        manifest = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_voltage_preserved_evidence_request_packet_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--input-manifest",
+                str(manifest_path),
+                "--output-dir",
+                str(manifest_out),
+            ],
+            repo_root,
+        )
+        assert_true(manifest.returncode == 0, manifest.stderr or manifest.stdout)
+        manifest_request = pd.read_csv(
+            manifest_out / "panel_day_engine_voltage_preserved_evidence_request_packet_v1.csv",
+            encoding="utf-8-sig",
+        )
+        manifest_payload = json.loads(
+            (manifest_out / "panel_day_engine_voltage_preserved_evidence_request_packet_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        manifest_note = (manifest_out / "panel_day_engine_voltage_preserved_evidence_request_note_v1.md").read_text(
+            encoding="utf-8"
+        )
+        assert_true(manifest_payload["evidence_request_rows"] == payload["evidence_request_rows"], manifest_payload)
+        assert_true(
+            manifest_request["request_priority"].tolist() == request["request_priority"].tolist(),
+            manifest_request.to_string(),
+        )
+        assert_true(manifest_payload["input_resolution_sources"]["packet_input"] == "input_manifest", manifest_payload)
+        assert_true(f"evidence input manifest: `{manifest_path}`" in manifest_note, manifest_note)
+        assert_true("`packet_input`: `input_manifest`" in manifest_note, manifest_note)
+
+        bad_manifest_path = tmp_root / "bad_evidence_request_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps({"inputs": {"packet_input": str(tmp_root / "missing_packet.csv")}}, ensure_ascii=False, indent=2)
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = tmp_root / "override_out"
+        override = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_voltage_preserved_evidence_request_packet_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--confirmation-dir",
+                str(confirmation_dir),
+                "--input-manifest",
+                str(bad_manifest_path),
+                "--output-dir",
+                str(override_out),
+            ],
+            repo_root,
+        )
+        assert_true(override.returncode == 0, override.stderr or override.stdout)
+        override_payload = json.loads(
+            (override_out / "panel_day_engine_voltage_preserved_evidence_request_packet_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert_true(override_payload["input_resolution_sources"]["packet_input"] == "explicit_cli", override_payload)
+
+        missing_key_manifest_path = tmp_root / "missing_key_evidence_request_inputs.json"
+        missing_key_manifest_path.write_text(
+            json.dumps({"inputs": {}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        missing_key = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_voltage_preserved_evidence_request_packet_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--input-manifest",
+                str(missing_key_manifest_path),
+                "--output-dir",
+                str(tmp_root / "missing_key_out"),
+            ],
+            repo_root,
+        )
+        assert_true(missing_key.returncode != 0, "missing-key manifest unexpectedly passed")
+        assert_true("missing `packet_input`" in (missing_key.stderr + missing_key.stdout), missing_key.stderr)
         print(json.dumps({"smoke": "ok", "request_rows": int(len(request))}, ensure_ascii=False))
 
 
