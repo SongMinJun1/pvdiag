@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-209` | `mlpe_user_filled_manifest_resolution_closure_ready_for_review` | MLPE field-trial guarded user-filled input manifest resolution is statically closed across BR-202..BR-208: 7 consumers, 7 manifest bindings, 4 distinct keys, unresolved consumers 0 | Continue to the next cleanup lane after user-filled input defaults are closed |
+| `BR-20260429-210` | `mlpe_output_default_closure_ready_for_review` | MLPE output defaults are closed as write destinations: 37 rows, 37 `--output-dir` overrides, input/generated dependency rows 0, runtime semantic change rows 0, mass rewrite rows 0 | Continue to static directory references or broader repo organization cleanup after output-default lane is closed |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -209,6 +209,7 @@
 | `BR-20260429-207` | `mlpe_truth_intake_preflight_review_manifest_resolution_ready_for_review` | BR-125 MLPE reviewed preflight validator resolves 1 volatile reviewed-checklist input from optional manifest or explicit CLI and fails closed on missing manifest key; no review-validation bucket, future materialization precheck candidate, canonical truth, truth-intake, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-208` | `mlpe_truth_seed_reviewer_decision_manifest_resolution_ready_for_review` | BR-122 MLPE truth-seed reviewer decision validator resolves 1 volatile reviewer decision input from optional manifest or explicit CLI and fails closed on missing manifest key; no decision-validation bucket, future truth-intake candidate, canonical truth, truth-intake, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-209` | `mlpe_user_filled_manifest_resolution_closure_ready_for_review` | closure audit confirms all guarded MLPE user-filled input consumers are manifest-aware and smoke-covered: 7 consumers, 7 manifest bindings, 4 distinct keys, missing checks 0, unresolved consumers 0; truth/operator/threshold/engine authorization sums remain 0 | no |
+| `BR-20260429-210` | `mlpe_output_default_closure_ready_for_review` | closure audit confirms MLPE output defaults remain write destinations after BR-209 increased the count to 37: 37/37 `--output-dir` overrides, missing checks 0, input/generated dependency rows 0, runtime semantic change rows 0, mass rewrite rows 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
