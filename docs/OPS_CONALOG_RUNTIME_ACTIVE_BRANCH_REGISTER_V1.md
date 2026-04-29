@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-223` | `live_temp_literal_repro_closure_ready_for_review` | remaining literal/repro-only live-temp rows are closed non-input references: 6 rows, embedded note repro 4, detector literals 2, source files 6, input contract gaps 0, rewrite/runtime semantic permission rows 0 | Run full p1 live-temp lane closure audit next |
+| `BR-20260429-224` | `p1_live_temp_lane_closure_ready_for_review` | full P1 live-temp reference lane is closed at audit level: 68 rows, input-like contract rows 62, literal/repro-only rows 6, open contract gaps 0, rewrite/runtime semantic permission rows 0 | Move to the next portability/cleanup axis only if this closure audit stays green |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -223,6 +223,7 @@
 | `BR-20260429-221` | `live_temp_review_self_noise_fixed_ready_for_review` | marks BR-220 audit fallback mapping literals as scanner self-literals so the broad live-temp review no longer counts them as real static directory inputs; live-temp rows 68, static directory 48, static artifact 10, runtime result bundle 4 | no |
 | `BR-20260429-222` | `runtime_result_bundle_reference_contract_closure_ready_for_review` | closure audit confirms runtime result bundle references are manifest/explicit-input aware: 4/4 `--input-manifest`, 4/4 explicit CLI flags, 4/4 resolver rows, missing checks 0, bulk rewrite/runtime semantic permission rows 0 | no |
 | `BR-20260429-223` | `live_temp_literal_repro_closure_ready_for_review` | closes the remaining literal/repro-only live-temp rows as non-input references: embedded note repro commands 4, intentional detector literals 2, manifest/explicit input required rows 0, input contract gaps 0 | no |
+| `BR-20260429-224` | `p1_live_temp_lane_closure_ready_for_review` | final lane audit confirms all 68 P1 live-temp reference rows are either input-contract closed or non-input literal/repro closed: input-like 62, literal/repro 6, detail rows 9, closure complete 1 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
