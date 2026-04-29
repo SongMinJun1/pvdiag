@@ -254,6 +254,21 @@ def main() -> None:
         assert_true(payload["truth_intake_ready_rows"] == 2, payload)
         assert_true(payload["threshold_tuning_approved_sum"] == 0, payload)
 
+        artifact_payload = json.loads(
+            (out_dir / "panel_day_engine_voltage_preserved_independent_confirmation_attachment_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        note = (out_dir / "panel_day_engine_voltage_preserved_independent_confirmation_note_v1.md").read_text(
+            encoding="utf-8"
+        )
+        assert_true(
+            artifact_payload["input_resolution_sources"]["gap_review_input"] == "explicit_cli",
+            artifact_payload,
+        )
+        assert_true("evidence input manifest: `not provided`" in note, note)
+        assert_true("`gap_review_input`: `explicit_cli`" in note, note)
+
         attachment = pd.read_csv(
             out_dir / "panel_day_engine_voltage_preserved_independent_confirmation_attachment_v1.csv"
         )
@@ -265,6 +280,133 @@ def main() -> None:
                 "counterexample_clearance_missing",
             },
             clearance_df,
+        )
+        gap_csv = gap_dir / "panel_day_engine_voltage_preserved_confirmation_gap_review_v1.csv"
+        manifest_path = tmp / "independent_confirmation_inputs.json"
+        manifest_path.write_text(
+            json.dumps({"inputs": {"gap_review_input": str(gap_csv)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = tmp / "manifest_out"
+        manifest_proc = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_voltage_preserved_independent_confirmation_attachment_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--input-manifest",
+                str(manifest_path),
+                "--vendor-input",
+                str(vendor_input),
+                "--manual-site-input",
+                str(manual_input),
+                "--independent-evidence-input",
+                str(independent_input),
+                "--blocker-clearance-input",
+                str(clearance_input),
+                "--output-dir",
+                str(manifest_out),
+            ],
+            repo_root,
+        )
+        assert_true(manifest_proc.returncode == 0, manifest_proc.stderr or manifest_proc.stdout)
+        manifest_payload = json.loads(
+            (manifest_out / "panel_day_engine_voltage_preserved_independent_confirmation_attachment_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        manifest_note = (manifest_out / "panel_day_engine_voltage_preserved_independent_confirmation_note_v1.md").read_text(
+            encoding="utf-8"
+        )
+        manifest_attachment = pd.read_csv(
+            manifest_out / "panel_day_engine_voltage_preserved_independent_confirmation_attachment_v1.csv",
+            encoding="utf-8-sig",
+        )
+        assert_true(manifest_payload["attachment_rows"] == artifact_payload["attachment_rows"], manifest_payload)
+        assert_true(
+            manifest_payload["truth_intake_ready_rows"] == artifact_payload["truth_intake_ready_rows"],
+            manifest_payload,
+        )
+        assert_true(
+            manifest_attachment["independent_confirmation_status"].tolist()
+            == attachment["independent_confirmation_status"].tolist(),
+            manifest_attachment,
+        )
+        assert_true(
+            manifest_payload["input_resolution_sources"]["gap_review_input"] == "input_manifest",
+            manifest_payload,
+        )
+        assert_true(f"evidence input manifest: `{manifest_path}`" in manifest_note, manifest_note)
+        assert_true("`gap_review_input`: `input_manifest`" in manifest_note, manifest_note)
+
+        bad_manifest_path = tmp / "bad_independent_confirmation_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {"inputs": {"gap_review_input": str(tmp / "missing_gap_review.csv")}},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = tmp / "override_out"
+        override_proc = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_voltage_preserved_independent_confirmation_attachment_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--gap-review-dir",
+                str(gap_dir),
+                "--input-manifest",
+                str(bad_manifest_path),
+                "--vendor-input",
+                str(vendor_input),
+                "--manual-site-input",
+                str(manual_input),
+                "--independent-evidence-input",
+                str(independent_input),
+                "--blocker-clearance-input",
+                str(clearance_input),
+                "--output-dir",
+                str(override_out),
+            ],
+            repo_root,
+        )
+        assert_true(override_proc.returncode == 0, override_proc.stderr or override_proc.stdout)
+        override_payload = json.loads(
+            (override_out / "panel_day_engine_voltage_preserved_independent_confirmation_attachment_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert_true(override_payload["input_resolution_sources"]["gap_review_input"] == "explicit_cli", override_payload)
+
+        missing_key_manifest_path = tmp / "missing_key_independent_confirmation_inputs.json"
+        missing_key_manifest_path.write_text(
+            json.dumps({"inputs": {}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        missing_key_proc = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_voltage_preserved_independent_confirmation_attachment_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--input-manifest",
+                str(missing_key_manifest_path),
+                "--vendor-input",
+                str(vendor_input),
+                "--manual-site-input",
+                str(manual_input),
+                "--output-dir",
+                str(tmp / "missing_key_out"),
+            ],
+            repo_root,
+        )
+        assert_true(missing_key_proc.returncode != 0, "missing-key manifest unexpectedly passed")
+        assert_true(
+            "missing `gap_review_input`" in (missing_key_proc.stderr + missing_key_proc.stdout),
+            missing_key_proc.stderr,
         )
         print(json.dumps({"smoke": "ok", "attachment_rows": int(len(attachment))}, ensure_ascii=False))
 

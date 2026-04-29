@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -268,6 +269,56 @@ def numeric_int(value: object) -> int:
 def resolve_path(repo_root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_gap_review_input(
+    repo_root: Path,
+    gap_review_input_value: str | Path,
+    gap_review_dir_value: str | Path,
+    manifest: dict[str, Any],
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if "--gap-review-input" in explicit_flags:
+        return resolve_path(repo_root, gap_review_input_value), "explicit_cli"
+    if "--gap-review-dir" in explicit_flags:
+        return resolve_path(repo_root, gap_review_dir_value) / GAP_REVIEW_INPUT_NAME, "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, "gap_review_input")
+        if not manifest_value:
+            raise KeyError(
+                "panel-day evidence input manifest is missing `gap_review_input`; "
+                "pass --gap-review-input/--gap-review-dir explicitly or add inputs.gap_review_input"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, gap_review_dir_value) / GAP_REVIEW_INPUT_NAME, "legacy_default"
 
 
 def read_required_csv(path: Path, required_cols: list[str], name: str) -> pd.DataFrame:
@@ -813,7 +864,16 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def write_note(path: Path, owner_branch: str, gap_input: Path, attachment_df: pd.DataFrame, summary_df: pd.DataFrame) -> None:
+def write_note(
+    path: Path,
+    owner_branch: str,
+    gap_input: Path,
+    attachment_df: pd.DataFrame,
+    summary_df: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> None:
+    source_map = input_resolution_sources or {}
     summary_cols = [
         "summary_scope",
         "summary_key",
@@ -838,6 +898,10 @@ def write_note(path: Path, owner_branch: str, gap_input: Path, attachment_df: pd
         "",
         "## Inputs",
         f"- BR-097 gap review: `{gap_input}`",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
+        "",
+        "## Input Resolution Sources",
+        f"- `gap_review_input`: `{source_map.get('gap_review_input', 'legacy_default')}`",
         "",
         "## Real Result",
         f"- owner_branch: `{owner_branch}`",
@@ -875,6 +939,8 @@ def write_json(
     source_scan_df: pd.DataFrame,
     clearance_df: pd.DataFrame,
     summary_df: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
 ) -> None:
     payload: dict[str, Any] = {
         "owner_branch": owner_branch,
@@ -883,6 +949,8 @@ def write_json(
         "gap_review_input": str(gap_input),
         "independent_evidence_input": str(independent_input) if independent_input else "",
         "blocker_clearance_input": str(clearance_input) if clearance_input else "",
+        "input_manifest": str(input_manifest_path) if input_manifest_path is not None else "",
+        "input_resolution_sources": input_resolution_sources or {},
         "attachment_rows": int(len(attachment_df)),
         "source_scan_rows": int(len(source_scan_df)),
         "clearance_rows": int(len(clearance_df)),
@@ -932,6 +1000,11 @@ def parse_args() -> argparse.Namespace:
         description="Attach exact independent confirmation and explicit blocker-clearance evidence after BR-097."
     )
     parser.add_argument("--repo-root", default=".", help="Repository root. Defaults to current directory.")
+    parser.add_argument(
+        "--input-manifest",
+        default=None,
+        help="Optional JSON manifest for the BR-097 gap-review input.",
+    )
     parser.add_argument("--gap-review-dir", default=DEFAULT_GAP_REVIEW_DIR, help="BR-097 output directory.")
     parser.add_argument("--gap-review-input", default="", help="Optional direct BR-097 review CSV.")
     parser.add_argument("--vendor-input", default=DEFAULT_VENDOR_INPUT, help="Exact-panel vendor/manual reply CSV.")
@@ -946,12 +1019,24 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
-    gap_review_dir = resolve_path(repo_root, args.gap_review_dir)
-    gap_input = (
-        resolve_path(repo_root, args.gap_review_input)
-        if normalize_text(args.gap_review_input)
-        else gap_review_dir / GAP_REVIEW_INPUT_NAME
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--gap-review-input",
+            "--gap-review-dir",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    gap_input, gap_input_source = resolve_gap_review_input(
+        repo_root,
+        args.gap_review_input,
+        args.gap_review_dir,
+        input_manifest,
+        explicit_flags,
     )
+    input_resolution_sources = {"gap_review_input": gap_input_source}
     vendor_input = resolve_path(repo_root, args.vendor_input)
     manual_site_input = resolve_path(repo_root, args.manual_site_input)
     independent_input = (
@@ -1006,7 +1091,15 @@ def main() -> None:
     action_df.to_csv(output_dir / ACTION_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     independent_template_df.to_csv(output_dir / INDEPENDENT_TEMPLATE_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     clearance_template_df.to_csv(output_dir / CLEARANCE_TEMPLATE_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(output_dir / NOTE_OUTPUT_NAME, args.owner_branch, gap_input, attachment_df, summary_df)
+    write_note(
+        output_dir / NOTE_OUTPUT_NAME,
+        args.owner_branch,
+        gap_input,
+        attachment_df,
+        summary_df,
+        input_manifest_path,
+        input_resolution_sources,
+    )
     write_json(
         output_dir / JSON_OUTPUT_NAME,
         args.owner_branch,
@@ -1019,6 +1112,8 @@ def main() -> None:
         source_scan_df,
         clearance_df,
         summary_df,
+        input_manifest_path,
+        input_resolution_sources,
     )
 
     print(
