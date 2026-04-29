@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-174` | `episode_truth_evidence_attachment_manifest_resolution_ready_for_review` | BR-085 evidence attachment now supports `--input-manifest` for BR-084 reviewed rows while preserving explicit CLI precedence and legacy defaults | Continue one-consumer-at-a-time manifest resolution across remaining episode-truth builders |
+| `BR-20260429-175` | `episode_truth_map_manifest_resolution_ready_for_review` | BR-081 episode truth map now supports `--input-manifest` for BR-065 shape and BR-080 backlog inputs while preserving explicit CLI precedence and repo-tracked docs inputs | Continue one-consumer-at-a-time manifest resolution across remaining episode-truth builders |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -174,6 +174,7 @@
 | `BR-20260429-172` | `episode_truth_conservative_manifest_resolution_ready_for_review` | BR-088 conservative adjudication resolves worksheet input from optional manifest or explicit CLI, records resolution source, and keeps positive labels/patch authorization sums at 0 | no |
 | `BR-20260429-173` | `episode_truth_durable_shape_manifest_resolution_ready_for_review` | BR-089 durable-shape review resolves BR-088 input from optional manifest or explicit CLI, records resolution source, and keeps threshold tuning/patch authorization sums at 0 | no |
 | `BR-20260429-174` | `episode_truth_evidence_attachment_manifest_resolution_ready_for_review` | BR-085 evidence attachment resolves BR-084 reviewed rows from optional manifest or explicit CLI, records resolution source, and keeps labels/replay/patch authorization sums at 0 | no |
+| `BR-20260429-175` | `episode_truth_map_manifest_resolution_ready_for_review` | BR-081 episode truth map resolves BR-065 shape and BR-080 backlog inputs from optional manifest or explicit CLI, records both sources, and keeps truth/patch authorization sums at 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

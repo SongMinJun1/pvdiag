@@ -240,6 +240,44 @@ def build_fixture(root: Path) -> dict[str, Path]:
     return {"episode": episode, "g1": g1, "shape": shape, "blocker": blocker, "backlog": backlog}
 
 
+def run_builder(
+    repo_root: Path,
+    script: Path,
+    inputs: dict[str, Path],
+    output_dir: Path,
+    input_manifest: Path | None = None,
+    include_shape_backlog: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    cmd = [
+        sys.executable,
+        str(script),
+        "--repo-root",
+        str(repo_root),
+        "--output-dir",
+        str(output_dir),
+        "--owner-branch",
+        "BR-TEST-081",
+        "--episode-input",
+        str(inputs["episode"]),
+        "--g1-input",
+        str(inputs["g1"]),
+        "--blocker-input",
+        str(inputs["blocker"]),
+    ]
+    if include_shape_backlog:
+        cmd.extend(
+            [
+                "--shape-input",
+                str(inputs["shape"]),
+                "--backlog-input",
+                str(inputs["backlog"]),
+            ]
+        )
+    if input_manifest is not None:
+        cmd.extend(["--input-manifest", str(input_manifest)])
+    return run(cmd, repo_root)
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     script = repo_root / "research/prognostics/build_panel_day_engine_episode_truth_map_v1.py"
@@ -249,27 +287,7 @@ def main() -> None:
         fixture_root.mkdir(parents=True, exist_ok=True)
         inputs = build_fixture(fixture_root)
         output_dir = Path(tmpdir) / "out"
-        cmd = [
-            sys.executable,
-            str(script),
-            "--repo-root",
-            str(repo_root),
-            "--output-dir",
-            str(output_dir),
-            "--owner-branch",
-            "BR-TEST-081",
-            "--episode-input",
-            str(inputs["episode"]),
-            "--g1-input",
-            str(inputs["g1"]),
-            "--shape-input",
-            str(inputs["shape"]),
-            "--blocker-input",
-            str(inputs["blocker"]),
-            "--backlog-input",
-            str(inputs["backlog"]),
-        ]
-        completed = run(cmd, repo_root)
+        completed = run_builder(repo_root, script, inputs, output_dir)
         assert_true(completed.returncode == 0, completed.stderr or completed.stdout)
 
         map_df = pd.read_csv(output_dir / MAP_NAME, encoding="utf-8-sig")
@@ -292,10 +310,85 @@ def main() -> None:
         assert_true(payload["episode_truth_map_rows"] == len(map_df), payload)
         assert_true(payload["truth_status_counts"] == {"truth_pending": len(map_df)}, payload)
         assert_true(payload["missing_optional_input_count"] == 0, payload)
+        assert_true(payload["input_manifest"] == "", payload)
+        assert_true(payload["shape_input_source"] == "explicit_cli", payload)
+        assert_true(payload["backlog_input_source"] == "explicit_cli", payload)
         assert_true(len(summary_df) >= 5, summary_df.to_string())
         assert_true(action_df["sequence"].tolist() == sorted(action_df["sequence"].tolist()), action_df.to_string())
         assert_true(action_df.iloc[0]["action_id"] == "ACT-001", action_df.to_string())
         assert_true("truth_pending" in note_text, note_text)
+
+        manifest_path = Path(tmpdir) / "episode_truth_map_inputs.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "shape_input": str(inputs["shape"]),
+                        "backlog_input": str(inputs["backlog"]),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = Path(tmpdir) / "manifest_out"
+        manifest_completed = run_builder(
+            repo_root,
+            script,
+            inputs,
+            manifest_out,
+            manifest_path,
+            include_shape_backlog=False,
+        )
+        assert_true(manifest_completed.returncode == 0, manifest_completed.stderr or manifest_completed.stdout)
+        manifest_map_df = pd.read_csv(manifest_out / MAP_NAME, encoding="utf-8-sig")
+        manifest_payload = json.loads((manifest_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(manifest_payload["episode_truth_map_rows"] == payload["episode_truth_map_rows"], manifest_payload)
+        assert_true(manifest_payload["bucket_counts"] == payload["bucket_counts"], manifest_payload)
+        assert_true(len(manifest_map_df) == len(map_df), manifest_map_df.to_string())
+        assert_true(manifest_payload["input_manifest"] == str(manifest_path), manifest_payload)
+        assert_true(manifest_payload["shape_input_source"] == "input_manifest", manifest_payload)
+        assert_true(manifest_payload["backlog_input_source"] == "input_manifest", manifest_payload)
+
+        bad_manifest_path = Path(tmpdir) / "bad_episode_truth_map_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "shape_input": str(Path(tmpdir) / "missing_shape.csv"),
+                        "backlog_input": str(Path(tmpdir) / "missing_backlog.csv"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = Path(tmpdir) / "override_out"
+        override_completed = run_builder(repo_root, script, inputs, override_out, bad_manifest_path)
+        assert_true(override_completed.returncode == 0, override_completed.stderr or override_completed.stdout)
+        override_payload = json.loads((override_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(override_payload["shape_input_source"] == "explicit_cli", override_payload)
+        assert_true(override_payload["backlog_input_source"] == "explicit_cli", override_payload)
+
+        missing_key_manifest_path = Path(tmpdir) / "missing_key_episode_truth_map_inputs.json"
+        missing_key_manifest_path.write_text(
+            json.dumps({"inputs": {"shape_input": str(inputs["shape"])}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        missing_key_completed = run_builder(
+            repo_root,
+            script,
+            inputs,
+            Path(tmpdir) / "missing_key_out",
+            missing_key_manifest_path,
+            include_shape_backlog=False,
+        )
+        assert_true(missing_key_completed.returncode != 0, missing_key_completed.stdout)
+        assert_true("missing `backlog_input`" in missing_key_completed.stderr, missing_key_completed.stderr)
 
     print("smoke_test_panel_day_engine_episode_truth_map_v1.py: PASS")
 

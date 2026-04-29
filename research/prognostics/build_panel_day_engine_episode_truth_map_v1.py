@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -123,6 +124,57 @@ def numeric_float(value: object) -> float:
 def resolve_path(repo_root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path) -> tuple[Path | None, dict[str, Any]]:
+    text = normalize_text(value)
+    if not text:
+        return None, {}
+    manifest_path = resolve_path(repo_root, text)
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"missing episode-truth input manifest: {manifest_path}")
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"episode-truth input manifest must be a JSON object: {manifest_path}")
+    return manifest_path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    candidates: list[Any] = [manifest.get(key)]
+    for section_name in ["inputs", "artifacts"]:
+        section = manifest.get(section_name)
+        if isinstance(section, dict):
+            value = section.get(key)
+            if isinstance(value, dict):
+                candidates.extend([value.get("path"), value.get("artifact_path"), value.get("static_path")])
+            else:
+                candidates.append(value)
+    for value in candidates:
+        text = normalize_text(value)
+        if text:
+            return text
+    return ""
+
+
+def resolve_chain_input(
+    repo_root: Path,
+    arg_value: str | Path,
+    default_value: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    flag_name: str,
+) -> tuple[Path, str]:
+    if normalize_text(arg_value) != normalize_text(default_value):
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise ValueError(
+                f"episode-truth input manifest is missing `{manifest_key}`; "
+                f"add it under top-level or `inputs`, or pass {flag_name}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def read_optional_csv(path: Path, required_cols: list[str], name: str) -> tuple[pd.DataFrame, bool]:
@@ -573,7 +625,17 @@ def build_action_queue(owner_branch: str) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=ACTION_COLUMNS)
 
 
-def write_note(output_dir: Path, owner_branch: str, map_df: pd.DataFrame, summary_df: pd.DataFrame, action_df: pd.DataFrame, input_presence: dict[str, bool]) -> None:
+def write_note(
+    output_dir: Path,
+    owner_branch: str,
+    map_df: pd.DataFrame,
+    summary_df: pd.DataFrame,
+    action_df: pd.DataFrame,
+    input_presence: dict[str, bool],
+    input_manifest_path: Path | None,
+    shape_input_source: str,
+    backlog_input_source: str,
+) -> None:
     missing_inputs = [name for name, present in input_presence.items() if not present]
     note = f"""# Panel Day Engine Episode Truth Map V1
 
@@ -596,6 +658,9 @@ def write_note(output_dir: Path, owner_branch: str, map_df: pd.DataFrame, summar
 - engine patch allowed sum: `{int(map_df["engine_patch_allowed"].sum() + action_df["engine_patch_allowed"].sum())}`
 - threshold patch allowed sum: `{int(map_df["threshold_patch_allowed"].sum() + action_df["threshold_patch_allowed"].sum())}`
 - missing optional inputs: `{len(missing_inputs)}`
+- episode-truth input manifest: `{input_manifest_path if input_manifest_path else 'not provided'}`
+- shape input source: `{shape_input_source}`
+- backlog input source: `{backlog_input_source}`
 
 ## Reading
 - `episode_truth_status` is `truth_pending` for all rows.
@@ -622,6 +687,9 @@ def build_outputs(
     blocker_input: Path,
     shape_input: Path,
     backlog_input: Path,
+    input_manifest_path: Path | None = None,
+    shape_input_source: str = "legacy_default",
+    backlog_input_source: str = "legacy_default",
 ) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
     episode_df, episode_present = read_optional_csv(
@@ -683,12 +751,27 @@ def build_outputs(
         "br065_shape_review": shape_present,
         "br080_subtype_truth_backlog": backlog_present,
     }
-    write_note(output_dir, owner_branch, map_df, summary_df, action_df, input_presence)
+    write_note(
+        output_dir,
+        owner_branch,
+        map_df,
+        summary_df,
+        action_df,
+        input_presence,
+        input_manifest_path,
+        shape_input_source,
+        backlog_input_source,
+    )
 
     payload = {
         "owner_branch": owner_branch,
         "repo_root": str(repo_root),
         "output_dir": str(output_dir),
+        "input_manifest": str(input_manifest_path) if input_manifest_path else "",
+        "shape_input": str(shape_input),
+        "shape_input_source": shape_input_source,
+        "backlog_input": str(backlog_input),
+        "backlog_input_source": backlog_input_source,
         "episode_truth_map_rows": int(len(map_df)),
         "summary_rows": int(len(summary_df)),
         "action_rows": int(len(action_df)),
@@ -722,12 +805,37 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--blocker-input", default=BR023_PACKET_DEFAULT)
     parser.add_argument("--shape-input", default=BR065_SHAPE_DEFAULT)
     parser.add_argument("--backlog-input", default=BR080_BACKLOG_DEFAULT)
+    parser.add_argument(
+        "--input-manifest",
+        default="",
+        help=(
+            "Optional JSON manifest with `shape_input` and `backlog_input`. "
+            "Explicit --shape-input/--backlog-input values take precedence."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     repo_root = args.repo_root.resolve()
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    shape_input, shape_input_source = resolve_chain_input(
+        repo_root,
+        args.shape_input,
+        BR065_SHAPE_DEFAULT,
+        input_manifest,
+        "shape_input",
+        "--shape-input",
+    )
+    backlog_input, backlog_input_source = resolve_chain_input(
+        repo_root,
+        args.backlog_input,
+        BR080_BACKLOG_DEFAULT,
+        input_manifest,
+        "backlog_input",
+        "--backlog-input",
+    )
     payload = build_outputs(
         repo_root=repo_root,
         output_dir=args.output_dir,
@@ -735,8 +843,11 @@ def main() -> None:
         episode_input=resolve_path(repo_root, args.episode_input),
         g1_input=resolve_path(repo_root, args.g1_input),
         blocker_input=resolve_path(repo_root, args.blocker_input),
-        shape_input=resolve_path(repo_root, args.shape_input),
-        backlog_input=resolve_path(repo_root, args.backlog_input),
+        shape_input=shape_input,
+        backlog_input=backlog_input,
+        input_manifest_path=input_manifest_path,
+        shape_input_source=shape_input_source,
+        backlog_input_source=backlog_input_source,
     )
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
