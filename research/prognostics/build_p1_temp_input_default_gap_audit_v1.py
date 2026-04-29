@@ -19,7 +19,7 @@ except ImportError:
     )
 
 
-OWNER_BRANCH = "BR-20260429-225"
+OWNER_BRANCH = "BR-20260429-226"
 
 DETAIL_OUTPUT_NAME = "p1_temp_input_default_gap_audit_v1.csv"
 SUMMARY_OUTPUT_NAME = "p1_temp_input_default_gap_audit_summary_v1.csv"
@@ -29,8 +29,8 @@ JSON_OUTPUT_NAME = "p1_temp_input_default_gap_audit_v1.json"
 EXPECTED_TOTAL_PATH_MATCHES = 1935
 EXPECTED_P1_LIVE_TEMP_ROWS = 68
 EXPECTED_P1_TEMP_INPUT_ROWS = 15
-EXPECTED_CLOSED_ROWS = 14
-EXPECTED_OPEN_GAP_ROWS = 1
+EXPECTED_CLOSED_ROWS = 15
+EXPECTED_OPEN_GAP_ROWS = 0
 EXPECTED_WORKFLOW_COUNTS = {
     "mlpe_field_trial": 7,
     "panel_engine_common_cause": 2,
@@ -260,7 +260,7 @@ def summary_payload(
         "workflow_lane_counts": dict(sorted(workflow_counts.items())),
         "closure_class_counts": dict(sorted(class_counts.items())),
         "open_gap_files": [str(row["relative_path"]) for row in open_rows],
-        "recommended_next_branch": "patch_result_delta_runtime_root_manifest_or_required_cli",
+        "recommended_next_branch": "p1_temp_input_default_lane_closed_continue_p2_cleanup",
     }
 
 
@@ -342,9 +342,9 @@ def render_note(payload: dict[str, object], detail_rows: list[dict[str, object]]
         "## Interpretation",
         "- BR-224 keeps the 68 live-temp rows closed at contract/audit level.",
         "- The remaining p1 temp input-default lane is mostly closed by existing guards or manifest/explicit-input support.",
-        "- One row remains an explicit-CLI-only legacy default and should be patched separately.",
+        "- The prior explicit-CLI-only runtime-root gap is now closed by manifest or explicit CLI resolution.",
         "",
-        "## Open Gap",
+            "## Open Gaps",
     ]
     if open_rows:
         for row in open_rows:
@@ -359,7 +359,7 @@ def render_note(payload: dict[str, object], detail_rows: list[dict[str, object]]
         [
             "",
             "## Next Action",
-            "- Patch the open prepatch scorecard runtime-root default by adding source-specific manifest resolution or a required explicit input boundary.",
+            "- Treat the p1 temp input-default lane as closed unless this audit count changes.",
             "- Keep this separate from runtime semantics and panel-engine code.",
         ]
     )

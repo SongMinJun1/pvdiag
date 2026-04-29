@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-225` | `p1_temp_input_default_gap_audit_ready_for_review` | post-P1 path audit shows p1 temp input defaults are mostly closed: 15 rows, 14 closed by existing guards or manifest/explicit-input contracts, 1 prepatch runtime-root gap remains, rewrite/runtime semantic permission rows 0 | Patch the single result-delta runtime-root default with manifest resolution or a stricter explicit-input boundary |
+| `BR-20260429-226` | `result_delta_runtime_root_contract_ready_for_review` | closes the last p1 temp input-default gap by resolving result-delta `runtime_root` from input manifest, explicit CLI, or retained legacy default; p1 temp input defaults now 15/15 closed, open gaps 0 | Move to p2 historical evidence/repro cleanup only after this closure stays green |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -225,6 +225,7 @@
 | `BR-20260429-223` | `live_temp_literal_repro_closure_ready_for_review` | closes the remaining literal/repro-only live-temp rows as non-input references: embedded note repro commands 4, intentional detector literals 2, manifest/explicit input required rows 0, input contract gaps 0 | no |
 | `BR-20260429-224` | `p1_live_temp_lane_closure_ready_for_review` | final lane audit confirms all 68 P1 live-temp reference rows are either input-contract closed or non-input literal/repro closed: input-like 62, literal/repro 6, detail rows 9, closure complete 1 | no |
 | `BR-20260429-225` | `p1_temp_input_default_gap_audit_ready_for_review` | audits the remaining p1 temp input-default lane after BR-224: 15 rows, MLPE guarded user-filled 7, non-MLPE manifest/explicit closed 7, open explicit-CLI-only gap 1 in result-delta runtime root | no |
+| `BR-20260429-226` | `result_delta_runtime_root_contract_ready_for_review` | result-delta scorecard now resolves `runtime_root` from manifest/explicit CLI/legacy default; p1 temp input-default audit reports closed rows 15, open gaps 0, runtime/bulk semantic permission rows 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

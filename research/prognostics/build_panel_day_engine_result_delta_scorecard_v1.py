@@ -481,6 +481,7 @@ def render_note(
         f"- evidence input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
         "",
         "## Input Resolution Sources",
+        f"- `runtime_root`: `{source_map.get('runtime_root', 'legacy_default')}`",
         f"- `prepatch_runbook_summary`: `{source_map.get('prepatch_runbook_summary', 'legacy_default')}`",
         "",
         "## Summary",
@@ -515,9 +516,17 @@ def main() -> None:
     argv = sys.argv[1:]
     explicit_flags = {
         flag
-        for flag in ["--prepatch-runbook-summary"]
+        for flag in ["--runtime-root", "--prepatch-runbook-summary"]
         if cli_flag_provided(flag, argv)
     }
+    runtime_root, runtime_root_source = resolve_manifest_input(
+        repo_root,
+        "runtime_root",
+        "--runtime-root",
+        args.runtime_root,
+        input_manifest,
+        explicit_flags,
+    )
     prepatch_runbook_summary, prepatch_runbook_summary_source = resolve_manifest_input(
         repo_root,
         "prepatch_runbook_summary",
@@ -526,8 +535,10 @@ def main() -> None:
         input_manifest,
         explicit_flags,
     )
+    args.runtime_root = runtime_root
     args.prepatch_runbook_summary = prepatch_runbook_summary
     input_resolution_sources = {
+        "runtime_root": runtime_root_source,
         "prepatch_runbook_summary": prepatch_runbook_summary_source,
     }
     args.output_dir.mkdir(parents=True, exist_ok=True)
