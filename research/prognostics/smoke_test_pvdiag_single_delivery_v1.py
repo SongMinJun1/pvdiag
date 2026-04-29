@@ -48,6 +48,13 @@ def main() -> None:
         paths,
     )
     assert_true(not any("/runtime/windows_x64/" in path for path in paths), paths)
+    assert_true("release/conalog_full_runtime_v1/package/app/import_any_csv_root.py" not in paths, paths)
+    assert_true("release/conalog_full_runtime_v1/package/requirements.txt" not in paths, paths)
+    assert_true(
+        "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_gpvs_evidence_pack_v1.py"
+        not in paths,
+        paths,
+    )
 
     compile_single = subprocess.run(
         [sys.executable, "-m", "py_compile", str(single)],

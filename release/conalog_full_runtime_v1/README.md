@@ -60,6 +60,7 @@ BR-248 이후 단일 파일 payload는 zip/base64가 아니라 `EMBEDDED_TEXT_FI
 - 필요 패키지는 `pandas`, `numpy`, `torch`, `openpyxl`, `tqdm`임.
 - Windows embedded runtime(`package/runtime/windows_x64/python`)은 700MB급 런타임이므로 단일 파일 payload에서 제외함.
 - 단일 파일 payload는 zip/base64를 쓰지 않고 source-text로 생성함.
+- 단일 파일 payload는 실제 one-file 실행 경로에 필요한 runtime/raw-only 자산 중심으로 줄이며, importer helper, package metadata, frozen-share live-chain-only builders는 제외함.
 
 생성 명령:
 

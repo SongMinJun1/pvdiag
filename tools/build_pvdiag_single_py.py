@@ -18,8 +18,23 @@ INCLUDE_PREFIXES = (
     "pv_ae/",
     "research/",
 )
-INCLUDE_FILES = {"requirements.txt"}
 INCLUDE_SUFFIXES = {".py", ".json", ".csv", ".md", ".txt"}
+SINGLE_FILE_EXCLUDE_RELS = {
+    # The single-file handoff accepts an already arranged --data-root; importer helpers
+    # and package metadata are not read by run_full_algorithm_pack.py.
+    "app/import_any_csv_root.py",
+    "requirements.txt",
+    # KTC fault2 preview is a side preview artifact and is not copied/read by
+    # the single-file runtime result path.
+    "artifacts/ktc_fault2_label_and_algorithm_preview_v1.csv",
+    # Frozen-share live-chain scripts cannot run in the one-file handoff because
+    # the required package/_share support assets are intentionally not embedded.
+    "research/prognostics/build_panel_day_engine_bootstrap_verdict_v1.py",
+    "research/prognostics/build_panel_day_engine_fault_panel_event_audit_v1.py",
+    "research/prognostics/build_panel_day_engine_panel_multiaxis_verdict_v1.py",
+    "research/prognostics/build_panel_day_engine_gpvs_evidence_pack_v1.py",
+    "research/prognostics/build_panel_day_engine_cause_candidate_heuristics_v1.py",
+}
 EXCLUDE_PREFIXES = (
     "runtime/",
     "bin/",
@@ -287,14 +302,14 @@ def parse_args() -> argparse.Namespace:
 
 def should_include(path: Path, package_root: Path) -> bool:
     rel = path.relative_to(package_root).as_posix()
+    if rel in SINGLE_FILE_EXCLUDE_RELS:
+        return False
     if any(part in EXCLUDE_PARTS for part in path.parts):
         return False
     if path.suffix in EXCLUDE_SUFFIXES:
         return False
     if any(rel.startswith(prefix) for prefix in EXCLUDE_PREFIXES):
         return False
-    if rel in INCLUDE_FILES:
-        return True
     if not any(rel.startswith(prefix) for prefix in INCLUDE_PREFIXES):
         return False
     return path.suffix in INCLUDE_SUFFIXES
@@ -395,6 +410,7 @@ def write_manifest(path: Path, repo_root: Path, files: list[Path], payload: dict
         "payload_text_sha256": hashlib.sha256(payload_bytes).hexdigest(),
         "excluded_runtime_windows_x64": True,
         "max_payload_file_bytes": MAX_FILE_BYTES,
+        "excluded_single_file_payload_rels": sorted(SINGLE_FILE_EXCLUDE_RELS),
         "files": rows,
     }
     path.parent.mkdir(parents=True, exist_ok=True)

@@ -1,19 +1,24 @@
 {
-  "generated_at_utc": "2026-04-29T17:28:07.966624+00:00",
+  "generated_at_utc": "2026-04-29T17:46:48.346827+00:00",
   "generated_by": "tools/build_pvdiag_single_py.py",
   "delivery_artifact": "release/conalog_full_runtime_v1/pvdiag_single.py",
   "payload_mode": "source_text",
-  "payload_file_count": 24,
-  "payload_text_bytes": 646077,
-  "payload_text_sha256": "d0209238c888b8f3121c32f9e7a94ab93f1b6385ad103429c58a08bc0bbc3a1e",
+  "payload_file_count": 16,
+  "payload_text_bytes": 432286,
+  "payload_text_sha256": "43fcde2ee33498bfd083019a56a7370c4dd7de32b4e9ba2e77298ab835607f3e",
   "excluded_runtime_windows_x64": true,
   "max_payload_file_bytes": 2000000,
+  "excluded_single_file_payload_rels": [
+    "app/import_any_csv_root.py",
+    "artifacts/ktc_fault2_label_and_algorithm_preview_v1.csv",
+    "requirements.txt",
+    "research/prognostics/build_panel_day_engine_bootstrap_verdict_v1.py",
+    "research/prognostics/build_panel_day_engine_cause_candidate_heuristics_v1.py",
+    "research/prognostics/build_panel_day_engine_fault_panel_event_audit_v1.py",
+    "research/prognostics/build_panel_day_engine_gpvs_evidence_pack_v1.py",
+    "research/prognostics/build_panel_day_engine_panel_multiaxis_verdict_v1.py"
+  ],
   "files": [
-    {
-      "path": "release/conalog_full_runtime_v1/package/app/import_any_csv_root.py",
-      "bytes": 7325,
-      "sha256": "3b307940689088f6c9b06853d0412b4ea3586e5e94ec73f98e9c3821e3d77d86"
-    },
     {
       "path": "release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py",
       "bytes": 168660,
@@ -40,11 +45,6 @@
       "sha256": "8f6e69e526de55fb976e0fd9ecb5c1304816c3d3d48a7f8ef758989d6914ee2c"
     },
     {
-      "path": "release/conalog_full_runtime_v1/package/artifacts/ktc_fault2_label_and_algorithm_preview_v1.csv",
-      "bytes": 468,
-      "sha256": "c2bc0f2619ae9f58d57ae2142d7f040ffa5594c0f23e2623dfb0c4bc3c03d3af"
-    },
-    {
       "path": "release/conalog_full_runtime_v1/package/artifacts/panel_day_core_baseline_digest_v1.json",
       "bytes": 2864,
       "sha256": "15b339b68502e6e1d930987d35e3e67f0a6a5c7a308c3a37a4e8190e10f8b250"
@@ -65,11 +65,6 @@
       "sha256": "2cf3ae3f93bc23a5b1e1eeb19418f5ef9a2e12e84f9a583bd0fdaf636ecafbb3"
     },
     {
-      "path": "release/conalog_full_runtime_v1/package/requirements.txt",
-      "bytes": 69,
-      "sha256": "6f5a22d9bdb456bde351ddb91a56b83f1a9571ef107a1ec9bdbcf360f588da8d"
-    },
-    {
       "path": "release/conalog_full_runtime_v1/package/research/__init__.py",
       "bytes": 0,
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -78,31 +73,6 @@
       "path": "release/conalog_full_runtime_v1/package/research/prognostics/__init__.py",
       "bytes": 0,
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    },
-    {
-      "path": "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_bootstrap_verdict_v1.py",
-      "bytes": 8771,
-      "sha256": "d282379e50de994a571fdd47d929796cb55e88f709974f0b019bd93bb10e707e"
-    },
-    {
-      "path": "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_cause_candidate_heuristics_v1.py",
-      "bytes": 21623,
-      "sha256": "86de483fc576f7d10424f0dcac6f5fce24eb864a4ec765833e728119c88035d7"
-    },
-    {
-      "path": "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_fault_panel_event_audit_v1.py",
-      "bytes": 24531,
-      "sha256": "2573004b9450e21faaf944ad5e11d24ccdc66a82d03b04496a6a58778f5d838e"
-    },
-    {
-      "path": "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_gpvs_evidence_pack_v1.py",
-      "bytes": 31022,
-      "sha256": "2864b9dc1b6151b88f3205564e9b758192484d727a06550694a925ce140a1972"
-    },
-    {
-      "path": "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_panel_multiaxis_verdict_v1.py",
-      "bytes": 119192,
-      "sha256": "47d9a00a9cfdbe1b471eb93d4c0c8674de0116fca112fff5d9366a03efd6f1e7"
     },
     {
       "path": "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_runtime_fault_event_audit_v1.py",
