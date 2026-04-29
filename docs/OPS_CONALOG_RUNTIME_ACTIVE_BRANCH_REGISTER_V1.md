@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-230` | `latest_handoff_manifest_repro_refresh_dry_run_ready_for_review` | dry-run replacement maps 14 specs: 12 generated command replacements, 2 repo-doc unchanged; proposed repro temp literals drop 41 to 0 with branch-local manifests and output-root placeholders | Next branch should patch the latest handoff generator and compare regenerated rows before merge |
+| `BR-20260429-231` | `latest_handoff_manifest_repro_apply_generator_ready_for_review` | latest handoff generator now emits portable artifact/repro text: 12 manifestized rows, 2 repo-doc preserved, repro temp literals 41 -> 0, artifact temp literals 0 | Next branch should run broader generated latest-handoff portability closure audit |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -230,6 +230,7 @@
 | `BR-20260429-228` | `generated_handoff_repro_literal_audit_ready_for_review` | generated handoff/repro literals split into latest handoff manifest 41, evidence manifest 7, episode note 1, and validation output 1; manifestized rebuild candidates 48, manual literal edit allowed rows 0 | no |
 | `BR-20260429-229` | `latest_handoff_manifest_repro_refresh_plan_ready_for_review` | latest handoff manifest refresh plan maps 14 specs: 12 refresh-required, 2 repo-doc no-refresh, 28 temp input literals, 12 temp output literals, 1 repo-root literal; manual literal edit/runtime/operator changes 0 | no |
 | `BR-20260429-230` | `latest_handoff_manifest_repro_refresh_dry_run_ready_for_review` | dry-run replacement keeps 2 repo-doc commands unchanged and proposes 12 manifestized command replacements; old `/private/tmp` repro literals 41, proposed repro literals 0, global manifest key conflict 1 proves branch-local manifests are required | no |
+| `BR-20260429-231` | `latest_handoff_manifest_repro_apply_generator_ready_for_review` | applies the BR-230 dry-run to the latest handoff generator: regenerated rows show 12 manifestized repro commands, 12 parameterized artifact paths, 2 repo-doc rows preserved, repro/artifact `/private/tmp` rows 0, patch authorization sums 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

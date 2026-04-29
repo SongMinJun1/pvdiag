@@ -71,6 +71,18 @@ def main() -> None:
         assert_true(int(detail_df["engine_patch_allowed"].sum()) == 0, "engine patch must stay disallowed")
         assert_true(int(detail_df["threshold_patch_allowed"].sum()) == 0, "threshold patch must stay disallowed")
         assert_true(int(detail_df["operator_promotion_allowed"].sum()) == 0, "operator promotion must stay disallowed")
+        assert_true(
+            not detail_df["repro_command"].astype(str).str.contains("/private/tmp", regex=False).any(),
+            detail_df[["branch_id", "repro_command"]].to_string(),
+        )
+        assert_true(
+            int(detail_df["repro_command"].astype(str).str.contains("--input-manifest", regex=False).sum()) == 12,
+            detail_df[["branch_id", "repro_command"]].to_string(),
+        )
+        assert_true(
+            int(detail_df["primary_artifact_path"].astype(str).str.contains("LATEST_HANDOFF_OUTPUT_ROOT", regex=False).sum()) == 12,
+            detail_df[["branch_id", "primary_artifact_path"]].to_string(),
+        )
 
         br076 = detail_df.loc[detail_df["branch_id"].eq("BR-20260424-076")].iloc[0]
         assert_true(br076["handoff_state"] == "required_before_algorithm_review", br076.to_string())
@@ -83,7 +95,7 @@ def main() -> None:
         assert_true("prepatch_safety_gate" in set(summary_df["evidence_layer"]), summary_df.to_string())
         assert_true(payload["branch_count"] == len(expected_branches), payload)
         assert_true(payload["engine_patch_allowed_sum"] == 0, payload)
-        assert_true("Missing `/private/tmp` artifacts are not failures" in note_text, note_text)
+        assert_true("Missing parameterized/temp artifacts are not failures" in note_text, note_text)
 
     print("smoke_test_panel_day_engine_latest_evidence_handoff_manifest_v1.py: PASS")
 
