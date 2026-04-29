@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -192,6 +193,56 @@ def safe_median(series: pd.Series) -> float:
 def resolve_path(repo_root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_chain_input(
+    repo_root: Path,
+    cli_value: str | Path,
+    legacy_default: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    cli_flag: str,
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if cli_flag in explicit_flags:
+        return resolve_path(repo_root, cli_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise KeyError(
+                f"panel-day evidence input manifest is missing `{manifest_key}`; "
+                f"pass {cli_flag} explicitly or add inputs.{manifest_key}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, legacy_default), "legacy_default"
 
 
 def read_required_csv(path: Path, required_cols: list[str], name: str) -> pd.DataFrame:
@@ -664,7 +715,10 @@ def write_note(
     sites: list[str],
     candidates_df: pd.DataFrame,
     summary_df: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
 ) -> None:
+    source_map = input_resolution_sources or {}
     compact_cols = [
         "site",
         "candidate_tier",
@@ -702,8 +756,13 @@ def write_note(
         "## Inputs",
         f"- BR-089 shape review: `{shape_input}`",
         f"- BR-091 hold review: `{hold_input}`",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
         f"- data root: `{data_root}`",
         f"- sites: `{','.join(sites)}`",
+        "",
+        "## Input Resolution Sources",
+        f"- `shape_input`: `{source_map.get('shape_input', 'legacy_default')}`",
+        f"- `hold_input`: `{source_map.get('hold_input', 'legacy_default')}`",
         "",
         "## Real Result",
         f"- owner_branch: `{owner_branch}`",
@@ -743,6 +802,8 @@ def write_json(
     sites: list[str],
     candidates_df: pd.DataFrame,
     summary_df: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
 ) -> None:
     payload = {
         "owner_branch": owner_branch,
@@ -750,6 +811,8 @@ def write_json(
         "output_dir": str(output_dir),
         "shape_input": str(shape_input),
         "hold_input": str(hold_input),
+        "input_manifest": str(input_manifest_path) if input_manifest_path is not None else "",
+        "input_resolution_sources": input_resolution_sources or {},
         "data_root": str(data_root),
         "sites": sites,
         "candidate_rows": int(len(candidates_df)),
@@ -803,6 +866,11 @@ def write_json(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Search for voltage-preserved precursor-like candidates.")
     parser.add_argument("--repo-root", default=".", help="Repository root. Defaults to current directory.")
+    parser.add_argument(
+        "--input-manifest",
+        default=None,
+        help="Optional JSON manifest for BR-089 shape and BR-091 hold review inputs.",
+    )
     parser.add_argument("--shape-input", default=DEFAULT_SHAPE_INPUT, help="BR-089 durable shape review CSV.")
     parser.add_argument("--hold-input", default=DEFAULT_HOLD_INPUT, help="BR-091 durable hold raw-shape summary CSV.")
     parser.add_argument("--data-root", default=DEFAULT_DATA_ROOT, help="Data root containing <site>/out/panel_day_core.csv.")
@@ -817,8 +885,38 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
-    shape_input = resolve_path(repo_root, args.shape_input)
-    hold_input = resolve_path(repo_root, args.hold_input)
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--shape-input",
+            "--hold-input",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    shape_input, shape_input_source = resolve_chain_input(
+        repo_root,
+        args.shape_input,
+        DEFAULT_SHAPE_INPUT,
+        input_manifest,
+        "shape_input",
+        "--shape-input",
+        explicit_flags,
+    )
+    hold_input, hold_input_source = resolve_chain_input(
+        repo_root,
+        args.hold_input,
+        DEFAULT_HOLD_INPUT,
+        input_manifest,
+        "hold_input",
+        "--hold-input",
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "shape_input": shape_input_source,
+        "hold_input": hold_input_source,
+    }
     data_root = resolve_path(repo_root, args.data_root)
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -843,7 +941,18 @@ def main() -> None:
     candidates_df.to_csv(output_dir / CANDIDATE_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary_df.to_csv(output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     action_df.to_csv(output_dir / ACTION_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(output_dir / NOTE_OUTPUT_NAME, args.owner_branch, shape_input, hold_input, data_root, sites, candidates_df, summary_df)
+    write_note(
+        output_dir / NOTE_OUTPUT_NAME,
+        args.owner_branch,
+        shape_input,
+        hold_input,
+        data_root,
+        sites,
+        candidates_df,
+        summary_df,
+        input_manifest_path,
+        input_resolution_sources,
+    )
     write_json(
         output_dir / JSON_OUTPUT_NAME,
         args.owner_branch,
@@ -855,6 +964,8 @@ def main() -> None:
         sites,
         candidates_df,
         summary_df,
+        input_manifest_path,
+        input_resolution_sources,
     )
 
     print(

@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-192` | `durable_hold_manifest_resolution_ready_for_review` | BR-091 durable-hold raw-shape review resolves BR-089 shape review input from optional manifest or explicit CLI, records input source, and keeps raw-shape/truth/threshold boundaries unchanged | Continue evidence-lane manifest resolution with the next unresolved `/private/tmp` input dependency |
+| `BR-20260429-193` | `voltage_preserved_search_manifest_resolution_ready_for_review` | BR-092 voltage-preserved positive search resolves BR-089 shape and BR-091 hold inputs from optional manifest or explicit CLI, records input sources, and keeps search/truth/threshold boundaries unchanged | Continue evidence-lane manifest resolution with the next unresolved `/private/tmp` input dependency |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -192,6 +192,7 @@
 | `BR-20260429-190` | `raw_waveform_manifest_resolution_ready_for_review` | BR-068 raw waveform physical-support review resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest keys; no raw waveform support bucket, score, raw ratio metric, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-191` | `physical_confirmation_manifest_resolution_ready_for_review` | BR-069 physical confirmation requirements review resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest keys; no confirmation bucket, readiness, axis matching, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-192` | `durable_hold_manifest_resolution_ready_for_review` | BR-091 durable-hold raw-shape review resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest keys; no raw-shape decision, positive-truth, threshold tuning, engine, or operator-facing semantics changed | no |
+| `BR-20260429-193` | `voltage_preserved_search_manifest_resolution_ready_for_review` | BR-092 voltage-preserved positive search resolves 2 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no candidate tier, known overlap, manual readiness, positive-truth, threshold, engine, or operator-facing semantics changed | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
