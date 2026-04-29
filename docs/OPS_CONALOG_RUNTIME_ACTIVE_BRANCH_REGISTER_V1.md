@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-237` | `generated_residual_closure_audit_ready_for_review` | closes the remaining generated residuals as non-actionable now: latest handoff 0, evidence manifest 0, episode note deferred 1, validation output preserved 1, action-required rows 0 | Next branch should run a broader path portability final rescan before declaring this cleanup axis closed |
+| `BR-20260430-238` | `path_portability_final_rescan_ready_for_review` | final rescan separates zero-literal cleanup from current blocking debt: blocking open rows 0, generated residual closure complete 1, zero-literal cleanup complete 0 | Next branch should record a path-portability cleanup-axis checkpoint before returning to algorithm or field-trial readiness work |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -237,6 +237,7 @@
 | `BR-20260429-235` | `evidence_manifest_repro_refresh_dry_run_ready_for_review` | evidence manifest dry-run compares all 23 artifact specs: changed rows 20, manual oneoff preserved rows 3, artifact-row `/private/tmp` literals 26 -> 0, source patch constants 4 | no |
 | `BR-20260429-236` | `evidence_manifest_repro_refresh_apply_builder_ready_for_review` | evidence manifest builder constants now use `${EVIDENCE_MANIFEST_OUTPUT_ROOT}`; generated manifest repro residuals close from 7 to 0, plan/dry-run closure complete 1, runtime/operator semantics unchanged | no |
 | `BR-20260429-237` | `generated_residual_closure_audit_ready_for_review` | generated residual closure audit reports 2 residual rows, current action required 0, safe to leave 2: episode note deferred until touched, validation output destination preserved | no |
+| `BR-20260430-238` | `path_portability_final_rescan_ready_for_review` | broad final rescan reports current blocking path debt 0 and generated residual closure complete 1, while explicitly keeping zero-literal cleanup false because historical/provenance path text remains visible | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
