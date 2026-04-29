@@ -4,6 +4,7 @@
 원본 알고리즘은 계속 모듈형으로 유지하고, 이 파일은 builder로 생성한 self-extracting runner입니다.
 BR-248 이후 내부 payload는 zip/base64가 아니라 UTF-8 source-text로 들어갑니다.
 BR-253 이후 파일 상단에 payload 역할 index가 보이고, 필요하면 내장 소스를 읽을 수 있는 폴더로 풀 수 있습니다.
+BR-254 이후 큰 `EMBEDDED_TEXT_JSON_CHUNKS` payload는 파일 아래쪽의 접을 수 있는 `# region Embedded source payload` 블록 안에 있습니다.
 
 ## 준비
 
@@ -124,3 +125,4 @@ python tools/check_pvdiag_single_delivery_closeout.py --export-output-dir /tmp/p
 - 실패 시 `missing required Python packages`, `data-root was not provided`, `data-root does not exist` 메시지를 먼저 보고, 안내된 `pip install ...` 또는 `--data-root /path/to/data`로 다시 실행합니다.
 - generated single file은 source-text JSON chunk container와 11-file essential payload를 사용해 불필요한 line-literal 전개와 sidecar payload를 피합니다.
 - generated single file은 compact하지만 숨김 파일처럼 다루지 않도록 `PAYLOAD_FILE_INDEX`, `--single-list-payload`, `--single-extract-source`를 제공합니다.
+- generated single file의 큰 payload blob은 본문을 가리지 않도록 아래쪽 foldable region에 둡니다.

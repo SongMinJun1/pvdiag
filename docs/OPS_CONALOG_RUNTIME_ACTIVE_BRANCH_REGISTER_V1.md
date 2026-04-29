@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260430-253` | `single_file_payload_transparency_ready_for_review` | balances BR-252 line diet with visible payload structure: generated `pvdiag_single.py` exposes `PAYLOAD_FILE_INDEX`, `--single-list-payload`, and `--single-extract-source` so reviewers can see module roles and unpack readable sources | Delivery file stays compact/non-base64/non-zip, but no longer feels opaque; field-trial CSV evaluation remains label/data blocked |
+| `BR-20260430-254` | `single_file_payload_folding_ready_for_review` | moves the bulky `EMBEDDED_TEXT_JSON_CHUNKS` blob below the executable body and wraps it in `# region Embedded source payload` so VS Code users can fold it while keeping payload index/list/extract UX | Delivery file stays compact and inspectable without letting the payload wall dominate the top-level code view |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -253,6 +253,7 @@
 | `BR-20260430-251` | `single_file_failure_ux_ready_for_review` | self-test no longer depends on external packages; smoke verifies missing torch returns install guidance, invalid `--data-root` returns path guidance, and no sibling `data/` returns noninteractive remediation | no |
 | `BR-20260430-252` | `single_file_line_diet_ready_for_review` | source-text payload container switches from expanded per-line literals to JSON chunks; optional provenance/dependency sidecars and empty namespace markers are excluded after omit-audit, leaving 11 payload files, 339 lines, and 477767 bytes | no |
 | `BR-20260430-253` | `single_file_payload_transparency_ready_for_review` | generated file now has a visible 11-row payload role index and two no-dependency inspection commands: `--single-list-payload` and `--single-extract-source`; closeout verifies both | no |
+| `BR-20260430-254` | `single_file_payload_folding_ready_for_review` | generated file keeps the JSON chunk payload but moves it after the runnable body and wraps it in a VS Code foldable region; handoff/smoke require the fold markers | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

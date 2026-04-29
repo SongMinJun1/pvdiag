@@ -65,4 +65,5 @@ result/fault_panel_result_raw_only_fault_signal_report_v1.csv
 - BR-251 이후 `--single-self-test`는 외부 패키지 없이도 payload 무결성을 확인하고, 실제 실행 실패는 패키지 누락/data-root 문제를 구분해 안내합니다.
 - BR-252 이후 source-text payload는 JSON chunk container로 저장되며, payload necessity audit 기준 11개 파일만 포함합니다.
 - BR-253 이후 줄 수 다이어트로 숨겨진 구조를 보완하기 위해 `PAYLOAD_FILE_INDEX`, `--single-list-payload`, `--single-extract-source`를 제공합니다.
+- BR-254 이후 `EMBEDDED_TEXT_JSON_CHUNKS`는 파일 아래쪽 `# region Embedded source payload` 접기 블록 안에 둡니다.
 - 실증 CSV와 최종 라벨이 들어오기 전까지 truth-label 성능 주장은 하지 않습니다.

@@ -49,6 +49,7 @@
 이 파일은 원본 모듈을 손으로 합친 파일이 아니라, `tools/build_pvdiag_single_py.py`가 `package/app`, `package/pv_ae`, `package/research`, 작은 `package/artifacts`를 source-text payload로 묶어 만든 generated artifact임.
 BR-248 이후 단일 파일 payload는 zip/base64가 아니라 `EMBEDDED_TEXT_FILES` 안의 UTF-8 원문 텍스트로 저장함.
 BR-253 이후 파일 상단에 payload 역할 index를 노출하고, `--single-list-payload` 및 `--single-extract-source`로 내부 구조를 확인할 수 있음.
+BR-254 이후 큰 payload blob은 본문을 가리지 않도록 파일 아래쪽 `# region Embedded source payload` foldable region에 둠.
 짧은 전달용 사용법은 `PVDIAG_SINGLE_QUICKSTART.md`를 보면 됨.
 최종 전달 폴더는 `tools/export_pvdiag_single_delivery.py`로 만들며, 교수님께 보낼 폴더에는 `pvdiag_single.py` 한 개만 남김.
 전달 closeout은 `tools/check_pvdiag_single_delivery_closeout.py`가 export/self-test/docs/checksum snapshot을 한 번에 확인함.
@@ -65,6 +66,7 @@ BR-253 이후 파일 상단에 payload 역할 index를 노출하고, `--single-l
 - `--single-self-test`는 외부 패키지 없이 payload 무결성만 확인하고, 실제 실행에서는 패키지 누락과 `data-root` 오류를 분리해서 안내함.
 - source-text payload는 JSON chunk container로 저장하고, necessity audit을 통과한 11개 파일만 포함해서 generated file 줄 수와 payload를 줄임.
 - compact payload라도 구조가 숨겨지지 않도록 `PAYLOAD_FILE_INDEX`와 source extraction path를 제공함.
+- 큰 `EMBEDDED_TEXT_JSON_CHUNKS` 블록은 VS Code에서 접을 수 있는 region으로 분리함.
 
 생성 명령:
 
