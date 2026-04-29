@@ -129,14 +129,20 @@ def main() -> None:
         root = Path(tmp_dir)
         runtime, prepatch = seed_runtime_root(root)
         input_manifest = root / "input_manifest.json"
-        write_json(input_manifest, {"inputs": {"prepatch_runbook_summary": str(prepatch)}})
+        write_json(
+            input_manifest,
+            {
+                "inputs": {
+                    "runtime_root": str(runtime),
+                    "prepatch_runbook_summary": str(prepatch),
+                }
+            },
+        )
         out = root / "out"
         completed = run(
             [
                 sys.executable,
                 str(script),
-                "--runtime-root",
-                str(runtime),
                 "--input-manifest",
                 str(input_manifest),
                 "--output-dir",
@@ -157,6 +163,7 @@ def main() -> None:
         assert_true(row["performance_improvement_claim_allowed"] == "no_truth_label_not_claimed", summary.to_string())
         assert_true("core_diff_count" in set(detail["metric_name"]), detail.to_string())
         assert_true("accuracy/F1 improvement" in note, note)
+        assert_true("`runtime_root`: `input_manifest`" in note, note)
         assert_true("`prepatch_runbook_summary`: `input_manifest`" in note, note)
 
 
