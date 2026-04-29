@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-229` | `latest_handoff_manifest_repro_refresh_plan_ready_for_review` | latest handoff manifest refresh plan maps 14 specs: 12 refresh-required, 2 repo-doc no-refresh, 28 temp input literals, 12 temp output literals, 1 repo-root literal; manual edits 0 | Next branch should dry-run generated command replacement without changing runtime semantics |
+| `BR-20260429-230` | `latest_handoff_manifest_repro_refresh_dry_run_ready_for_review` | dry-run replacement maps 14 specs: 12 generated command replacements, 2 repo-doc unchanged; proposed repro temp literals drop 41 to 0 with branch-local manifests and output-root placeholders | Next branch should patch the latest handoff generator and compare regenerated rows before merge |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -229,6 +229,7 @@
 | `BR-20260429-227` | `p2_historical_reference_boundary_ready_for_review` | p2 historical references are now mechanically split: evidence provenance 1119, historical doc repro 156, generated handoff repro literals 50; bulk rewrite/runtime/operator change allowed rows 0 | no |
 | `BR-20260429-228` | `generated_handoff_repro_literal_audit_ready_for_review` | generated handoff/repro literals split into latest handoff manifest 41, evidence manifest 7, episode note 1, and validation output 1; manifestized rebuild candidates 48, manual literal edit allowed rows 0 | no |
 | `BR-20260429-229` | `latest_handoff_manifest_repro_refresh_plan_ready_for_review` | latest handoff manifest refresh plan maps 14 specs: 12 refresh-required, 2 repo-doc no-refresh, 28 temp input literals, 12 temp output literals, 1 repo-root literal; manual literal edit/runtime/operator changes 0 | no |
+| `BR-20260429-230` | `latest_handoff_manifest_repro_refresh_dry_run_ready_for_review` | dry-run replacement keeps 2 repo-doc commands unchanged and proposes 12 manifestized command replacements; old `/private/tmp` repro literals 41, proposed repro literals 0, global manifest key conflict 1 proves branch-local manifests are required | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
