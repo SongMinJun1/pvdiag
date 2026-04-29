@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -295,6 +296,78 @@ def to_bool(value: object) -> bool:
 def resolve_path(repo_root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_request_input(
+    repo_root: Path,
+    request_input_value: str | Path,
+    request_dir_value: str | Path,
+    manifest: dict[str, Any],
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if "--request-input" in explicit_flags:
+        return resolve_path(repo_root, request_input_value), "explicit_cli"
+    if "--request-dir" in explicit_flags:
+        return resolve_path(repo_root, request_dir_value) / REQUEST_INPUT_NAME, "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, "request_input")
+        if not manifest_value:
+            raise KeyError(
+                "panel-day evidence input manifest is missing `request_input`; "
+                "pass --request-input/--request-dir explicitly or add inputs.request_input"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, request_dir_value) / REQUEST_INPUT_NAME, "legacy_default"
+
+
+def resolve_chain_input(
+    repo_root: Path,
+    cli_value: str | Path,
+    legacy_default: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    cli_flag: str,
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if cli_flag in explicit_flags:
+        return resolve_path(repo_root, cli_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise KeyError(
+                f"panel-day evidence input manifest is missing `{manifest_key}`; "
+                f"pass {cli_flag} explicitly or add inputs.{manifest_key}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, legacy_default), "legacy_default"
 
 
 def read_required_csv(path: Path, required_cols: list[str], name: str) -> pd.DataFrame:
@@ -865,7 +938,10 @@ def write_note(
     source_trace_df: pd.DataFrame,
     daily_trace_df: pd.DataFrame,
     summary_df: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
 ) -> None:
+    source_map = input_resolution_sources or {}
     status_counts = (
         attachment_df["attachment_status"].value_counts().sort_index().to_dict() if not attachment_df.empty else {}
     )
@@ -892,7 +968,12 @@ def write_note(
         "## Inputs",
         f"- BR-095 request packet: `{request_input}`",
         f"- BR-093 source candidate map: `{source_map_input}`",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
         f"- data root: `{data_root}`",
+        "",
+        "## Input Resolution Sources",
+        f"- `request_input`: `{source_map.get('request_input', 'legacy_default')}`",
+        f"- `source_map_input`: `{source_map.get('source_map_input', 'legacy_default')}`",
         "",
         "## Real Result",
         f"- owner_branch: `{owner_branch}`",
@@ -931,6 +1012,8 @@ def write_json(
     source_trace_df: pd.DataFrame,
     daily_trace_df: pd.DataFrame,
     summary_df: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
 ) -> None:
     payload: dict[str, Any] = {
         "owner_branch": owner_branch,
@@ -938,6 +1021,8 @@ def write_json(
         "output_dir": str(output_dir),
         "request_input": str(request_input),
         "source_map_input": str(source_map_input),
+        "input_manifest": str(input_manifest_path) if input_manifest_path is not None else "",
+        "input_resolution_sources": input_resolution_sources or {},
         "data_root": str(data_root),
         "attachment_rows": int(len(attachment_df)),
         "source_candidate_trace_rows": int(len(source_trace_df)),
@@ -1003,6 +1088,11 @@ def parse_args() -> argparse.Namespace:
         description="Attach raw/source traceability evidence to BR-095 voltage-preserved evidence requests."
     )
     parser.add_argument("--repo-root", default=".", help="Repository root. Defaults to current directory.")
+    parser.add_argument(
+        "--input-manifest",
+        default=None,
+        help="Optional JSON manifest for BR-095 request and BR-093 source-map inputs.",
+    )
     parser.add_argument("--request-dir", default=DEFAULT_REQUEST_DIR, help="BR-095 evidence request output dir.")
     parser.add_argument("--request-input", default="", help="Optional direct BR-095 request CSV.")
     parser.add_argument("--source-map-input", default=DEFAULT_SOURCE_MAP, help="BR-093 candidate map CSV.")
@@ -1015,13 +1105,37 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
-    request_dir = resolve_path(repo_root, args.request_dir)
-    request_input = (
-        resolve_path(repo_root, args.request_input)
-        if normalize_text(args.request_input)
-        else request_dir / REQUEST_INPUT_NAME
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--request-input",
+            "--request-dir",
+            "--source-map-input",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    request_input, request_input_source = resolve_request_input(
+        repo_root,
+        args.request_input,
+        args.request_dir,
+        input_manifest,
+        explicit_flags,
     )
-    source_map_input = resolve_path(repo_root, args.source_map_input)
+    source_map_input, source_map_input_source = resolve_chain_input(
+        repo_root,
+        args.source_map_input,
+        DEFAULT_SOURCE_MAP,
+        input_manifest,
+        "source_map_input",
+        "--source-map-input",
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "request_input": request_input_source,
+        "source_map_input": source_map_input_source,
+    }
     data_root = resolve_path(repo_root, args.data_root)
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1054,6 +1168,8 @@ def main() -> None:
         source_trace_df,
         daily_trace_df,
         summary_df,
+        input_manifest_path,
+        input_resolution_sources,
     )
     write_json(
         output_dir / JSON_OUTPUT_NAME,
@@ -1067,6 +1183,8 @@ def main() -> None:
         source_trace_df,
         daily_trace_df,
         summary_df,
+        input_manifest_path,
+        input_resolution_sources,
     )
 
     print(
