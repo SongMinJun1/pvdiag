@@ -88,52 +88,52 @@ EXPECTED_CONTRACTS = {
 EXPECTED_CONTRACTS_BY_FILE_TEXT = {
     (
         "research/prognostics/build_panel_day_engine_exact_family_closure_readiness_review_v1.py",
-        "/private/tmp/local_morphology_exact_seed_search_check/"
+        "/private/tmp/local_morphology_exact_seed_search_check/"  # pp-self
         "panel_day_engine_local_morphology_exact_seed_search_v1.csv",
     ): (["local_morphology_input"], ["--local-morphology-input"]),
     (
         "research/prognostics/build_panel_day_engine_exact_family_closure_readiness_review_v1.py",
-        "/private/tmp/no_report_heuristic_gap_review_check/"
+        "/private/tmp/no_report_heuristic_gap_review_check/"  # pp-self
         "panel_day_engine_no_report_heuristic_gap_review_v1.csv",
     ): (["gap_review_input"], ["--gap-review-input"]),
     (
         "research/prognostics/build_panel_day_engine_exact_family_closure_readiness_review_v1.py",
-        "/private/tmp/non_fault_morphology_observation_sidecar_check/"
+        "/private/tmp/non_fault_morphology_observation_sidecar_check/"  # pp-self
         "panel_day_engine_non_fault_morphology_observation_sidecar_v1.csv",
     ): (["observation_sidecar_input"], ["--observation-sidecar-input"]),
     (
         "research/prognostics/build_panel_day_engine_fault_family_regression_pressure_packet_v1.py",
-        "/private/tmp/exact_family_closure_readiness_review_check/"
+        "/private/tmp/exact_family_closure_readiness_review_check/"  # pp-self
         "panel_day_engine_exact_family_closure_readiness_review_v1.csv",
     ): (["readiness_input"], ["--readiness-input"]),
     (
         "research/prognostics/build_panel_day_engine_non_fault_morphology_observation_sidecar_v1.py",
-        "/private/tmp/no_report_heuristic_gap_review_check/"
+        "/private/tmp/no_report_heuristic_gap_review_check/"  # pp-self
         "panel_day_engine_no_report_heuristic_gap_review_v1.csv",
     ): (["gap_review_input"], ["--gap-review-input"]),
     (
         "research/prognostics/check_panel_day_engine_algorithm_prepatch_runbook_v1.py",
-        "/private/tmp/fault_family_regression_pressure_packet_check/"
+        "/private/tmp/fault_family_regression_pressure_packet_check/"  # pp-self
         "panel_day_engine_fault_family_regression_pressure_packet_v1.csv",
     ): (["packet_input"], ["--packet-input"]),
     (
         "research/prognostics/check_panel_day_engine_algorithm_prepatch_runbook_v1.py",
-        "/private/tmp/common_cause_exact_seed_search_check/"
+        "/private/tmp/common_cause_exact_seed_search_check/"  # pp-self
         "panel_day_engine_common_cause_exact_seed_search_v1.csv",
     ): (["common_cause_exact_search_input"], ["--common-cause-exact-search-input"]),
     (
         "research/prognostics/check_panel_day_engine_algorithm_prepatch_runbook_v1.py",
-        "/private/tmp/common_cause_manual_trace_review_check/"
+        "/private/tmp/common_cause_manual_trace_review_check/"  # pp-self
         "panel_day_engine_common_cause_manual_trace_review_v1.csv",
     ): (["common_cause_trace_input"], ["--common-cause-trace-input"]),
     (
         "research/prognostics/check_panel_day_engine_common_cause_semantic_prepatch_gate_v1.py",
-        "/private/tmp/common_cause_exact_seed_search_check/"
+        "/private/tmp/common_cause_exact_seed_search_check/"  # pp-self
         "panel_day_engine_common_cause_exact_seed_search_v1.csv",
     ): (["exact_search_input"], ["--exact-search-input"]),
     (
         "research/prognostics/check_panel_day_engine_fault_family_regression_prepatch_gate_v1.py",
-        "/private/tmp/fault_family_regression_pressure_packet_check/"
+        "/private/tmp/fault_family_regression_pressure_packet_check/"  # pp-self
         "panel_day_engine_fault_family_regression_pressure_packet_v1.csv",
     ): (["packet_input"], ["--packet-input"]),
 }
