@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-200` | `common_cause_exact_seed_manifest_resolution_ready_for_review` | BR-072 common-cause exact seed search resolves judgment/synchrony/report-lane inputs from optional manifest or explicit CLI, records input sources, and keeps role classification plus promotion/patch guardrails unchanged | Continue evidence-lane manifest resolution with the next unresolved `/private/tmp` input dependency |
+| `BR-20260429-201` | `common_cause_manual_trace_manifest_resolution_ready_for_review` | BR-074 common-cause manual trace review resolves blocker/report-lane inputs from optional manifest or explicit CLI, records input sources, and keeps trace buckets plus promotion/patch guardrails unchanged | Continue evidence-lane manifest resolution with the next unresolved `/private/tmp` input dependency |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -200,6 +200,7 @@
 | `BR-20260429-198` | `voltage_independent_confirmation_manifest_resolution_ready_for_review` | BR-098 voltage-preserved independent-confirmation attachment resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest key; no independent-confirmation status, blocker clearance, source scan, template generation, truth, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-199` | `voltage_truth_acquisition_manifest_resolution_ready_for_review` | BR-099 voltage-preserved truth-acquisition queue resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest key; no acquisition axis, priority, collector template, truth-intake readiness, truth, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-200` | `common_cause_exact_seed_manifest_resolution_ready_for_review` | BR-072 common-cause exact seed search resolves 5 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no exact-closure, reservoir, structural-blocker, supportive-hint, promotion, threshold, engine, or operator-facing semantics changed | no |
+| `BR-20260429-201` | `common_cause_manual_trace_manifest_resolution_ready_for_review` | BR-074 common-cause manual trace review resolves 4 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no trace outcome, bridge scope, semantic patch, promotion, threshold, engine, or operator-facing semantics changed | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
