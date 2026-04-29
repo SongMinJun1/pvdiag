@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260430-243` | `single_file_handoff_polish_ready_for_review` | professor-facing quickstart and handoff checker added for generated `pvdiag_single.py`; checker validates manifest payload, runtime exclusion, compile, and self-test | Use `PVDIAG_SINGLE_QUICKSTART.md` plus `tools/check_pvdiag_single_handoff.py` before sending the single-file artifact |
+| `BR-20260430-244` | `single_file_delivery_export_ready_for_review` | final professor-facing export helper added; output folder must contain exactly one file, `pvdiag_single.py`, after handoff readiness check and checksum verification | Use `tools/export_pvdiag_single_delivery.py` to create the one-file handoff folder before sending |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -243,6 +243,7 @@
 | `BR-20260430-241` | `roadmap_reentry_after_portability_closeout_ready_for_review` | roadmap reentry ready 1, path-portability closeout ready 1, queue rows 23, blocked rows 15, real capture required 1, truth/threshold/engine/operator approvals 0 | no |
 | `BR-20260430-242` | `single_file_delivery_artifact_ready_for_review` | generated single-file handoff added: payload excludes Windows runtime and external packages, self-test extracts embedded runner, comparison helper checks key CSV row/schema plus master/xlsx existence | no |
 | `BR-20260430-243` | `single_file_handoff_polish_ready_for_review` | quickstart and handoff checker added; readiness check confirms required payload modules, excludes runtime/cache rows, compiles `pvdiag_single.py`, and runs self-test | no |
+| `BR-20260430-244` | `single_file_delivery_export_ready_for_review` | final export helper creates a professor-facing folder with exactly `pvdiag_single.py`; handoff check, one-file assertion, checksum equality, and exported self-test pass | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
