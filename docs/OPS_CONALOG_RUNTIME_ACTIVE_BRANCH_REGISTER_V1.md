@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-226` | `result_delta_runtime_root_contract_ready_for_review` | closes the last p1 temp input-default gap by resolving result-delta `runtime_root` from input manifest, explicit CLI, or retained legacy default; p1 temp input defaults now 15/15 closed, open gaps 0 | Move to p2 historical evidence/repro cleanup only after this closure stays green |
+| `BR-20260429-227` | `p2_historical_reference_boundary_ready_for_review` | audits p2 historical evidence/repro path references after p1 cleanup closure; splits 1325 rows into provenance, doc-refresh-only, and generated-handoff rebuild buckets with bulk rewrite allowed 0 | Move next only on current handoff refresh or stable artifact materialization, not blanket historical path rewrite |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -226,6 +226,7 @@
 | `BR-20260429-224` | `p1_live_temp_lane_closure_ready_for_review` | final lane audit confirms all 68 P1 live-temp reference rows are either input-contract closed or non-input literal/repro closed: input-like 62, literal/repro 6, detail rows 9, closure complete 1 | no |
 | `BR-20260429-225` | `p1_temp_input_default_gap_audit_ready_for_review` | audits the remaining p1 temp input-default lane after BR-224: 15 rows, MLPE guarded user-filled 7, non-MLPE manifest/explicit closed 7, open explicit-CLI-only gap 1 in result-delta runtime root | no |
 | `BR-20260429-226` | `result_delta_runtime_root_contract_ready_for_review` | result-delta scorecard now resolves `runtime_root` from manifest/explicit CLI/legacy default; p1 temp input-default audit reports closed rows 15, open gaps 0, runtime/bulk semantic permission rows 0 | no |
+| `BR-20260429-227` | `p2_historical_reference_boundary_ready_for_review` | p2 historical references are now mechanically split: evidence provenance 1119, historical doc repro 156, generated handoff repro literals 50; bulk rewrite/runtime/operator change allowed rows 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
