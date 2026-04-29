@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -168,6 +169,56 @@ def numeric_int(value: object) -> int:
 def resolve_path(repo_root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_attachment_input(
+    repo_root: Path,
+    attachment_input_value: str | Path,
+    attachment_dir_value: str | Path,
+    manifest: dict[str, Any],
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if "--attachment-input" in explicit_flags:
+        return resolve_path(repo_root, attachment_input_value), "explicit_cli"
+    if "--attachment-dir" in explicit_flags:
+        return resolve_path(repo_root, attachment_dir_value) / ATTACHMENT_INPUT_NAME, "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, "attachment_input")
+        if not manifest_value:
+            raise KeyError(
+                "panel-day evidence input manifest is missing `attachment_input`; "
+                "pass --attachment-input/--attachment-dir explicitly or add inputs.attachment_input"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, attachment_dir_value) / ATTACHMENT_INPUT_NAME, "legacy_default"
 
 
 def read_required_csv(path: Path, required_cols: list[str], name: str) -> pd.DataFrame:
@@ -518,7 +569,16 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def write_note(path: Path, owner_branch: str, attachment_input: Path, queue_df: pd.DataFrame, site_summary_df: pd.DataFrame) -> None:
+def write_note(
+    path: Path,
+    owner_branch: str,
+    attachment_input: Path,
+    queue_df: pd.DataFrame,
+    site_summary_df: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> None:
+    source_map = input_resolution_sources or {}
     summary_cols = [
         "summary_scope",
         "summary_key",
@@ -543,6 +603,10 @@ def write_note(path: Path, owner_branch: str, attachment_input: Path, queue_df: 
         "",
         "## Inputs",
         f"- BR-098 attachment: `{attachment_input}`",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
+        "",
+        "## Input Resolution Sources",
+        f"- `attachment_input`: `{source_map.get('attachment_input', 'legacy_default')}`",
         "",
         "## Real Result",
         f"- owner_branch: `{owner_branch}`",
@@ -577,12 +641,16 @@ def write_json(
     panel_df: pd.DataFrame,
     site_summary_df: pd.DataFrame,
     collector_template_df: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
 ) -> None:
     payload: dict[str, Any] = {
         "owner_branch": owner_branch,
         "repo_root": str(repo_root),
         "output_dir": str(output_dir),
         "attachment_input": str(attachment_input),
+        "input_manifest": str(input_manifest_path) if input_manifest_path is not None else "",
+        "input_resolution_sources": input_resolution_sources or {},
         "queue_rows": int(len(queue_df)),
         "panel_summary_rows": int(len(panel_df)),
         "site_summary_rows": int(len(site_summary_df)),
@@ -625,6 +693,11 @@ def parse_args() -> argparse.Namespace:
         description="Build a collector-facing acquisition queue from BR-098 voltage-preserved independent-confirmation gaps."
     )
     parser.add_argument("--repo-root", default=".", help="Repository root. Defaults to current directory.")
+    parser.add_argument(
+        "--input-manifest",
+        default=None,
+        help="Optional JSON manifest for the BR-098 attachment input.",
+    )
     parser.add_argument("--attachment-dir", default=DEFAULT_ATTACHMENT_DIR, help="BR-098 attachment output directory.")
     parser.add_argument("--attachment-input", default="", help="Optional direct BR-098 attachment CSV.")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="Output directory for BR-099 artifacts.")
@@ -635,12 +708,24 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
-    attachment_dir = resolve_path(repo_root, args.attachment_dir)
-    attachment_input = (
-        resolve_path(repo_root, args.attachment_input)
-        if normalize_text(args.attachment_input)
-        else attachment_dir / ATTACHMENT_INPUT_NAME
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--attachment-input",
+            "--attachment-dir",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    attachment_input, attachment_input_source = resolve_attachment_input(
+        repo_root,
+        args.attachment_input,
+        args.attachment_dir,
+        input_manifest,
+        explicit_flags,
     )
+    input_resolution_sources = {"attachment_input": attachment_input_source}
     output_dir = resolve_path(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -658,7 +743,15 @@ def main() -> None:
     panel_summary_df.to_csv(output_dir / PANEL_SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     site_summary_df.to_csv(output_dir / SITE_SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     collector_template_df.to_csv(output_dir / COLLECTOR_TEMPLATE_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(output_dir / NOTE_OUTPUT_NAME, args.owner_branch, attachment_input, queue_df, site_summary_df)
+    write_note(
+        output_dir / NOTE_OUTPUT_NAME,
+        args.owner_branch,
+        attachment_input,
+        queue_df,
+        site_summary_df,
+        input_manifest_path,
+        input_resolution_sources,
+    )
     write_json(
         output_dir / JSON_OUTPUT_NAME,
         args.owner_branch,
@@ -669,6 +762,8 @@ def main() -> None:
         panel_summary_df,
         site_summary_df,
         collector_template_df,
+        input_manifest_path,
+        input_resolution_sources,
     )
 
     print(
