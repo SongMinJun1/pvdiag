@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 from pathlib import Path
@@ -226,6 +227,155 @@ def main() -> None:
         assert_true(int(summary["exact_family_closure_sum"].sum()) == 1, summary.to_string())
         assert_true(int(site_status["raw_direct_common_cause_rows"].sum()) == 3, site_status.to_string())
         assert_true("exact family closure candidates: `1`" in note, "note missing closure count")
+        assert_true("evidence input manifest: `not provided`" in note, note)
+        assert_true("`judgment_input`: `explicit_cli`" in note, note)
+        assert_true("`synchrony_input`: `explicit_cli`" in note, note)
+        assert_true("`current_input`: `explicit_cli`" in note, note)
+        assert_true("`precursor_input`: `explicit_cli`" in note, note)
+        assert_true("`rawonly_signal_input`: `explicit_cli`" in note, note)
+
+        manifest = root / "common_cause_exact_seed_inputs.json"
+        manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "judgment_input": str(judgment_csv),
+                        "synchrony_input": str(synchrony_csv),
+                        "current_input": str(current_csv),
+                        "precursor_input": str(precursor_csv),
+                        "rawonly_signal_input": str(rawonly_csv),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_result = subprocess.run(
+            [
+                "python3",
+                str(script),
+                "--input-manifest",
+                str(manifest),
+                "--data-root",
+                str(data_root),
+                "--output-dir",
+                str(manifest_out),
+            ],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+        )
+        assert_true(
+            manifest_result.returncode == 0,
+            f"manifest builder failed:\nSTDOUT={manifest_result.stdout}\nSTDERR={manifest_result.stderr}",
+        )
+        manifest_detail = pd.read_csv(manifest_out / DETAIL_NAME, low_memory=False)
+        manifest_summary = pd.read_csv(manifest_out / SUMMARY_NAME, low_memory=False)
+        manifest_note = (manifest_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true(
+            manifest_detail["primary_judgment_role"].tolist() == detail["primary_judgment_role"].tolist(),
+            manifest_detail.to_string(),
+        )
+        assert_true(int(manifest_summary["exact_family_closure_sum"].sum()) == 1, manifest_summary.to_string())
+        assert_true(f"evidence input manifest: `{manifest}`" in manifest_note, manifest_note)
+        assert_true("`judgment_input`: `input_manifest`" in manifest_note, manifest_note)
+        assert_true("`synchrony_input`: `input_manifest`" in manifest_note, manifest_note)
+        assert_true("`current_input`: `input_manifest`" in manifest_note, manifest_note)
+        assert_true("`precursor_input`: `input_manifest`" in manifest_note, manifest_note)
+        assert_true("`rawonly_signal_input`: `input_manifest`" in manifest_note, manifest_note)
+
+        bad_manifest = root / "bad_common_cause_exact_seed_inputs.json"
+        bad_manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "judgment_input": str(root / "missing_judgment.csv"),
+                        "synchrony_input": str(root / "missing_synchrony.csv"),
+                        "current_input": str(root / "missing_current.csv"),
+                        "precursor_input": str(root / "missing_precursor.csv"),
+                        "rawonly_signal_input": str(root / "missing_rawonly.csv"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_result = subprocess.run(
+            [
+                "python3",
+                str(script),
+                "--input-manifest",
+                str(bad_manifest),
+                "--judgment-input",
+                str(judgment_csv),
+                "--synchrony-input",
+                str(synchrony_csv),
+                "--current-input",
+                str(current_csv),
+                "--precursor-input",
+                str(precursor_csv),
+                "--rawonly-signal-input",
+                str(rawonly_csv),
+                "--data-root",
+                str(data_root),
+                "--output-dir",
+                str(override_out),
+            ],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+        )
+        assert_true(
+            override_result.returncode == 0,
+            f"override builder failed:\nSTDOUT={override_result.stdout}\nSTDERR={override_result.stderr}",
+        )
+        override_note = (override_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true("`judgment_input`: `explicit_cli`" in override_note, override_note)
+        assert_true("`rawonly_signal_input`: `explicit_cli`" in override_note, override_note)
+
+        missing_key_manifest = root / "missing_key_common_cause_exact_seed_inputs.json"
+        missing_key_manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "judgment_input": str(judgment_csv),
+                        "synchrony_input": str(synchrony_csv),
+                        "current_input": str(current_csv),
+                        "precursor_input": str(precursor_csv),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        missing_key_result = subprocess.run(
+            [
+                "python3",
+                str(script),
+                "--input-manifest",
+                str(missing_key_manifest),
+                "--data-root",
+                str(data_root),
+                "--output-dir",
+                str(root / "missing_key_out"),
+            ],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+        )
+        assert_true(missing_key_result.returncode != 0, "missing-key manifest unexpectedly passed")
+        assert_true(
+            "missing `rawonly_signal_input`" in (missing_key_result.stderr + missing_key_result.stdout),
+            missing_key_result.stderr,
+        )
     print("smoke ok: panel_day_engine_common_cause_exact_seed_search_v1")
 
 

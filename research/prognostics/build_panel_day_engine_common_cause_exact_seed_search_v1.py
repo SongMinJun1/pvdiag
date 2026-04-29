@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -163,6 +166,7 @@ def parse_args() -> argparse.Namespace:
             "judgment role before any semantic algorithm patch."
         )
     )
+    parser.add_argument("--input-manifest", type=Path, default=None)
     parser.add_argument("--judgment-input", type=Path, default=DEFAULT_JUDGMENT_INPUT)
     parser.add_argument("--synchrony-input", type=Path, default=DEFAULT_SYNCHRONY_INPUT)
     parser.add_argument("--current-input", type=Path, default=DEFAULT_CURRENT_INPUT)
@@ -171,6 +175,60 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-root", type=Path, default=DEFAULT_DATA_ROOT)
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args()
+
+
+def resolve_path(repo_root: Path, value: str | Path) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_manifest_input(
+    repo_root: Path,
+    key: str,
+    flag: str,
+    arg_value: str | Path,
+    manifest: dict[str, Any],
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if flag in explicit_flags:
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, key)
+        if not manifest_value:
+            raise KeyError(
+                f"panel-day evidence input manifest is missing `{key}`; "
+                f"pass {flag} explicitly or add inputs.{key}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def normalize_text(value: object) -> str:
@@ -607,19 +665,37 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
     return "\n".join([header, separator] + rows)
 
 
-def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame, site_status: pd.DataFrame) -> None:
+def write_note(
+    output_dir: Path,
+    detail: pd.DataFrame,
+    summary: pd.DataFrame,
+    site_status: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> None:
     exact_sum = int(detail["exact_family_closure_flag"].sum()) if len(detail) else 0
     reservoir_sum = int(detail["candidate_reservoir_flag"].sum()) if len(detail) else 0
     structural_sum = int(detail["structural_blocker_flag"].sum()) if len(detail) else 0
     blocker_sum = int(detail["blocker_regression_seed_flag"].sum()) if len(detail) else 0
     supportive_sum = int(detail["supportive_hint_flag"].sum()) if len(detail) else 0
     raw_rows = int(detail["raw_direct_common_cause_row_count"].sum()) if len(detail) else 0
+    source_map = input_resolution_sources or {}
     lines = [
         "# panel_day_engine_common_cause_exact_seed_search_note_v1",
         "",
         "## Purpose",
         "- Re-read external/common-cause candidates as BR-036 judgment roles.",
         "- Check whether conservatism is blocking all progress or preserving a useful next search frontier.",
+        "",
+        "## Inputs",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
+        "",
+        "## Input Resolution Sources",
+        f"- `judgment_input`: `{source_map.get('judgment_input', 'legacy_default')}`",
+        f"- `synchrony_input`: `{source_map.get('synchrony_input', 'legacy_default')}`",
+        f"- `current_input`: `{source_map.get('current_input', 'legacy_default')}`",
+        f"- `precursor_input`: `{source_map.get('precursor_input', 'legacy_default')}`",
+        f"- `rawonly_signal_input`: `{source_map.get('rawonly_signal_input', 'legacy_default')}`",
         "",
         "## Guardrails",
         f"- detail rows: `{len(detail)}`",
@@ -649,12 +725,73 @@ def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame, si
 
 def main() -> None:
     args = parse_args()
+    repo_root = Path(__file__).resolve().parents[2]
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--judgment-input",
+            "--synchrony-input",
+            "--current-input",
+            "--precursor-input",
+            "--rawonly-signal-input",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    judgment_input, judgment_input_source = resolve_manifest_input(
+        repo_root,
+        "judgment_input",
+        "--judgment-input",
+        args.judgment_input,
+        input_manifest,
+        explicit_flags,
+    )
+    synchrony_input, synchrony_input_source = resolve_manifest_input(
+        repo_root,
+        "synchrony_input",
+        "--synchrony-input",
+        args.synchrony_input,
+        input_manifest,
+        explicit_flags,
+    )
+    current_input, current_input_source = resolve_manifest_input(
+        repo_root,
+        "current_input",
+        "--current-input",
+        args.current_input,
+        input_manifest,
+        explicit_flags,
+    )
+    precursor_input, precursor_input_source = resolve_manifest_input(
+        repo_root,
+        "precursor_input",
+        "--precursor-input",
+        args.precursor_input,
+        input_manifest,
+        explicit_flags,
+    )
+    rawonly_signal_input, rawonly_signal_input_source = resolve_manifest_input(
+        repo_root,
+        "rawonly_signal_input",
+        "--rawonly-signal-input",
+        args.rawonly_signal_input,
+        input_manifest,
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "judgment_input": judgment_input_source,
+        "synchrony_input": synchrony_input_source,
+        "current_input": current_input_source,
+        "precursor_input": precursor_input_source,
+        "rawonly_signal_input": rawonly_signal_input_source,
+    }
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    judgment = normalize_judgment(read_csv(args.judgment_input))
-    synchrony = normalize_synchrony(read_csv(args.synchrony_input, required=False))
-    current_dates = report_dates(read_csv(args.current_input, required=False), ["고장날짜"])
-    precursor_dates = report_dates(read_csv(args.precursor_input, required=False), ["전조날짜"])
-    rawonly_dates = report_dates(read_csv(args.rawonly_signal_input, required=False), ["신호 기준일", "전조 시작일"])
+    judgment = normalize_judgment(read_csv(judgment_input))
+    synchrony = normalize_synchrony(read_csv(synchrony_input, required=False))
+    current_dates = report_dates(read_csv(current_input, required=False), ["고장날짜"])
+    precursor_dates = report_dates(read_csv(precursor_input, required=False), ["전조날짜"])
+    rawonly_dates = report_dates(read_csv(rawonly_signal_input, required=False), ["신호 기준일", "전조 시작일"])
     sites = sorted(judgment["site"].dropna().map(normalize_text).unique())
     raw_direct = load_raw_direct_rows(args.data_root, sites)
     detail = build_detail(judgment, synchrony, raw_direct, current_dates, precursor_dates, rawonly_dates)
@@ -669,7 +806,14 @@ def main() -> None:
     detail.to_csv(args.output_dir / DETAIL_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(args.output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     site_status.to_csv(args.output_dir / SITE_STATUS_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(args.output_dir, detail, summary, site_status)
+    write_note(
+        args.output_dir,
+        detail,
+        summary,
+        site_status,
+        input_manifest_path,
+        input_resolution_sources,
+    )
 
 
 if __name__ == "__main__":
