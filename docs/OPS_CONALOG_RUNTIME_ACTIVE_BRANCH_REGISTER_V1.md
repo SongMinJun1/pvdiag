@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-212` | `episode_truth_static_directory_contract_closure_ready_for_review` | episode-truth static directory references are contract-closed: 12 rows, 8 source files, input-manifest rows 12, explicit CLI rows 12, resolve-chain rows 12, rewrite/runtime semantic permission rows 0 | Choose the next static directory lane, likely common-cause or panel-day evidence, before any bulk path rewrite |
+| `BR-20260429-213` | `common_cause_static_directory_contract_gap_ready_for_review` | common-cause static directory references are split into closed vs gap rows: 8 rows, 5 source files, contract closed 3, gap 5, explicit CLI rows 8, input-manifest/resolver rows 3, rewrite/runtime semantic permission rows 0 | Patch the 5 common-cause contract gaps with input-manifest/resolver support before any default rewrite |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -212,6 +212,7 @@
 | `BR-20260429-210` | `mlpe_output_default_closure_ready_for_review` | closure audit confirms MLPE output defaults remain write destinations after BR-209 increased the count to 37: 37/37 `--output-dir` overrides, missing checks 0, input/generated dependency rows 0, runtime semantic change rows 0, mass rewrite rows 0 | no |
 | `BR-20260429-211` | `static_directory_reference_inventory_ready_for_review` | inventory locks unresolved static directory references as upstream bundle inputs: 48 rows across 29 files, workflow split 20 evidence / 12 episode-truth / 8 common-cause / 4 prepatch / 4 voltage-preserved, bulk rewrite/runtime semantic permission rows 0 | no |
 | `BR-20260429-212` | `episode_truth_static_directory_contract_closure_ready_for_review` | closure audit confirms the episode-truth static directory lane is manifest/explicit-input aware: 12/12 `--input-manifest`, 12/12 explicit CLI flags, 12/12 resolve-chain handling, contract failures 0, bulk rewrite/runtime semantic permission rows 0 | no |
+| `BR-20260429-213` | `common_cause_static_directory_contract_gap_ready_for_review` | gap audit confirms common-cause is not fully contract-closed: 8 directory rows, 3 closed, 5 need input-manifest/resolver support, explicit CLI rows 8, missing checks 10, bulk rewrite/runtime semantic permission rows 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
