@@ -37,6 +37,23 @@ python pvdiag_single.py
 pvdiag_results/run_YYYYMMDD_HHMMSS/
 ```
 
+## 전달 파일 만들기
+
+교수님께 보낼 폴더를 만들 때는 repo에서 아래 export helper를 사용합니다.
+
+```bash
+python tools/export_pvdiag_single_delivery.py --output-dir /tmp/pvdiag_professor_delivery
+```
+
+성공하면 `/tmp/pvdiag_professor_delivery/` 안에는 아래 파일 하나만 있어야 합니다.
+
+```text
+pvdiag_single.py
+```
+
+quickstart, manifest, checker, runtime pack은 내부 검증용입니다.
+교수님께 전달하는 파일은 export된 `pvdiag_single.py` 한 개입니다.
+
 ## 명시 실행
 
 ```bash

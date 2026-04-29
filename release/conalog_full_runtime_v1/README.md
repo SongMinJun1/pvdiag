@@ -48,6 +48,7 @@
 교수님 전달용으로 `pvdiag_single.py`를 생성할 수 있음.
 이 파일은 원본 모듈을 손으로 합친 파일이 아니라, `tools/build_pvdiag_single_py.py`가 `package/app`, `package/pv_ae`, `package/research`, 작은 `package/artifacts`를 zip/base64 payload로 묶어 만든 generated artifact임.
 짧은 전달용 사용법은 `PVDIAG_SINGLE_QUICKSTART.md`를 보면 됨.
+최종 전달 폴더는 `tools/export_pvdiag_single_delivery.py`로 만들며, 교수님께 보낼 폴더에는 `pvdiag_single.py` 한 개만 남김.
 
 핵심 원칙은 아래와 같음.
 
@@ -89,6 +90,14 @@ python tools/compare_pvdiag_single_results.py \
 ```bash
 python tools/check_pvdiag_single_handoff.py
 ```
+
+교수님 전달 폴더 export:
+
+```bash
+python tools/export_pvdiag_single_delivery.py --output-dir /tmp/pvdiag_professor_delivery
+```
+
+성공한 export 폴더에는 `pvdiag_single.py`만 있어야 함.
 
 `fault6_fixed_result_table_v1.csv`는 현재 frozen verdict와 heuristic을 그대로 묶어, integrated table과 동일한 front-facing 표시명으로 다시 적재한 6개 고장 패널 결과표임.
 즉, 이 파일은 현재 합의된 고정 결과표를 유지하되, runtime pack 내부에서는 integrated snapshot 자체를 직접 의존하지 않도록 정리한 artifact임.
