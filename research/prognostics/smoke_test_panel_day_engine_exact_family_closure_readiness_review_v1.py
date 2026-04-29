@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import tempfile
@@ -172,6 +173,116 @@ def main() -> None:
         assert_true(int(detail["engine_patch_candidate_flag"].sum()) == 0, detail.to_string())
         assert_true(int(summary["panels"].sum()) == 6, summary.to_string())
         assert_true("manual adjudication before any patch" in note, note)
+        assert_true("evidence input manifest: `not provided`" in note, note)
+        assert_true("`local_morphology_input`: `explicit_cli`" in note, note)
+        assert_true("`gap_review_input`: `explicit_cli`" in note, note)
+        assert_true("`observation_sidecar_input`: `explicit_cli`" in note, note)
+
+        manifest_path = root / "exact_family_inputs.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "local_morphology_input": str(local_path),
+                        "gap_review_input": str(gap_path),
+                        "observation_sidecar_input": str(observation_path),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_completed = run(
+            [
+                sys.executable,
+                str(script),
+                "--input-manifest",
+                str(manifest_path),
+                "--output-dir",
+                str(manifest_out),
+            ],
+            repo_root,
+        )
+        assert_true(manifest_completed.returncode == 0, manifest_completed.stderr or manifest_completed.stdout)
+        manifest_detail = pd.read_csv(manifest_out / DETAIL_NAME, encoding="utf-8-sig")
+        manifest_note = (manifest_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true(manifest_detail["post_br056_closure_class"].tolist() == detail["post_br056_closure_class"].tolist(), manifest_detail.to_string())
+        assert_true(f"evidence input manifest: `{manifest_path}`" in manifest_note, manifest_note)
+        assert_true("`local_morphology_input`: `input_manifest`" in manifest_note, manifest_note)
+        assert_true("`gap_review_input`: `input_manifest`" in manifest_note, manifest_note)
+        assert_true("`observation_sidecar_input`: `input_manifest`" in manifest_note, manifest_note)
+
+        bad_manifest_path = root / "bad_exact_family_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "local_morphology_input": str(root / "missing_local.csv"),
+                        "gap_review_input": str(root / "missing_gap.csv"),
+                        "observation_sidecar_input": str(root / "missing_observation.csv"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_completed = run(
+            [
+                sys.executable,
+                str(script),
+                "--local-morphology-input",
+                str(local_path),
+                "--gap-review-input",
+                str(gap_path),
+                "--observation-sidecar-input",
+                str(observation_path),
+                "--input-manifest",
+                str(bad_manifest_path),
+                "--output-dir",
+                str(override_out),
+            ],
+            repo_root,
+        )
+        assert_true(override_completed.returncode == 0, override_completed.stderr or override_completed.stdout)
+        override_note = (override_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true("`local_morphology_input`: `explicit_cli`" in override_note, override_note)
+        assert_true("`gap_review_input`: `explicit_cli`" in override_note, override_note)
+        assert_true("`observation_sidecar_input`: `explicit_cli`" in override_note, override_note)
+
+        missing_key_manifest_path = root / "missing_key_exact_family_inputs.json"
+        missing_key_manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "local_morphology_input": str(local_path),
+                        "gap_review_input": str(gap_path),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        missing_key_completed = run(
+            [
+                sys.executable,
+                str(script),
+                "--input-manifest",
+                str(missing_key_manifest_path),
+                "--output-dir",
+                str(root / "missing_key_out"),
+            ],
+            repo_root,
+        )
+        assert_true(missing_key_completed.returncode != 0, missing_key_completed.stdout)
+        assert_true("missing `observation_sidecar_input`" in missing_key_completed.stderr, missing_key_completed.stderr)
 
 
 if __name__ == "__main__":

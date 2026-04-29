@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -118,11 +121,67 @@ def parse_args() -> argparse.Namespace:
             "splitting target closure candidates from non-target fault-family seeds and closed blockers."
         )
     )
+    parser.add_argument("--input-manifest", default=None)
     parser.add_argument("--local-morphology-input", type=Path, default=DEFAULT_LOCAL_INPUT)
     parser.add_argument("--gap-review-input", type=Path, default=DEFAULT_GAP_REVIEW_INPUT)
     parser.add_argument("--observation-sidecar-input", type=Path, default=DEFAULT_OBSERVATION_INPUT)
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args()
+
+
+def resolve_path(base_root: Path, path_value: str | Path) -> Path:
+    path = Path(path_value)
+    return path if path.is_absolute() else base_root / path
+
+
+def load_input_manifest(base_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(base_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_chain_input(
+    base_root: Path,
+    cli_value: str | Path,
+    legacy_default: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    cli_flag: str,
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if cli_flag in explicit_flags:
+        return resolve_path(base_root, cli_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise KeyError(
+                f"panel-day evidence input manifest is missing `{manifest_key}`; "
+                f"pass {cli_flag} explicitly or add inputs.{manifest_key}"
+            )
+        return resolve_path(base_root, manifest_value), "input_manifest"
+    return resolve_path(base_root, legacy_default), "legacy_default"
 
 
 def normalize_text(value: object) -> str:
@@ -390,7 +449,13 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
     return "\n".join([header, separator] + rows)
 
 
-def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame) -> None:
+def write_note(
+    output_dir: Path,
+    detail: pd.DataFrame,
+    summary: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> None:
     class_counts = detail["post_br056_closure_class"].value_counts().sort_index().to_dict()
     grade_counts = detail["evidence_grade"].value_counts().sort_index().to_dict()
     target_count = int(detail["target_exact_closure_candidate_flag"].sum())
@@ -411,12 +476,20 @@ def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame) ->
             f"- fault-family regression seeds: `{int(detail['fault_family_regression_seed_flag'].sum())}`",
             f"- operator promotion allowed sum: `{int(detail['operator_promotion_allowed_flag'].sum())}`",
             f"- engine patch candidate sum: `{int(detail['engine_patch_candidate_flag'].sum())}`",
+            f"- evidence input manifest: `{input_manifest_path if input_manifest_path else 'not provided'}`",
             "",
             "## Interpretation",
             f"- {target_interpretation}",
             "- Non-target hard same-day fault-family seeds are preserved as regression/review material, not promotion evidence.",
             "- BR-055/BR-056 no-report rows remain closed as non-fault status/date blockers.",
             "- This review does not justify a `panel_day_engine.py` rule or threshold patch.",
+            "",
+            "## Input Resolution Sources",
+            *(
+                [f"- `{key}`: `{value}`" for key, value in sorted((input_resolution_sources or {}).items())]
+                if input_resolution_sources
+                else ["- no manifest-wrapped inputs"]
+            ),
             "",
             "## Summary Table",
             dataframe_to_markdown(summary),
@@ -429,14 +502,58 @@ def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame) ->
 def main() -> None:
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    local = read_local(args.local_morphology_input)
-    gap = read_gap_review(args.gap_review_input)
-    observation = read_observation_sidecar(args.observation_sidecar_input)
+    base_root = Path.cwd()
+    input_manifest_path, input_manifest = load_input_manifest(base_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--local-morphology-input",
+            "--gap-review-input",
+            "--observation-sidecar-input",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    local_path, local_source = resolve_chain_input(
+        base_root,
+        args.local_morphology_input,
+        DEFAULT_LOCAL_INPUT,
+        input_manifest,
+        "local_morphology_input",
+        "--local-morphology-input",
+        explicit_flags,
+    )
+    gap_path, gap_source = resolve_chain_input(
+        base_root,
+        args.gap_review_input,
+        DEFAULT_GAP_REVIEW_INPUT,
+        input_manifest,
+        "gap_review_input",
+        "--gap-review-input",
+        explicit_flags,
+    )
+    observation_path, observation_source = resolve_chain_input(
+        base_root,
+        args.observation_sidecar_input,
+        DEFAULT_OBSERVATION_INPUT,
+        input_manifest,
+        "observation_sidecar_input",
+        "--observation-sidecar-input",
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "local_morphology_input": local_source,
+        "gap_review_input": gap_source,
+        "observation_sidecar_input": observation_source,
+    }
+    local = read_local(local_path)
+    gap = read_gap_review(gap_path)
+    observation = read_observation_sidecar(observation_path)
     detail = build_detail(local, gap, observation)
     summary = build_summary(detail)
     detail.to_csv(args.output_dir / DETAIL_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(args.output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(args.output_dir, detail, summary)
+    write_note(args.output_dir, detail, summary, input_manifest_path, input_resolution_sources)
 
 
 if __name__ == "__main__":
