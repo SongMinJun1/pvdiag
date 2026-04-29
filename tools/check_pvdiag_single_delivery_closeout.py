@@ -147,7 +147,7 @@ def main() -> None:
     single_manifest = load_single_manifest(repo_root)
     snapshot = {
         "snapshot_schema": "pvdiag_single_delivery_snapshot_v1",
-        "release_id": "pvdiag_single_br247_20260430",
+        "release_id": "pvdiag_single_br248_source_text_20260430",
         "professor_deliverable_file_count": 1,
         "professor_deliverable_files": ["pvdiag_single.py"],
         "single_file": {
@@ -156,8 +156,9 @@ def main() -> None:
             "sha256": sha256_file(single_source),
         },
         "embedded_payload": {
+            "payload_mode": str(single_manifest.get("payload_mode", "")),
             "payload_file_count": int(single_manifest.get("payload_file_count", 0)),
-            "payload_zip_bytes": int(single_manifest.get("payload_zip_bytes", 0)),
+            "payload_text_bytes": int(single_manifest.get("payload_text_bytes", 0)),
             "generated_at_utc": str(single_manifest.get("generated_at_utc", "")),
             "excluded_runtime_windows_x64": bool(single_manifest.get("excluded_runtime_windows_x64")),
         },
@@ -170,6 +171,7 @@ def main() -> None:
             "exported_self_test_check": 1,
             "handoff_doc_snippet_check": 1,
             "algorithm_semantics_changed": 0,
+            "source_text_payload_without_base64_zip": int(single_manifest.get("payload_mode") == "source_text"),
             "field_trial_csv_required_for_truth_label_evaluation": 1,
         },
         "handoff_docs_checked": {

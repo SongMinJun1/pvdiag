@@ -46,7 +46,8 @@
 ## 단일 Python 파일 전달물
 
 교수님 전달용으로 `pvdiag_single.py`를 생성할 수 있음.
-이 파일은 원본 모듈을 손으로 합친 파일이 아니라, `tools/build_pvdiag_single_py.py`가 `package/app`, `package/pv_ae`, `package/research`, 작은 `package/artifacts`를 zip/base64 payload로 묶어 만든 generated artifact임.
+이 파일은 원본 모듈을 손으로 합친 파일이 아니라, `tools/build_pvdiag_single_py.py`가 `package/app`, `package/pv_ae`, `package/research`, 작은 `package/artifacts`를 source-text payload로 묶어 만든 generated artifact임.
+BR-248 이후 단일 파일 payload는 zip/base64가 아니라 `EMBEDDED_TEXT_FILES` 안의 UTF-8 원문 텍스트로 저장함.
 짧은 전달용 사용법은 `PVDIAG_SINGLE_QUICKSTART.md`를 보면 됨.
 최종 전달 폴더는 `tools/export_pvdiag_single_delivery.py`로 만들며, 교수님께 보낼 폴더에는 `pvdiag_single.py` 한 개만 남김.
 전달 closeout은 `tools/check_pvdiag_single_delivery_closeout.py`가 export/self-test/docs/checksum snapshot을 한 번에 확인함.
@@ -58,6 +59,7 @@
 - 외부 Python 패키지는 포함하지 않음.
 - 필요 패키지는 `pandas`, `numpy`, `torch`, `openpyxl`, `tqdm`임.
 - Windows embedded runtime(`package/runtime/windows_x64/python`)은 700MB급 런타임이므로 단일 파일 payload에서 제외함.
+- 단일 파일 payload는 zip/base64를 쓰지 않고 source-text로 생성함.
 
 생성 명령:
 

@@ -2,13 +2,9 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
-import io
 import json
 import stat
-import textwrap
-import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -39,28 +35,27 @@ SINGLE_TEMPLATE = r'''#!/usr/bin/env python3
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
-import io
 import importlib.util
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
-import textwrap
-import zipfile
 from datetime import datetime
 from pathlib import Path
 
 
 GENERATED_BY = "tools/build_pvdiag_single_py.py"
 GENERATED_AT_UTC = "__GENERATED_AT_UTC__"
-PAYLOAD_SHA256 = "__PAYLOAD_SHA256__"
+PAYLOAD_MODE = "source_text"
+PAYLOAD_TEXT_SHA256 = "__PAYLOAD_TEXT_SHA256__"
+PAYLOAD_TEXT_BYTES = __PAYLOAD_TEXT_BYTES__
 PAYLOAD_FILE_COUNT = __PAYLOAD_FILE_COUNT__
-PAYLOAD_B64 = """
-__PAYLOAD_B64__
-"""
+
+__EMBEDDED_TEXT_FILES__
+
+__EMBEDDED_FILE_SHA256__
 
 REQUIRED_MODULES = {
     "pandas": "pandas",
@@ -127,25 +122,48 @@ def resolve_output_root(value: Path | None) -> Path:
     return output_root
 
 
-def decode_payload() -> bytes:
-    payload = base64.b64decode("".join(PAYLOAD_B64.split()))
-    digest = hashlib.sha256(payload).hexdigest()
-    if digest != PAYLOAD_SHA256:
-        raise SystemExit(f"embedded payload sha256 mismatch: expected {PAYLOAD_SHA256}, got {digest}")
-    return payload
+def embedded_payload_bytes() -> bytes:
+    return b"".join(
+        path.encode("utf-8") + b"\0" + text.encode("utf-8") + b"\0"
+        for path, text in sorted(EMBEDDED_TEXT_FILES.items())
+    )
 
 
-def safe_extract(payload: bytes, runtime_root: Path) -> None:
+def verify_embedded_payload() -> None:
+    if len(EMBEDDED_TEXT_FILES) != PAYLOAD_FILE_COUNT:
+        raise SystemExit(
+            f"embedded payload file-count mismatch: expected {PAYLOAD_FILE_COUNT}, got {len(EMBEDDED_TEXT_FILES)}"
+        )
+    payload_bytes = embedded_payload_bytes()
+    if len(payload_bytes) != PAYLOAD_TEXT_BYTES:
+        raise SystemExit(
+            f"embedded payload byte mismatch: expected {PAYLOAD_TEXT_BYTES}, got {len(payload_bytes)}"
+        )
+    digest = hashlib.sha256(payload_bytes).hexdigest()
+    if digest != PAYLOAD_TEXT_SHA256:
+        raise SystemExit(f"embedded payload sha256 mismatch: expected {PAYLOAD_TEXT_SHA256}, got {digest}")
+    for path, text in EMBEDDED_TEXT_FILES.items():
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        expected = EMBEDDED_FILE_SHA256.get(path)
+        if expected != digest:
+            raise SystemExit(f"embedded file sha256 mismatch: {path}")
+
+
+def safe_target(runtime_root: Path, embedded_path: str) -> Path:
+    target = (runtime_root / embedded_path).resolve()
+    runtime_root_resolved = runtime_root.resolve()
+    if target != runtime_root_resolved and not str(target).startswith(str(runtime_root_resolved) + os.sep):
+        raise SystemExit(f"unsafe embedded path: {embedded_path}")
+    return target
+
+
+def extract_embedded_files(runtime_root: Path) -> None:
+    verify_embedded_payload()
     runtime_root.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(io.BytesIO(payload)) as zf:
-        members = zf.infolist()
-        if len(members) != PAYLOAD_FILE_COUNT:
-            raise SystemExit(f"embedded payload file-count mismatch: expected {PAYLOAD_FILE_COUNT}, got {len(members)}")
-        for info in members:
-            target = (runtime_root / info.filename).resolve()
-            if not str(target).startswith(str(runtime_root.resolve()) + os.sep):
-                raise SystemExit(f"unsafe payload path: {info.filename}")
-        zf.extractall(runtime_root)
+    for embedded_path, text in EMBEDDED_TEXT_FILES.items():
+        target = safe_target(runtime_root, embedded_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
 
 
 def inner_runner(runtime_root: Path) -> Path:
@@ -202,12 +220,14 @@ def main(argv: list[str] | None = None) -> int:
         runtime_root = Path(tempfile.mkdtemp(prefix="pvdiag_single_runtime_keep_"))
 
     try:
-        safe_extract(decode_payload(), runtime_root)
+        extract_embedded_files(runtime_root)
         runner = inner_runner(runtime_root)
         if args.single_self_test:
             print("[pvdiag_single] self-test ok")
             print(f"[pvdiag_single] generated_at_utc: {GENERATED_AT_UTC}")
+            print(f"[pvdiag_single] payload_mode: {PAYLOAD_MODE}")
             print(f"[pvdiag_single] payload_files: {PAYLOAD_FILE_COUNT}")
+            print(f"[pvdiag_single] payload_text_bytes: {PAYLOAD_TEXT_BYTES}")
             print(f"[pvdiag_single] runtime_root: {runtime_root}")
             print(f"[pvdiag_single] runner: {runner}")
             return 0
@@ -294,32 +314,66 @@ def collect_files(repo_root: Path) -> list[Path]:
     return files
 
 
-def build_zip(repo_root: Path, files: list[Path]) -> bytes:
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
-        for path in files:
-            arcname = path.relative_to(repo_root).as_posix()
-            zf.write(path, arcname)
-    payload = buffer.getvalue()
-    if len(payload) > MAX_PAYLOAD_BYTES:
-        raise SystemExit(f"payload too large: {len(payload)} > {MAX_PAYLOAD_BYTES}")
+def read_payload_texts(repo_root: Path, files: list[Path]) -> dict[str, str]:
+    payload: dict[str, str] = {}
+    for path in files:
+        rel = path.relative_to(repo_root).as_posix()
+        try:
+            payload[rel] = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            raise SystemExit(f"single-file source-text payload requires UTF-8 text: {rel}") from exc
+    payload_bytes = payload_bytes_for_digest(payload)
+    if len(payload_bytes) > MAX_PAYLOAD_BYTES:
+        raise SystemExit(f"payload too large: {len(payload_bytes)} > {MAX_PAYLOAD_BYTES}")
     return payload
 
 
-def render_single(payload: bytes, file_count: int) -> str:
-    encoded = base64.b64encode(payload).decode("ascii")
-    wrapped = "\n".join(textwrap.wrap(encoded, width=76))
-    digest = hashlib.sha256(payload).hexdigest()
-    generated_at = datetime.now(timezone.utc).isoformat()
-    return (
-        SINGLE_TEMPLATE.replace("__GENERATED_AT_UTC__", generated_at)
-        .replace("__PAYLOAD_SHA256__", digest)
-        .replace("__PAYLOAD_FILE_COUNT__", str(file_count))
-        .replace("__PAYLOAD_B64__", wrapped)
+def payload_bytes_for_digest(payload: dict[str, str]) -> bytes:
+    return b"".join(
+        path.encode("utf-8") + b"\0" + text.encode("utf-8") + b"\0"
+        for path, text in sorted(payload.items())
     )
 
 
-def write_manifest(path: Path, repo_root: Path, files: list[Path], payload: bytes) -> None:
+def render_multiline_text_literal(text: str) -> list[str]:
+    if text == "":
+        return ["        ''"]
+    return [f"        {line!r}" for line in text.splitlines(keepends=True)]
+
+
+def render_embedded_text_files(payload: dict[str, str]) -> str:
+    rows = ["EMBEDDED_TEXT_FILES = {"]
+    for path, text in sorted(payload.items()):
+        rows.append(f"    {path!r}: (")
+        rows.extend(render_multiline_text_literal(text))
+        rows.append("    ),")
+    rows.append("}")
+    return "\n".join(rows)
+
+
+def render_embedded_file_sha256(payload: dict[str, str]) -> str:
+    rows = ["EMBEDDED_FILE_SHA256 = {"]
+    for path, text in sorted(payload.items()):
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        rows.append(f"    {path!r}: {digest!r},")
+    rows.append("}")
+    return "\n".join(rows)
+
+
+def render_single(payload: dict[str, str]) -> str:
+    payload_bytes = payload_bytes_for_digest(payload)
+    generated_at = datetime.now(timezone.utc).isoformat()
+    return (
+        SINGLE_TEMPLATE.replace("__GENERATED_AT_UTC__", generated_at)
+        .replace("__PAYLOAD_TEXT_SHA256__", hashlib.sha256(payload_bytes).hexdigest())
+        .replace("__PAYLOAD_TEXT_BYTES__", str(len(payload_bytes)))
+        .replace("__PAYLOAD_FILE_COUNT__", str(len(payload)))
+        .replace("__EMBEDDED_TEXT_FILES__", render_embedded_text_files(payload))
+        .replace("__EMBEDDED_FILE_SHA256__", render_embedded_file_sha256(payload))
+    )
+
+
+def write_manifest(path: Path, repo_root: Path, files: list[Path], payload: dict[str, str]) -> None:
     rows = []
     for file_path in files:
         data = file_path.read_bytes()
@@ -330,13 +384,15 @@ def write_manifest(path: Path, repo_root: Path, files: list[Path], payload: byte
                 "sha256": hashlib.sha256(data).hexdigest(),
             }
         )
+    payload_bytes = payload_bytes_for_digest(payload)
     payload_obj = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "generated_by": "tools/build_pvdiag_single_py.py",
         "delivery_artifact": DEFAULT_OUTPUT.as_posix(),
+        "payload_mode": "source_text",
         "payload_file_count": len(files),
-        "payload_zip_bytes": len(payload),
-        "payload_sha256": hashlib.sha256(payload).hexdigest(),
+        "payload_text_bytes": len(payload_bytes),
+        "payload_text_sha256": hashlib.sha256(payload_bytes).hexdigest(),
         "excluded_runtime_windows_x64": True,
         "max_payload_file_bytes": MAX_FILE_BYTES,
         "files": rows,
@@ -351,18 +407,20 @@ def main() -> None:
     output = args.output if args.output.is_absolute() else repo_root / args.output
     manifest_output = args.manifest_output if args.manifest_output.is_absolute() else repo_root / args.manifest_output
     files = collect_files(repo_root)
-    payload = build_zip(repo_root, files)
+    payload = read_payload_texts(repo_root, files)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(render_single(payload, len(files)), encoding="utf-8")
+    output.write_text(render_single(payload), encoding="utf-8")
     output.chmod(output.stat().st_mode | stat.S_IXUSR)
     write_manifest(manifest_output, repo_root, files, payload)
+    payload_bytes = payload_bytes_for_digest(payload)
     print(
         json.dumps(
             {
                 "output": str(output),
                 "manifest": str(manifest_output),
+                "payload_mode": "source_text",
                 "payload_file_count": len(files),
-                "payload_zip_bytes": len(payload),
+                "payload_text_bytes": len(payload_bytes),
                 "single_file_bytes": output.stat().st_size,
                 "excluded_runtime_windows_x64": True,
             },
