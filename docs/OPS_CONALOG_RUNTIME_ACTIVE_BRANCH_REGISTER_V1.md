@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-228` | `generated_handoff_repro_literal_audit_ready_for_review` | re-audits the 50 generated handoff/repro literals from BR-227; splits latest handoff 41, evidence manifest 7, episode note 1, validation output 1, with manual literal edits 0 | Next branch should plan latest-handoff manifest-aware repro refresh as one generated unit, not manual string cleanup |
+| `BR-20260429-229` | `latest_handoff_manifest_repro_refresh_plan_ready_for_review` | latest handoff manifest refresh plan maps 14 specs: 12 refresh-required, 2 repo-doc no-refresh, 28 temp input literals, 12 temp output literals, 1 repo-root literal; manual edits 0 | Next branch should dry-run generated command replacement without changing runtime semantics |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -228,6 +228,7 @@
 | `BR-20260429-226` | `result_delta_runtime_root_contract_ready_for_review` | result-delta scorecard now resolves `runtime_root` from manifest/explicit CLI/legacy default; p1 temp input-default audit reports closed rows 15, open gaps 0, runtime/bulk semantic permission rows 0 | no |
 | `BR-20260429-227` | `p2_historical_reference_boundary_ready_for_review` | p2 historical references are now mechanically split: evidence provenance 1119, historical doc repro 156, generated handoff repro literals 50; bulk rewrite/runtime/operator change allowed rows 0 | no |
 | `BR-20260429-228` | `generated_handoff_repro_literal_audit_ready_for_review` | generated handoff/repro literals split into latest handoff manifest 41, evidence manifest 7, episode note 1, and validation output 1; manifestized rebuild candidates 48, manual literal edit allowed rows 0 | no |
+| `BR-20260429-229` | `latest_handoff_manifest_repro_refresh_plan_ready_for_review` | latest handoff manifest refresh plan maps 14 specs: 12 refresh-required, 2 repo-doc no-refresh, 28 temp input literals, 12 temp output literals, 1 repo-root literal; manual literal edit/runtime/operator changes 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
