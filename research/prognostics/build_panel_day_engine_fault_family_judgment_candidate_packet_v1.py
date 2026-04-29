@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -145,12 +148,68 @@ def parse_args() -> argparse.Namespace:
             "cross-axis evidence, regression pressure seeds, and BR-017/018 threshold criteria."
         )
     )
+    parser.add_argument("--input-manifest", default=None)
     parser.add_argument("--cross-axis-input", type=Path, default=DEFAULT_CROSS_AXIS_INPUT)
     parser.add_argument("--pressure-input", type=Path, default=DEFAULT_PRESSURE_INPUT)
     parser.add_argument("--threshold-input", type=Path, default=DEFAULT_THRESHOLD_INPUT)
     parser.add_argument("--subtype-input", type=Path, default=DEFAULT_SUBTYPE_INPUT)
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args()
+
+
+def resolve_path(base_root: Path, path_value: str | Path) -> Path:
+    path = Path(path_value)
+    return path if path.is_absolute() else base_root / path
+
+
+def load_input_manifest(base_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(base_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_chain_input(
+    base_root: Path,
+    cli_value: str | Path,
+    legacy_default: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    cli_flag: str,
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if cli_flag in explicit_flags:
+        return resolve_path(base_root, cli_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise KeyError(
+                f"panel-day evidence input manifest is missing `{manifest_key}`; "
+                f"pass {cli_flag} explicitly or add inputs.{manifest_key}"
+            )
+        return resolve_path(base_root, manifest_value), "input_manifest"
+    return resolve_path(base_root, legacy_default), "legacy_default"
 
 
 def normalize_text(value: object) -> str:
@@ -501,7 +560,14 @@ def dataframe_to_markdown(df: pd.DataFrame, max_rows: int = 40) -> str:
     return "\n".join([header, separator] + rows)
 
 
-def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame, criteria: pd.DataFrame) -> None:
+def write_note(
+    output_dir: Path,
+    detail: pd.DataFrame,
+    summary: pd.DataFrame,
+    criteria: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> None:
     lines = [
         "# panel_day_engine_fault_family_judgment_candidate_note_v1",
         "",
@@ -515,9 +581,17 @@ def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame, cr
         f"- criteria rows: `{len(criteria)}`",
         f"- operator promotion allowed sum: `{int(detail['operator_promotion_allowed_flag'].sum()) if len(detail) else 0}`",
         f"- engine patch candidate sum: `{int(detail['engine_patch_candidate_flag'].sum()) if len(detail) else 0}`",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path else 'not provided'}`",
         "",
         "## Summary",
         dataframe_to_markdown(summary),
+        "",
+        "## Input Resolution Sources",
+        *(
+            [f"- `{key}`: `{value}`" for key, value in sorted((input_resolution_sources or {}).items())]
+            if input_resolution_sources
+            else ["- no manifest-wrapped inputs"]
+        ),
         "",
         "## Interpretation",
         "- `fault_family_regression_pressure_seed` rows are regression/counterexample material only.",
@@ -532,8 +606,42 @@ def main() -> None:
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    cross_axis = normalize_cross_axis(read_csv(args.cross_axis_input))
-    pressure = normalize_pressure(read_csv(args.pressure_input, required=False))
+    base_root = Path.cwd()
+    input_manifest_path, input_manifest = load_input_manifest(base_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--cross-axis-input",
+            "--pressure-input",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    cross_axis_path, cross_axis_source = resolve_chain_input(
+        base_root,
+        args.cross_axis_input,
+        DEFAULT_CROSS_AXIS_INPUT,
+        input_manifest,
+        "cross_axis_input",
+        "--cross-axis-input",
+        explicit_flags,
+    )
+    pressure_path, pressure_source = resolve_chain_input(
+        base_root,
+        args.pressure_input,
+        DEFAULT_PRESSURE_INPUT,
+        input_manifest,
+        "pressure_input",
+        "--pressure-input",
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "cross_axis_input": cross_axis_source,
+        "pressure_input": pressure_source,
+    }
+
+    cross_axis = normalize_cross_axis(read_csv(cross_axis_path))
+    pressure = normalize_pressure(read_csv(pressure_path, required=False))
     threshold_basis = read_threshold_basis(args.threshold_input)
     subtype_df = read_csv(args.subtype_input)
 
@@ -549,7 +657,7 @@ def main() -> None:
     detail.to_csv(args.output_dir / DETAIL_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(args.output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     criteria.to_csv(args.output_dir / CRITERIA_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(args.output_dir, detail, summary, criteria)
+    write_note(args.output_dir, detail, summary, criteria, input_manifest_path, input_resolution_sources)
 
 
 if __name__ == "__main__":

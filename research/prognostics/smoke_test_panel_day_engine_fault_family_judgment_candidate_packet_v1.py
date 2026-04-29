@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 from pathlib import Path
@@ -120,6 +121,120 @@ def main() -> None:
         )
         assert_true(len(summary) >= 3, f"unexpected summary rows: {len(summary)}")
         assert_true("operator promotion allowed sum: `0`" in note, "note missing promotion guardrail")
+        assert_true("evidence input manifest: `not provided`" in note, "note missing no-manifest marker")
+        assert_true("`cross_axis_input`: `explicit_cli`" in note, "note missing explicit cross-axis source")
+        assert_true("`pressure_input`: `explicit_cli`" in note, "note missing explicit pressure source")
+
+        manifest = root / "fault_family_inputs.json"
+        manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "cross_axis_input": str(cross),
+                        "pressure_input": str(pressure),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_cmd = [
+            "python3",
+            str(script),
+            "--input-manifest",
+            str(manifest),
+            "--threshold-input",
+            str(threshold),
+            "--subtype-input",
+            str(subtype),
+            "--output-dir",
+            str(manifest_out),
+        ]
+        manifest_result = subprocess.run(manifest_cmd, cwd=repo_root, text=True, capture_output=True)
+        assert_true(
+            manifest_result.returncode == 0,
+            f"manifest builder failed:\nSTDOUT={manifest_result.stdout}\nSTDERR={manifest_result.stderr}",
+        )
+        manifest_detail = pd.read_csv(manifest_out / DETAIL_NAME, low_memory=False)
+        manifest_note = (manifest_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true(manifest_detail["judgment_bucket"].tolist() == detail["judgment_bucket"].tolist(), "manifest buckets drifted")
+        assert_true(f"evidence input manifest: `{manifest}`" in manifest_note, "note missing manifest path")
+        assert_true("`cross_axis_input`: `input_manifest`" in manifest_note, "note missing manifest cross-axis source")
+        assert_true("`pressure_input`: `input_manifest`" in manifest_note, "note missing manifest pressure source")
+
+        bad_manifest = root / "bad_fault_family_inputs.json"
+        bad_manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "cross_axis_input": str(root / "missing_cross.csv"),
+                        "pressure_input": str(root / "missing_pressure.csv"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_cmd = [
+            "python3",
+            str(script),
+            "--cross-axis-input",
+            str(cross),
+            "--pressure-input",
+            str(pressure),
+            "--threshold-input",
+            str(threshold),
+            "--subtype-input",
+            str(subtype),
+            "--input-manifest",
+            str(bad_manifest),
+            "--output-dir",
+            str(override_out),
+        ]
+        override_result = subprocess.run(override_cmd, cwd=repo_root, text=True, capture_output=True)
+        assert_true(
+            override_result.returncode == 0,
+            f"override builder failed:\nSTDOUT={override_result.stdout}\nSTDERR={override_result.stderr}",
+        )
+        override_note = (override_out / NOTE_NAME).read_text(encoding="utf-8")
+        assert_true("`cross_axis_input`: `explicit_cli`" in override_note, "override cross-axis source drifted")
+        assert_true("`pressure_input`: `explicit_cli`" in override_note, "override pressure source drifted")
+
+        missing_key_manifest = root / "missing_key_fault_family_inputs.json"
+        missing_key_manifest.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "cross_axis_input": str(cross),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        missing_key_cmd = [
+            "python3",
+            str(script),
+            "--input-manifest",
+            str(missing_key_manifest),
+            "--threshold-input",
+            str(threshold),
+            "--subtype-input",
+            str(subtype),
+            "--output-dir",
+            str(root / "missing_key_out"),
+        ]
+        missing_key_result = subprocess.run(missing_key_cmd, cwd=repo_root, text=True, capture_output=True)
+        assert_true(missing_key_result.returncode != 0, "missing-key manifest unexpectedly passed")
+        assert_true("missing `pressure_input`" in missing_key_result.stderr, missing_key_result.stderr)
 
     print("smoke ok: panel_day_engine_fault_family_judgment_candidate_packet_v1")
 
