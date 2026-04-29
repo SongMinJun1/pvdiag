@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-222` | `runtime_result_bundle_reference_contract_closure_ready_for_review` | runtime result bundle references are contract-closed: 4 rows, 2 source files, contract closed 4, gap 0, explicit CLI/input-manifest/resolver/default-retained rows 4, missing checks 0, rewrite/runtime semantic permission rows 0 | Continue with remaining literal/repro-only live-temp cleanup only after this closure stays green |
+| `BR-20260429-223` | `live_temp_literal_repro_closure_ready_for_review` | remaining literal/repro-only live-temp rows are closed non-input references: 6 rows, embedded note repro 4, detector literals 2, source files 6, input contract gaps 0, rewrite/runtime semantic permission rows 0 | Run full p1 live-temp lane closure audit next |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -222,6 +222,7 @@
 | `BR-20260429-220` | `static_artifact_reference_contract_closure_ready_for_review` | closes the 2 BR-219 static artifact contract gaps by adding optional input-manifest/resolver support; closure audit now reports 10/10 closed, missing checks 0, bulk rewrite/runtime semantic permission rows 0 | no |
 | `BR-20260429-221` | `live_temp_review_self_noise_fixed_ready_for_review` | marks BR-220 audit fallback mapping literals as scanner self-literals so the broad live-temp review no longer counts them as real static directory inputs; live-temp rows 68, static directory 48, static artifact 10, runtime result bundle 4 | no |
 | `BR-20260429-222` | `runtime_result_bundle_reference_contract_closure_ready_for_review` | closure audit confirms runtime result bundle references are manifest/explicit-input aware: 4/4 `--input-manifest`, 4/4 explicit CLI flags, 4/4 resolver rows, missing checks 0, bulk rewrite/runtime semantic permission rows 0 | no |
+| `BR-20260429-223` | `live_temp_literal_repro_closure_ready_for_review` | closes the remaining literal/repro-only live-temp rows as non-input references: embedded note repro commands 4, intentional detector literals 2, manifest/explicit input required rows 0, input contract gaps 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
