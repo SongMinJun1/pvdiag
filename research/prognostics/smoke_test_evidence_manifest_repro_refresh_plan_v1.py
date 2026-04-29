@@ -56,15 +56,18 @@ def main() -> None:
         assert_true(payload["builder_artifact_specs_rows"] == 6, payload)
         assert_true(payload["manual_oneoff_artifact_specs_rows"] == 3, payload)
         assert_true(payload["manual_oneoff_command_rows_preserved"] == 2, payload)
-        assert_true(payload["old_private_tmp_literal_rows"] == 7, payload)
+        assert_true(payload["old_private_tmp_literal_rows"] == 0, payload)
         assert_true(payload["proposed_private_tmp_literal_rows"] == 0, payload)
         assert_true(payload["runtime_output_root_literal_rows"] == 1, payload)
         assert_true(payload["sidecar_result_root_literal_rows"] == 3, payload)
         assert_true(payload["sidecar_output_dir_literal_rows"] == 3, payload)
+        assert_true(payload["pending_replacement_literal_rows"] == 0, payload)
+        assert_true(payload["already_applied_literal_rows"] == 7, payload)
         assert_true(payload["manual_literal_edit_allowed_rows"] == 0, payload)
         assert_true(payload["runtime_semantic_change_allowed_rows"] == 0, payload)
         assert_true(payload["operator_facing_change_allowed_rows"] == 0, payload)
         assert_true(payload["plan_complete"] == 1, payload)
+        assert_true(payload["closure_complete"] == 1, payload)
 
         assert_true(set(detail["source_constant"]) == {
             "RUNTIME_REPRO_COMMAND",
@@ -80,6 +83,10 @@ def main() -> None:
         assert_true(
             detail["proposed_repro_command"].str.contains("/private/tmp/").sum() == 0,
             detail[["source_constant", "proposed_repro_command"]].to_dict("records"),
+        )
+        assert_true(
+            set(detail["literal_apply_status"]) == {"already_applied"},
+            detail[["source_constant", "literal_apply_status"]].to_dict("records"),
         )
         assert_true(
             detail["proposed_repro_command"].str.contains("${EVIDENCE_MANIFEST_OUTPUT_ROOT}", regex=False).all(),

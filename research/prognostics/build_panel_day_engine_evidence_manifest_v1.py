@@ -18,28 +18,28 @@ PACK_ROOT_DIRNAME = "evidence_pack_root"
 RUNTIME_REPRO_COMMAND = (
     "python3 release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py "
     "--data-root data "
-    "--output-root /private/tmp/conalog_mlpe_seed_expand_check "
+    "--output-root ${EVIDENCE_MANIFEST_OUTPUT_ROOT}/runtime "
     "--sites conalog gangui ktc_ess"
 )
 REPORT_ENTRY_REPRO_COMMAND = (
     "python3 research/prognostics/build_panel_day_engine_report_entry_friction_axis_v1.py "
     "--data-root data "
-    "--result-root /private/tmp/conalog_mlpe_seed_expand_check/result "
-    "--output-dir /private/tmp/report_entry_friction_axis_sidecar_check "
+    "--result-root ${EVIDENCE_MANIFEST_OUTPUT_ROOT}/runtime/result "
+    "--output-dir ${EVIDENCE_MANIFEST_OUTPUT_ROOT}/report_entry_friction_axis_sidecar "
     "--sites conalog gangui ktc_ess"
 )
 RECOVERY_REPRO_COMMAND = (
     "python3 research/prognostics/build_panel_day_engine_recovery_recurrence_axis_v1.py "
     "--data-root data "
-    "--result-root /private/tmp/conalog_mlpe_seed_expand_check/result "
-    "--output-dir /private/tmp/recovery_recurrence_axis_sidecar_check "
+    "--result-root ${EVIDENCE_MANIFEST_OUTPUT_ROOT}/runtime/result "
+    "--output-dir ${EVIDENCE_MANIFEST_OUTPUT_ROOT}/recovery_recurrence_axis_sidecar "
     "--sites conalog gangui ktc_ess"
 )
 COMMON_CAUSE_REPRO_COMMAND = (
     "python3 research/prognostics/build_panel_day_engine_common_cause_synchrony_axis_v1.py "
     "--data-root data "
-    "--result-root /private/tmp/conalog_mlpe_seed_expand_check/result "
-    "--output-dir /private/tmp/common_cause_synchrony_axis_sidecar_check "
+    "--result-root ${EVIDENCE_MANIFEST_OUTPUT_ROOT}/runtime/result "
+    "--output-dir ${EVIDENCE_MANIFEST_OUTPUT_ROOT}/common_cause_synchrony_axis_sidecar "
     "--sites conalog gangui ktc_ess"
 )
 GROUP_OFF_REPRO_COMMAND = "manual_oneoff_scan_locked_in_docs: BR-20260424-037"

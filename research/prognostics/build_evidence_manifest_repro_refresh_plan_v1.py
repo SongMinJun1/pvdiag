@@ -103,6 +103,7 @@ DETAIL_COLUMNS = [
     "placeholder_literal",
     "replacement_kind",
     "refresh_bucket",
+    "literal_apply_status",
     "old_repro_command",
     "proposed_repro_command",
     "old_private_tmp_literal_count",
@@ -187,10 +188,20 @@ def build_detail_rows(repo_root: Path) -> list[dict[str, object]]:
         artifact_count = artifact_spec_count_for_command(module, command)
         for literal_spec in literal_specs:
             old_literal = literal_spec["old_literal"]
-            literal_occurrences = command.count(old_literal)
-            if literal_occurrences != 1:
+            placeholder_literal = literal_spec["placeholder_literal"]
+            old_literal_occurrences = command.count(old_literal)
+            placeholder_occurrences = command.count(placeholder_literal)
+            if old_literal_occurrences == 1:
+                literal_apply_status = "pending_replacement"
+            elif old_literal_occurrences == 0 and placeholder_occurrences == 1:
+                proposed_command = command
+                proposed_private_count = old_private_count
+                literal_apply_status = "already_applied"
+            else:
                 raise SystemExit(
-                    f"{source_constant} expected one occurrence of {old_literal}, found {literal_occurrences}"
+                    f"{source_constant} expected one occurrence of either {old_literal} or "
+                    f"{placeholder_literal}; found old={old_literal_occurrences}, "
+                    f"placeholder={placeholder_occurrences}"
                 )
             refresh_bucket = (
                 "runtime_output_root_parameterization_plan"
@@ -208,6 +219,7 @@ def build_detail_rows(repo_root: Path) -> list[dict[str, object]]:
                     "placeholder_literal": literal_spec["placeholder_literal"],
                     "replacement_kind": literal_spec["replacement_kind"],
                     "refresh_bucket": refresh_bucket,
+                    "literal_apply_status": literal_apply_status,
                     "old_repro_command": command,
                     "proposed_repro_command": proposed_command,
                     "old_private_tmp_literal_count": old_private_count,
@@ -244,6 +256,7 @@ def build_payload(repo_root: Path, rows: list[dict[str, object]]) -> dict[str, o
     mode_counts = Counter(str(row["command_repro_mode"]) for row in rows)
     refresh_bucket_counts = Counter(str(row["refresh_bucket"]) for row in rows)
     replacement_kind_counts = Counter(str(row["replacement_kind"]) for row in rows)
+    apply_status_counts = Counter(str(row["literal_apply_status"]) for row in rows)
 
     unique_old_commands = {str(row["source_constant"]): str(row["old_repro_command"]) for row in rows}
     unique_proposed_commands = {
@@ -277,17 +290,32 @@ def build_payload(repo_root: Path, rows: list[dict[str, object]]) -> dict[str, o
         "runtime_output_root_literal_rows": literal_role_counts.get("runtime_output_root", 0),
         "sidecar_result_root_literal_rows": literal_role_counts.get("sidecar_result_root", 0),
         "sidecar_output_dir_literal_rows": literal_role_counts.get("sidecar_output_dir", 0),
+        "pending_replacement_literal_rows": apply_status_counts.get("pending_replacement", 0),
+        "already_applied_literal_rows": apply_status_counts.get("already_applied", 0),
         "manual_literal_edit_allowed_rows": manual_allowed,
         "runtime_semantic_change_allowed_rows": runtime_allowed,
         "operator_facing_change_allowed_rows": operator_allowed,
         "plan_complete": int(
             len(rows) == 7
             and len(unique_old_commands) == 4
-            and old_private_literals == 7
+            and old_private_literals in {0, 7}
             and proposed_private_literals == 0
             and runtime_specs == 14
             and builder_specs == 6
             and manual_specs == 3
+            and apply_status_counts.get("pending_replacement", 0)
+            + apply_status_counts.get("already_applied", 0)
+            == 7
+            and manual_allowed == 0
+            and runtime_allowed == 0
+            and operator_allowed == 0
+        ),
+        "closure_complete": int(
+            len(rows) == 7
+            and len(unique_old_commands) == 4
+            and old_private_literals == 0
+            and proposed_private_literals == 0
+            and apply_status_counts.get("already_applied", 0) == 7
             and manual_allowed == 0
             and runtime_allowed == 0
             and operator_allowed == 0
@@ -297,6 +325,7 @@ def build_payload(repo_root: Path, rows: list[dict[str, object]]) -> dict[str, o
         "command_repro_mode_counts": dict(sorted(mode_counts.items())),
         "refresh_bucket_counts": dict(sorted(refresh_bucket_counts.items())),
         "replacement_kind_counts": dict(sorted(replacement_kind_counts.items())),
+        "literal_apply_status_counts": dict(sorted(apply_status_counts.items())),
         "recommended_next_branch": "evidence_manifest_repro_refresh_dry_run",
     }
 
@@ -316,10 +345,13 @@ def summary_rows(payload: dict[str, object]) -> list[dict[str, object]]:
         "runtime_output_root_literal_rows",
         "sidecar_result_root_literal_rows",
         "sidecar_output_dir_literal_rows",
+        "pending_replacement_literal_rows",
+        "already_applied_literal_rows",
         "manual_literal_edit_allowed_rows",
         "runtime_semantic_change_allowed_rows",
         "operator_facing_change_allowed_rows",
         "plan_complete",
+        "closure_complete",
     ]
     for key in scalar_keys:
         rows.append(
@@ -336,6 +368,7 @@ def summary_rows(payload: dict[str, object]) -> list[dict[str, object]]:
         "command_repro_mode_counts",
         "refresh_bucket_counts",
         "replacement_kind_counts",
+        "literal_apply_status_counts",
     ]:
         scope = scope_key.removesuffix("_counts")
         for key, value in payload[scope_key].items():
@@ -369,10 +402,13 @@ def render_note(payload: dict[str, object]) -> str:
             f"- manual_oneoff_artifact_specs_rows: `{payload['manual_oneoff_artifact_specs_rows']}`",
             f"- old_private_tmp_literal_rows: `{payload['old_private_tmp_literal_rows']}`",
             f"- proposed_private_tmp_literal_rows: `{payload['proposed_private_tmp_literal_rows']}`",
+            f"- pending_replacement_literal_rows: `{payload['pending_replacement_literal_rows']}`",
+            f"- already_applied_literal_rows: `{payload['already_applied_literal_rows']}`",
             f"- manual_literal_edit_allowed_rows: `{payload['manual_literal_edit_allowed_rows']}`",
             f"- runtime_semantic_change_allowed_rows: `{payload['runtime_semantic_change_allowed_rows']}`",
             f"- operator_facing_change_allowed_rows: `{payload['operator_facing_change_allowed_rows']}`",
             f"- plan_complete: `{payload['plan_complete']}`",
+            f"- closure_complete: `{payload['closure_complete']}`",
             "",
             "## Replacement Shape",
             f"- Runtime output root: `{RUNTIME_OUTPUT_ROOT}`",

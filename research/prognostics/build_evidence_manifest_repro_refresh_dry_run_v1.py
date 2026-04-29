@@ -178,6 +178,9 @@ def build_detail_rows(repo_root: Path) -> list[dict[str, object]]:
         elif command_changed:
             status = "manual_review_temp_literal_remaining"
             next_action = "stop and inspect proposed command before applying source patch"
+        elif OUTPUT_ROOT_PLACEHOLDER in proposed_command:
+            status = "applied_parameterized_repro"
+            next_action = "regenerate the evidence manifest and re-run generated handoff literal rescan"
         else:
             status = "preserved_manual_or_repo_repro"
             next_action = "preserve command"
@@ -230,6 +233,13 @@ def build_payload(repo_root: Path, detail_rows: list[dict[str, object]]) -> dict
     runtime_allowed = sum(int(row["runtime_semantic_change_allowed_rows"]) for row in detail_rows)
     operator_allowed = sum(int(row["operator_facing_change_allowed_rows"]) for row in detail_rows)
     source_patch_required_rows = sum(int(row["source_patch_required"]) for row in patch_rows)
+    applied_parameterized_rows = status_counts.get("applied_parameterized_repro", 0)
+    source_patch_already_applied_rows = sum(
+        1
+        for row in patch_rows
+        if int(row["source_patch_required"]) == 0
+        and OUTPUT_ROOT_PLACEHOLDER in str(row["proposed_repro_command"])
+    )
 
     return {
         "owner_branch": OWNER_BRANCH,
@@ -242,8 +252,10 @@ def build_payload(repo_root: Path, detail_rows: list[dict[str, object]]) -> dict
         "builder_artifact_spec_rows": mode_counts.get("builder", 0),
         "manual_oneoff_artifact_spec_rows": mode_counts.get("manual_oneoff", 0),
         "placeholder_root_used_artifact_rows": placeholder_rows,
+        "applied_parameterized_artifact_rows": applied_parameterized_rows,
         "unique_source_command_rows": len(patch_rows),
         "source_patch_required_command_rows": source_patch_required_rows,
+        "source_patch_already_applied_command_rows": source_patch_already_applied_rows,
         "artifact_row_old_private_tmp_literal_rows": artifact_row_old_literals,
         "artifact_row_proposed_private_tmp_literal_rows": artifact_row_proposed_literals,
         "unique_command_old_private_tmp_literal_rows": unique_old_literals,
@@ -253,16 +265,31 @@ def build_payload(repo_root: Path, detail_rows: list[dict[str, object]]) -> dict
         "operator_facing_change_allowed_rows": operator_allowed,
         "dry_run_complete": int(
             len(detail_rows) == 23
-            and changed_rows == 20
             and mode_counts.get("runtime_run", 0) == 14
             and mode_counts.get("builder", 0) == 6
             and mode_counts.get("manual_oneoff", 0) == 3
             and placeholder_rows == 20
             and len(patch_rows) == 4
-            and source_patch_required_rows == 4
-            and artifact_row_old_literals == 26
+            and source_patch_required_rows in {0, 4}
+            and artifact_row_old_literals in {0, 26}
             and artifact_row_proposed_literals == 0
-            and unique_old_literals == 7
+            and unique_old_literals in {0, 7}
+            and unique_proposed_literals == 0
+            and manual_allowed == 0
+            and runtime_allowed == 0
+            and operator_allowed == 0
+        ),
+        "closure_complete": int(
+            len(detail_rows) == 23
+            and changed_rows == 0
+            and applied_parameterized_rows == 20
+            and mode_counts.get("manual_oneoff", 0) == 3
+            and len(patch_rows) == 4
+            and source_patch_required_rows == 0
+            and source_patch_already_applied_rows == 4
+            and artifact_row_old_literals == 0
+            and artifact_row_proposed_literals == 0
+            and unique_old_literals == 0
             and unique_proposed_literals == 0
             and manual_allowed == 0
             and runtime_allowed == 0
@@ -286,8 +313,10 @@ def summary_rows(payload: dict[str, object]) -> list[dict[str, object]]:
         "builder_artifact_spec_rows",
         "manual_oneoff_artifact_spec_rows",
         "placeholder_root_used_artifact_rows",
+        "applied_parameterized_artifact_rows",
         "unique_source_command_rows",
         "source_patch_required_command_rows",
+        "source_patch_already_applied_command_rows",
         "artifact_row_old_private_tmp_literal_rows",
         "artifact_row_proposed_private_tmp_literal_rows",
         "unique_command_old_private_tmp_literal_rows",
@@ -296,6 +325,7 @@ def summary_rows(payload: dict[str, object]) -> list[dict[str, object]]:
         "runtime_semantic_change_allowed_rows",
         "operator_facing_change_allowed_rows",
         "dry_run_complete",
+        "closure_complete",
     ]
     for key in scalar_keys:
         rows.append(
@@ -342,18 +372,22 @@ def render_note(payload: dict[str, object]) -> str:
             f"- runtime_artifact_spec_rows: `{payload['runtime_artifact_spec_rows']}`",
             f"- builder_artifact_spec_rows: `{payload['builder_artifact_spec_rows']}`",
             f"- manual_oneoff_artifact_spec_rows: `{payload['manual_oneoff_artifact_spec_rows']}`",
+            f"- placeholder_root_used_artifact_rows: `{payload['placeholder_root_used_artifact_rows']}`",
+            f"- applied_parameterized_artifact_rows: `{payload['applied_parameterized_artifact_rows']}`",
             f"- artifact_row_old_private_tmp_literal_rows: `{payload['artifact_row_old_private_tmp_literal_rows']}`",
             f"- artifact_row_proposed_private_tmp_literal_rows: `{payload['artifact_row_proposed_private_tmp_literal_rows']}`",
             f"- unique_command_old_private_tmp_literal_rows: `{payload['unique_command_old_private_tmp_literal_rows']}`",
             f"- unique_command_proposed_private_tmp_literal_rows: `{payload['unique_command_proposed_private_tmp_literal_rows']}`",
             f"- source_patch_required_command_rows: `{payload['source_patch_required_command_rows']}`",
+            f"- source_patch_already_applied_command_rows: `{payload['source_patch_already_applied_command_rows']}`",
             f"- manual_literal_edit_allowed_rows: `{payload['manual_literal_edit_allowed_rows']}`",
             f"- runtime_semantic_change_allowed_rows: `{payload['runtime_semantic_change_allowed_rows']}`",
             f"- operator_facing_change_allowed_rows: `{payload['operator_facing_change_allowed_rows']}`",
             f"- dry_run_complete: `{payload['dry_run_complete']}`",
+            f"- closure_complete: `{payload['closure_complete']}`",
             "",
             "## Boundary",
-            "- The source patch should replace only the four repro command constants.",
+            "- The source patch should replace only the four repro command constants when pending.",
             "- `ARTIFACT_SPECS` rows should inherit the updated constants automatically.",
             "- Manual one-off repro commands remain preserved.",
             "",

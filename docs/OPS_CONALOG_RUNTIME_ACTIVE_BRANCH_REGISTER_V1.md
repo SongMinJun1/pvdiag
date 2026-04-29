@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-235` | `evidence_manifest_repro_refresh_dry_run_ready_for_review` | dry-run shows 23 artifact specs, 20 repro rows would change, artifact-row `/private/tmp` literals 26 -> 0, source patch target is only 4 command constants | Next branch should apply the four evidence manifest repro command constant replacements, then regenerate and rescan |
+| `BR-20260429-236` | `evidence_manifest_repro_refresh_apply_builder_ready_for_review` | applies the four evidence manifest repro command constants; plan/dry-run closure complete 1, generated handoff evidence-manifest residual rows 7 -> 0, remaining generated residual rows 2 | Next branch should defer episode note until touched and preserve validation output literal unless explicitly reopened |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -235,6 +235,7 @@
 | `BR-20260429-233` | `generated_handoff_post_br232_rescan_ready_for_review` | post-BR232 fresh scan confirms latest handoff closure: generated handoff/repro literals 9, latest handoff 0, evidence manifest 7, episode note 1, validation output 1, manual edit/runtime/operator sums 0 | no |
 | `BR-20260429-234` | `evidence_manifest_repro_refresh_plan_ready_for_review` | evidence manifest repro refresh plan maps 7 temp literals across runtime/report-entry/recovery/common-cause command groups; proposed `/private/tmp` literals 0, manual edit/runtime/operator sums 0 | no |
 | `BR-20260429-235` | `evidence_manifest_repro_refresh_dry_run_ready_for_review` | evidence manifest dry-run compares all 23 artifact specs: changed rows 20, manual oneoff preserved rows 3, artifact-row `/private/tmp` literals 26 -> 0, source patch constants 4 | no |
+| `BR-20260429-236` | `evidence_manifest_repro_refresh_apply_builder_ready_for_review` | evidence manifest builder constants now use `${EVIDENCE_MANIFEST_OUTPUT_ROOT}`; generated manifest repro residuals close from 7 to 0, plan/dry-run closure complete 1, runtime/operator semantics unchanged | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

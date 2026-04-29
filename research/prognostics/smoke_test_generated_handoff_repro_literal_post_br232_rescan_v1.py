@@ -52,27 +52,27 @@ def main() -> None:
             encoding="utf-8"
         )
 
-        assert_true(payload["post_br232_generated_handoff_repro_literal_rows"] == 9, payload)
+        assert_true(payload["post_br232_generated_handoff_repro_literal_rows"] == 2, payload)
         assert_true(payload["latest_handoff_manifest_repro_rows"] == 0, payload)
-        assert_true(payload["evidence_manifest_repro_rows"] == 7, payload)
+        assert_true(payload["evidence_manifest_repro_rows"] == 0, payload)
         assert_true(payload["episode_note_repro_rows"] == 1, payload)
         assert_true(payload["validation_output_literal_rows"] == 1, payload)
-        assert_true(payload["manifestized_rebuild_candidate_rows"] == 7, payload)
+        assert_true(payload["manifestized_rebuild_candidate_rows"] == 0, payload)
         assert_true(payload["intentional_validation_output_literal_rows"] == 1, payload)
         assert_true(payload["manual_literal_edit_allowed_rows"] == 0, payload)
         assert_true(payload["runtime_semantic_change_allowed_rows"] == 0, payload)
         assert_true(payload["operator_facing_change_allowed_rows"] == 0, payload)
         assert_true(payload["br228_generated_literal_rows"] == 50, payload)
         assert_true(payload["br228_latest_handoff_rows"] == 41, payload)
-        assert_true(payload["generated_literal_drop_since_br228"] == 41, payload)
+        assert_true(payload["generated_literal_drop_since_br228"] == 48, payload)
         assert_true(payload["latest_handoff_drop_since_br228"] == 41, payload)
         assert_true(payload["latest_handoff_closed_after_br232"] == 1, payload)
+        assert_true(payload["evidence_manifest_closed_after_br236"] == 1, payload)
         assert_true(payload["residual_rescan_complete"] == 1, payload)
 
         assert_true(
             set(detail["post_br232_residual_lane"])
             == {
-                "evidence_manifest_repro_next_lane",
                 "episode_note_repro_deferred",
                 "validation_output_destination_preserved",
             },

@@ -53,50 +53,61 @@ def main() -> None:
         )
 
         assert_true(payload["artifact_spec_rows"] == 23, payload)
-        assert_true(payload["changed_artifact_spec_rows"] == 20, payload)
-        assert_true(payload["unchanged_artifact_spec_rows"] == 3, payload)
+        assert_true(payload["changed_artifact_spec_rows"] == 0, payload)
+        assert_true(payload["unchanged_artifact_spec_rows"] == 23, payload)
         assert_true(payload["runtime_artifact_spec_rows"] == 14, payload)
         assert_true(payload["builder_artifact_spec_rows"] == 6, payload)
         assert_true(payload["manual_oneoff_artifact_spec_rows"] == 3, payload)
         assert_true(payload["placeholder_root_used_artifact_rows"] == 20, payload)
+        assert_true(payload["applied_parameterized_artifact_rows"] == 20, payload)
         assert_true(payload["unique_source_command_rows"] == 4, payload)
-        assert_true(payload["source_patch_required_command_rows"] == 4, payload)
-        assert_true(payload["artifact_row_old_private_tmp_literal_rows"] == 26, payload)
+        assert_true(payload["source_patch_required_command_rows"] == 0, payload)
+        assert_true(payload["source_patch_already_applied_command_rows"] == 4, payload)
+        assert_true(payload["artifact_row_old_private_tmp_literal_rows"] == 0, payload)
         assert_true(payload["artifact_row_proposed_private_tmp_literal_rows"] == 0, payload)
-        assert_true(payload["unique_command_old_private_tmp_literal_rows"] == 7, payload)
+        assert_true(payload["unique_command_old_private_tmp_literal_rows"] == 0, payload)
         assert_true(payload["unique_command_proposed_private_tmp_literal_rows"] == 0, payload)
         assert_true(payload["manual_literal_edit_allowed_rows"] == 0, payload)
         assert_true(payload["runtime_semantic_change_allowed_rows"] == 0, payload)
         assert_true(payload["operator_facing_change_allowed_rows"] == 0, payload)
         assert_true(payload["dry_run_complete"] == 1, payload)
+        assert_true(payload["closure_complete"] == 1, payload)
 
         changed = detail[detail["command_changed"].eq(1)]
         unchanged = detail[detail["command_changed"].eq(0)]
-        assert_true(len(changed) == 20, detail.to_dict("records"))
-        assert_true(len(unchanged) == 3, detail.to_dict("records"))
+        assert_true(len(changed) == 0, detail.to_dict("records"))
+        assert_true(len(unchanged) == 23, detail.to_dict("records"))
         assert_true(
-            changed["proposed_repro_command"].str.contains("/private/tmp/").sum() == 0,
-            changed[["source_constant", "proposed_repro_command"]].to_dict("records"),
+            detail["proposed_repro_command"].str.contains("/private/tmp/").sum() == 0,
+            detail[["source_constant", "proposed_repro_command"]].to_dict("records"),
         )
+        applied = detail[detail["dry_run_status"].eq("applied_parameterized_repro")]
+        manual = detail[detail["dry_run_status"].eq("preserved_manual_or_repo_repro")]
+        assert_true(len(applied) == 20, detail.to_dict("records"))
+        assert_true(len(manual) == 3, detail.to_dict("records"))
         assert_true(
-            changed["proposed_repro_command"].str.contains(
+            applied["proposed_repro_command"].str.contains(
                 "${EVIDENCE_MANIFEST_OUTPUT_ROOT}",
                 regex=False,
             ).all(),
-            changed[["source_constant", "proposed_repro_command"]].to_dict("records"),
+            applied[["source_constant", "proposed_repro_command"]].to_dict("records"),
         )
         assert_true(
-            set(unchanged["repro_mode"]) == {"manual_oneoff"},
-            unchanged[["repro_mode", "old_repro_command"]].to_dict("records"),
+            set(manual["repro_mode"]) == {"manual_oneoff"},
+            manual[["repro_mode", "old_repro_command"]].to_dict("records"),
         )
         assert_true(len(patch_plan) == 4, patch_plan.to_dict("records"))
-        assert_true(int(patch_plan["source_patch_required"].sum()) == 4, patch_plan.to_dict("records"))
+        assert_true(int(patch_plan["source_patch_required"].sum()) == 0, patch_plan.to_dict("records"))
         assert_true(
             patch_plan["proposed_repro_command"].str.contains("/private/tmp/").sum() == 0,
             patch_plan[["source_constant", "proposed_repro_command"]].to_dict("records"),
         )
         assert_true(
             int(summary[summary["key"].eq("dry_run_complete")]["count"].iloc[0]) == 1,
+            summary.to_dict("records"),
+        )
+        assert_true(
+            int(summary[summary["key"].eq("closure_complete")]["count"].iloc[0]) == 1,
             summary.to_dict("records"),
         )
         assert_true("Dry-runs the BR-234" in note, note)
