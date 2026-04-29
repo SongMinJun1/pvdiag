@@ -238,6 +238,30 @@ def write_map(path: Path) -> None:
     pd.DataFrame(rows).reindex(columns=MAP_COLUMNS).to_csv(path, index=False, encoding="utf-8-sig")
 
 
+def run_builder(
+    repo_root: Path,
+    script: Path,
+    episode_map_input: Path | None,
+    output_dir: Path,
+    input_manifest: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    cmd = [
+        sys.executable,
+        str(script),
+        "--repo-root",
+        str(repo_root),
+        "--output-dir",
+        str(output_dir),
+        "--owner-branch",
+        "BR-TEST-082",
+    ]
+    if episode_map_input is not None:
+        cmd.extend(["--episode-map-input", str(episode_map_input)])
+    if input_manifest is not None:
+        cmd.extend(["--input-manifest", str(input_manifest)])
+    return run(cmd, repo_root)
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     script = repo_root / "research/prognostics/build_panel_day_engine_episode_truth_review_packet_v1.py"
@@ -246,21 +270,7 @@ def main() -> None:
         input_path = root / "map.csv"
         output_dir = root / "out"
         write_map(input_path)
-        completed = run(
-            [
-                sys.executable,
-                str(script),
-                "--repo-root",
-                str(repo_root),
-                "--output-dir",
-                str(output_dir),
-                "--owner-branch",
-                "BR-TEST-082",
-                "--episode-map-input",
-                str(input_path),
-            ],
-            repo_root,
-        )
+        completed = run_builder(repo_root, script, input_path, output_dir)
         assert_true(completed.returncode == 0, completed.stderr or completed.stdout)
 
         packet = pd.read_csv(output_dir / PACKET_NAME, encoding="utf-8-sig")
@@ -273,6 +283,8 @@ def main() -> None:
         assert_true(payload["selected_source_lens_rows"] == 4, payload)
         assert_true(payload["review_packet_rows"] == 3, payload)
         assert_true(payload["collapsed_duplicate_lens_count"] == 1, payload)
+        assert_true(payload["input_manifest"] == "", payload)
+        assert_true(payload["episode_map_input_source"] == "explicit_cli", payload)
         assert_true(set(packet["review_track"]) == {
             "long_gap_backdating_review",
             "strict_sudden_prior_episode_review",
@@ -290,6 +302,42 @@ def main() -> None:
         assert_true(action["sequence"].tolist() == sorted(action["sequence"].tolist()), action.to_string())
         assert_true(action.iloc[0]["action_id"] == "ACT-001", action.to_string())
         assert_true("review-only" in note_text, note_text)
+
+        manifest_path = root / "episode_truth_review_packet_inputs.json"
+        manifest_path.write_text(
+            json.dumps({"inputs": {"episode_map_input": str(input_path)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_completed = run_builder(repo_root, script, None, manifest_out, manifest_path)
+        assert_true(manifest_completed.returncode == 0, manifest_completed.stderr or manifest_completed.stdout)
+        manifest_payload = json.loads((manifest_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(manifest_payload["review_packet_rows"] == payload["review_packet_rows"], manifest_payload)
+        assert_true(manifest_payload["collapsed_duplicate_lens_count"] == payload["collapsed_duplicate_lens_count"], manifest_payload)
+        assert_true(manifest_payload["input_manifest"] == str(manifest_path), manifest_payload)
+        assert_true(manifest_payload["episode_map_input_source"] == "input_manifest", manifest_payload)
+
+        bad_manifest_path = root / "bad_episode_truth_review_packet_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {"inputs": {"episode_map_input": str(root / "missing_episode_map.csv")}},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_completed = run_builder(repo_root, script, input_path, override_out, bad_manifest_path)
+        assert_true(override_completed.returncode == 0, override_completed.stderr or override_completed.stdout)
+        override_payload = json.loads((override_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(override_payload["episode_map_input_source"] == "explicit_cli", override_payload)
+
+        missing_key_manifest_path = root / "missing_key_episode_truth_review_packet_inputs.json"
+        missing_key_manifest_path.write_text(json.dumps({"inputs": {}}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        missing_key_completed = run_builder(repo_root, script, None, root / "missing_key_out", missing_key_manifest_path)
+        assert_true(missing_key_completed.returncode != 0, missing_key_completed.stdout)
+        assert_true("missing `episode_map_input`" in missing_key_completed.stderr, missing_key_completed.stderr)
 
     print("smoke_test_panel_day_engine_episode_truth_review_packet_v1.py: PASS")
 
