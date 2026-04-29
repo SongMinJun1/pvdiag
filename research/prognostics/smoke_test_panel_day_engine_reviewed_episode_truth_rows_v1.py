@@ -174,6 +174,36 @@ def write_review_input(path: Path) -> None:
     ).to_csv(path, index=False, encoding="utf-8-sig")
 
 
+def run_builder(
+    repo_root: Path,
+    script: Path,
+    packet_input: Path | None,
+    guard_json_input: Path | None,
+    output_dir: Path,
+    review_input: Path | None = None,
+    input_manifest: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    cmd = [
+        sys.executable,
+        str(script),
+        "--repo-root",
+        str(repo_root),
+        "--output-dir",
+        str(output_dir),
+        "--owner-branch",
+        "BR-TEST-084",
+    ]
+    if packet_input is not None:
+        cmd.extend(["--packet-input", str(packet_input)])
+    if guard_json_input is not None:
+        cmd.extend(["--guard-json-input", str(guard_json_input)])
+    if review_input is not None:
+        cmd.extend(["--review-input", str(review_input)])
+    if input_manifest is not None:
+        cmd.extend(["--input-manifest", str(input_manifest)])
+    return run(cmd, repo_root)
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     script = repo_root / "research/prognostics/build_panel_day_engine_reviewed_episode_truth_rows_v1.py"
@@ -186,23 +216,7 @@ def main() -> None:
 
         # Default run: no reviewer labels, therefore no replay-ready rows.
         default_out = root / "default_out"
-        completed = run(
-            [
-                sys.executable,
-                str(script),
-                "--repo-root",
-                str(repo_root),
-                "--output-dir",
-                str(default_out),
-                "--owner-branch",
-                "BR-TEST-084",
-                "--packet-input",
-                str(packet),
-                "--guard-json-input",
-                str(guard),
-            ],
-            repo_root,
-        )
+        completed = run_builder(repo_root, script, packet, guard, default_out)
         assert_true(completed.returncode == 0, completed.stderr or completed.stdout)
         rows = pd.read_csv(default_out / ROWS_NAME, encoding="utf-8-sig")
         payload = json.loads((default_out / JSON_NAME).read_text(encoding="utf-8"))
@@ -212,30 +226,78 @@ def main() -> None:
         assert_true(int(rows["threshold_replay_input_allowed"].sum()) == 0, rows.to_string())
         assert_true(payload["reviewer_truth_label_assigned_count"] == 0, payload)
         assert_true(payload["threshold_replay_ready_count"] == 0, payload)
+        assert_true(payload["input_manifest"] == "", payload)
+        assert_true(payload["packet_input_source"] == "explicit_cli", payload)
+        assert_true(payload["guard_json_input_source"] == "explicit_cli", payload)
+
+        manifest_path = root / "reviewed_episode_truth_rows_inputs.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "packet_input": str(packet),
+                        "guard_json_input": str(guard),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_completed = run_builder(repo_root, script, None, None, manifest_out, input_manifest=manifest_path)
+        assert_true(manifest_completed.returncode == 0, manifest_completed.stderr or manifest_completed.stdout)
+        manifest_payload = json.loads((manifest_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(manifest_payload["reviewed_truth_rows"] == payload["reviewed_truth_rows"], manifest_payload)
+        assert_true(manifest_payload["threshold_replay_ready_count"] == payload["threshold_replay_ready_count"], manifest_payload)
+        assert_true(manifest_payload["input_manifest"] == str(manifest_path), manifest_payload)
+        assert_true(manifest_payload["packet_input_source"] == "input_manifest", manifest_payload)
+        assert_true(manifest_payload["guard_json_input_source"] == "input_manifest", manifest_payload)
+
+        bad_manifest_path = root / "bad_reviewed_episode_truth_rows_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "packet_input": str(root / "missing_packet.csv"),
+                        "guard_json_input": str(root / "missing_guard.json"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_completed = run_builder(repo_root, script, packet, guard, override_out, input_manifest=bad_manifest_path)
+        assert_true(override_completed.returncode == 0, override_completed.stderr or override_completed.stdout)
+        override_payload = json.loads((override_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(override_payload["packet_input_source"] == "explicit_cli", override_payload)
+        assert_true(override_payload["guard_json_input_source"] == "explicit_cli", override_payload)
+
+        missing_key_manifest_path = root / "missing_key_reviewed_episode_truth_rows_inputs.json"
+        missing_key_manifest_path.write_text(
+            json.dumps({"inputs": {"packet_input": str(packet)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        missing_key_completed = run_builder(
+            repo_root,
+            script,
+            None,
+            None,
+            root / "missing_key_out",
+            input_manifest=missing_key_manifest_path,
+        )
+        assert_true(missing_key_completed.returncode != 0, missing_key_completed.stdout)
+        assert_true("missing `guard_json_input`" in missing_key_completed.stderr, missing_key_completed.stderr)
 
         # Evidence-attached run: positive and negative labels are replay inputs, hold is not.
         review_input = root / "review_input.csv"
         write_review_input(review_input)
         reviewed_out = root / "reviewed_out"
-        completed = run(
-            [
-                sys.executable,
-                str(script),
-                "--repo-root",
-                str(repo_root),
-                "--output-dir",
-                str(reviewed_out),
-                "--owner-branch",
-                "BR-TEST-084",
-                "--packet-input",
-                str(packet),
-                "--guard-json-input",
-                str(guard),
-                "--review-input",
-                str(review_input),
-            ],
-            repo_root,
-        )
+        completed = run_builder(repo_root, script, packet, guard, reviewed_out, review_input)
         assert_true(completed.returncode == 0, completed.stderr or completed.stdout)
         rows = pd.read_csv(reviewed_out / ROWS_NAME, encoding="utf-8-sig")
         summary = pd.read_csv(reviewed_out / SUMMARY_NAME, encoding="utf-8-sig")
