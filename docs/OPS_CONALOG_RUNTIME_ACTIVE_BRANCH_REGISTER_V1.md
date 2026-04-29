@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-179` | `episode_truth_manifest_resolution_closure_ready_for_review` | BR-170 through BR-178 manifest-resolution consumers are now covered by a closure audit: 8 consumers, 12 manifest keys, 0 unresolved consumers, and 0 patch-authorization sums | Start the next cleanup lane only after this closure audit stays green |
+| `BR-20260429-180` | `panel_day_evidence_input_manifest_contract_ready_for_review` | `panel_day_engine_evidence` live-temp references now have a consumer contract: 30 rows, 26 manifest-required, 26 explicit-input-supported, 0 unmapped required rows | Pick one high-impact evidence consumer and add a manifest resolver or fail-closed explicit-input path |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -179,6 +179,7 @@
 | `BR-20260429-177` | `episode_truth_source_trace_manifest_resolution_ready_for_review` | BR-086 source trace audit resolves BR-085 index/template inputs from optional manifest or explicit CLI, records both sources, and keeps labels/replay/patch authorization sums at 0 | no |
 | `BR-20260429-178` | `reviewed_episode_truth_rows_manifest_resolution_ready_for_review` | BR-084 reviewed episode truth rows resolves BR-082 packet and BR-083 guard inputs from optional manifest or explicit CLI, records both sources, and keeps truth-intake/replay/patch boundaries unchanged | no |
 | `BR-20260429-179` | `episode_truth_manifest_resolution_closure_ready_for_review` | closure audit confirms all BR-170 required consumers are manifest-aware and smoke-covered: 8 consumers, 12 manifest keys, unresolved consumers 0, missing checks 0, patch authorization sums 0 | no |
+| `BR-20260429-180` | `panel_day_evidence_input_manifest_contract_ready_for_review` | evidence-lane temp references split into 30 rows: 26 manifest-required and explicit-input-supported, 4 literal/repro-only, unmapped required 0, runtime/bulk rewrite permissions 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
