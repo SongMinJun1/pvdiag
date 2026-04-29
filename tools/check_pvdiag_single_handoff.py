@@ -15,6 +15,18 @@ REQUIRED_PAYLOAD_PATHS = {
     "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_runtime_fault_event_audit_v1.py",
     "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_runtime_final_verdict_v1.py",
     "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_runtime_heuristic_v1.py",
+    "release/conalog_full_runtime_v1/package/research/prognostics/heuristic_display_registry_v1.py",
+}
+
+EXCLUDED_PAYLOAD_PATHS = {
+    "release/conalog_full_runtime_v1/package/app/import_any_csv_root.py",
+    "release/conalog_full_runtime_v1/package/requirements.txt",
+    "release/conalog_full_runtime_v1/package/artifacts/ktc_fault2_label_and_algorithm_preview_v1.csv",
+    "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_bootstrap_verdict_v1.py",
+    "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_fault_panel_event_audit_v1.py",
+    "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_panel_multiaxis_verdict_v1.py",
+    "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_gpvs_evidence_pack_v1.py",
+    "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_cause_candidate_heuristics_v1.py",
 }
 
 
@@ -57,6 +69,9 @@ def main() -> None:
     missing = sorted(REQUIRED_PAYLOAD_PATHS - files)
     if missing:
         fail("manifest missing required payload paths:\n" + "\n".join(missing))
+    unexpected = sorted(EXCLUDED_PAYLOAD_PATHS & files)
+    if unexpected:
+        fail("manifest still includes single-file excluded payload paths:\n" + "\n".join(unexpected))
     if payload.get("payload_mode") != "source_text":
         fail(f"unexpected payload mode: {payload.get('payload_mode')}")
     runtime_rows = sorted(path for path in files if "/runtime/windows_x64/" in path or path.endswith(".pyc"))

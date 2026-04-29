@@ -106,4 +106,5 @@ python tools/check_pvdiag_single_delivery_closeout.py --export-output-dir /tmp/p
 - 외부 라이브러리와 입력 CSV는 단일 파일에 포함하지 않습니다.
 - Windows embedded runtime은 단일 파일에 포함하지 않습니다.
 - zip/base64 payload는 사용하지 않습니다. 내부 파일은 `EMBEDDED_TEXT_FILES` source-text payload로 복원합니다.
+- importer helper와 frozen-share live-chain-only builder는 단일 파일 payload에서 제외합니다.
 - 기본 실행은 대용량 중복 workspace를 남기지 않도록 `--workspace-retention result-only`를 자동 적용합니다.

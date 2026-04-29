@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260430-248` | `single_file_source_text_payload_ready_for_review` | generated `pvdiag_single.py` now embeds UTF-8 source-text files instead of zip/base64; handoff, export, closeout, and conalog smoke checks validate the new payload mode | Use the source-text `pvdiag_single.py` for professor handoff; real field-trial CSV evaluation remains user-run |
+| `BR-20260430-249` | `single_file_payload_trim_ready_for_review` | source-text `pvdiag_single.py` payload trimmed from 24 to 16 files by excluding importer helper, package metadata, side preview, and frozen-share live-chain-only builders; conalog smoke and key artifact compare pass | Use the trimmed source-text `pvdiag_single.py` for professor handoff; real field-trial CSV evaluation remains user-run |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -248,6 +248,7 @@
 | `BR-20260430-246` | `single_file_delivery_checklist_ready_for_review` | internal delivery checklist added: one-file send boundary, package prerequisites, run command, expected outputs, and failure triage are explicit | no |
 | `BR-20260430-247` | `single_file_release_snapshot_ready_for_review` | deterministic snapshot records `pvdiag_single.py` size/SHA-256, embedded payload summary, external package prerequisites, expected result artifacts, and validation boundary | no |
 | `BR-20260430-248` | `single_file_source_text_payload_ready_for_review` | builder switches the generated single file from zip/base64 payload to source-text `EMBEDDED_TEXT_FILES`; generated artifact, manifest, snapshot, and delivery export all validate payload mode `source_text` | no |
+| `BR-20260430-249` | `single_file_payload_trim_ready_for_review` | payload audit removes 8 nonessential single-file entries; generated artifact now has 16 payload files, 432286 payload text bytes, and preserves conalog key artifact schema/row counts | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
