@@ -63,7 +63,8 @@ result/fault_panel_result_raw_only_fault_signal_report_v1.csv
 - BR-248 이후 generated single file은 zip/base64 payload를 쓰지 않고 source-text payload를 사용합니다.
 - BR-249 이후 단일 파일 payload는 one-file 실행에 필요한 runtime/raw-only 경로 중심으로 정리되어, importer helper와 frozen-share live-chain-only builder는 포함하지 않습니다.
 - BR-251 이후 `--single-self-test`는 외부 패키지 없이도 payload 무결성을 확인하고, 실제 실행 실패는 패키지 누락/data-root 문제를 구분해 안내합니다.
-- BR-252 이후 source-text payload는 JSON chunk container로 저장되며, payload necessity audit 기준 11개 파일만 포함합니다.
+- BR-252에서 payload necessity audit 기준 11개 파일만 남겼고, 당시 JSON chunk container는 BR-255에서 readable comment block으로 대체했습니다.
 - BR-253 이후 줄 수 다이어트로 숨겨진 구조를 보완하기 위해 `PAYLOAD_FILE_INDEX`, `--single-list-payload`, `--single-extract-source`를 제공합니다.
-- BR-254 이후 `EMBEDDED_TEXT_JSON_CHUNKS`는 파일 아래쪽 `# region Embedded source payload` 접기 블록 안에 둡니다.
+- BR-254의 접기 블록 아이디어는 유지하되, BR-255 이후 실제 payload는 JSON chunk가 아니라 readable comment block입니다.
+- BR-255 이후 JSON chunk container를 제거하고, payload를 `# region Embedded readable source payload` 안의 `# pvdiag_payload_file` metadata와 `#|` source line으로 보관합니다.
 - 실증 CSV와 최종 라벨이 들어오기 전까지 truth-label 성능 주장은 하지 않습니다.

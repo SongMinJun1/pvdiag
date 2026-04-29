@@ -4,7 +4,7 @@
 원본 알고리즘은 계속 모듈형으로 유지하고, 이 파일은 builder로 생성한 self-extracting runner입니다.
 BR-248 이후 내부 payload는 zip/base64가 아니라 UTF-8 source-text로 들어갑니다.
 BR-253 이후 파일 상단에 payload 역할 index가 보이고, 필요하면 내장 소스를 읽을 수 있는 폴더로 풀 수 있습니다.
-BR-254 이후 큰 `EMBEDDED_TEXT_JSON_CHUNKS` payload는 파일 아래쪽의 접을 수 있는 `# region Embedded source payload` 블록 안에 있습니다.
+BR-255 이후 payload는 compact JSON 덩어리가 아니라 파일 아래쪽의 접을 수 있는 `# region Embedded readable source payload` 안에 `#|` source comment block으로 들어갑니다.
 
 ## 준비
 
@@ -119,10 +119,10 @@ python tools/check_pvdiag_single_delivery_closeout.py --export-output-dir /tmp/p
 - 재생성은 repo에서 `python tools/build_pvdiag_single_py.py`로 합니다.
 - 외부 라이브러리와 입력 CSV는 단일 파일에 포함하지 않습니다.
 - Windows embedded runtime은 단일 파일에 포함하지 않습니다.
-- zip/base64 payload는 사용하지 않습니다. 내부 파일은 `EMBEDDED_TEXT_FILES` source-text payload로 복원합니다.
+- zip/base64 payload는 사용하지 않습니다. 내부 파일은 readable source comment block에서 복원합니다.
 - importer helper와 frozen-share live-chain-only builder는 단일 파일 payload에서 제외합니다.
 - 기본 실행은 대용량 중복 workspace를 남기지 않도록 `--workspace-retention result-only`를 자동 적용합니다.
 - 실패 시 `missing required Python packages`, `data-root was not provided`, `data-root does not exist` 메시지를 먼저 보고, 안내된 `pip install ...` 또는 `--data-root /path/to/data`로 다시 실행합니다.
-- generated single file은 source-text JSON chunk container와 11-file essential payload를 사용해 불필요한 line-literal 전개와 sidecar payload를 피합니다.
-- generated single file은 compact하지만 숨김 파일처럼 다루지 않도록 `PAYLOAD_FILE_INDEX`, `--single-list-payload`, `--single-extract-source`를 제공합니다.
-- generated single file의 큰 payload blob은 본문을 가리지 않도록 아래쪽 foldable region에 둡니다.
+- generated single file은 11-file essential payload만 포함하되, 원문을 읽을 수 있도록 `# pvdiag_payload_file` metadata와 `#|` source line으로 보관합니다.
+- generated single file은 숨김 파일처럼 다루지 않도록 `PAYLOAD_FILE_INDEX`, `--single-list-payload`, `--single-extract-source`를 제공합니다.
+- generated single file의 큰 readable payload block은 본문을 가리지 않도록 아래쪽 foldable region에 둡니다.

@@ -173,9 +173,11 @@ def main() -> None:
     )
 
     single_manifest = load_single_manifest(repo_root)
+    if single_manifest.get("payload_container") != "readable_comment_blocks":
+        fail(f"single-file payload is not readable comment blocks: {single_manifest.get('payload_container')}")
     snapshot = {
         "snapshot_schema": "pvdiag_single_delivery_snapshot_v1",
-        "release_id": "pvdiag_single_br254_payload_folding_20260430",
+        "release_id": "pvdiag_single_br255_readable_payload_20260430",
         "professor_deliverable_file_count": 1,
         "professor_deliverable_files": ["pvdiag_single.py"],
         "single_file": {
@@ -202,13 +204,16 @@ def main() -> None:
             "checksum_equality_check": 1,
             "exported_self_test_check": 1,
             "visible_payload_index_check": 1,
+            "readable_payload_block_check": int(single_manifest.get("payload_container") == "readable_comment_blocks"),
             "foldable_payload_region_check": 1,
             "source_extract_check": 1,
             "handoff_doc_snippet_check": 1,
             "failure_ux_smoke_check": 1,
             "algorithm_semantics_changed": 0,
             "source_text_payload_without_base64_zip": int(single_manifest.get("payload_mode") == "source_text"),
-            "source_text_payload_chunked": int(single_manifest.get("payload_container") == "json_chunks"),
+            "source_text_payload_readable_comment_blocks": int(
+                single_manifest.get("payload_container") == "readable_comment_blocks"
+            ),
             "single_file_payload_trimmed": int(bool(single_manifest.get("excluded_single_file_payload_rels"))),
             "field_trial_csv_required_for_truth_label_evaluation": 1,
         },
