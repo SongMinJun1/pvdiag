@@ -110,20 +110,45 @@ def missing_dependencies() -> list[str]:
     return missing
 
 
-def resolve_data_root(value: Path | None) -> Path:
+def print_dependency_help(missing: list[str]) -> None:
+    print("[pvdiag_single] missing required Python packages:")
+    for package in missing:
+        print(f"  - {package}")
+    print("[pvdiag_single] install example:")
+    print("  pip install pandas numpy torch openpyxl tqdm")
+    print("[pvdiag_single] after installing packages, run the same command again.")
+
+
+def print_data_root_help(output_root: Path) -> None:
+    print("[pvdiag_single] how to provide input data:")
+    print("  1. run with --data-root /path/to/data")
+    print("  2. or place a data/ folder next to pvdiag_single.py")
+    print("[pvdiag_single] output/log directory:")
+    print(f"  {output_root}")
+
+
+def resolve_data_root(value: Path | None, output_root: Path) -> Path | None:
     if value is not None:
         return value.expanduser().resolve()
     sibling_data = script_dir() / "data"
     if sibling_data.exists():
         return sibling_data.resolve()
+    if not sys.stdin.isatty():
+        print("[pvdiag_single] data-root was not provided and sibling data/ was not found.")
+        print(f"[pvdiag_single] looked for: {sibling_data}")
+        print_data_root_help(output_root)
+        return None
     try:
-        typed = input("Input data-root folder path: ").strip()
+        typed = input("[pvdiag_single] Input data-root folder path: ").strip()
     except EOFError as exc:
-        raise SystemExit(
-            "data-root was not provided, sibling data/ was not found, and interactive input is unavailable"
-        ) from exc
+        print("[pvdiag_single] data-root was not provided and interactive input is unavailable.")
+        print(f"[pvdiag_single] looked for: {sibling_data}")
+        print_data_root_help(output_root)
+        return None
     if not typed:
-        raise SystemExit("data-root is required")
+        print("[pvdiag_single] data-root is required.")
+        print_data_root_help(output_root)
+        return None
     return Path(typed).expanduser().resolve()
 
 
@@ -215,16 +240,6 @@ def run_command(cmd: list[str], output_root: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args, passthrough = parse_args(argv)
-    missing = missing_dependencies()
-    if missing:
-        print("[pvdiag_single] missing required Python packages:")
-        for package in missing:
-            print(f"  - {package}")
-        print("[pvdiag_single] install example:")
-        print("  pip install pandas numpy torch openpyxl tqdm")
-        return 2
-
-    output_root = resolve_output_root(args.output_root)
     runtime_root: Path
     cleanup_runtime = not args.single_keep_runtime
     temp_obj = None
@@ -247,10 +262,24 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[pvdiag_single] runner: {runner}")
             return 0
 
-        data_root = resolve_data_root(args.data_root)
+        missing = missing_dependencies()
+        if missing:
+            print_dependency_help(missing)
+            if args.single_keep_runtime:
+                print(f"[pvdiag_single] kept runtime: {runtime_root}")
+            return 2
+
+        output_root = resolve_output_root(args.output_root)
+        data_root = resolve_data_root(args.data_root, output_root)
+        if data_root is None:
+            if args.single_keep_runtime:
+                print(f"[pvdiag_single] kept runtime: {runtime_root}")
+            return 3
         if not data_root.exists():
             print(f"[pvdiag_single] data-root does not exist: {data_root}")
-            print(f"[pvdiag_single] log directory: {output_root}")
+            print_data_root_help(output_root)
+            if args.single_keep_runtime:
+                print(f"[pvdiag_single] kept runtime: {runtime_root}")
             return 3
 
         cmd = [
