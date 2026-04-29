@@ -306,6 +306,130 @@ def main() -> None:
         assert_true(action_df["sequence"].tolist() == sorted(action_df["sequence"].tolist()), action_df.to_string())
         assert_true(action_df.iloc[0]["action_id"] == "ACT-001", action_df.to_string())
         assert_true("current_exact_truth_support_count" in note_text, note_text)
+        assert_true(payload["input_manifest"] == "", payload)
+        assert_true(payload["br079_gap_input_source"] == "explicit_cli", payload)
+        assert_true(payload["candidate_packet_input_source"] == "explicit_cli", payload)
+        assert_true(payload["shape_review_input_source"] == "explicit_cli", payload)
+        assert_true(payload["physical_confirmation_input_source"] == "explicit_cli", payload)
+        assert_true(payload["common_cause_search_input_source"] == "explicit_cli", payload)
+
+        manifest_path = Path(tmpdir) / "subtype_truth_expansion_inputs.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "br079_gap_input": str(inputs["gap"]),
+                        "candidate_packet_input": str(inputs["packet"]),
+                        "shape_review_input": str(inputs["shape"]),
+                        "physical_confirmation_input": str(inputs["confirmation"]),
+                        "common_cause_search_input": str(inputs["common"]),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = Path(tmpdir) / "manifest_out"
+        manifest_cmd = [
+            sys.executable,
+            str(script),
+            "--repo-root",
+            str(repo_root),
+            "--output-dir",
+            str(manifest_out),
+            "--owner-branch",
+            "BR-TEST-080",
+            "--subtype-map",
+            str(inputs["subtype"]),
+            "--morphology-atlas",
+            str(inputs["atlas"]),
+            "--shadow-summary-input",
+            str(inputs["shadow"]),
+            "--input-manifest",
+            str(manifest_path),
+        ]
+        manifest_completed = run(manifest_cmd, repo_root)
+        assert_true(manifest_completed.returncode == 0, manifest_completed.stderr or manifest_completed.stdout)
+        manifest_payload = json.loads((manifest_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(manifest_payload["subtype_backlog_rows"] == payload["subtype_backlog_rows"], manifest_payload)
+        assert_true(manifest_payload["current_exact_truth_support_sum"] == payload["current_exact_truth_support_sum"], manifest_payload)
+        assert_true(manifest_payload["input_manifest"] == str(manifest_path), manifest_payload)
+        assert_true(manifest_payload["br079_gap_input_source"] == "input_manifest", manifest_payload)
+        assert_true(manifest_payload["candidate_packet_input_source"] == "input_manifest", manifest_payload)
+        assert_true(manifest_payload["shape_review_input_source"] == "input_manifest", manifest_payload)
+        assert_true(manifest_payload["physical_confirmation_input_source"] == "input_manifest", manifest_payload)
+        assert_true(manifest_payload["common_cause_search_input_source"] == "input_manifest", manifest_payload)
+
+        bad_manifest_path = Path(tmpdir) / "bad_subtype_truth_expansion_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "br079_gap_input": str(Path(tmpdir) / "missing_gap.csv"),
+                        "candidate_packet_input": str(Path(tmpdir) / "missing_packet.csv"),
+                        "shape_review_input": str(Path(tmpdir) / "missing_shape.csv"),
+                        "physical_confirmation_input": str(Path(tmpdir) / "missing_confirmation.csv"),
+                        "common_cause_search_input": str(Path(tmpdir) / "missing_common.csv"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = Path(tmpdir) / "override_out"
+        override_cmd = [arg if arg != str(output_dir) else str(override_out) for arg in cmd]
+        override_cmd.extend(["--input-manifest", str(bad_manifest_path)])
+        override_completed = run(override_cmd, repo_root)
+        assert_true(override_completed.returncode == 0, override_completed.stderr or override_completed.stdout)
+        override_payload = json.loads((override_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(override_payload["br079_gap_input_source"] == "explicit_cli", override_payload)
+        assert_true(override_payload["candidate_packet_input_source"] == "explicit_cli", override_payload)
+        assert_true(override_payload["shape_review_input_source"] == "explicit_cli", override_payload)
+        assert_true(override_payload["physical_confirmation_input_source"] == "explicit_cli", override_payload)
+        assert_true(override_payload["common_cause_search_input_source"] == "explicit_cli", override_payload)
+
+        missing_key_manifest_path = Path(tmpdir) / "missing_key_subtype_truth_expansion_inputs.json"
+        missing_key_manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "br079_gap_input": str(inputs["gap"]),
+                        "candidate_packet_input": str(inputs["packet"]),
+                        "shape_review_input": str(inputs["shape"]),
+                        "physical_confirmation_input": str(inputs["confirmation"]),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        missing_key_cmd = [
+            sys.executable,
+            str(script),
+            "--repo-root",
+            str(repo_root),
+            "--output-dir",
+            str(Path(tmpdir) / "missing_key_out"),
+            "--owner-branch",
+            "BR-TEST-080",
+            "--subtype-map",
+            str(inputs["subtype"]),
+            "--morphology-atlas",
+            str(inputs["atlas"]),
+            "--shadow-summary-input",
+            str(inputs["shadow"]),
+            "--input-manifest",
+            str(missing_key_manifest_path),
+        ]
+        missing_key_completed = run(missing_key_cmd, repo_root)
+        assert_true(missing_key_completed.returncode != 0, missing_key_completed.stdout)
+        assert_true("missing `common_cause_search_input`" in missing_key_completed.stderr, missing_key_completed.stderr)
 
     print("smoke_test_panel_day_engine_subtype_truth_expansion_backlog_v1.py: PASS")
 

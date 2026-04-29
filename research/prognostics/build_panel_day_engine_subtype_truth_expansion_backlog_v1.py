@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -140,6 +142,56 @@ def bool_int(value: bool) -> int:
 def resolve_path(repo_root: Path, path_value: str | Path) -> Path:
     path = Path(path_value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_chain_input(
+    repo_root: Path,
+    cli_value: str | Path,
+    legacy_default: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    cli_flag: str,
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if cli_flag in explicit_flags:
+        return resolve_path(repo_root, cli_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise KeyError(
+                f"panel-day evidence input manifest is missing `{manifest_key}`; "
+                f"pass {cli_flag} explicitly or add inputs.{manifest_key}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, legacy_default), "legacy_default"
 
 
 def read_required_csv(path: Path, required_cols: list[str], name: str) -> pd.DataFrame:
@@ -476,6 +528,8 @@ def write_note(
     summary_df: pd.DataFrame,
     action_df: pd.DataFrame,
     input_presence: dict[str, bool],
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
 ) -> None:
     total_operator = int(backlog_df["operator_facing_change_allowed"].sum() + action_df["operator_facing_change_allowed"].sum())
     total_engine = int(backlog_df["engine_patch_allowed"].sum() + action_df["engine_patch_allowed"].sum())
@@ -503,6 +557,7 @@ def write_note(
 - engine patch allowed sum: `{total_engine}`
 - threshold patch allowed sum: `{total_threshold}`
 - missing optional inputs: `{len(missing_inputs)}`
+- evidence input manifest: `{input_manifest_path if input_manifest_path else 'not provided'}`
 
 ## Reading
 - Current subtype artifacts are shadow/review context only.
@@ -513,9 +568,12 @@ def write_note(
 ## Missing Optional Inputs
 {chr(10).join(f"- `{name}`" for name in missing_inputs) if missing_inputs else "- none"}
 
+## Input Resolution Sources
+{chr(10).join(f"- `{key}`: `{value}`" for key, value in sorted((input_resolution_sources or {}).items())) if input_resolution_sources else "- no manifest-wrapped inputs"}
+
 ## Repro Command
 ```bash
-python3 research/prognostics/build_panel_day_engine_subtype_truth_expansion_backlog_v1.py --repo-root /private/tmp/pvdiag_postmerge_j --output-dir {output_dir}
+python3 research/prognostics/build_panel_day_engine_subtype_truth_expansion_backlog_v1.py --repo-root "$(pwd)" --output-dir {output_dir}
 ```
 """
     (output_dir / NOTE_OUTPUT_NAME).write_text(note, encoding="utf-8")
@@ -533,6 +591,8 @@ def build_outputs(
     shape_review_path: Path,
     physical_confirmation_path: Path,
     common_cause_search_path: Path,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
 ) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -632,7 +692,17 @@ def build_outputs(
         "br069_physical_confirmation": confirmation_present,
         "br072_common_cause_search": common_present,
     }
-    write_note(output_dir, owner_branch, backlog_df, summary_df, action_df, input_presence)
+    input_resolution_sources = input_resolution_sources or {}
+    write_note(
+        output_dir,
+        owner_branch,
+        backlog_df,
+        summary_df,
+        action_df,
+        input_presence,
+        input_manifest_path,
+        input_resolution_sources,
+    )
 
     payload = {
         "owner_branch": owner_branch,
@@ -650,6 +720,13 @@ def build_outputs(
             backlog_df["threshold_patch_allowed"].sum() + action_df["threshold_patch_allowed"].sum()
         ),
         "input_presence": input_presence,
+        "input_manifest": str(input_manifest_path) if input_manifest_path else "",
+        "input_resolution_sources": input_resolution_sources,
+        "br079_gap_input_source": input_resolution_sources.get("br079_gap_input", ""),
+        "candidate_packet_input_source": input_resolution_sources.get("candidate_packet_input", ""),
+        "shape_review_input_source": input_resolution_sources.get("shape_review_input", ""),
+        "physical_confirmation_input_source": input_resolution_sources.get("physical_confirmation_input", ""),
+        "common_cause_search_input_source": input_resolution_sources.get("common_cause_search_input", ""),
         "missing_optional_input_count": int(sum(1 for present in input_presence.values() if not present)),
         "missing_subtype_families_from_morphology_atlas": missing_from_atlas,
         "br079_gap_audit_recommended_artifacts": sorted(set(br079_gap["recommended_artifact"].map(normalize_text))) if gap_present else [],
@@ -680,6 +757,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--owner-branch", default="BR-20260425-080")
     parser.add_argument("--subtype-map", default=SUBTYPE_MAP_DEFAULT)
     parser.add_argument("--morphology-atlas", default=MORPHOLOGY_ATLAS_DEFAULT)
+    parser.add_argument("--input-manifest", default=None)
     parser.add_argument("--br079-gap-input", default=BR079_GAP_DEFAULT)
     parser.add_argument("--shadow-summary-input", default=BR019_SHADOW_SUMMARY_DEFAULT)
     parser.add_argument("--candidate-packet-input", default=BR064_PACKET_DEFAULT)
@@ -692,18 +770,85 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     repo_root = args.repo_root.resolve()
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--br079-gap-input",
+            "--candidate-packet-input",
+            "--shape-review-input",
+            "--physical-confirmation-input",
+            "--common-cause-search-input",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    br079_gap_path, br079_gap_source = resolve_chain_input(
+        repo_root,
+        args.br079_gap_input,
+        BR079_GAP_DEFAULT,
+        input_manifest,
+        "br079_gap_input",
+        "--br079-gap-input",
+        explicit_flags,
+    )
+    candidate_packet_path, candidate_packet_source = resolve_chain_input(
+        repo_root,
+        args.candidate_packet_input,
+        BR064_PACKET_DEFAULT,
+        input_manifest,
+        "candidate_packet_input",
+        "--candidate-packet-input",
+        explicit_flags,
+    )
+    shape_review_path, shape_review_source = resolve_chain_input(
+        repo_root,
+        args.shape_review_input,
+        BR065_SHAPE_DEFAULT,
+        input_manifest,
+        "shape_review_input",
+        "--shape-review-input",
+        explicit_flags,
+    )
+    physical_confirmation_path, physical_confirmation_source = resolve_chain_input(
+        repo_root,
+        args.physical_confirmation_input,
+        BR069_CONFIRMATION_DEFAULT,
+        input_manifest,
+        "physical_confirmation_input",
+        "--physical-confirmation-input",
+        explicit_flags,
+    )
+    common_cause_search_path, common_cause_search_source = resolve_chain_input(
+        repo_root,
+        args.common_cause_search_input,
+        BR072_COMMON_CAUSE_DEFAULT,
+        input_manifest,
+        "common_cause_search_input",
+        "--common-cause-search-input",
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "br079_gap_input": br079_gap_source,
+        "candidate_packet_input": candidate_packet_source,
+        "shape_review_input": shape_review_source,
+        "physical_confirmation_input": physical_confirmation_source,
+        "common_cause_search_input": common_cause_search_source,
+    }
     payload = build_outputs(
         repo_root=repo_root,
         output_dir=args.output_dir,
         owner_branch=args.owner_branch,
         subtype_map_path=resolve_path(repo_root, args.subtype_map),
         morphology_atlas_path=resolve_path(repo_root, args.morphology_atlas),
-        br079_gap_path=resolve_path(repo_root, args.br079_gap_input),
+        br079_gap_path=br079_gap_path,
         shadow_summary_path=resolve_path(repo_root, args.shadow_summary_input),
-        candidate_packet_path=resolve_path(repo_root, args.candidate_packet_input),
-        shape_review_path=resolve_path(repo_root, args.shape_review_input),
-        physical_confirmation_path=resolve_path(repo_root, args.physical_confirmation_input),
-        common_cause_search_path=resolve_path(repo_root, args.common_cause_search_input),
+        candidate_packet_path=candidate_packet_path,
+        shape_review_path=shape_review_path,
+        physical_confirmation_path=physical_confirmation_path,
+        common_cause_search_path=common_cause_search_path,
+        input_manifest_path=input_manifest_path,
+        input_resolution_sources=input_resolution_sources,
     )
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
