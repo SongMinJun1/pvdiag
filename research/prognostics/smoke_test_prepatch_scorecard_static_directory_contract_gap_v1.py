@@ -12,9 +12,9 @@ import pandas as pd
 
 EXPECTED_ROWS = 4
 EXPECTED_SOURCE_FILES = 3
-EXPECTED_CLOSED_ROWS = 0
-EXPECTED_GAP_ROWS = 4
-EXPECTED_MISSING_CHECKS = 8
+EXPECTED_CLOSED_ROWS = 4
+EXPECTED_GAP_ROWS = 0
+EXPECTED_MISSING_CHECKS = 0
 
 
 def assert_true(condition: bool, message: object) -> None:
@@ -58,22 +58,22 @@ def main() -> None:
         assert_true(payload["source_file_count"] == EXPECTED_SOURCE_FILES, payload)
         assert_true(payload["contract_closed_rows"] == EXPECTED_CLOSED_ROWS, payload)
         assert_true(payload["contract_gap_rows"] == EXPECTED_GAP_ROWS, payload)
-        assert_true(payload["input_manifest_arg_rows"] == 0, payload)
-        assert_true(payload["manifest_resolver_rows"] == 0, payload)
+        assert_true(payload["input_manifest_arg_rows"] == EXPECTED_ROWS, payload)
+        assert_true(payload["manifest_resolver_rows"] == EXPECTED_ROWS, payload)
         assert_true(payload["explicit_cli_arg_rows"] == EXPECTED_ROWS, payload)
         assert_true(payload["legacy_default_retained_rows"] == EXPECTED_ROWS, payload)
         assert_true(payload["runtime_semantic_change_allowed_rows"] == 0, payload)
         assert_true(payload["bulk_rewrite_allowed_rows"] == 0, payload)
         assert_true(payload["missing_check_count"] == EXPECTED_MISSING_CHECKS, payload)
-        assert_true(payload["contract_complete"] == 0, payload)
+        assert_true(payload["contract_complete"] == 1, payload)
         assert_true(len(detail) == EXPECTED_ROWS, detail.to_dict("records"))
-        assert_true(set(detail["contract_status"]) == {"needs_patch"}, detail.to_dict("records"))
+        assert_true(set(detail["contract_status"]) == {"closed"}, detail.to_dict("records"))
         assert_true(
             payload["prepatch_directory_rows"]
             == int(summary[summary["key"].eq("prepatch_directory_rows")]["count"].iloc[0]),
             payload,
         )
-        assert_true("not fully contract-closed" in note, note)
+        assert_true("fully contract-closed" in note, note)
 
     print("smoke ok: prepatch_scorecard_static_directory_contract_gap_v1")
 

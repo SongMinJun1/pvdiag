@@ -11,7 +11,7 @@ from pathlib import Path
 from build_repo_static_directory_reference_inventory_v1 import build_inventory, resolve
 
 
-OWNER_BRANCH = "BR-20260429-215"
+OWNER_BRANCH = "BR-20260429-216"
 EXPECTED_PREPATCH_DIRECTORY_ROWS = 4
 TARGET_WORKFLOW_LANE = "panel_engine_prepatch_scorecard"
 
@@ -167,6 +167,11 @@ def summary_payload(gap_rows: list[dict[str, object]]) -> dict[str, object]:
         len([part for part in str(row["missing_checks"]).split(";") if part])
         for row in gap_rows
     )
+    contract_complete = int(
+        len(gap_rows) == EXPECTED_PREPATCH_DIRECTORY_ROWS
+        and fail_count == 0
+        and missing_check_count == 0
+    )
     payload: dict[str, object] = {
         "owner_branch": OWNER_BRANCH,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -184,14 +189,12 @@ def summary_payload(gap_rows: list[dict[str, object]]) -> dict[str, object]:
         ),
         "bulk_rewrite_allowed_rows": sum(int(row["bulk_rewrite_allowed_flag"]) for row in gap_rows),
         "missing_check_count": missing_check_count,
-        "contract_complete": int(
-            len(gap_rows) == EXPECTED_PREPATCH_DIRECTORY_ROWS
-            and fail_count == 0
-            and missing_check_count == 0
-        ),
+        "contract_complete": contract_complete,
         "contract_status_counts": dict(Counter(str(row["contract_status"]) for row in gap_rows)),
         "recommended_next_branch": (
-            "patch_prepatch_scorecard_static_directory_gap_scripts_with_input_manifest_resolver"
+            "prepatch_scorecard_static_directory_contract_closed_no_rewrite"
+            if contract_complete
+            else "patch_prepatch_scorecard_static_directory_gap_scripts_with_input_manifest_resolver"
         ),
     }
     return payload
@@ -234,6 +237,20 @@ def write_csv(path: Path, rows: list[dict[str, object]], columns: list[str]) -> 
 
 
 def write_note(output_dir: Path, payload: dict[str, object]) -> Path:
+    contract_complete = int(payload["contract_complete"]) == 1
+    decision_lines = (
+        [
+            "- Prepatch scorecard static directory references are fully contract-closed.",
+            "- No default rewrite is authorized by this audit.",
+            "- Keep direct runtime semantic and bulk rewrite permission at 0.",
+        ]
+        if contract_complete
+        else [
+            "- Prepatch scorecard static directory references are not fully contract-closed yet.",
+            "- The next code patch should add input-manifest and manifest resolver handling before any path rewrite.",
+            "- Keep direct runtime semantic and bulk rewrite permission at 0.",
+        ]
+    )
     lines = [
         "# Prepatch Scorecard Static Directory Contract Gap",
         "",
@@ -255,9 +272,7 @@ def write_note(output_dir: Path, payload: dict[str, object]) -> Path:
         f"- contract complete: {payload['contract_complete']}",
         "",
         "## Decision",
-        "- Prepatch scorecard static directory references are not fully contract-closed yet.",
-        "- The next code patch should add input-manifest and manifest resolver handling before any path rewrite.",
-        "- Keep direct runtime semantic and bulk rewrite permission at 0.",
+        *decision_lines,
     ]
     path = output_dir / NOTE_OUTPUT_NAME
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
