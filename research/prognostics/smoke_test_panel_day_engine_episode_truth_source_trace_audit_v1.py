@@ -289,6 +289,34 @@ def write_fixture_repo(root: Path) -> tuple[Path, Path]:
     return index_path, template_path
 
 
+def run_builder(
+    repo_root: Path,
+    script: Path,
+    fixture_repo: Path,
+    index_input: Path | None,
+    template_input: Path | None,
+    output_dir: Path,
+    input_manifest: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    cmd = [
+        sys.executable,
+        str(script),
+        "--repo-root",
+        str(fixture_repo),
+        "--output-dir",
+        str(output_dir),
+        "--owner-branch",
+        "BR-TEST-086",
+    ]
+    if index_input is not None:
+        cmd.extend(["--index-input", str(index_input)])
+    if template_input is not None:
+        cmd.extend(["--template-input", str(template_input)])
+    if input_manifest is not None:
+        cmd.extend(["--input-manifest", str(input_manifest)])
+    return run(cmd, repo_root)
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     script = repo_root / "research/prognostics/build_panel_day_engine_episode_truth_source_trace_audit_v1.py"
@@ -298,23 +326,7 @@ def main() -> None:
         fixture_repo.mkdir()
         index_path, template_path = write_fixture_repo(fixture_repo)
         out_dir = root / "out"
-        completed = run(
-            [
-                sys.executable,
-                str(script),
-                "--repo-root",
-                str(fixture_repo),
-                "--index-input",
-                str(index_path),
-                "--template-input",
-                str(template_path),
-                "--output-dir",
-                str(out_dir),
-                "--owner-branch",
-                "BR-TEST-086",
-            ],
-            repo_root,
-        )
+        completed = run_builder(repo_root, script, fixture_repo, index_path, template_path, out_dir)
         assert_true(completed.returncode == 0, completed.stderr or completed.stdout)
         trace_df = pd.read_csv(out_dir / TRACE_NAME, encoding="utf-8-sig")
         summary_df = pd.read_csv(out_dir / SUMMARY_NAME, encoding="utf-8-sig")
@@ -336,27 +348,88 @@ def main() -> None:
         assert_true(payload["source_reference_count"] == 3, payload)
         assert_true(payload["trace_ready_count"] == 3, payload)
         assert_true(payload["threshold_replay_ready_count"] == 0, payload)
+        assert_true(payload["input_manifest"] == "", payload)
+        assert_true(payload["index_input_source"] == "explicit_cli", payload)
+        assert_true(payload["template_input_source"] == "explicit_cli", payload)
         assert_true("no truth label" in note, note)
+
+        manifest_path = root / "episode_truth_source_trace_inputs.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "index_input": str(index_path),
+                        "template_input": str(template_path),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_completed = run_builder(repo_root, script, fixture_repo, None, None, manifest_out, manifest_path)
+        assert_true(manifest_completed.returncode == 0, manifest_completed.stderr or manifest_completed.stdout)
+        manifest_payload = json.loads((manifest_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(manifest_payload["source_reference_count"] == payload["source_reference_count"], manifest_payload)
+        assert_true(manifest_payload["trace_ready_count"] == payload["trace_ready_count"], manifest_payload)
+        assert_true(manifest_payload["input_manifest"] == str(manifest_path), manifest_payload)
+        assert_true(manifest_payload["index_input_source"] == "input_manifest", manifest_payload)
+        assert_true(manifest_payload["template_input_source"] == "input_manifest", manifest_payload)
+
+        bad_manifest_path = root / "bad_episode_truth_source_trace_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "index_input": str(root / "missing_index.csv"),
+                        "template_input": str(root / "missing_template.csv"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_completed = run_builder(
+            repo_root,
+            script,
+            fixture_repo,
+            index_path,
+            template_path,
+            override_out,
+            bad_manifest_path,
+        )
+        assert_true(override_completed.returncode == 0, override_completed.stderr or override_completed.stdout)
+        override_payload = json.loads((override_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(override_payload["index_input_source"] == "explicit_cli", override_payload)
+        assert_true(override_payload["template_input_source"] == "explicit_cli", override_payload)
+
+        missing_key_manifest_path = root / "missing_key_episode_truth_source_trace_inputs.json"
+        missing_key_manifest_path.write_text(
+            json.dumps({"inputs": {"index_input": str(index_path)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        missing_key_completed = run_builder(
+            repo_root,
+            script,
+            fixture_repo,
+            None,
+            None,
+            root / "missing_key_out",
+            missing_key_manifest_path,
+        )
+        assert_true(missing_key_completed.returncode != 0, missing_key_completed.stdout)
+        assert_true("missing `template_input`" in missing_key_completed.stderr, missing_key_completed.stderr)
 
         unsafe = pd.read_csv(index_path, encoding="utf-8-sig")
         unsafe.loc[0, "engine_patch_allowed"] = 1
         unsafe_path = root / "unsafe_index.csv"
         unsafe.to_csv(unsafe_path, index=False, encoding="utf-8-sig")
-        unsafe_completed = run(
-            [
-                sys.executable,
-                str(script),
-                "--repo-root",
-                str(fixture_repo),
-                "--index-input",
-                str(unsafe_path),
-                "--template-input",
-                str(template_path),
-                "--output-dir",
-                str(root / "unsafe_out"),
-            ],
-            repo_root,
-        )
+        unsafe_completed = run_builder(repo_root, script, fixture_repo, unsafe_path, template_path, root / "unsafe_out")
         assert_true(unsafe_completed.returncode != 0, unsafe_completed.stdout)
         assert_true("non-authorizing BR-085 input" in unsafe_completed.stderr, unsafe_completed.stderr)
 
