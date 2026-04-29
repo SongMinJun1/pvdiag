@@ -32,10 +32,13 @@ def main() -> None:
     manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
     single_text = single.read_text(encoding="utf-8")
     assert_true(manifest_payload["payload_mode"] == "source_text", manifest_payload)
+    assert_true(manifest_payload["payload_container"] == "json_chunks", manifest_payload)
     assert_true(manifest_payload["payload_file_count"] >= 10, manifest_payload)
     assert_true(manifest_payload["payload_text_bytes"] < 8_000_000, manifest_payload)
     assert_true(manifest_payload["excluded_runtime_windows_x64"] is True, manifest_payload)
     assert_true("EMBEDDED_TEXT_FILES" in single_text, single)
+    assert_true("EMBEDDED_TEXT_JSON_CHUNKS" in single_text, single)
+    assert_true(len(single_text.splitlines()) < 1_000, single)
     assert_true("PAYLOAD_B64" not in single_text, single)
     assert_true("import base64" not in single_text, single)
     assert_true("import zipfile" not in single_text, single)
@@ -50,6 +53,21 @@ def main() -> None:
     assert_true(not any("/runtime/windows_x64/" in path for path in paths), paths)
     assert_true("release/conalog_full_runtime_v1/package/app/import_any_csv_root.py" not in paths, paths)
     assert_true("release/conalog_full_runtime_v1/package/requirements.txt" not in paths, paths)
+    assert_true(
+        "release/conalog_full_runtime_v1/package/artifacts/fault6_fixed_result_provenance_v1.json"
+        not in paths,
+        paths,
+    )
+    assert_true(
+        "release/conalog_full_runtime_v1/package/artifacts/runtime_chain_dependency_audit_v1.json" not in paths,
+        paths,
+    )
+    assert_true(
+        "release/conalog_full_runtime_v1/package/artifacts/runtime_chain_dependency_audit_v1.md" not in paths,
+        paths,
+    )
+    assert_true("release/conalog_full_runtime_v1/package/research/__init__.py" not in paths, paths)
+    assert_true("release/conalog_full_runtime_v1/package/research/prognostics/__init__.py" not in paths, paths)
     assert_true(
         "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_gpvs_evidence_pack_v1.py"
         not in paths,
