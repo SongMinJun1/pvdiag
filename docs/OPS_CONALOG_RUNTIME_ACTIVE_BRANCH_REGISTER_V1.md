@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-198` | `voltage_independent_confirmation_manifest_resolution_ready_for_review` | BR-098 voltage-preserved independent-confirmation attachment resolves the required BR-097 gap-review input from optional manifest or explicit CLI, records input source, and keeps attachment/truth/threshold boundaries unchanged | Continue evidence-lane manifest resolution with the next unresolved `/private/tmp` input dependency |
+| `BR-20260429-199` | `voltage_truth_acquisition_manifest_resolution_ready_for_review` | BR-099 voltage-preserved truth-acquisition queue resolves the required BR-098 attachment input from optional manifest or explicit CLI, records input source, and keeps acquisition/truth/threshold boundaries unchanged | Continue evidence-lane manifest resolution with the next unresolved `/private/tmp` input dependency |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -198,6 +198,7 @@
 | `BR-20260429-196` | `voltage_raw_source_attachment_manifest_resolution_ready_for_review` | BR-096 voltage-preserved raw/source attachment resolves 2 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no source trace, daily trace, attachment status, raw-file count, common-cause context, truth, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-197` | `voltage_confirmation_gap_manifest_resolution_ready_for_review` | BR-097 voltage-preserved confirmation-gap review resolves 2 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no review bucket, checklist axis, vendor support interpretation, blocker clearance, truth, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-198` | `voltage_independent_confirmation_manifest_resolution_ready_for_review` | BR-098 voltage-preserved independent-confirmation attachment resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest key; no independent-confirmation status, blocker clearance, source scan, template generation, truth, threshold, engine, or operator-facing semantics changed | no |
+| `BR-20260429-199` | `voltage_truth_acquisition_manifest_resolution_ready_for_review` | BR-099 voltage-preserved truth-acquisition queue resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest key; no acquisition axis, priority, collector template, truth-intake readiness, truth, threshold, engine, or operator-facing semantics changed | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
