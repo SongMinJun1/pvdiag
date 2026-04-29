@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-04-29T17:54:04.303140+00:00",
+  "generated_at_utc": "2026-04-29T18:08:54.880754+00:00",
   "generated_by": "tools/build_pvdiag_single_py.py",
   "delivery_artifact": "release/conalog_full_runtime_v1/pvdiag_single.py",
   "payload_mode": "source_text",

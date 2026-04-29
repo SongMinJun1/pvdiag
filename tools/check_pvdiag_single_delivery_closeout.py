@@ -95,6 +95,11 @@ def main() -> None:
     if not exporter.exists():
         fail(f"missing delivery exporter: {exporter}")
 
+    failure_ux_smoke = repo_root / "research/prognostics/smoke_test_pvdiag_single_failure_ux_v1.py"
+    if not failure_ux_smoke.exists():
+        fail(f"missing failure UX smoke test: {failure_ux_smoke}")
+    run_checked([sys.executable, str(failure_ux_smoke)], repo_root)
+
     with tempfile.TemporaryDirectory(prefix="pvdiag_single_closeout_") as tmp:
         internal_manifest = Path(tmp) / "export_manifest.json"
         export_cmd = [
@@ -147,7 +152,7 @@ def main() -> None:
     single_manifest = load_single_manifest(repo_root)
     snapshot = {
         "snapshot_schema": "pvdiag_single_delivery_snapshot_v1",
-        "release_id": "pvdiag_single_br249_payload_trim_20260430",
+        "release_id": "pvdiag_single_br251_failure_ux_20260430",
         "professor_deliverable_file_count": 1,
         "professor_deliverable_files": ["pvdiag_single.py"],
         "single_file": {
@@ -171,6 +176,7 @@ def main() -> None:
             "checksum_equality_check": 1,
             "exported_self_test_check": 1,
             "handoff_doc_snippet_check": 1,
+            "failure_ux_smoke_check": 1,
             "algorithm_semantics_changed": 0,
             "source_text_payload_without_base64_zip": int(single_manifest.get("payload_mode") == "source_text"),
             "single_file_payload_trimmed": int(bool(single_manifest.get("excluded_single_file_payload_rels"))),

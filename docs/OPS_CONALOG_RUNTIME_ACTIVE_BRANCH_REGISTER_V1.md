@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260430-250` | `single_file_fresh_handoff_repro_ready_for_review` | fresh checkout from merged BR-249 verifies repo/export/Desktop `pvdiag_single.py` checksum equality, one-file self-test, conalog execution, and 8/8 key artifact comparison | Professor handoff file is reproducible from latest branch; next optional hardening is failure-message UX before field-trial CSV evaluation |
+| `BR-20260430-251` | `single_file_failure_ux_ready_for_review` | professor-facing `pvdiag_single.py` now separates self-test from external package checks and gives explicit remediation for missing packages, missing sibling `data/`, and invalid `--data-root`; failure UX smoke passes | Delivery file is ready for pre-field-trial handoff review; real KTC ESS CSV evaluation remains label/data blocked |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -250,6 +250,7 @@
 | `BR-20260430-248` | `single_file_source_text_payload_ready_for_review` | builder switches the generated single file from zip/base64 payload to source-text `EMBEDDED_TEXT_FILES`; generated artifact, manifest, snapshot, and delivery export all validate payload mode `source_text` | no |
 | `BR-20260430-249` | `single_file_payload_trim_ready_for_review` | payload audit removes 8 nonessential single-file entries; generated artifact now has 16 payload files, 432286 payload text bytes, and preserves conalog key artifact schema/row counts | no |
 | `BR-20260430-250` | `single_file_fresh_handoff_repro_ready_for_review` | fresh worktree at merge `21e5e425` verifies payload metrics, export one-file boundary, Desktop checksum refresh, self-test, conalog run, and 8/8 compare pass | no |
+| `BR-20260430-251` | `single_file_failure_ux_ready_for_review` | self-test no longer depends on external packages; smoke verifies missing torch returns install guidance, invalid `--data-root` returns path guidance, and no sibling `data/` returns noninteractive remediation | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

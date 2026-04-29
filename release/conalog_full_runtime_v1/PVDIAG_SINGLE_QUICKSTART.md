@@ -108,3 +108,4 @@ python tools/check_pvdiag_single_delivery_closeout.py --export-output-dir /tmp/p
 - zip/base64 payload는 사용하지 않습니다. 내부 파일은 `EMBEDDED_TEXT_FILES` source-text payload로 복원합니다.
 - importer helper와 frozen-share live-chain-only builder는 단일 파일 payload에서 제외합니다.
 - 기본 실행은 대용량 중복 workspace를 남기지 않도록 `--workspace-retention result-only`를 자동 적용합니다.
+- 실패 시 `missing required Python packages`, `data-root was not provided`, `data-root does not exist` 메시지를 먼저 보고, 안내된 `pip install ...` 또는 `--data-root /path/to/data`로 다시 실행합니다.
