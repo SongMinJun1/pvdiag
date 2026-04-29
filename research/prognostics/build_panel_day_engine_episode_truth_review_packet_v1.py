@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -116,6 +117,57 @@ def numeric_int(value: object) -> int:
 def resolve_path(repo_root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path) -> tuple[Path | None, dict[str, Any]]:
+    text = normalize_text(value)
+    if not text:
+        return None, {}
+    manifest_path = resolve_path(repo_root, text)
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"missing episode-truth input manifest: {manifest_path}")
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"episode-truth input manifest must be a JSON object: {manifest_path}")
+    return manifest_path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    candidates: list[Any] = [manifest.get(key)]
+    for section_name in ["inputs", "artifacts"]:
+        section = manifest.get(section_name)
+        if isinstance(section, dict):
+            value = section.get(key)
+            if isinstance(value, dict):
+                candidates.extend([value.get("path"), value.get("artifact_path"), value.get("static_path")])
+            else:
+                candidates.append(value)
+    for value in candidates:
+        text = normalize_text(value)
+        if text:
+            return text
+    return ""
+
+
+def resolve_chain_input(
+    repo_root: Path,
+    arg_value: str | Path,
+    default_value: str | Path,
+    manifest: dict[str, Any],
+    manifest_key: str,
+    flag_name: str,
+) -> tuple[Path, str]:
+    if normalize_text(arg_value) != normalize_text(default_value):
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, manifest_key)
+        if not manifest_value:
+            raise ValueError(
+                f"episode-truth input manifest is missing `{manifest_key}`; "
+                f"add it under top-level or `inputs`, or pass {flag_name}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def read_required_csv(path: Path, required_cols: list[str], name: str) -> pd.DataFrame:
@@ -376,7 +428,15 @@ def build_action_queue(owner_branch: str) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=ACTION_COLUMNS)
 
 
-def write_note(output_dir: Path, owner_branch: str, packet_df: pd.DataFrame, summary_df: pd.DataFrame, action_df: pd.DataFrame) -> None:
+def write_note(
+    output_dir: Path,
+    owner_branch: str,
+    packet_df: pd.DataFrame,
+    summary_df: pd.DataFrame,
+    action_df: pd.DataFrame,
+    input_manifest_path: Path | None,
+    episode_map_input_source: str,
+) -> None:
     note = f"""# Panel Day Engine Episode Truth Review Packet V1
 
 ## Purpose
@@ -400,6 +460,8 @@ def write_note(output_dir: Path, owner_branch: str, packet_df: pd.DataFrame, sum
 - operator-facing change allowed sum: `{int(packet_df["operator_facing_change_allowed"].sum() + action_df["operator_facing_change_allowed"].sum()) if not packet_df.empty else int(action_df["operator_facing_change_allowed"].sum())}`
 - engine patch allowed sum: `{int(packet_df["engine_patch_allowed"].sum() + action_df["engine_patch_allowed"].sum()) if not packet_df.empty else int(action_df["engine_patch_allowed"].sum())}`
 - threshold patch allowed sum: `{int(packet_df["threshold_patch_allowed"].sum() + action_df["threshold_patch_allowed"].sum()) if not packet_df.empty else int(action_df["threshold_patch_allowed"].sum())}`
+- episode-truth input manifest: `{input_manifest_path if input_manifest_path else 'not provided'}`
+- episode map input source: `{episode_map_input_source}`
 
 ## Reading
 - Empty `reviewer_truth_label` means no truth has been assigned yet.
@@ -415,7 +477,14 @@ python3 research/prognostics/build_panel_day_engine_episode_truth_review_packet_
     (output_dir / NOTE_OUTPUT_NAME).write_text(note, encoding="utf-8")
 
 
-def build_outputs(repo_root: Path, output_dir: Path, owner_branch: str, episode_map_input: Path) -> dict[str, object]:
+def build_outputs(
+    repo_root: Path,
+    output_dir: Path,
+    owner_branch: str,
+    episode_map_input: Path,
+    input_manifest_path: Path | None = None,
+    episode_map_input_source: str = "legacy_default",
+) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
     map_df = read_required_csv(
         episode_map_input,
@@ -443,14 +512,24 @@ def build_outputs(repo_root: Path, output_dir: Path, owner_branch: str, episode_
     packet_df.to_csv(output_dir / PACKET_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary_df.to_csv(output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     action_df.to_csv(output_dir / ACTION_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(output_dir, owner_branch, packet_df, summary_df, action_df)
+    write_note(
+        output_dir,
+        owner_branch,
+        packet_df,
+        summary_df,
+        action_df,
+        input_manifest_path,
+        episode_map_input_source,
+    )
 
     source_lens_count = int(packet_df["source_lens_count"].sum()) if not packet_df.empty else 0
     payload = {
         "owner_branch": owner_branch,
         "repo_root": str(repo_root),
         "output_dir": str(output_dir),
+        "input_manifest": str(input_manifest_path) if input_manifest_path else "",
         "episode_map_input": str(episode_map_input),
+        "episode_map_input_source": episode_map_input_source,
         "input_episode_map_rows": int(len(map_df)),
         "selected_source_lens_rows": source_lens_count,
         "review_packet_rows": int(len(packet_df)),
@@ -482,17 +561,36 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=Path("/private/tmp/panel_day_engine_episode_truth_review_packet_br082_check"))
     parser.add_argument("--owner-branch", default="BR-20260425-082")
     parser.add_argument("--episode-map-input", default=BR081_MAP_DEFAULT)
+    parser.add_argument(
+        "--input-manifest",
+        default="",
+        help=(
+            "Optional JSON manifest with `episode_map_input`. "
+            "Explicit --episode-map-input values take precedence."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     repo_root = args.repo_root.resolve()
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    episode_map_input, episode_map_input_source = resolve_chain_input(
+        repo_root,
+        args.episode_map_input,
+        BR081_MAP_DEFAULT,
+        input_manifest,
+        "episode_map_input",
+        "--episode-map-input",
+    )
     payload = build_outputs(
         repo_root=repo_root,
         output_dir=args.output_dir,
         owner_branch=args.owner_branch,
-        episode_map_input=resolve_path(repo_root, args.episode_map_input),
+        episode_map_input=episode_map_input,
+        input_manifest_path=input_manifest_path,
+        episode_map_input_source=episode_map_input_source,
     )
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
