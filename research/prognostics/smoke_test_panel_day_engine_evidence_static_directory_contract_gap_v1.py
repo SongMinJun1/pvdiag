@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+import pandas as pd
+
+
+EXPECTED_ROWS = 20
+EXPECTED_SOURCE_FILES = 10
+EXPECTED_CLOSED_ROWS = 20
+EXPECTED_GAP_ROWS = 0
+EXPECTED_MISSING_CHECKS = 0
+
+
+def assert_true(condition: bool, message: object) -> None:
+    if not condition:
+        raise AssertionError(message)
+
+
+def main() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    builder = repo_root / "research/prognostics/build_panel_day_engine_evidence_static_directory_contract_gap_v1.py"
+    with tempfile.TemporaryDirectory(prefix="panel_day_engine_evidence_static_directory_contract_gap_") as tmpdir:
+        output_dir = Path(tmpdir) / "out"
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(builder),
+                "--repo-root",
+                str(repo_root),
+                "--output-dir",
+                str(output_dir),
+            ],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert_true(proc.returncode == 0, proc.stderr or proc.stdout)
+
+        payload = json.loads(
+            (output_dir / "panel_day_engine_evidence_static_directory_contract_gap_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        detail = pd.read_csv(output_dir / "panel_day_engine_evidence_static_directory_contract_gap_v1.csv")
+        summary = pd.read_csv(output_dir / "panel_day_engine_evidence_static_directory_contract_gap_summary_v1.csv")
+        note = (output_dir / "panel_day_engine_evidence_static_directory_contract_gap_note_v1.md").read_text(
+            encoding="utf-8"
+        )
+
+        assert_true(payload["evidence_directory_rows"] == EXPECTED_ROWS, payload)
+        assert_true(payload["source_file_count"] == EXPECTED_SOURCE_FILES, payload)
+        assert_true(payload["contract_closed_rows"] == EXPECTED_CLOSED_ROWS, payload)
+        assert_true(payload["contract_gap_rows"] == EXPECTED_GAP_ROWS, payload)
+        assert_true(payload["input_manifest_arg_rows"] == EXPECTED_ROWS, payload)
+        assert_true(payload["manifest_resolver_rows"] == EXPECTED_ROWS, payload)
+        assert_true(payload["explicit_cli_arg_rows"] == EXPECTED_ROWS, payload)
+        assert_true(payload["legacy_default_retained_rows"] == EXPECTED_ROWS, payload)
+        assert_true(payload["runtime_semantic_change_allowed_rows"] == 0, payload)
+        assert_true(payload["bulk_rewrite_allowed_rows"] == 0, payload)
+        assert_true(payload["missing_check_count"] == EXPECTED_MISSING_CHECKS, payload)
+        assert_true(payload["contract_complete"] == 1, payload)
+        assert_true(len(detail) == EXPECTED_ROWS, detail.to_dict("records"))
+        assert_true(set(detail["contract_status"]) == {"closed"}, detail.to_dict("records"))
+        assert_true(
+            payload["evidence_directory_rows"]
+            == int(summary[summary["key"].eq("evidence_directory_rows")]["count"].iloc[0]),
+            payload,
+        )
+        assert_true("fully contract-closed" in note, note)
+
+    print("smoke ok: panel_day_engine_evidence_static_directory_contract_gap_v1")
+
+
+if __name__ == "__main__":
+    main()
