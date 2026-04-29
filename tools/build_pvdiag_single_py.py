@@ -77,6 +77,13 @@ PAYLOAD_MODE = "source_text"
 PAYLOAD_TEXT_SHA256 = "__PAYLOAD_TEXT_SHA256__"
 PAYLOAD_TEXT_BYTES = __PAYLOAD_TEXT_BYTES__
 PAYLOAD_FILE_COUNT = __PAYLOAD_FILE_COUNT__
+PAYLOAD_STRUCTURE_NOTE = (
+    "This generated file embeds the modular pvdiag runtime as source-text payload. "
+    "Use --single-list-payload to inspect module roles or --single-extract-source DIR "
+    "to unpack readable sources."
+)
+
+__PAYLOAD_FILE_INDEX__
 
 __EMBEDDED_TEXT_JSON_CHUNKS__
 
@@ -110,6 +117,8 @@ def parse_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, list[
     parser.add_argument("--data-root", type=Path, default=None, help="Input data root. If omitted, ./data next to this file is used when present.")
     parser.add_argument("--output-root", type=Path, default=None, help="Output root. If omitted, pvdiag_results/run_YYYYMMDD_HHMMSS is created next to this file.")
     parser.add_argument("--single-self-test", action="store_true", help="Extract payload and verify the embedded runner without running the algorithm.")
+    parser.add_argument("--single-list-payload", action="store_true", help="Print the embedded module/artifact structure and exit.")
+    parser.add_argument("--single-extract-source", type=Path, default=None, help="Extract the embedded readable source tree to DIR and exit.")
     parser.add_argument("--single-keep-runtime", action="store_true", help="Keep the extracted temporary runtime folder for debugging.")
     return parser.parse_known_args(argv)
 
@@ -218,6 +227,37 @@ def extract_embedded_files(runtime_root: Path) -> None:
         target.write_text(text, encoding="utf-8")
 
 
+def print_payload_index() -> None:
+    verify_embedded_payload()
+    print("[pvdiag_single] payload structure")
+    print(f"[pvdiag_single] note: {PAYLOAD_STRUCTURE_NOTE}")
+    print(f"[pvdiag_single] files: {PAYLOAD_FILE_COUNT}, bytes: {PAYLOAD_TEXT_BYTES}")
+    for row in PAYLOAD_FILE_INDEX:
+        print(
+            "[pvdiag_single] "
+            f"{row['role']:<34} "
+            f"{row['bytes']:>8} bytes "
+            f"{row['sha256'][:12]} "
+            f"{row['path']}"
+        )
+    print("[pvdiag_single] readable source extraction:")
+    print("  python pvdiag_single.py --single-extract-source /tmp/pvdiag_single_source")
+
+
+def extract_source_tree(destination: Path) -> None:
+    target_root = destination.expanduser().resolve()
+    if target_root.exists() and not target_root.is_dir():
+        raise SystemExit(f"source extraction target is not a directory: {target_root}")
+    extract_embedded_files(target_root)
+    runner = target_root / "release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py"
+    engine = target_root / "release/conalog_full_runtime_v1/package/pv_ae/panel_day_engine.py"
+    print("[pvdiag_single] source extraction ok")
+    print(f"[pvdiag_single] extracted files: {PAYLOAD_FILE_COUNT}")
+    print(f"[pvdiag_single] source root: {target_root}")
+    print(f"[pvdiag_single] runner: {runner}")
+    print(f"[pvdiag_single] core engine: {engine}")
+
+
 def inner_runner(runtime_root: Path) -> Path:
     path = runtime_root / "release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py"
     if not path.exists():
@@ -252,6 +292,13 @@ def run_command(cmd: list[str], output_root: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args, passthrough = parse_args(argv)
+    if args.single_list_payload:
+        print_payload_index()
+        return 0
+    if args.single_extract_source is not None:
+        extract_source_tree(args.single_extract_source)
+        return 0
+
     runtime_root: Path
     cleanup_runtime = not args.single_keep_runtime
     temp_obj = None
@@ -270,6 +317,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[pvdiag_single] payload_mode: {PAYLOAD_MODE}")
             print(f"[pvdiag_single] payload_files: {PAYLOAD_FILE_COUNT}")
             print(f"[pvdiag_single] payload_text_bytes: {PAYLOAD_TEXT_BYTES}")
+            print(f"[pvdiag_single] payload_structure_note: {PAYLOAD_STRUCTURE_NOTE}")
             print(f"[pvdiag_single] runtime_root: {runtime_root}")
             print(f"[pvdiag_single] runner: {runner}")
             return 0
@@ -410,6 +458,71 @@ def render_embedded_file_sha256(payload: dict[str, str]) -> str:
     return "\n".join(rows)
 
 
+def payload_role(path: str) -> str:
+    if path.endswith("/app/run_full_algorithm_pack.py"):
+        return "entry_runner"
+    if path.endswith("/pv_ae/panel_day_engine.py"):
+        return "core_engine"
+    if path.endswith("/artifacts/fault6_fixed_result_table_v1.csv"):
+        return "frozen_fault_reference"
+    if path.endswith("/artifacts/fault6_label_and_algorithm_preview_v1.csv"):
+        return "required_result_preview"
+    if path.endswith("/artifacts/input_baseline_manifest_v1.json"):
+        return "baseline_fingerprint"
+    if path.endswith("/artifacts/panel_day_core_baseline_digest_v1.json"):
+        return "shadow_compare_reference"
+    if path.endswith("/runtime_rawonly_chain_common_v1.py"):
+        return "raw_only_shared_utils"
+    if path.endswith("/build_panel_day_engine_runtime_fault_event_audit_v1.py"):
+        return "raw_only_audit_builder"
+    if path.endswith("/build_panel_day_engine_runtime_final_verdict_v1.py"):
+        return "raw_only_verdict_builder"
+    if path.endswith("/build_panel_day_engine_runtime_heuristic_v1.py"):
+        return "raw_only_heuristic_builder"
+    if path.endswith("/heuristic_display_registry_v1.py"):
+        return "display_label_registry"
+    return "support_payload"
+
+
+def text_line_count(text: str) -> int:
+    if not text:
+        return 0
+    return text.count("\n") + (0 if text.endswith("\n") else 1)
+
+
+def payload_index_rows(payload: dict[str, str]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for path, text in sorted(payload.items()):
+        data = text.encode("utf-8")
+        rows.append(
+            {
+                "path": path,
+                "role": payload_role(path),
+                "bytes": len(data),
+                "lines": text_line_count(text),
+                "sha256": hashlib.sha256(data).hexdigest(),
+            }
+        )
+    return rows
+
+
+def render_payload_file_index(payload: dict[str, str]) -> str:
+    rows = ["PAYLOAD_FILE_INDEX = ["]
+    for row in payload_index_rows(payload):
+        rows.append(
+            "    "
+            + json.dumps(
+                row,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(", ", ": "),
+            )
+            + ","
+        )
+    rows.append("]")
+    return "\n".join(rows)
+
+
 def render_single(payload: dict[str, str]) -> str:
     payload_bytes = payload_bytes_for_digest(payload)
     generated_at = datetime.now(timezone.utc).isoformat()
@@ -418,6 +531,7 @@ def render_single(payload: dict[str, str]) -> str:
         .replace("__PAYLOAD_TEXT_SHA256__", hashlib.sha256(payload_bytes).hexdigest())
         .replace("__PAYLOAD_TEXT_BYTES__", str(len(payload_bytes)))
         .replace("__PAYLOAD_FILE_COUNT__", str(len(payload)))
+        .replace("__PAYLOAD_FILE_INDEX__", render_payload_file_index(payload))
         .replace("__EMBEDDED_TEXT_JSON_CHUNKS__", render_embedded_text_json_chunks(payload))
         .replace("__EMBEDDED_FILE_SHA256__", render_embedded_file_sha256(payload))
     )
@@ -430,6 +544,7 @@ def write_manifest(path: Path, repo_root: Path, files: list[Path], payload: dict
         rows.append(
             {
                 "path": file_path.relative_to(repo_root).as_posix(),
+                "role": payload_role(file_path.relative_to(repo_root).as_posix()),
                 "bytes": file_path.stat().st_size,
                 "sha256": hashlib.sha256(data).hexdigest(),
             }

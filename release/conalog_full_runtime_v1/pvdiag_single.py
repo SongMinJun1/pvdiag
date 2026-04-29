@@ -15,11 +15,30 @@ from pathlib import Path
 
 
 GENERATED_BY = "tools/build_pvdiag_single_py.py"
-GENERATED_AT_UTC = "2026-04-29T18:34:12.544182+00:00"
+GENERATED_AT_UTC = "2026-04-29T18:45:42.033270+00:00"
 PAYLOAD_MODE = "source_text"
 PAYLOAD_TEXT_SHA256 = "2a8d406edeff59ba839e5efd8e8cb593993f09b4fab68c6199d662c5885fabfb"
 PAYLOAD_TEXT_BYTES = 422550
 PAYLOAD_FILE_COUNT = 11
+PAYLOAD_STRUCTURE_NOTE = (
+    "This generated file embeds the modular pvdiag runtime as source-text payload. "
+    "Use --single-list-payload to inspect module roles or --single-extract-source DIR "
+    "to unpack readable sources."
+)
+
+PAYLOAD_FILE_INDEX = [
+    {"bytes": 168800, "lines": 3601, "path": "release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py", "role": "entry_runner", "sha256": "21ab958f989db374028b1e96755a46f4f65d09fe391252e08f590b4e21ccd920"},
+    {"bytes": 1341, "lines": 7, "path": "release/conalog_full_runtime_v1/package/artifacts/fault6_fixed_result_table_v1.csv", "role": "frozen_fault_reference", "sha256": "93eb336dfdbba36159e802726e9e94d98f782b74ef2e62b5cea46f4a22f93581"},
+    {"bytes": 1125, "lines": 7, "path": "release/conalog_full_runtime_v1/package/artifacts/fault6_label_and_algorithm_preview_v1.csv", "role": "required_result_preview", "sha256": "58e321a5bfcd7bf62e398aecde38701a533c5a64cbef2d18935b57bc4a39e20a"},
+    {"bytes": 2236, "lines": 65, "path": "release/conalog_full_runtime_v1/package/artifacts/input_baseline_manifest_v1.json", "role": "baseline_fingerprint", "sha256": "8f6e69e526de55fb976e0fd9ecb5c1304816c3d3d48a7f8ef758989d6914ee2c"},
+    {"bytes": 2864, "lines": 99, "path": "release/conalog_full_runtime_v1/package/artifacts/panel_day_core_baseline_digest_v1.json", "role": "shadow_compare_reference", "sha256": "15b339b68502e6e1d930987d35e3e67f0a6a5c7a308c3a37a4e8190e10f8b250"},
+    {"bytes": 136596, "lines": 3278, "path": "release/conalog_full_runtime_v1/package/pv_ae/panel_day_engine.py", "role": "core_engine", "sha256": "2cf3ae3f93bc23a5b1e1eeb19418f5ef9a2e12e84f9a583bd0fdaf636ecafbb3"},
+    {"bytes": 36363, "lines": 731, "path": "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_runtime_fault_event_audit_v1.py", "role": "raw_only_audit_builder", "sha256": "68524c0aa151b9c45c36b7c6c03a91d61391d5e6617230ec780e1f82bddbe49e"},
+    {"bytes": 8601, "lines": 191, "path": "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_runtime_final_verdict_v1.py", "role": "raw_only_verdict_builder", "sha256": "d23f1a31463f8367d09d23d1c6973d67448b966e89a30f3785e7403ed7dcaccb"},
+    {"bytes": 10893, "lines": 299, "path": "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_runtime_heuristic_v1.py", "role": "raw_only_heuristic_builder", "sha256": "18275385e1bc22bca4cb442978ec2b817742637983b6edf77ebaa92aab12768a"},
+    {"bytes": 3281, "lines": 68, "path": "release/conalog_full_runtime_v1/package/research/prognostics/heuristic_display_registry_v1.py", "role": "display_label_registry", "sha256": "d7cbf8bd24a2274e040231e166eed32098c256c1ba3ce19ba3d667ae6f1f4876"},
+    {"bytes": 49430, "lines": 1177, "path": "release/conalog_full_runtime_v1/package/research/prognostics/runtime_rawonly_chain_common_v1.py", "role": "raw_only_shared_utils", "sha256": "62b04b108695ef611f1aa97f7abde111f71d994f38904e1ace2feae595d11ac1"},
+]
 
 EMBEDDED_TEXT_JSON_CHUNKS = (
     '{"release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py":"#!/usr/bin/env python3\\nfrom __future__ import annotations\\n\\nimport argparse\\nimport hashlib\\nimport json\\nimport re\\nimport shutil\\nimport subprocess\\nimport sys\\nfrom datetime import datetime, timezone\\nfrom pathlib import Path\\n\\nimport pandas as pd\\n\\nPACKAGE_ROOT = Path(__file__).resolve().parents[1]\\nif str(PACKAGE_ROOT) not in sys.path:\\n    sys.path.insert(0, str(PACKAGE_ROOT))\\nfrom research.prognostics.heuristic_display_registry_v1 import (\\n    DISPLAY_HEURISTIC_NAME_MAP,\\n    HEURISTIC_DISPLAY_NOTE_MAP,\\n    display_heuristic_name as shared_display_heuristic_name,\\n    display_heuristic_note as shared_display_heuristic_note,\\n)\\n\\nDATE_RE = re.compile(r\\"(\\\\d{4}-\\\\d{2}-\\\\d{2})\\")\\nDEFAULT_SITES = [\\"conalog\\", \\"gangui\\", \\"ktc_ess\\"]\\nCORE_DIGEST_COLUMNS = [\\n    \\"date\\",\\n    \\"panel_id\\",\\n    \\"confirmed_fault\\",\\n    \\"critical_fault\\",\\n    \\"critical_source\\",\\n    \\"final_fault\\",\\n    \\"anom_level\\",\\n    \\"anom_subtype\\",\\n]\\nLIVE_FAULT_COMPARE_COLS = [\\n    \\"site\\",\\n    \\"panel_id\\",\\n    \\"패널고장여부_ko\\",\\n    \\"사건유형_ko\\",\\n    \\"최종고장양상_ko\\",\\n    \\"커널로그_원인군_ko\\",\\n    \\"1순위_의심원인_ko\\",\\n    \\"2순위_의심원인_ko\\",\\n    \\"3순위_의심원인_ko\\",\\n]\\nLIVE_FAULT_OUTPUT_COLS = [\\n    *LIVE_FAULT_COMPARE_COLS,\\n    \\"전조날짜\\",\\n    \\"고장날짜\\",\\n]\\nLIVE_PREVIEW_OUTPUT_COLS = [\\n    \\"site\\",\\n    \\"panel_id\\",\\n    \\"패널고장여부_ko\\",\\n    \\"사건유형_ko\\",\\n    \\"최종고장양상_ko\\",\\n    \\"전조날짜\\",\\n    \\"고장날짜\\",\\n    \\"라벨된 fault\\",\\n    \\"1순위_의심원인_ko\\",\\n    \\"2순위_의심원인_ko\\",\\n    \\"3순위_의심원인_ko\\",\\n    \\"커널로그 기존 알고리즘\\",\\n]\\nUSER_PREVIEW_OUTPUT_COLS = [\\n    \\"site\\",\\n    \\"panel_id\\",\\n    \\"전조날짜\\",\\n    \\"고장 기준일\\",\\n    \\"운영 판정\\",\\n    \\"급락 종결 관측\\",\\n    \\"점진 저하 누적\\",\\n    \\"사건 종결 요약\\",\\n    \\"상위 해석 후보\\",\\n    \\"기존 알고리즘 source\\",\\n]\\nSIGNAL_PREVIEW_OUTPUT_COLS = [\\n    \\"site\\",\\n    \\"panel_id\\",\\n    \\"전조날짜\\",\\n    \\"신호 기준일\\",\\n    \\"운영 판정\\",\\n    \\"급락 종결 관측\\",\\n    \\"점진 저하 누적\\",\\n    \\"사건 종결 요약\\",\\n    \\"상위 해석 후보\\",\\n    \\"기존 알고리즘 source\\",\\n]\\nPRECURSOR_REPORT_OUTPUT_COLS = [\\n    \\"site\\",\\n    \\"panel_id\\",\\n    \\"운영 판정\\",\\n    \\"판정 근거\\",\\n    \\"전조날짜\\",\\n    \\"전조 축\\",\\n    \\"대표 전조 신호\\",\\n    \\"전조 요약\\",\\n    \\"상위 해석 후보\\",\\n    \\"기존 알고리즘 source\\",\\n    \\"패턴 설명\\",\\n    \\"모니터링 권고\\",\\n    \\"공통원인 위험\\",\\n    \\"권고 검토 레인\\",\\n    \\"EWS 전조 일수\\",\\n    \\"pre_alarm 일수\\",\\n    \\"pre_ews 일수\\",\\n    \\"Option B 유효 일수\\",\\n    \\"공통원인 겹침 일수\\",\\n    \\"AE 전조 조건 일수\\",\\n    \\"DTW 전조 조건 일수\\",\\n]\\nFAULT_SIGNAL_REPORT_OUTPUT_COLS = [\\n    \\"site\\",\\n    \\"group root\\",\\n    \\"subgroup base\\",\\n    \\"subgroup cluster\\",\\n    \\"panel_id\\",\\n    \\"동일 subgroup row 수\\",\\n    \\"동일 cluster row 수\\",\\n    \\"운영 판정\\",\\n    \\"확정 경로\\",\\n    \\"고장 신호 요약\\",\\n    \\"전조 시작일\\",\\n    \\"신호 기준일\\",\\n    \\"사건유형\\",\\n    \\"사건 종결 요약\\",\\n    \\"근접 공통원인\\",\\n    \\"상위 해석 후보\\",\\n    \\"기존 알고리즘 source\\",\\n    \\"패턴 설명\\",\\n    \\"현장 점검 권고\\",\\n]\\nROOT_LIVE_FAULT_NAME = \\"fault_panel_result_current_v1.csv\\"\\nROOT_LIVE_PREVIEW_NAME = \\"fault_panel_result_current_preview_v1.csv\\"\\nROOT_LIVE_SUMMARY_NAME = \\"live_chain_summary_v1.json\\"\\nROOT_LIVE_REPORT_NAME = \\"fault_panel_result_current_report_v1.md\\"\\nROOT_RAWONLY_FAULT_NAME = \\"fault_panel_result_raw_only_current_v1.csv\\"\\nROOT_RAWONLY_PREVIEW_NAME = \\"fault_panel_result_raw_only_current_preview_v1.csv\\"\\nROOT_RAWONLY_SUMMARY_NAME = \\"raw_only_chain_summary_v1.json\\"\\nROOT_RAWONLY_REPORT_NAME = \\"fault_panel_result_raw_only_current_report_v1.md\\"\\nROOT_MASTER_REPORT_NAME = \\"fault_panel_result_master_report_v1.md\\"\\nROOT_DETAILED_REPORT_NAME = \\"fault_panel_result_detailed_report_v1.xlsx\\"\\nROOT_PRECURSOR_REPORT_NAME = \\"fault_panel_result_precursor_report_v1.csv\\"\\nROOT_FAULT_SIGNAL_REPORT_NAME = \\"fault_panel_result_raw_only_fault_signal_report_v1.csv\\"\\nRAW_ONLY_STRICT_CURRENT_GRADES = {\\"확정\\"}\\nFAULT_SIGNAL_CLUSTER_GAP_DAYS = 3\\nMAIL_BUCKET_ALGORITHM_MAP = {\\n    (\\"conalog\\", \\"7f7dd654-2760-4eb2-a197-3ebb72b85cda.2.0\\"): \\"panel-bypass\\",\\n    (\\"conalog\\", \\"c42997a6-5881-47e7-9035-7de8a2673b54.1.1\\"): \\"disconnection\\",\\n    (\\"gangui\\", \\"bf1a912f-6cf0-4f12-8e97-9d9d86576511.0.7\\"): \\"panel-bypass\\",\\n    (\\"gangui\\", \\"bf1a912f-6cf0-4f12-8e97-9d9d86576511.2.16\\"): \\"panel-bypass\\",\\n    (\\"ktc_ess\\", \\"10305b40-b67e-40d1-9cd1-271b6642a3d9.2.12\\"): \\"panel-bypass\\",\\n    (\\"ktc_ess\\", \\"70ad2d87-cdb6-4842-81b7-71c7599bbf05.1.4\\"): \\"panel-bypass\\",\\n}\\n\\n\\ndef parse_args() -> argparse.Namespace:\\n    parser = argparse.ArgumentParser(\\n        description=(\\n            \\"Run the real panel_day_engine.py for the packaged baseline sites under a data root, \\"\\n            \\"export the fixed fault result artifacts, and write a shadow-compare report for engine core outputs.\\"\\n        )\\n    )\\n    parser.add_argument(\\n        \\"--data-root\\",\\n        type=Path,\\n        required=True,\\n        help=\\"Folder containing site/raw subdirectories such as data-root/conalog/raw.\\",\\n    )\\n    parser.add_argument(\\n        \\"--output-root\\",\\n        type=Path,\\n        required=True,\\n        help=\\"Folder where site-wise engine outputs and fixed result tables will be written.\\",\\n    )\\n    parser.add_argument(\\n        \\"--sites\\",\\n        default=\\",\\".join(DEFAULT_SITES),\\n        help=\\"Comma-separated site list. Defaults to conalog,gangui,ktc_ess.\\",\\n    )\\n    parser.add_argument(\\n        \\"--train-days\\",\\n        type=int,\\n        default=60,\\n        help=\\"Maximum number of early days to reserve for training window proposal.\\",\\n    )\\n    parser.add_argument(\\"--pattern\\", default=\\"*.csv\\", help=\\"Filename pattern for raw daily CSVs.\\")\\n    parser.add_argument(\\"--epochs\\", type=int, default=40, help=\\"Engine epochs. Defaults to panel_day_engine.py default.\\")\\n    parser.add_argument(\\"--latent\\", type=int, default=16, help=\\"Engine latent size. Defaults to panel_day_engine.py default.\\")\\n    parser.add_argument(\\"--device\\", default=\\"cpu\\", help=\\"Torch device to pass through to panel_day_engine.py.\\")\\n    parser.add_argument(\\n        \\"--prefer-existing-site-outs\\",\\n        choices=[\\"auto\\", \\"on\\", \\"off\\"],\\n        default=\\"auto\\",\\n        help=(\\n            \\"Whether to automatically reuse data-root/<site>/out when available. \\"\\n            \\"Defaults to auto.\\"\\n        ),\\n    )\\n    parser.add_argument(\\n        \\"--reuse-existing-site-outs-root\\",\\n        type=Path,\\n        default=None,\\n        help=(\\n            \\"Optional root containing precomputed data/<site>/out trees. \\"\\n            \\"When provided, the runner copies those outputs into the runtime workspace and skips engine execution.\\"\\n        ),\\n    )\\n    parser.add_argument(\\n        \\"--run-live-chain\\",\\n        choices=[\\"on\\", \\"off\\"],\\n        default=\\"on\\",\\n        help=\\"After engine execution, run the packaged bootstrap verdict -> audit -> final verdict live chain. Defaults to on.\\",\\n    )\\n    parser.add_argument(\\n        \\"--run-raw-only-chain\\",\\n        choices=[\\"on\\", \\"off\\"],\\n        default=\\"on\\",\\n        help=\\"After engine execution, run the packaged raw-only audit -> verdict -> heuristic chain. Defaults to on.\\",\\n    )\\n    parser.add_argument(\\n        \\"--workspace-retention\\",\\n        choices=[\\"full\\", \\"result-only\\"],\\n        default=\\"full\\",\\n        help=(\\n            \\"Controls post-run retention for large intermediate workspaces. \\"\\n            \\"full keeps the historical behavior. result-only keeps result artifacts and share outputs, \\"\\n            \\"then removes duplicate site/output and chain data copies.\\"\\n        ),\\n    )\\n    parser.add_argument(\\"--dry-run\\", action=\\"store_true\\", help=\\"Validate paths and emit the execution plan without running the engine.\\")\\n    return parser.parse_args()\\n\\n\\ndef package_root() -> Path:\\n    return Path(__file__).resolve().parents[1]\\n\\n\\ndef engine_path() -> Path:\\n    return package_root() / \\"pv_ae\\" / \\"panel_day_engine.py\\"\\n\\n\\ndef fixed_fault6_table_path() -> Path:\\n    return package_root() / \\',
@@ -119,6 +138,8 @@ def parse_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, list[
     parser.add_argument("--data-root", type=Path, default=None, help="Input data root. If omitted, ./data next to this file is used when present.")
     parser.add_argument("--output-root", type=Path, default=None, help="Output root. If omitted, pvdiag_results/run_YYYYMMDD_HHMMSS is created next to this file.")
     parser.add_argument("--single-self-test", action="store_true", help="Extract payload and verify the embedded runner without running the algorithm.")
+    parser.add_argument("--single-list-payload", action="store_true", help="Print the embedded module/artifact structure and exit.")
+    parser.add_argument("--single-extract-source", type=Path, default=None, help="Extract the embedded readable source tree to DIR and exit.")
     parser.add_argument("--single-keep-runtime", action="store_true", help="Keep the extracted temporary runtime folder for debugging.")
     return parser.parse_known_args(argv)
 
@@ -227,6 +248,37 @@ def extract_embedded_files(runtime_root: Path) -> None:
         target.write_text(text, encoding="utf-8")
 
 
+def print_payload_index() -> None:
+    verify_embedded_payload()
+    print("[pvdiag_single] payload structure")
+    print(f"[pvdiag_single] note: {PAYLOAD_STRUCTURE_NOTE}")
+    print(f"[pvdiag_single] files: {PAYLOAD_FILE_COUNT}, bytes: {PAYLOAD_TEXT_BYTES}")
+    for row in PAYLOAD_FILE_INDEX:
+        print(
+            "[pvdiag_single] "
+            f"{row['role']:<34} "
+            f"{row['bytes']:>8} bytes "
+            f"{row['sha256'][:12]} "
+            f"{row['path']}"
+        )
+    print("[pvdiag_single] readable source extraction:")
+    print("  python pvdiag_single.py --single-extract-source /tmp/pvdiag_single_source")
+
+
+def extract_source_tree(destination: Path) -> None:
+    target_root = destination.expanduser().resolve()
+    if target_root.exists() and not target_root.is_dir():
+        raise SystemExit(f"source extraction target is not a directory: {target_root}")
+    extract_embedded_files(target_root)
+    runner = target_root / "release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py"
+    engine = target_root / "release/conalog_full_runtime_v1/package/pv_ae/panel_day_engine.py"
+    print("[pvdiag_single] source extraction ok")
+    print(f"[pvdiag_single] extracted files: {PAYLOAD_FILE_COUNT}")
+    print(f"[pvdiag_single] source root: {target_root}")
+    print(f"[pvdiag_single] runner: {runner}")
+    print(f"[pvdiag_single] core engine: {engine}")
+
+
 def inner_runner(runtime_root: Path) -> Path:
     path = runtime_root / "release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py"
     if not path.exists():
@@ -261,6 +313,13 @@ def run_command(cmd: list[str], output_root: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args, passthrough = parse_args(argv)
+    if args.single_list_payload:
+        print_payload_index()
+        return 0
+    if args.single_extract_source is not None:
+        extract_source_tree(args.single_extract_source)
+        return 0
+
     runtime_root: Path
     cleanup_runtime = not args.single_keep_runtime
     temp_obj = None
@@ -279,6 +338,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[pvdiag_single] payload_mode: {PAYLOAD_MODE}")
             print(f"[pvdiag_single] payload_files: {PAYLOAD_FILE_COUNT}")
             print(f"[pvdiag_single] payload_text_bytes: {PAYLOAD_TEXT_BYTES}")
+            print(f"[pvdiag_single] payload_structure_note: {PAYLOAD_STRUCTURE_NOTE}")
             print(f"[pvdiag_single] runtime_root: {runtime_root}")
             print(f"[pvdiag_single] runner: {runner}")
             return 0

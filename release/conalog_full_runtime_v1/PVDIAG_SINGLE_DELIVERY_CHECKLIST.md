@@ -8,7 +8,11 @@
 - `python tools/export_pvdiag_single_delivery.py --output-dir /tmp/pvdiag_professor_delivery`
 - `/tmp/pvdiag_professor_delivery/` 안에 `pvdiag_single.py`만 있는지 확인합니다.
 - `python /tmp/pvdiag_professor_delivery/pvdiag_single.py --single-self-test`
+- `python /tmp/pvdiag_professor_delivery/pvdiag_single.py --single-list-payload`
+- 필요하면 `python /tmp/pvdiag_professor_delivery/pvdiag_single.py --single-extract-source /tmp/pvdiag_single_source`
 - 교수님 전달 폴더 안에서는 `python pvdiag_single.py --single-self-test`로 확인할 수 있습니다.
+- 교수님 전달 폴더 안에서는 `python pvdiag_single.py --single-list-payload`로 payload 구조를 확인할 수 있습니다.
+- 교수님 전달 폴더 안에서는 `python pvdiag_single.py --single-extract-source /tmp/pvdiag_single_source`로 읽을 수 있는 소스 구조를 풀 수 있습니다.
 - checksum은 `release/conalog_full_runtime_v1/pvdiag_single_delivery_snapshot_v1.json`의 `single_file.sha256`과 맞춰 봅니다.
 
 ## 교수님 환경 전제
@@ -60,4 +64,5 @@ result/fault_panel_result_raw_only_fault_signal_report_v1.csv
 - BR-249 이후 단일 파일 payload는 one-file 실행에 필요한 runtime/raw-only 경로 중심으로 정리되어, importer helper와 frozen-share live-chain-only builder는 포함하지 않습니다.
 - BR-251 이후 `--single-self-test`는 외부 패키지 없이도 payload 무결성을 확인하고, 실제 실행 실패는 패키지 누락/data-root 문제를 구분해 안내합니다.
 - BR-252 이후 source-text payload는 JSON chunk container로 저장되며, payload necessity audit 기준 11개 파일만 포함합니다.
+- BR-253 이후 줄 수 다이어트로 숨겨진 구조를 보완하기 위해 `PAYLOAD_FILE_INDEX`, `--single-list-payload`, `--single-extract-source`를 제공합니다.
 - 실증 CSV와 최종 라벨이 들어오기 전까지 truth-label 성능 주장은 하지 않습니다.

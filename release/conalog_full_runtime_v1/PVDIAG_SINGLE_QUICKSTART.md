@@ -3,6 +3,7 @@
 `pvdiag_single.py`는 교수님 전달용 단일 Python 실행 파일입니다.
 원본 알고리즘은 계속 모듈형으로 유지하고, 이 파일은 builder로 생성한 self-extracting runner입니다.
 BR-248 이후 내부 payload는 zip/base64가 아니라 UTF-8 source-text로 들어갑니다.
+BR-253 이후 파일 상단에 payload 역할 index가 보이고, 필요하면 내장 소스를 읽을 수 있는 폴더로 풀 수 있습니다.
 
 ## 준비
 
@@ -93,6 +94,18 @@ pvdiag_single_run.log
 python pvdiag_single.py --single-self-test
 ```
 
+내부에 어떤 모듈/아티팩트가 들어 있는지 확인:
+
+```bash
+python pvdiag_single.py --single-list-payload
+```
+
+읽을 수 있는 원본 구조로 풀어보고 싶으면:
+
+```bash
+python pvdiag_single.py --single-extract-source /tmp/pvdiag_single_source
+```
+
 repo 안에서 전체 전달 closeout을 다시 확인하려면 아래를 실행합니다.
 
 ```bash
@@ -110,3 +123,4 @@ python tools/check_pvdiag_single_delivery_closeout.py --export-output-dir /tmp/p
 - 기본 실행은 대용량 중복 workspace를 남기지 않도록 `--workspace-retention result-only`를 자동 적용합니다.
 - 실패 시 `missing required Python packages`, `data-root was not provided`, `data-root does not exist` 메시지를 먼저 보고, 안내된 `pip install ...` 또는 `--data-root /path/to/data`로 다시 실행합니다.
 - generated single file은 source-text JSON chunk container와 11-file essential payload를 사용해 불필요한 line-literal 전개와 sidecar payload를 피합니다.
+- generated single file은 compact하지만 숨김 파일처럼 다루지 않도록 `PAYLOAD_FILE_INDEX`, `--single-list-payload`, `--single-extract-source`를 제공합니다.

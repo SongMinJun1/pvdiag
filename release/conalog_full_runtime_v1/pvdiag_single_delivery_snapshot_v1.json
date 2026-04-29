@@ -1,22 +1,22 @@
 {
   "snapshot_schema": "pvdiag_single_delivery_snapshot_v1",
-  "release_id": "pvdiag_single_br252_line_diet_20260430",
+  "release_id": "pvdiag_single_br253_payload_transparency_20260430",
   "professor_deliverable_file_count": 1,
   "professor_deliverable_files": [
     "pvdiag_single.py"
   ],
   "single_file": {
     "path": "release/conalog_full_runtime_v1/pvdiag_single.py",
-    "bytes": 477767,
-    "line_count": 339,
-    "sha256": "5af8063d6d6cdeaa00161dafd06e0d07de1c831fdad263db2a68d1d31bc649c0"
+    "bytes": 482729,
+    "line_count": 399,
+    "sha256": "35cf51af1977ba74776ec82a1d3619e6a985aa3cdbb41f47ace7bac72a043a40"
   },
   "embedded_payload": {
     "payload_mode": "source_text",
     "payload_container": "json_chunks",
     "payload_file_count": 11,
     "payload_text_bytes": 422550,
-    "generated_at_utc": "2026-04-29T18:33:17.625469+00:00",
+    "generated_at_utc": "2026-04-29T18:45:42.039859+00:00",
     "excluded_runtime_windows_x64": true,
     "excluded_single_file_payload_rels": [
       "app/import_any_csv_root.py",
@@ -32,6 +32,19 @@
       "research/prognostics/build_panel_day_engine_fault_panel_event_audit_v1.py",
       "research/prognostics/build_panel_day_engine_gpvs_evidence_pack_v1.py",
       "research/prognostics/build_panel_day_engine_panel_multiaxis_verdict_v1.py"
+    ],
+    "payload_roles": [
+      "baseline_fingerprint",
+      "core_engine",
+      "display_label_registry",
+      "entry_runner",
+      "frozen_fault_reference",
+      "raw_only_audit_builder",
+      "raw_only_heuristic_builder",
+      "raw_only_shared_utils",
+      "raw_only_verdict_builder",
+      "required_result_preview",
+      "shadow_compare_reference"
     ]
   },
   "external_package_prerequisites": [
@@ -52,6 +65,8 @@
     "export_one_file_check": 1,
     "checksum_equality_check": 1,
     "exported_self_test_check": 1,
+    "visible_payload_index_check": 1,
+    "source_extract_check": 1,
     "handoff_doc_snippet_check": 1,
     "failure_ux_smoke_check": 1,
     "algorithm_semantics_changed": 0,
@@ -67,13 +82,17 @@
       "pvdiag_single.py",
       "pip install pandas numpy torch openpyxl tqdm",
       "--data-root",
-      "--output-root"
+      "--output-root",
+      "--single-list-payload",
+      "--single-extract-source"
     ],
     "checklist": "release/conalog_full_runtime_v1/PVDIAG_SINGLE_DELIVERY_CHECKLIST.md",
     "checklist_snippets": [
       "보낼 파일은 `pvdiag_single.py` 한 개",
       "pandas numpy torch openpyxl tqdm",
       "python pvdiag_single.py --single-self-test",
+      "python pvdiag_single.py --single-list-payload",
+      "python pvdiag_single.py --single-extract-source",
       "실증 CSV"
     ]
   },
