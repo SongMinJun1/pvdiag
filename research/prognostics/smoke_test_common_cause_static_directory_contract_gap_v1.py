@@ -12,9 +12,9 @@ import pandas as pd
 
 EXPECTED_ROWS = 8
 EXPECTED_SOURCE_FILES = 5
-EXPECTED_CLOSED_ROWS = 3
-EXPECTED_GAP_ROWS = 5
-EXPECTED_MISSING_CHECKS = 10
+EXPECTED_CLOSED_ROWS = 8
+EXPECTED_GAP_ROWS = 0
+EXPECTED_MISSING_CHECKS = 0
 
 
 def assert_true(condition: bool, message: object) -> None:
@@ -65,15 +65,15 @@ def main() -> None:
         assert_true(payload["runtime_semantic_change_allowed_rows"] == 0, payload)
         assert_true(payload["bulk_rewrite_allowed_rows"] == 0, payload)
         assert_true(payload["missing_check_count"] == EXPECTED_MISSING_CHECKS, payload)
-        assert_true(payload["contract_complete"] == 0, payload)
+        assert_true(payload["contract_complete"] == 1, payload)
         assert_true(len(detail) == EXPECTED_ROWS, detail.to_dict("records"))
-        assert_true(set(detail["contract_status"]) == {"closed", "needs_patch"}, detail.to_dict("records"))
+        assert_true(set(detail["contract_status"]) == {"closed"}, detail.to_dict("records"))
         assert_true(
             payload["common_cause_directory_rows"]
             == int(summary[summary["key"].eq("common_cause_directory_rows")]["count"].iloc[0]),
             payload,
         )
-        assert_true("not fully contract-closed" in note, note)
+        assert_true("fully contract-closed" in note, note)
 
     print("smoke ok: common_cause_static_directory_contract_gap_v1")
 

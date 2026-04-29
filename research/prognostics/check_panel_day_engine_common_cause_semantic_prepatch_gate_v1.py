@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -152,6 +155,7 @@ def parse_args() -> argparse.Namespace:
             "common-cause loosening."
         )
     )
+    parser.add_argument("--input-manifest", type=Path, default=None)
     parser.add_argument("--strong-blocker-input", type=Path, default=DEFAULT_STRONG_BLOCKER_INPUT)
     parser.add_argument("--exact-search-input", type=Path, default=DEFAULT_EXACT_SEARCH_INPUT)
     parser.add_argument("--structural-input", type=Path, default=DEFAULT_STRUCTURAL_INPUT)
@@ -163,6 +167,60 @@ def parse_args() -> argparse.Namespace:
         help="Write gate outputs but return success even when required gates fail.",
     )
     return parser.parse_args()
+
+
+def resolve_path(repo_root: Path, value: str | Path) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_manifest_input(
+    repo_root: Path,
+    key: str,
+    flag: str,
+    arg_value: str | Path,
+    manifest: dict[str, Any],
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if flag in explicit_flags:
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, key)
+        if not manifest_value:
+            raise KeyError(
+                f"common-cause prepatch input manifest is missing `{key}`; "
+                f"pass {flag} explicitly or add inputs.{key}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def normalize_text(value: object) -> str:
@@ -501,13 +559,29 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
     return "\n".join([header, separator] + rows)
 
 
-def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame) -> None:
+def write_note(
+    output_dir: Path,
+    detail: pd.DataFrame,
+    summary: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> None:
+    source_map = input_resolution_sources or {}
     lines = [
         "# panel_day_engine_common_cause_semantic_prepatch_gate_note_v1",
         "",
         "## Purpose",
         "- Gate BR-071 through BR-074 common-cause evidence before any semantic algorithm patch.",
         "- Prevent common-cause synchrony, raw-only near-anchor traces, or post-current mismatches from becoming official/current closure by accident.",
+        "",
+        "## Inputs",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
+        "",
+        "## Input Resolution Sources",
+        f"- `strong_blocker_input`: `{source_map.get('strong_blocker_input', 'legacy_default')}`",
+        f"- `exact_search_input`: `{source_map.get('exact_search_input', 'legacy_default')}`",
+        f"- `structural_input`: `{source_map.get('structural_input', 'legacy_default')}`",
+        f"- `trace_input`: `{source_map.get('trace_input', 'legacy_default')}`",
         "",
         "## Summary",
         dataframe_to_markdown(summary),
@@ -525,12 +599,63 @@ def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame) ->
 
 def main() -> None:
     args = parse_args()
+    repo_root = Path(__file__).resolve().parents[2]
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in [
+            "--strong-blocker-input",
+            "--exact-search-input",
+            "--structural-input",
+            "--trace-input",
+        ]
+        if cli_flag_provided(flag, argv)
+    }
+    strong_blocker_input, strong_blocker_input_source = resolve_manifest_input(
+        repo_root,
+        "strong_blocker_input",
+        "--strong-blocker-input",
+        args.strong_blocker_input,
+        input_manifest,
+        explicit_flags,
+    )
+    exact_search_input, exact_search_input_source = resolve_manifest_input(
+        repo_root,
+        "exact_search_input",
+        "--exact-search-input",
+        args.exact_search_input,
+        input_manifest,
+        explicit_flags,
+    )
+    structural_input, structural_input_source = resolve_manifest_input(
+        repo_root,
+        "structural_input",
+        "--structural-input",
+        args.structural_input,
+        input_manifest,
+        explicit_flags,
+    )
+    trace_input, trace_input_source = resolve_manifest_input(
+        repo_root,
+        "trace_input",
+        "--trace-input",
+        args.trace_input,
+        input_manifest,
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "strong_blocker_input": strong_blocker_input_source,
+        "exact_search_input": exact_search_input_source,
+        "structural_input": structural_input_source,
+        "trace_input": trace_input_source,
+    }
     args.output_dir.mkdir(parents=True, exist_ok=True)
     input_paths = {
-        "strong_blocker": args.strong_blocker_input,
-        "exact_search": args.exact_search_input,
-        "structural": args.structural_input,
-        "trace": args.trace_input,
+        "strong_blocker": strong_blocker_input,
+        "exact_search": exact_search_input,
+        "structural": structural_input,
+        "trace": trace_input,
     }
     tables: dict[str, pd.DataFrame] = {}
     missing: dict[str, list[str]] = {}
@@ -544,7 +669,7 @@ def main() -> None:
     summary = build_summary(detail, tables)
     detail.to_csv(args.output_dir / DETAIL_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(args.output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(args.output_dir, detail, summary)
+    write_note(args.output_dir, detail, summary, input_manifest_path, input_resolution_sources)
     if summary.iloc[0]["overall_status"] != "pass" and not args.allow_fail:
         raise SystemExit("common-cause semantic prepatch gate failed")
 

@@ -11,7 +11,7 @@ from pathlib import Path
 from build_repo_static_directory_reference_inventory_v1 import build_inventory, resolve
 
 
-OWNER_BRANCH = "BR-20260429-213"
+OWNER_BRANCH = "BR-20260429-214"
 EXPECTED_COMMON_CAUSE_DIRECTORY_ROWS = 8
 TARGET_WORKFLOW_LANE = "panel_engine_common_cause"
 
@@ -44,35 +44,35 @@ SUMMARY_COLUMNS = ["owner_branch", "summary_scope", "key", "count"]
 EXPECTED_CONTRACTS = {
     (
         "research/prognostics/build_panel_day_engine_common_cause_exact_seed_search_v1.py",
-        14,
+        "fault_family_judgment_candidate_packet_check",
     ): ("judgment_input", "--judgment-input"),
     (
         "research/prognostics/build_panel_day_engine_common_cause_exact_seed_search_v1.py",
-        18,
+        "common_cause_synchrony_axis_sidecar_check",
     ): ("synchrony_input", "--synchrony-input"),
     (
         "research/prognostics/build_panel_day_engine_common_cause_manual_trace_review_v1.py",
-        14,
+        "common_cause_structural_blocker_review_check",
     ): ("blocker_input", "--blocker-input"),
     (
         "research/prognostics/build_panel_day_engine_common_cause_structural_blocker_review_v1.py",
-        11,
+        "common_cause_exact_seed_search_check",
     ): ("exact_seed_input", "--exact-seed-input"),
     (
         "research/prognostics/build_panel_day_engine_strong_common_cause_blocker_regression_packet_v1.py",
-        11,
+        "fault_family_judgment_candidate_packet_check",
     ): ("judgment_input", "--judgment-input"),
     (
         "research/prognostics/check_panel_day_engine_common_cause_semantic_prepatch_gate_v1.py",
-        11,
+        "strong_common_cause_blocker_regression_packet_check",
     ): ("strong_blocker_input", "--strong-blocker-input"),
     (
         "research/prognostics/check_panel_day_engine_common_cause_semantic_prepatch_gate_v1.py",
-        18,
+        "common_cause_structural_blocker_review_check",
     ): ("structural_input", "--structural-input"),
     (
         "research/prognostics/check_panel_day_engine_common_cause_semantic_prepatch_gate_v1.py",
-        22,
+        "common_cause_manual_trace_review_check",
     ): ("trace_input", "--trace-input"),
 }
 
@@ -118,8 +118,9 @@ def build_gap(repo_root: Path, max_file_bytes: int) -> list[dict[str, object]]:
     for idx, row in enumerate(common_rows, start=1):
         source_file = str(row["source_file"])
         line_no = int(row["line_no"])
+        directory_slug = str(row.get("directory_slug", ""))
         expected_manifest_key, explicit_cli_flag = EXPECTED_CONTRACTS.get(
-            (source_file, line_no),
+            (source_file, directory_slug),
             ("", ""),
         )
         source_text = read_source(repo_root, source_file)
@@ -148,7 +149,7 @@ def build_gap(repo_root: Path, max_file_bytes: int) -> list[dict[str, object]]:
                 "contract_id": f"BR213-{idx:03d}",
                 "source_file": source_file,
                 "line_no": line_no,
-                "directory_slug": row.get("directory_slug", ""),
+                "directory_slug": directory_slug,
                 "expected_manifest_key": expected_manifest_key,
                 "explicit_cli_flag": explicit_cli_flag,
                 "has_input_manifest_flag": has_input_manifest,
@@ -175,6 +176,11 @@ def summary_payload(gap_rows: list[dict[str, object]]) -> dict[str, object]:
         len([part for part in str(row["missing_checks"]).split(";") if part])
         for row in gap_rows
     )
+    contract_complete = int(
+        len(gap_rows) == EXPECTED_COMMON_CAUSE_DIRECTORY_ROWS
+        and fail_count == 0
+        and missing_check_count == 0
+    )
     payload: dict[str, object] = {
         "owner_branch": OWNER_BRANCH,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -192,14 +198,12 @@ def summary_payload(gap_rows: list[dict[str, object]]) -> dict[str, object]:
         ),
         "bulk_rewrite_allowed_rows": sum(int(row["bulk_rewrite_allowed_flag"]) for row in gap_rows),
         "missing_check_count": missing_check_count,
-        "contract_complete": int(
-            len(gap_rows) == EXPECTED_COMMON_CAUSE_DIRECTORY_ROWS
-            and fail_count == 0
-            and missing_check_count == 0
-        ),
+        "contract_complete": contract_complete,
         "contract_status_counts": dict(Counter(str(row["contract_status"]) for row in gap_rows)),
         "recommended_next_branch": (
-            "patch_common_cause_static_directory_gap_scripts_with_input_manifest_resolver"
+            "common_cause_static_directory_contract_closed_no_rewrite"
+            if contract_complete
+            else "patch_common_cause_static_directory_gap_scripts_with_input_manifest_resolver"
         ),
     }
     return payload
@@ -242,6 +246,20 @@ def write_csv(path: Path, rows: list[dict[str, object]], columns: list[str]) -> 
 
 
 def write_note(output_dir: Path, payload: dict[str, object]) -> Path:
+    contract_complete = int(payload["contract_complete"]) == 1
+    decision_lines = (
+        [
+            "- Common-cause static directory references are fully contract-closed.",
+            "- No default rewrite is authorized by this audit.",
+            "- Keep direct runtime semantic and bulk rewrite permission at 0.",
+        ]
+        if contract_complete
+        else [
+            "- Common-cause static directory references are not fully contract-closed yet.",
+            "- The next code patch should add input-manifest and manifest resolver handling to the gap scripts before any path rewrite.",
+            "- Keep direct runtime semantic and bulk rewrite permission at 0.",
+        ]
+    )
     lines = [
         "# Common-Cause Static Directory Contract Gap",
         "",
@@ -263,9 +281,7 @@ def write_note(output_dir: Path, payload: dict[str, object]) -> Path:
         f"- contract complete: {payload['contract_complete']}",
         "",
         "## Decision",
-        "- Common-cause static directory references are not fully contract-closed yet.",
-        "- The next code patch should add input-manifest and manifest resolver handling to the gap scripts before any path rewrite.",
-        "- Keep direct runtime semantic and bulk rewrite permission at 0.",
+        *decision_lines,
     ]
     path = output_dir / NOTE_OUTPUT_NAME
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
