@@ -30,9 +30,15 @@ def main() -> None:
     assert_true(manifest.exists(), manifest)
 
     manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
+    single_text = single.read_text(encoding="utf-8")
+    assert_true(manifest_payload["payload_mode"] == "source_text", manifest_payload)
     assert_true(manifest_payload["payload_file_count"] >= 10, manifest_payload)
-    assert_true(manifest_payload["payload_zip_bytes"] < 8_000_000, manifest_payload)
+    assert_true(manifest_payload["payload_text_bytes"] < 8_000_000, manifest_payload)
     assert_true(manifest_payload["excluded_runtime_windows_x64"] is True, manifest_payload)
+    assert_true("EMBEDDED_TEXT_FILES" in single_text, single)
+    assert_true("PAYLOAD_B64" not in single_text, single)
+    assert_true("import base64" not in single_text, single)
+    assert_true("import zipfile" not in single_text, single)
     paths = {row["path"] for row in manifest_payload["files"]}
     assert_true("release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py" in paths, paths)
     assert_true("release/conalog_full_runtime_v1/package/pv_ae/panel_day_engine.py" in paths, paths)

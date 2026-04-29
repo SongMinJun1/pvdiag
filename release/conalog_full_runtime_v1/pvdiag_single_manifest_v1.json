@@ -1,10 +1,11 @@
 {
-  "generated_at_utc": "2026-04-29T16:08:21.048076+00:00",
+  "generated_at_utc": "2026-04-29T17:28:07.966624+00:00",
   "generated_by": "tools/build_pvdiag_single_py.py",
   "delivery_artifact": "release/conalog_full_runtime_v1/pvdiag_single.py",
+  "payload_mode": "source_text",
   "payload_file_count": 24,
-  "payload_zip_bytes": 150086,
-  "payload_sha256": "8d717fcdf03039a29aa5085fa99f705be0060fc8616497c9c955093c872a226a",
+  "payload_text_bytes": 646077,
+  "payload_text_sha256": "d0209238c888b8f3121c32f9e7a94ab93f1b6385ad103429c58a08bc0bbc3a1e",
   "excluded_runtime_windows_x64": true,
   "max_payload_file_bytes": 2000000,
   "files": [

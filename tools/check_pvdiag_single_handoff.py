@@ -52,19 +52,26 @@ def main() -> None:
         fail(f"missing single-file manifest: {manifest}")
 
     payload = json.loads(manifest.read_text(encoding="utf-8"))
+    single_text = single.read_text(encoding="utf-8")
     files = {str(row.get("path", "")) for row in payload.get("files", [])}
     missing = sorted(REQUIRED_PAYLOAD_PATHS - files)
     if missing:
         fail("manifest missing required payload paths:\n" + "\n".join(missing))
+    if payload.get("payload_mode") != "source_text":
+        fail(f"unexpected payload mode: {payload.get('payload_mode')}")
     runtime_rows = sorted(path for path in files if "/runtime/windows_x64/" in path or path.endswith(".pyc"))
     if runtime_rows:
         fail("single payload contains excluded runtime/cache rows:\n" + "\n".join(runtime_rows[:20]))
-    if int(payload.get("payload_zip_bytes", 0)) > 8_000_000:
-        fail(f"payload too large: {payload.get('payload_zip_bytes')}")
+    if int(payload.get("payload_text_bytes", 0)) > 8_000_000:
+        fail(f"payload too large: {payload.get('payload_text_bytes')}")
     if int(payload.get("payload_file_count", 0)) != len(files):
         fail(
             f"payload file count mismatch: manifest={payload.get('payload_file_count')} actual={len(files)}"
         )
+    if "PAYLOAD_B64" in single_text or "import base64" in single_text or "import zipfile" in single_text:
+        fail("single-file artifact still contains the old base64/zip payload path")
+    if "EMBEDDED_TEXT_FILES" not in single_text or "PAYLOAD_MODE = \"source_text\"" not in single_text:
+        fail("single-file artifact does not expose the source-text payload markers")
 
     compile_proc = subprocess.run(
         [sys.executable, "-m", "py_compile", str(single)],
@@ -95,8 +102,9 @@ def main() -> None:
                 "handoff_ready": 1,
                 "single_file": str(single),
                 "manifest": str(manifest),
+                "payload_mode": str(payload.get("payload_mode")),
                 "payload_file_count": int(payload.get("payload_file_count", 0)),
-                "payload_zip_bytes": int(payload.get("payload_zip_bytes", 0)),
+                "payload_text_bytes": int(payload.get("payload_text_bytes", 0)),
                 "excluded_runtime_windows_x64": bool(payload.get("excluded_runtime_windows_x64")),
                 "self_test_ran": int(not args.skip_self_test),
             },

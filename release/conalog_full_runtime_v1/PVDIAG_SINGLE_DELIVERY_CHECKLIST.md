@@ -56,4 +56,5 @@ result/fault_panel_result_raw_only_fault_signal_report_v1.csv
 
 - 이 전달물은 알고리즘 원본을 손으로 한 파일에 합친 것이 아닙니다.
 - 원본 모듈 구조는 유지하고, builder/exporter/checker로 generated single file을 검증합니다.
+- BR-248 이후 generated single file은 zip/base64 payload를 쓰지 않고 source-text payload를 사용합니다.
 - 실증 CSV와 최종 라벨이 들어오기 전까지 truth-label 성능 주장은 하지 않습니다.
