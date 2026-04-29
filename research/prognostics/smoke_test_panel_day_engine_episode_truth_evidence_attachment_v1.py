@@ -78,6 +78,31 @@ def assert_true(condition: bool, message: str) -> None:
         raise SystemExit(message)
 
 
+def run_builder(
+    repo_root: Path,
+    script: Path,
+    rows_path: Path | None,
+    output_dir: Path,
+    input_manifest: Path | None = None,
+    owner_branch: str = "BR-TEST-085",
+) -> subprocess.CompletedProcess[str]:
+    cmd = [
+        sys.executable,
+        str(script),
+        "--repo-root",
+        str(repo_root),
+        "--output-dir",
+        str(output_dir),
+        "--owner-branch",
+        owner_branch,
+    ]
+    if rows_path is not None:
+        cmd.extend(["--reviewed-rows-input", str(rows_path)])
+    if input_manifest is not None:
+        cmd.extend(["--input-manifest", str(input_manifest)])
+    return run(cmd, repo_root)
+
+
 def write_rows(path: Path, *, unsafe: bool = False) -> None:
     rows = [
         {
@@ -189,21 +214,7 @@ def main() -> None:
         rows_path = root / "br084_rows.csv"
         write_rows(rows_path)
         out_dir = root / "out"
-        completed = run(
-            [
-                sys.executable,
-                str(script),
-                "--repo-root",
-                str(repo_root),
-                "--reviewed-rows-input",
-                str(rows_path),
-                "--output-dir",
-                str(out_dir),
-                "--owner-branch",
-                "BR-TEST-085",
-            ],
-            repo_root,
-        )
+        completed = run_builder(repo_root, script, rows_path, out_dir)
         assert_true(completed.returncode == 0, completed.stderr or completed.stdout)
         index_df = pd.read_csv(out_dir / INDEX_NAME, encoding="utf-8-sig")
         template_df = pd.read_csv(out_dir / TEMPLATE_NAME, encoding="utf-8-sig")
@@ -227,23 +238,41 @@ def main() -> None:
         assert_true(payload["review_input_template_rows"] == 2, payload)
         assert_true(payload["reviewer_truth_label_assigned_count"] == 0, payload)
         assert_true(payload["threshold_replay_ready_count"] == 0, payload)
+        assert_true(payload["reviewed_rows_input_source"] == "explicit_cli", payload)
         assert_true("not a truth label" in cards[0].read_text(encoding="utf-8"), cards[0])
+
+        manifest_path = root / "episode_truth_evidence_attachment_inputs.json"
+        manifest_path.write_text(
+            json.dumps({"inputs": {"reviewed_rows_input": str(rows_path)}}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = root / "manifest_out"
+        manifest_completed = run_builder(repo_root, script, None, manifest_out, manifest_path)
+        assert_true(manifest_completed.returncode == 0, manifest_completed.stderr or manifest_completed.stdout)
+        manifest_payload = json.loads((manifest_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(manifest_payload["input_rows"] == 2, manifest_payload)
+        assert_true(manifest_payload["input_manifest"] == str(manifest_path), manifest_payload)
+        assert_true(manifest_payload["reviewed_rows_input_source"] == "input_manifest", manifest_payload)
+
+        bad_manifest_path = root / "bad_episode_truth_evidence_attachment_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {"inputs": {"reviewed_rows_input": str(root / "missing_br084_rows.csv")}},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = root / "override_out"
+        override_completed = run_builder(repo_root, script, rows_path, override_out, bad_manifest_path)
+        assert_true(override_completed.returncode == 0, override_completed.stderr or override_completed.stdout)
+        override_payload = json.loads((override_out / JSON_NAME).read_text(encoding="utf-8"))
+        assert_true(override_payload["reviewed_rows_input_source"] == "explicit_cli", override_payload)
 
         unsafe_rows_path = root / "unsafe_rows.csv"
         write_rows(unsafe_rows_path, unsafe=True)
-        unsafe_completed = run(
-            [
-                sys.executable,
-                str(script),
-                "--repo-root",
-                str(repo_root),
-                "--reviewed-rows-input",
-                str(unsafe_rows_path),
-                "--output-dir",
-                str(root / "unsafe_out"),
-            ],
-            repo_root,
-        )
+        unsafe_completed = run_builder(repo_root, script, unsafe_rows_path, root / "unsafe_out")
         assert_true(unsafe_completed.returncode != 0, unsafe_completed.stdout)
         assert_true("non-authorizing BR-084 input" in unsafe_completed.stderr, unsafe_completed.stderr)
 

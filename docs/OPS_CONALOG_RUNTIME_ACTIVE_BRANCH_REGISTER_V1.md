@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-173` | `episode_truth_durable_shape_manifest_resolution_ready_for_review` | BR-089 durable-shape review now supports `--input-manifest` for BR-088 input while preserving explicit CLI precedence and legacy defaults | Continue one-consumer-at-a-time manifest resolution across remaining episode-truth builders |
+| `BR-20260429-174` | `episode_truth_evidence_attachment_manifest_resolution_ready_for_review` | BR-085 evidence attachment now supports `--input-manifest` for BR-084 reviewed rows while preserving explicit CLI precedence and legacy defaults | Continue one-consumer-at-a-time manifest resolution across remaining episode-truth builders |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -173,6 +173,7 @@
 | `BR-20260429-171` | `episode_truth_worksheet_manifest_resolution_ready_for_review` | BR-087 adjudication worksheet resolves trace/index inputs from optional manifest or explicit CLI, records resolution source, and keeps patch authorization sums at 0 | no |
 | `BR-20260429-172` | `episode_truth_conservative_manifest_resolution_ready_for_review` | BR-088 conservative adjudication resolves worksheet input from optional manifest or explicit CLI, records resolution source, and keeps positive labels/patch authorization sums at 0 | no |
 | `BR-20260429-173` | `episode_truth_durable_shape_manifest_resolution_ready_for_review` | BR-089 durable-shape review resolves BR-088 input from optional manifest or explicit CLI, records resolution source, and keeps threshold tuning/patch authorization sums at 0 | no |
+| `BR-20260429-174` | `episode_truth_evidence_attachment_manifest_resolution_ready_for_review` | BR-085 evidence attachment resolves BR-084 reviewed rows from optional manifest or explicit CLI, records resolution source, and keeps labels/replay/patch authorization sums at 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
