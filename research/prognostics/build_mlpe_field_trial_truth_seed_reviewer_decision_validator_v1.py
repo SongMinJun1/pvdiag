@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -103,6 +105,53 @@ def normalize_text(value: object) -> str:
 def resolve_path(repo_root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_decision_input(
+    repo_root: Path,
+    decision_input_value: str | Path,
+    manifest: dict[str, Any],
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if "--decision-input" in explicit_flags:
+        return resolve_path(repo_root, decision_input_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, "decision_input")
+        if not manifest_value:
+            raise KeyError(
+                "MLPE field-trial input manifest is missing `decision_input`; "
+                "pass --decision-input explicitly or add inputs.decision_input"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, decision_input_value), "legacy_default"
 
 
 def read_csv(path: Path, required_columns: list[str]) -> pd.DataFrame:
@@ -341,8 +390,14 @@ def build_summary(validation: pd.DataFrame, issues: pd.DataFrame) -> pd.DataFram
     return pd.DataFrame(rows)
 
 
-def write_note(output_dir: Path, summary: pd.DataFrame) -> Path:
+def write_note(
+    output_dir: Path,
+    summary: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> Path:
     overall = summary[summary["summary_scope"].eq("overall")].iloc[0].to_dict()
+    source_map = input_resolution_sources or {}
     note_path = output_dir / NOTE_OUTPUT_NAME
     lines = [
         "# BR-122 MLPE Field-Trial Truth-Seed Reviewer Decision Validator",
@@ -350,6 +405,12 @@ def write_note(output_dir: Path, summary: pd.DataFrame) -> Path:
         "## Purpose",
         "- Validate filled BR-121 reviewer decisions before any future truth-intake candidate package.",
         "- Keep reviewer decisions separate from canonical truth writes and algorithm patches.",
+        "",
+        "## Inputs",
+        f"- truth-seed reviewer decision input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
+        "",
+        "## Input Resolution Sources",
+        f"- `decision_input`: `{source_map.get('decision_input', 'legacy_default')}`",
         "",
         "## Result",
         f"- decision rows: `{overall['decision_rows']}`",
@@ -373,6 +434,7 @@ def write_note(output_dir: Path, summary: pd.DataFrame) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=Path.cwd())
+    parser.add_argument("--input-manifest", default=None)
     parser.add_argument("--decision-input", default=DEFAULT_DECISION_INPUT)
     parser.add_argument("--schema", default=DEFAULT_SCHEMA)
     parser.add_argument("--allowed-values", default=DEFAULT_ALLOWED_VALUES)
@@ -381,7 +443,19 @@ def main() -> None:
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    decision_path = resolve_path(repo_root, args.decision_input)
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    explicit_flags = {
+        flag
+        for flag in ["--decision-input"]
+        if cli_flag_provided(flag, sys.argv[1:])
+    }
+    decision_path, decision_source = resolve_decision_input(
+        repo_root,
+        args.decision_input,
+        input_manifest,
+        explicit_flags,
+    )
+    input_resolution_sources = {"decision_input": decision_source}
     schema_path = resolve_path(repo_root, args.schema)
     allowed_values_path = resolve_path(repo_root, args.allowed_values)
     output_dir = resolve_path(repo_root, args.output_dir)
@@ -408,7 +482,7 @@ def main() -> None:
     validation.to_csv(validation_path, index=False, encoding="utf-8-sig")
     issues.to_csv(issues_path, index=False, encoding="utf-8-sig")
     summary.to_csv(summary_path, index=False, encoding="utf-8-sig")
-    note_path = write_note(output_dir, summary)
+    note_path = write_note(output_dir, summary, input_manifest_path, input_resolution_sources)
 
     overall = summary[summary["summary_scope"].eq("overall")].iloc[0].to_dict()
     payload = {
@@ -422,6 +496,8 @@ def main() -> None:
         "truth_intake_allowed_sum": int(overall["truth_intake_allowed_sum"]),
         "threshold_patch_allowed_sum": int(overall["threshold_patch_allowed_sum"]),
         "engine_patch_allowed_sum": int(overall["engine_patch_allowed_sum"]),
+        "input_manifest": str(input_manifest_path) if input_manifest_path is not None else "",
+        "input_resolution_sources": input_resolution_sources,
         "outputs": {
             "validation": str(validation_path),
             "issues": str(issues_path),
