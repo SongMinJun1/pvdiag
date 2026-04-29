@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 from pathlib import Path
@@ -76,6 +77,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="strong_common_cause_blocker_") as tmp_dir:
         root = Path(tmp_dir)
         input_csv = root / "judgment.csv"
+        input_manifest = root / "input_manifest.json"
         out_dir = root / "out"
         header = [
             "candidate_case_id",
@@ -138,12 +140,16 @@ def main() -> None:
             ),
         ]
         write_text(input_csv, "\n".join(lines) + "\n")
+        write_text(
+            input_manifest,
+            json.dumps({"inputs": {"judgment_input": str(input_csv)}}, indent=2) + "\n",
+        )
         result = subprocess.run(
             [
                 "python3",
                 str(script),
-                "--judgment-input",
-                str(input_csv),
+                "--input-manifest",
+                str(input_manifest),
                 "--output-dir",
                 str(out_dir),
             ],
@@ -163,6 +169,7 @@ def main() -> None:
         assert_true(int(detail["panel_local_promotion_blocked_flag"].sum()) == 2, detail)
         assert_true(len(summary) == 2, f"unexpected summary rows: {len(summary)}")
         assert_true("threshold patch allowed sum: `0`" in note, "note missing threshold guardrail")
+        assert_true("`judgment_input`: `input_manifest`" in note, "note missing manifest source")
     print("smoke ok: panel_day_engine_strong_common_cause_blocker_regression_packet_v1")
 
 

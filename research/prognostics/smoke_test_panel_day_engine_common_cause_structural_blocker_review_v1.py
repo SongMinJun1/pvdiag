@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 from pathlib import Path
@@ -90,6 +91,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="common_cause_structural_blocker_") as tmp_dir:
         root = Path(tmp_dir)
         input_csv = root / "exact_seed.csv"
+        input_manifest = root / "input_manifest.json"
         out_dir = root / "out"
         header = [
             "search_case_id",
@@ -145,12 +147,16 @@ def main() -> None:
             ),
         ]
         write_text(input_csv, "\n".join(lines) + "\n")
+        write_text(
+            input_manifest,
+            json.dumps({"inputs": {"exact_seed_input": str(input_csv)}}, indent=2) + "\n",
+        )
         result = subprocess.run(
             [
                 "python3",
                 str(script),
-                "--exact-seed-input",
-                str(input_csv),
+                "--input-manifest",
+                str(input_manifest),
                 "--output-dir",
                 str(out_dir),
             ],
@@ -184,6 +190,7 @@ def main() -> None:
         assert_true(len(summary) == 5, summary.to_string())
         assert_true(int(site_summary["raw_direct_common_cause_rows"].sum()) == 5, site_summary.to_string())
         assert_true("manual trace review targets: `2`" in note, "note missing manual trace count")
+        assert_true("`exact_seed_input`: `input_manifest`" in note, "note missing manifest source")
     print("smoke ok: panel_day_engine_common_cause_structural_blocker_review_v1")
 
 

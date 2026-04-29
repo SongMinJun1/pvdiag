@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import tempfile
@@ -151,7 +152,13 @@ def trace_rows() -> list[dict[str, object]]:
     ]
 
 
-def run_gate(repo_root: Path, paths: dict[str, Path], out_dir: Path, allow_fail: bool = False) -> subprocess.CompletedProcess[str]:
+def run_gate(
+    repo_root: Path,
+    paths: dict[str, Path],
+    out_dir: Path,
+    allow_fail: bool = False,
+    use_manifest: bool = True,
+) -> subprocess.CompletedProcess[str]:
     script = (
         repo_root
         / "research"
@@ -161,17 +168,39 @@ def run_gate(repo_root: Path, paths: dict[str, Path], out_dir: Path, allow_fail:
     cmd = [
         sys.executable,
         str(script),
-        "--strong-blocker-input",
-        str(paths["strong"]),
-        "--exact-search-input",
-        str(paths["exact"]),
-        "--structural-input",
-        str(paths["structural"]),
-        "--trace-input",
-        str(paths["trace"]),
-        "--output-dir",
-        str(out_dir),
     ]
+    if use_manifest:
+        manifest_path = out_dir.parent / f"{out_dir.name}_input_manifest.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "strong_blocker_input": str(paths["strong"]),
+                        "exact_search_input": str(paths["exact"]),
+                        "structural_input": str(paths["structural"]),
+                        "trace_input": str(paths["trace"]),
+                    }
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        cmd.extend(["--input-manifest", str(manifest_path)])
+    else:
+        cmd.extend(
+            [
+                "--strong-blocker-input",
+                str(paths["strong"]),
+                "--exact-search-input",
+                str(paths["exact"]),
+                "--structural-input",
+                str(paths["structural"]),
+                "--trace-input",
+                str(paths["trace"]),
+            ]
+        )
+    cmd.extend(["--output-dir", str(out_dir)])
     if allow_fail:
         cmd.append("--allow-fail")
     return subprocess.run(cmd, cwd=repo_root, text=True, capture_output=True)
@@ -206,6 +235,8 @@ def main() -> None:
         assert_true(int(valid_summary.iloc[0]["failed_required_gate_count"]) == 0, valid_detail.to_string())
         assert_true(int(valid_summary.iloc[0]["trace_rows"]) == 2, valid_summary.to_string())
         assert_true("Passing this gate does not approve" in note, "note missing approval boundary")
+        assert_true("`strong_blocker_input`: `input_manifest`" in note, "note missing manifest source")
+        assert_true("`trace_input`: `input_manifest`" in note, "note missing trace manifest source")
 
         invalid_root = root / "invalid"
         invalid_paths = write_valid_inputs(invalid_root)

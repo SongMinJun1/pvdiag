@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -108,9 +111,64 @@ def parse_args() -> argparse.Namespace:
             "not panel-local promotion candidates."
         )
     )
+    parser.add_argument("--input-manifest", type=Path, default=None)
     parser.add_argument("--judgment-input", type=Path, default=DEFAULT_JUDGMENT_INPUT)
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args()
+
+
+def resolve_path(repo_root: Path, value: str | Path) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_manifest_input(
+    repo_root: Path,
+    key: str,
+    flag: str,
+    arg_value: str | Path,
+    manifest: dict[str, Any],
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if flag in explicit_flags:
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, key)
+        if not manifest_value:
+            raise KeyError(
+                f"panel-day evidence input manifest is missing `{key}`; "
+                f"pass {flag} explicitly or add inputs.{key}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def normalize_text(value: object) -> str:
@@ -277,13 +335,26 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
     return "\n".join([header, separator] + rows)
 
 
-def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame) -> None:
+def write_note(
+    output_dir: Path,
+    detail: pd.DataFrame,
+    summary: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> None:
+    source_map = input_resolution_sources or {}
     lines = [
         "# panel_day_engine_strong_common_cause_blocker_regression_note_v1",
         "",
         "## Purpose",
         "- Package BR-064 strong common-cause hold rows as blocker/regression seeds.",
         "- Prevent spatial/common-cause evidence from being read as panel-local promotion evidence.",
+        "",
+        "## Inputs",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
+        "",
+        "## Input Resolution Sources",
+        f"- `judgment_input`: `{source_map.get('judgment_input', 'legacy_default')}`",
         "",
         "## Guardrails",
         f"- detail rows: `{len(detail)}`",
@@ -305,8 +376,27 @@ def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame) ->
 
 def main() -> None:
     args = parse_args()
+    repo_root = Path(__file__).resolve().parents[2]
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in ["--judgment-input"]
+        if cli_flag_provided(flag, argv)
+    }
+    judgment_input, judgment_input_source = resolve_manifest_input(
+        repo_root,
+        "judgment_input",
+        "--judgment-input",
+        args.judgment_input,
+        input_manifest,
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "judgment_input": judgment_input_source,
+    }
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    judgment = normalize_judgment(read_csv(args.judgment_input))
+    judgment = normalize_judgment(read_csv(judgment_input))
     detail = build_detail(judgment)
     summary = build_summary(detail)
     if len(detail) and int(detail["operator_promotion_allowed_flag"].sum()) != 0:
@@ -317,7 +407,7 @@ def main() -> None:
         raise SystemExit("common-cause blocker packet must not allow threshold patch")
     detail.to_csv(args.output_dir / DETAIL_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(args.output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(args.output_dir, detail, summary)
+    write_note(args.output_dir, detail, summary, input_manifest_path, input_resolution_sources)
 
 
 if __name__ == "__main__":

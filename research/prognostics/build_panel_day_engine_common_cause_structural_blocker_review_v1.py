@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -116,9 +119,64 @@ def parse_args() -> argparse.Namespace:
             "subtypes without authorizing runtime semantics changes."
         )
     )
+    parser.add_argument("--input-manifest", type=Path, default=None)
     parser.add_argument("--exact-seed-input", type=Path, default=DEFAULT_EXACT_SEED_INPUT)
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args()
+
+
+def resolve_path(repo_root: Path, value: str | Path) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else repo_root / path
+
+
+def load_input_manifest(repo_root: Path, value: str | Path | None) -> tuple[Path | None, dict[str, Any]]:
+    if value is None or str(value).strip() == "":
+        return None, {}
+    path = resolve_path(repo_root, value)
+    if not path.exists():
+        raise FileNotFoundError(f"missing input manifest: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"input manifest must be a JSON object: {path}")
+    return path, payload
+
+
+def manifest_path_value(manifest: dict[str, Any], key: str) -> str:
+    raw = manifest.get(key)
+    if raw is None and isinstance(manifest.get("inputs"), dict):
+        raw = manifest["inputs"].get(key)
+    if isinstance(raw, dict):
+        for field in ["path", "artifact_path", "static_path"]:
+            if raw.get(field):
+                return str(raw[field])
+        return ""
+    return "" if raw is None else str(raw)
+
+
+def cli_flag_provided(flag: str, argv: list[str]) -> bool:
+    return any(item == flag or item.startswith(f"{flag}=") for item in argv)
+
+
+def resolve_manifest_input(
+    repo_root: Path,
+    key: str,
+    flag: str,
+    arg_value: str | Path,
+    manifest: dict[str, Any],
+    explicit_flags: set[str],
+) -> tuple[Path, str]:
+    if flag in explicit_flags:
+        return resolve_path(repo_root, arg_value), "explicit_cli"
+    if manifest:
+        manifest_value = manifest_path_value(manifest, key)
+        if not manifest_value:
+            raise KeyError(
+                f"panel-day evidence input manifest is missing `{key}`; "
+                f"pass {flag} explicitly or add inputs.{key}"
+            )
+        return resolve_path(repo_root, manifest_value), "input_manifest"
+    return resolve_path(repo_root, arg_value), "legacy_default"
 
 
 def normalize_text(value: object) -> str:
@@ -346,15 +404,29 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
     return "\n".join([header, separator] + rows)
 
 
-def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame, site_summary: pd.DataFrame) -> None:
+def write_note(
+    output_dir: Path,
+    detail: pd.DataFrame,
+    summary: pd.DataFrame,
+    site_summary: pd.DataFrame,
+    input_manifest_path: Path | None = None,
+    input_resolution_sources: dict[str, str] | None = None,
+) -> None:
     manual_sum = int(detail["manual_trace_review_flag"].sum()) if len(detail) else 0
     patch_review_sum = int(detail["structural_patch_target_review_flag"].sum()) if len(detail) else 0
+    source_map = input_resolution_sources or {}
     lines = [
         "# panel_day_engine_common_cause_structural_blocker_review_note_v1",
         "",
         "## Purpose",
         "- Split BR-072 structural blockers into concrete report-lane/date-alignment subtypes.",
         "- Identify manual trace review targets without authorizing runtime semantic changes.",
+        "",
+        "## Inputs",
+        f"- evidence input manifest: `{input_manifest_path if input_manifest_path is not None else 'not provided'}`",
+        "",
+        "## Input Resolution Sources",
+        f"- `exact_seed_input`: `{source_map.get('exact_seed_input', 'legacy_default')}`",
         "",
         "## Guardrails",
         f"- detail rows: `{len(detail)}`",
@@ -380,8 +452,27 @@ def write_note(output_dir: Path, detail: pd.DataFrame, summary: pd.DataFrame, si
 
 def main() -> None:
     args = parse_args()
+    repo_root = Path(__file__).resolve().parents[2]
+    input_manifest_path, input_manifest = load_input_manifest(repo_root, args.input_manifest)
+    argv = sys.argv[1:]
+    explicit_flags = {
+        flag
+        for flag in ["--exact-seed-input"]
+        if cli_flag_provided(flag, argv)
+    }
+    exact_seed_input, exact_seed_input_source = resolve_manifest_input(
+        repo_root,
+        "exact_seed_input",
+        "--exact-seed-input",
+        args.exact_seed_input,
+        input_manifest,
+        explicit_flags,
+    )
+    input_resolution_sources = {
+        "exact_seed_input": exact_seed_input_source,
+    }
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    blockers = normalize_input(read_csv(args.exact_seed_input))
+    blockers = normalize_input(read_csv(exact_seed_input))
     detail = build_detail(blockers)
     summary = build_summary(detail)
     site_summary = build_site_summary(detail)
@@ -394,7 +485,14 @@ def main() -> None:
     detail.to_csv(args.output_dir / DETAIL_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     summary.to_csv(args.output_dir / SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
     site_summary.to_csv(args.output_dir / SITE_SUMMARY_OUTPUT_NAME, index=False, encoding="utf-8-sig")
-    write_note(args.output_dir, detail, summary, site_summary)
+    write_note(
+        args.output_dir,
+        detail,
+        summary,
+        site_summary,
+        input_manifest_path,
+        input_resolution_sources,
+    )
 
 
 if __name__ == "__main__":
