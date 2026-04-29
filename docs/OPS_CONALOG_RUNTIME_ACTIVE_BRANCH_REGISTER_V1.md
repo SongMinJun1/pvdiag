@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-195` | `voltage_evidence_request_manifest_resolution_ready_for_review` | BR-095 voltage-preserved evidence-request packet resolves BR-093 packet input from optional manifest or explicit CLI, records input source, and keeps request/truth/threshold boundaries unchanged | Continue evidence-lane manifest resolution with the next unresolved `/private/tmp` input dependency |
+| `BR-20260429-196` | `voltage_raw_source_attachment_manifest_resolution_ready_for_review` | BR-096 voltage-preserved raw/source attachment resolves BR-095 request and BR-093 source-map inputs from optional manifest or explicit CLI, records input sources, and keeps attachment/truth/threshold boundaries unchanged | Continue evidence-lane manifest resolution with the next unresolved `/private/tmp` input dependency |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -195,6 +195,7 @@
 | `BR-20260429-193` | `voltage_preserved_search_manifest_resolution_ready_for_review` | BR-092 voltage-preserved positive search resolves 2 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no candidate tier, known overlap, manual readiness, positive-truth, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-194` | `voltage_confirmation_manifest_resolution_ready_for_review` | BR-093 voltage-preserved confirmation packet resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest keys; no packet grouping, review priority, candidate map, family summary, truth, threshold, engine, or operator-facing semantics changed | no |
 | `BR-20260429-195` | `voltage_evidence_request_manifest_resolution_ready_for_review` | BR-095 voltage-preserved evidence-request packet resolves 1 volatile evidence input from optional manifest or explicit CLI and fails closed on missing manifest keys; no request priority, checklist axis, counterexample clearance, raw-waveform independence, truth, threshold, engine, or operator-facing semantics changed | no |
+| `BR-20260429-196` | `voltage_raw_source_attachment_manifest_resolution_ready_for_review` | BR-096 voltage-preserved raw/source attachment resolves 2 volatile evidence inputs from optional manifest or explicit CLI and fails closed on missing manifest keys; no source trace, daily trace, attachment status, raw-file count, common-cause context, truth, threshold, engine, or operator-facing semantics changed | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.

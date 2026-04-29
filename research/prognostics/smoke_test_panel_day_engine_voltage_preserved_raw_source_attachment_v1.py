@@ -252,11 +252,197 @@ def main() -> None:
         assert_true(payload["evidence_ready_for_truth_use_sum"] == 0, payload)
         assert_true(payload["threshold_tuning_approved_sum"] == 0, payload)
 
+        artifact_payload = json.loads(
+            (output_dir / "panel_day_engine_voltage_preserved_raw_source_attachment_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        note = (output_dir / "panel_day_engine_voltage_preserved_raw_source_attachment_note_v1.md").read_text(
+            encoding="utf-8"
+        )
+        assert_true(artifact_payload["input_resolution_sources"]["request_input"] == "explicit_cli", artifact_payload)
+        assert_true(
+            artifact_payload["input_resolution_sources"]["source_map_input"] == "explicit_cli",
+            artifact_payload,
+        )
+        assert_true("evidence input manifest: `not provided`" in note, note)
+        assert_true("`request_input`: `explicit_cli`" in note, note)
+        assert_true("`source_map_input`: `explicit_cli`" in note, note)
+
         attachment = pd.read_csv(output_dir / "panel_day_engine_voltage_preserved_raw_source_attachment_index_v1.csv")
         daily = pd.read_csv(output_dir / "panel_day_engine_voltage_preserved_raw_source_daily_trace_v1.csv")
         assert_true(int(attachment["engine_patch_allowed"].sum()) == 0, attachment)
         assert_true(int(daily["voltage_preserved_core_signal"].sum()) == 6, daily)
         assert_true(int(daily["common_cause_context_flag"].sum()) == 3, daily)
+
+        manifest_path = tmp / "raw_source_attachment_inputs.json"
+        request_csv = request_dir / "panel_day_engine_voltage_preserved_evidence_request_packet_v1.csv"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "request_input": str(request_csv),
+                        "source_map_input": str(source_map_path),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        manifest_out = tmp / "manifest_out"
+        manifest = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_voltage_preserved_raw_source_attachment_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--input-manifest",
+                str(manifest_path),
+                "--data-root",
+                str(data_root),
+                "--output-dir",
+                str(manifest_out),
+            ],
+            repo_root,
+        )
+        assert_true(manifest.returncode == 0, manifest.stderr or manifest.stdout)
+        manifest_attachment = pd.read_csv(
+            manifest_out / "panel_day_engine_voltage_preserved_raw_source_attachment_index_v1.csv",
+            encoding="utf-8-sig",
+        )
+        manifest_payload = json.loads(
+            (manifest_out / "panel_day_engine_voltage_preserved_raw_source_attachment_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        manifest_note = (manifest_out / "panel_day_engine_voltage_preserved_raw_source_attachment_note_v1.md").read_text(
+            encoding="utf-8"
+        )
+        assert_true(manifest_payload["attachment_rows"] == payload["attachment_rows"], manifest_payload)
+        assert_true(
+            manifest_attachment["attachment_status"].tolist() == attachment["attachment_status"].tolist(),
+            manifest_attachment.to_string(),
+        )
+        assert_true(
+            manifest_payload["input_resolution_sources"]["request_input"] == "input_manifest",
+            manifest_payload,
+        )
+        assert_true(
+            manifest_payload["input_resolution_sources"]["source_map_input"] == "input_manifest",
+            manifest_payload,
+        )
+        assert_true(f"evidence input manifest: `{manifest_path}`" in manifest_note, manifest_note)
+        assert_true("`request_input`: `input_manifest`" in manifest_note, manifest_note)
+        assert_true("`source_map_input`: `input_manifest`" in manifest_note, manifest_note)
+
+        bad_manifest_path = tmp / "bad_raw_source_attachment_inputs.json"
+        bad_manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "request_input": str(tmp / "missing_request.csv"),
+                        "source_map_input": str(tmp / "missing_source_map.csv"),
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        override_out = tmp / "override_out"
+        override = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_voltage_preserved_raw_source_attachment_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--request-dir",
+                str(request_dir),
+                "--source-map-input",
+                str(source_map_path),
+                "--input-manifest",
+                str(bad_manifest_path),
+                "--data-root",
+                str(data_root),
+                "--output-dir",
+                str(override_out),
+            ],
+            repo_root,
+        )
+        assert_true(override.returncode == 0, override.stderr or override.stdout)
+        override_payload = json.loads(
+            (override_out / "panel_day_engine_voltage_preserved_raw_source_attachment_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert_true(override_payload["input_resolution_sources"]["request_input"] == "explicit_cli", override_payload)
+        assert_true(override_payload["input_resolution_sources"]["source_map_input"] == "explicit_cli", override_payload)
+
+        missing_key_manifest_path = tmp / "missing_key_raw_source_attachment_inputs.json"
+        missing_key_manifest_path.write_text(
+            json.dumps(
+                {
+                    "inputs": {
+                        "request_input": str(request_csv)
+                    }
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        missing_key = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_voltage_preserved_raw_source_attachment_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--input-manifest",
+                str(missing_key_manifest_path),
+                "--data-root",
+                str(data_root),
+                "--output-dir",
+                str(tmp / "missing_key_out"),
+            ],
+            repo_root,
+        )
+        assert_true(missing_key.returncode != 0, "missing-key manifest unexpectedly passed")
+        assert_true("missing `source_map_input`" in (missing_key.stderr + missing_key.stdout), missing_key.stderr)
+
+        missing_request_manifest_path = tmp / "missing_request_raw_source_attachment_inputs.json"
+        missing_request_manifest_path.write_text(
+            json.dumps(
+                {"inputs": {"source_map_input": str(source_map_path)}},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        missing_request = run(
+            [
+                sys.executable,
+                "research/prognostics/build_panel_day_engine_voltage_preserved_raw_source_attachment_v1.py",
+                "--repo-root",
+                str(repo_root),
+                "--input-manifest",
+                str(missing_request_manifest_path),
+                "--data-root",
+                str(data_root),
+                "--output-dir",
+                str(tmp / "missing_request_out"),
+            ],
+            repo_root,
+        )
+        assert_true(missing_request.returncode != 0, "missing-request manifest unexpectedly passed")
+        assert_true(
+            "missing `request_input`" in (missing_request.stderr + missing_request.stdout),
+            missing_request.stderr,
+        )
         print(json.dumps({"smoke": "ok", "attachment_rows": int(len(attachment))}, ensure_ascii=False))
 
 
