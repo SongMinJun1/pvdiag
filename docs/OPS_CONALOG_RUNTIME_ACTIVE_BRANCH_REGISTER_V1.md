@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-217` | `voltage_preserved_static_directory_contract_closure_ready_for_review` | voltage-preserved static directory contract is closed: 4 rows, 3 source files, contract closed 4, gap 0, explicit CLI rows 4, input-manifest/resolver rows 4, rewrite/runtime semantic permission rows 0 | Move to the remaining panel-day evidence static directory lane; do not rewrite voltage-preserved defaults |
+| `BR-20260429-218` | `panel_day_engine_evidence_static_directory_contract_closure_ready_for_review` | panel-day evidence static directory contract is closed: 20 rows, 10 source files, contract closed 20, gap 0, explicit CLI rows 20, input-manifest/resolver rows 20, rewrite/runtime semantic permission rows 0 | Treat the BR-211 static directory bucket as lane-closed and move to the next unresolved static artifact/runtime-result lane |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -217,6 +217,7 @@
 | `BR-20260429-215` | `prepatch_scorecard_static_directory_contract_gap_ready_for_review` | gap audit confirms prepatch scorecard is not contract-closed yet: 4 directory rows, 0 closed, 4 need input-manifest/resolver support, explicit CLI rows 4, missing checks 8, bulk rewrite/runtime semantic permission rows 0 | no |
 | `BR-20260429-216` | `prepatch_scorecard_static_directory_contract_closure_ready_for_review` | closes the 4 BR-215 prepatch scorecard input-contract gaps by adding optional `--input-manifest` resolver support to result delta scorecard, algorithm prepatch runbook, and scorecard compare scripts; closure audit now reports 4/4 closed, missing checks 0, bulk rewrite/runtime semantic permission rows 0 | no |
 | `BR-20260429-217` | `voltage_preserved_static_directory_contract_closure_ready_for_review` | closure audit confirms the voltage-preserved static directory lane is already manifest/explicit-input aware: 4/4 `--input-manifest`, 4/4 explicit CLI flags, 4/4 resolver rows, missing checks 0, bulk rewrite/runtime semantic permission rows 0 | no |
+| `BR-20260429-218` | `panel_day_engine_evidence_static_directory_contract_closure_ready_for_review` | closure audit confirms the panel-day evidence static directory lane is manifest/explicit-input aware: 20/20 `--input-manifest`, 20/20 explicit CLI flags, 20/20 resolver rows, missing checks 0, bulk rewrite/runtime semantic permission rows 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
