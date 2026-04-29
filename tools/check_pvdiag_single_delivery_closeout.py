@@ -126,6 +126,25 @@ def main() -> None:
         self_test = run_checked([sys.executable, str(exported_file), "--single-self-test"], export_output_dir)
         if "self-test ok" not in self_test.stdout:
             fail("exported pvdiag_single.py did not print the self-test success marker")
+        if "payload_structure_note" not in self_test.stdout:
+            fail("exported pvdiag_single.py did not print payload structure guidance")
+
+        list_payload = run_checked([sys.executable, str(exported_file), "--single-list-payload"], export_output_dir)
+        for marker in ["entry_runner", "core_engine", "raw_only_shared_utils"]:
+            if marker not in list_payload.stdout:
+                fail(f"exported pvdiag_single.py payload list missing marker: {marker}")
+
+        extract_root = Path(tmp) / "source_extract"
+        extract_source = run_checked(
+            [sys.executable, str(exported_file), "--single-extract-source", str(extract_root)],
+            export_output_dir,
+        )
+        if "source extraction ok" not in extract_source.stdout:
+            fail("exported pvdiag_single.py did not report source extraction success")
+        if not (extract_root / "release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py").exists():
+            fail("exported pvdiag_single.py source extraction did not write the embedded runner")
+        if not (extract_root / "release/conalog_full_runtime_v1/package/pv_ae/panel_day_engine.py").exists():
+            fail("exported pvdiag_single.py source extraction did not write the embedded core engine")
 
     quickstart = repo_root / "release/conalog_full_runtime_v1/PVDIAG_SINGLE_QUICKSTART.md"
     checklist = repo_root / "release/conalog_full_runtime_v1/PVDIAG_SINGLE_DELIVERY_CHECKLIST.md"
@@ -137,6 +156,8 @@ def main() -> None:
             "pip install pandas numpy torch openpyxl tqdm",
             "--data-root",
             "--output-root",
+            "--single-list-payload",
+            "--single-extract-source",
         ],
     )
     checklist_checks = check_doc(
@@ -145,6 +166,8 @@ def main() -> None:
             "보낼 파일은 `pvdiag_single.py` 한 개",
             "pandas numpy torch openpyxl tqdm",
             "python pvdiag_single.py --single-self-test",
+            "python pvdiag_single.py --single-list-payload",
+            "python pvdiag_single.py --single-extract-source",
             "실증 CSV",
         ],
     )
@@ -152,7 +175,7 @@ def main() -> None:
     single_manifest = load_single_manifest(repo_root)
     snapshot = {
         "snapshot_schema": "pvdiag_single_delivery_snapshot_v1",
-        "release_id": "pvdiag_single_br252_line_diet_20260430",
+        "release_id": "pvdiag_single_br253_payload_transparency_20260430",
         "professor_deliverable_file_count": 1,
         "professor_deliverable_files": ["pvdiag_single.py"],
         "single_file": {
@@ -169,6 +192,7 @@ def main() -> None:
             "generated_at_utc": str(single_manifest.get("generated_at_utc", "")),
             "excluded_runtime_windows_x64": bool(single_manifest.get("excluded_runtime_windows_x64")),
             "excluded_single_file_payload_rels": single_manifest.get("excluded_single_file_payload_rels", []),
+            "payload_roles": sorted({str(row.get("role", "")) for row in single_manifest.get("files", [])}),
         },
         "external_package_prerequisites": REQUIRED_EXTERNAL_PACKAGES,
         "expected_result_artifacts": REQUIRED_RESULT_ARTIFACTS,
@@ -177,6 +201,8 @@ def main() -> None:
             "export_one_file_check": 1,
             "checksum_equality_check": 1,
             "exported_self_test_check": 1,
+            "visible_payload_index_check": 1,
+            "source_extract_check": 1,
             "handoff_doc_snippet_check": 1,
             "failure_ux_smoke_check": 1,
             "algorithm_semantics_changed": 0,

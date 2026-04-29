@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -38,6 +39,8 @@ def main() -> None:
     assert_true(manifest_payload["excluded_runtime_windows_x64"] is True, manifest_payload)
     assert_true("EMBEDDED_TEXT_FILES" in single_text, single)
     assert_true("EMBEDDED_TEXT_JSON_CHUNKS" in single_text, single)
+    assert_true("PAYLOAD_FILE_INDEX" in single_text, single)
+    assert_true("PAYLOAD_STRUCTURE_NOTE" in single_text, single)
     assert_true(len(single_text.splitlines()) < 1_000, single)
     assert_true("PAYLOAD_B64" not in single_text, single)
     assert_true("import base64" not in single_text, single)
@@ -92,6 +95,39 @@ def main() -> None:
     )
     assert_true(self_test.returncode == 0, self_test.stderr or self_test.stdout)
     assert_true("self-test ok" in self_test.stdout, self_test.stdout)
+    assert_true("payload_structure_note" in self_test.stdout, self_test.stdout)
+
+    list_payload = subprocess.run(
+        [sys.executable, str(single), "--single-list-payload"],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert_true(list_payload.returncode == 0, list_payload.stderr or list_payload.stdout)
+    assert_true("entry_runner" in list_payload.stdout, list_payload.stdout)
+    assert_true("core_engine" in list_payload.stdout, list_payload.stdout)
+    assert_true("raw_only_shared_utils" in list_payload.stdout, list_payload.stdout)
+
+    with tempfile.TemporaryDirectory(prefix="pvdiag_single_source_extract_smoke_") as tmp:
+        extract_source = subprocess.run(
+            [sys.executable, str(single), "--single-extract-source", tmp],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert_true(extract_source.returncode == 0, extract_source.stderr or extract_source.stdout)
+        assert_true("source extraction ok" in extract_source.stdout, extract_source.stdout)
+        extracted_root = Path(tmp)
+        assert_true(
+            (extracted_root / "release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py").exists(),
+            extract_source.stdout,
+        )
+        assert_true(
+            (extracted_root / "release/conalog_full_runtime_v1/package/pv_ae/panel_day_engine.py").exists(),
+            extract_source.stdout,
+        )
 
     print("smoke ok: pvdiag_single_delivery_v1")
 

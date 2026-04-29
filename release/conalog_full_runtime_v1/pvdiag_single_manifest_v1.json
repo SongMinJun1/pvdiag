@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-04-29T18:34:12.550187+00:00",
+  "generated_at_utc": "2026-04-29T18:45:42.039859+00:00",
   "generated_by": "tools/build_pvdiag_single_py.py",
   "delivery_artifact": "release/conalog_full_runtime_v1/pvdiag_single.py",
   "payload_mode": "source_text",
@@ -27,56 +27,67 @@
   "files": [
     {
       "path": "release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py",
+      "role": "entry_runner",
       "bytes": 168800,
       "sha256": "21ab958f989db374028b1e96755a46f4f65d09fe391252e08f590b4e21ccd920"
     },
     {
       "path": "release/conalog_full_runtime_v1/package/artifacts/fault6_fixed_result_table_v1.csv",
+      "role": "frozen_fault_reference",
       "bytes": 1341,
       "sha256": "93eb336dfdbba36159e802726e9e94d98f782b74ef2e62b5cea46f4a22f93581"
     },
     {
       "path": "release/conalog_full_runtime_v1/package/artifacts/fault6_label_and_algorithm_preview_v1.csv",
+      "role": "required_result_preview",
       "bytes": 1125,
       "sha256": "58e321a5bfcd7bf62e398aecde38701a533c5a64cbef2d18935b57bc4a39e20a"
     },
     {
       "path": "release/conalog_full_runtime_v1/package/artifacts/input_baseline_manifest_v1.json",
+      "role": "baseline_fingerprint",
       "bytes": 2236,
       "sha256": "8f6e69e526de55fb976e0fd9ecb5c1304816c3d3d48a7f8ef758989d6914ee2c"
     },
     {
       "path": "release/conalog_full_runtime_v1/package/artifacts/panel_day_core_baseline_digest_v1.json",
+      "role": "shadow_compare_reference",
       "bytes": 2864,
       "sha256": "15b339b68502e6e1d930987d35e3e67f0a6a5c7a308c3a37a4e8190e10f8b250"
     },
     {
       "path": "release/conalog_full_runtime_v1/package/pv_ae/panel_day_engine.py",
+      "role": "core_engine",
       "bytes": 136596,
       "sha256": "2cf3ae3f93bc23a5b1e1eeb19418f5ef9a2e12e84f9a583bd0fdaf636ecafbb3"
     },
     {
       "path": "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_runtime_fault_event_audit_v1.py",
+      "role": "raw_only_audit_builder",
       "bytes": 36363,
       "sha256": "68524c0aa151b9c45c36b7c6c03a91d61391d5e6617230ec780e1f82bddbe49e"
     },
     {
       "path": "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_runtime_final_verdict_v1.py",
+      "role": "raw_only_verdict_builder",
       "bytes": 8601,
       "sha256": "d23f1a31463f8367d09d23d1c6973d67448b966e89a30f3785e7403ed7dcaccb"
     },
     {
       "path": "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_runtime_heuristic_v1.py",
+      "role": "raw_only_heuristic_builder",
       "bytes": 10893,
       "sha256": "18275385e1bc22bca4cb442978ec2b817742637983b6edf77ebaa92aab12768a"
     },
     {
       "path": "release/conalog_full_runtime_v1/package/research/prognostics/heuristic_display_registry_v1.py",
+      "role": "display_label_registry",
       "bytes": 3281,
       "sha256": "d7cbf8bd24a2274e040231e166eed32098c256c1ba3ce19ba3d667ae6f1f4876"
     },
     {
       "path": "release/conalog_full_runtime_v1/package/research/prognostics/runtime_rawonly_chain_common_v1.py",
+      "role": "raw_only_shared_utils",
       "bytes": 49430,
       "sha256": "62b04b108695ef611f1aa97f7abde111f71d994f38904e1ace2feae595d11ac1"
     }

@@ -5,6 +5,7 @@ import argparse
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -97,6 +98,8 @@ def main() -> None:
         fail("single-file artifact still contains the old base64/zip payload path")
     if "EMBEDDED_TEXT_JSON_CHUNKS" not in single_text or "PAYLOAD_MODE = \"source_text\"" not in single_text:
         fail("single-file artifact does not expose the source-text payload markers")
+    if "PAYLOAD_FILE_INDEX" not in single_text or "PAYLOAD_STRUCTURE_NOTE" not in single_text:
+        fail("single-file artifact does not expose the visible payload structure index")
 
     compile_proc = subprocess.run(
         [sys.executable, "-m", "py_compile", str(single)],
@@ -120,6 +123,37 @@ def main() -> None:
             fail(self_test.stderr or self_test.stdout)
         if "self-test ok" not in self_test.stdout:
             fail("single self-test did not print expected success marker")
+        if "payload_structure_note" not in self_test.stdout:
+            fail("single self-test did not print payload structure guidance")
+
+        list_payload = subprocess.run(
+            [sys.executable, str(single), "--single-list-payload"],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if list_payload.returncode != 0:
+            fail(list_payload.stderr or list_payload.stdout)
+        for marker in ["entry_runner", "core_engine", "raw_only_shared_utils"]:
+            if marker not in list_payload.stdout:
+                fail(f"single payload list missing marker: {marker}")
+
+        with tempfile.TemporaryDirectory(prefix="pvdiag_single_handoff_extract_") as tmp:
+            extract_source = subprocess.run(
+                [sys.executable, str(single), "--single-extract-source", tmp],
+                cwd=repo_root,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if extract_source.returncode != 0:
+                fail(extract_source.stderr or extract_source.stdout)
+            extracted_root = Path(tmp)
+            if not (extracted_root / "release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py").exists():
+                fail("source extraction did not write the embedded runner")
+            if not (extracted_root / "release/conalog_full_runtime_v1/package/pv_ae/panel_day_engine.py").exists():
+                fail("source extraction did not write the embedded core engine")
 
     print(
         json.dumps(
@@ -132,8 +166,11 @@ def main() -> None:
                 "payload_file_count": int(payload.get("payload_file_count", 0)),
                 "payload_text_bytes": int(payload.get("payload_text_bytes", 0)),
                 "single_line_count": single_line_count,
+                "visible_payload_index": int("PAYLOAD_FILE_INDEX" in single_text),
                 "excluded_runtime_windows_x64": bool(payload.get("excluded_runtime_windows_x64")),
                 "self_test_ran": int(not args.skip_self_test),
+                "payload_list_ran": int(not args.skip_self_test),
+                "source_extract_ran": int(not args.skip_self_test),
             },
             ensure_ascii=False,
             indent=2,
