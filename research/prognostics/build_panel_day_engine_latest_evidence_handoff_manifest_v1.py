@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -13,91 +14,100 @@ DETAIL_OUTPUT_NAME = "panel_day_engine_latest_evidence_handoff_manifest_v1.csv"
 SUMMARY_OUTPUT_NAME = "panel_day_engine_latest_evidence_handoff_manifest_summary_v1.csv"
 NOTE_OUTPUT_NAME = "panel_day_engine_latest_evidence_handoff_manifest_note_v1.md"
 JSON_OUTPUT_NAME = "panel_day_engine_latest_evidence_handoff_manifest_v1.json"
+LATEST_HANDOFF_MANIFEST_DIR = "${LATEST_HANDOFF_MANIFEST_DIR}"
+LATEST_HANDOFF_OUTPUT_ROOT = "${LATEST_HANDOFF_OUTPUT_ROOT}"
+CURRENT_REPO_ROOT_REPRO = "$(pwd)"
+
+
+def handoff_slug(branch_id: str, branch_title: str) -> str:
+    branch_token = branch_id.lower().replace("br-202604", "br")
+    text = f"{branch_token}_{branch_title}".lower()
+    return re.sub(r"[^a-z0-9]+", "_", text).strip("_") or "latest_handoff_branch"
+
+
+def handoff_input_manifest(branch_id: str, branch_title: str) -> str:
+    return f"{LATEST_HANDOFF_MANIFEST_DIR}/{handoff_slug(branch_id, branch_title)}_input_manifest.json"
+
+
+def handoff_output_dir(branch_id: str, branch_title: str) -> str:
+    return f"{LATEST_HANDOFF_OUTPUT_ROOT}/{handoff_slug(branch_id, branch_title)}"
+
+
+def handoff_artifact_path(branch_id: str, branch_title: str, filename: str) -> str:
+    return f"{handoff_output_dir(branch_id, branch_title)}/{filename}"
+
+
+def shell_dquote(value: str) -> str:
+    return f'"{value}"'
 
 BR064_REPRO = (
     "python3 research/prognostics/build_panel_day_engine_fault_family_judgment_candidate_packet_v1.py "
-    "--cross-axis-input /private/tmp/cross_axis_manifest_sync_review_check/panel_day_engine_cross_axis_manifest_sync_review_v1.csv "
-    "--pressure-input /private/tmp/fault_family_regression_pressure_packet_check/panel_day_engine_fault_family_regression_pressure_packet_v1.csv "
     "--threshold-input docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260423_017_THRESHOLD_CANDIDATE_V1.csv "
     "--subtype-input docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260423_018_FAULT_SUBTYPE_HYPOTHESIS_MAP_V1.csv "
-    "--output-dir /private/tmp/fault_family_judgment_candidate_packet_check"
+    f"--output-dir {shell_dquote(handoff_output_dir('BR-20260424-064', 'fault_family_judgment_candidate_packet'))} "
+    f"--input-manifest {shell_dquote(handoff_input_manifest('BR-20260424-064', 'fault_family_judgment_candidate_packet'))}"
 )
 BR065_REPRO = (
     "python3 research/prognostics/build_panel_day_engine_local_morphology_family_shape_review_v1.py "
-    "--packet-input /private/tmp/fault_family_judgment_candidate_packet_check/panel_day_engine_fault_family_judgment_candidate_packet_v1.csv "
     "--data-root data "
-    "--output-dir /private/tmp/local_morphology_family_shape_review_check"
+    f"--output-dir {shell_dquote(handoff_output_dir('BR-20260424-065', 'local_morphology_family_shape_review'))} "
+    f"--input-manifest {shell_dquote(handoff_input_manifest('BR-20260424-065', 'local_morphology_family_shape_review'))}"
 )
 BR067_REPRO = (
     "python3 research/prognostics/build_panel_day_engine_voltage_dominant_physical_vs_artifact_review_v1.py "
-    "--shape-input /private/tmp/local_morphology_family_shape_review_check/panel_day_engine_local_morphology_family_shape_review_v1.csv "
     "--data-root data "
-    "--output-dir /private/tmp/voltage_dominant_physical_vs_artifact_review_check"
+    f"--output-dir {shell_dquote(handoff_output_dir('BR-20260424-067', 'voltage_dominant_physical_vs_artifact_review'))} "
+    f"--input-manifest {shell_dquote(handoff_input_manifest('BR-20260424-067', 'voltage_dominant_physical_vs_artifact_review'))}"
 )
 BR068_REPRO = (
     "python3 research/prognostics/build_panel_day_engine_raw_waveform_physical_support_review_v1.py "
-    "--review-input /private/tmp/voltage_dominant_physical_vs_artifact_review_check/panel_day_engine_voltage_dominant_physical_vs_artifact_review_v1.csv "
     "--data-root data "
-    "--output-dir /private/tmp/raw_waveform_physical_support_review_check"
+    f"--output-dir {shell_dquote(handoff_output_dir('BR-20260424-068', 'raw_waveform_physical_support_review'))} "
+    f"--input-manifest {shell_dquote(handoff_input_manifest('BR-20260424-068', 'raw_waveform_physical_support_review'))}"
 )
 BR069_REPRO = (
     "python3 research/prognostics/build_panel_day_engine_physical_confirmation_requirements_review_v1.py "
-    "--raw-review-input /private/tmp/raw_waveform_physical_support_review_check/panel_day_engine_raw_waveform_physical_support_review_v1.csv "
     "--manual-evidence-input docs/internal/manual_field_evidence_latest.csv "
-    "--output-dir /private/tmp/physical_confirmation_requirements_review_check"
+    f"--output-dir {shell_dquote(handoff_output_dir('BR-20260424-069', 'physical_confirmation_requirements_review'))} "
+    f"--input-manifest {shell_dquote(handoff_input_manifest('BR-20260424-069', 'physical_confirmation_requirements_review'))}"
 )
 BR070_REPRO = (
     "python3 research/prognostics/build_panel_day_engine_physical_evidence_request_packet_v1.py "
-    "--confirmation-input /private/tmp/physical_confirmation_requirements_review_check/panel_day_engine_physical_confirmation_requirements_review_v1.csv "
-    "--checklist-input /private/tmp/physical_confirmation_requirements_review_check/panel_day_engine_physical_confirmation_requirements_checklist_v1.csv "
-    "--output-dir /private/tmp/physical_evidence_request_packet_check"
+    f"--output-dir {shell_dquote(handoff_output_dir('BR-20260424-070', 'physical_evidence_request_packet'))} "
+    f"--input-manifest {shell_dquote(handoff_input_manifest('BR-20260424-070', 'physical_evidence_request_packet'))}"
 )
 BR071_REPRO = (
     "python3 research/prognostics/build_panel_day_engine_strong_common_cause_blocker_regression_packet_v1.py "
-    "--judgment-input /private/tmp/fault_family_judgment_candidate_packet_check/panel_day_engine_fault_family_judgment_candidate_packet_v1.csv "
-    "--output-dir /private/tmp/strong_common_cause_blocker_regression_packet_check"
+    f"--output-dir {shell_dquote(handoff_output_dir('BR-20260424-071', 'strong_common_cause_blocker_regression_packet'))} "
+    f"--input-manifest {shell_dquote(handoff_input_manifest('BR-20260424-071', 'strong_common_cause_blocker_regression_packet'))}"
 )
 BR072_REPRO = (
     "python3 research/prognostics/build_panel_day_engine_common_cause_exact_seed_search_v1.py "
-    "--judgment-input /private/tmp/fault_family_judgment_candidate_packet_check/panel_day_engine_fault_family_judgment_candidate_packet_v1.csv "
-    "--synchrony-input /private/tmp/common_cause_synchrony_axis_sidecar_check/panel_day_engine_common_cause_synchrony_axis_v1.csv "
-    "--current-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_current_v1.csv "
-    "--precursor-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_precursor_report_v1.csv "
-    "--rawonly-signal-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_raw_only_fault_signal_report_v1.csv "
     "--data-root data "
-    "--output-dir /private/tmp/common_cause_exact_seed_search_check"
+    f"--output-dir {shell_dquote(handoff_output_dir('BR-20260424-072', 'common_cause_exact_seed_search'))} "
+    f"--input-manifest {shell_dquote(handoff_input_manifest('BR-20260424-072', 'common_cause_exact_seed_search'))}"
 )
 BR073_REPRO = (
     "python3 research/prognostics/build_panel_day_engine_common_cause_structural_blocker_review_v1.py "
-    "--exact-seed-input /private/tmp/common_cause_exact_seed_search_check/panel_day_engine_common_cause_exact_seed_search_v1.csv "
-    "--output-dir /private/tmp/common_cause_structural_blocker_review_check"
+    f"--output-dir {shell_dquote(handoff_output_dir('BR-20260424-073', 'common_cause_structural_blocker_review'))} "
+    f"--input-manifest {shell_dquote(handoff_input_manifest('BR-20260424-073', 'common_cause_structural_blocker_review'))}"
 )
 BR074_REPRO = (
     "python3 research/prognostics/build_panel_day_engine_common_cause_manual_trace_review_v1.py "
-    "--blocker-input /private/tmp/common_cause_structural_blocker_review_check/panel_day_engine_common_cause_structural_blocker_review_v1.csv "
-    "--current-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_current_v1.csv "
-    "--precursor-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_precursor_report_v1.csv "
-    "--rawonly-signal-input /private/tmp/conalog_mlpe_seed_expand_check/result/fault_panel_result_raw_only_fault_signal_report_v1.csv "
     "--data-root data "
-    "--output-dir /private/tmp/common_cause_manual_trace_review_check"
+    f"--output-dir {shell_dquote(handoff_output_dir('BR-20260424-074', 'common_cause_manual_trace_review'))} "
+    f"--input-manifest {shell_dquote(handoff_input_manifest('BR-20260424-074', 'common_cause_manual_trace_review'))}"
 )
 BR075_REPRO = (
     "python3 research/prognostics/check_panel_day_engine_common_cause_semantic_prepatch_gate_v1.py "
-    "--strong-blocker-input /private/tmp/strong_common_cause_blocker_regression_packet_check/panel_day_engine_strong_common_cause_blocker_regression_packet_v1.csv "
-    "--exact-search-input /private/tmp/common_cause_exact_seed_search_check/panel_day_engine_common_cause_exact_seed_search_v1.csv "
-    "--structural-input /private/tmp/common_cause_structural_blocker_review_check/panel_day_engine_common_cause_structural_blocker_review_v1.csv "
-    "--trace-input /private/tmp/common_cause_manual_trace_review_check/panel_day_engine_common_cause_manual_trace_review_v1.csv "
-    "--output-dir /private/tmp/common_cause_semantic_prepatch_gate_check"
+    f"--output-dir {shell_dquote(handoff_output_dir('BR-20260424-075', 'common_cause_semantic_prepatch_gate'))} "
+    f"--input-manifest {shell_dquote(handoff_input_manifest('BR-20260424-075', 'common_cause_semantic_prepatch_gate'))}"
 )
 BR076_REPRO = (
     "python3 research/prognostics/check_panel_day_engine_algorithm_prepatch_runbook_v1.py "
-    "--repo-root /private/tmp/pvdiag_postmerge_j "
-    "--packet-input /private/tmp/fault_family_regression_pressure_packet_check/panel_day_engine_fault_family_regression_pressure_packet_v1.csv "
-    "--common-cause-strong-blocker-input /private/tmp/strong_common_cause_blocker_regression_packet_check/panel_day_engine_strong_common_cause_blocker_regression_packet_v1.csv "
-    "--common-cause-exact-search-input /private/tmp/common_cause_exact_seed_search_check/panel_day_engine_common_cause_exact_seed_search_v1.csv "
-    "--common-cause-structural-input /private/tmp/common_cause_structural_blocker_review_check/panel_day_engine_common_cause_structural_blocker_review_v1.csv "
-    "--common-cause-trace-input /private/tmp/common_cause_manual_trace_review_check/panel_day_engine_common_cause_manual_trace_review_v1.csv "
-    "--output-dir /private/tmp/panel_engine_algorithm_prepatch_runbook_br076_check"
+    f"--repo-root {shell_dquote(CURRENT_REPO_ROOT_REPRO)} "
+    f"--output-dir {shell_dquote(handoff_output_dir('BR-20260424-076', 'algorithm_prepatch_runbook_common_cause_gate'))} "
+    f"--input-manifest {shell_dquote(handoff_input_manifest('BR-20260424-076', 'algorithm_prepatch_runbook_common_cause_gate'))}"
 )
 
 DETAIL_COLUMNS = [
@@ -145,7 +155,11 @@ BRANCH_SPECS = [
         "judgment_role": "review_bucket_split",
         "handoff_state": "indexed_for_review",
         "primary_doc_path": "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_064_FAULT_FAMILY_JUDGMENT_CANDIDATE_PACKET_V1.md",
-        "primary_artifact_path": "/private/tmp/fault_family_judgment_candidate_packet_check/panel_day_engine_fault_family_judgment_candidate_packet_v1.csv",
+        "primary_artifact_path": handoff_artifact_path(
+            "BR-20260424-064",
+            "fault_family_judgment_candidate_packet",
+            "panel_day_engine_fault_family_judgment_candidate_packet_v1.csv",
+        ),
         "primary_artifact_kind": "detail_csv",
         "repro_command": BR064_REPRO,
         "key_result": "209 rows split: common-cause hold/block 176, regression pressure 11, local morphology 10, weak hold 12; promotion/engine patch 0",
@@ -158,7 +172,11 @@ BRANCH_SPECS = [
         "judgment_role": "threshold_blocker_split",
         "handoff_state": "indexed_for_review",
         "primary_doc_path": "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_065_LOCAL_MORPHOLOGY_FAMILY_SHAPE_REVIEW_V1.md",
-        "primary_artifact_path": "/private/tmp/local_morphology_family_shape_review_check/panel_day_engine_local_morphology_family_shape_review_v1.csv",
+        "primary_artifact_path": handoff_artifact_path(
+            "BR-20260424-065",
+            "local_morphology_family_shape_review",
+            "panel_day_engine_local_morphology_family_shape_review_v1.csv",
+        ),
         "primary_artifact_kind": "detail_csv",
         "repro_command": BR065_REPRO,
         "key_result": "10 rows split into 8 recovery-only holds and 2 voltage-dominant hard-signal review rows; promotion/engine patch 0",
@@ -184,7 +202,11 @@ BRANCH_SPECS = [
         "judgment_role": "physical_leaning_review",
         "handoff_state": "indexed_for_review",
         "primary_doc_path": "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_067_VOLTAGE_DOMINANT_PHYSICAL_VS_ARTIFACT_REVIEW_V1.md",
-        "primary_artifact_path": "/private/tmp/voltage_dominant_physical_vs_artifact_review_check/panel_day_engine_voltage_dominant_physical_vs_artifact_review_v1.csv",
+        "primary_artifact_path": handoff_artifact_path(
+            "BR-20260424-067",
+            "voltage_dominant_physical_vs_artifact_review",
+            "panel_day_engine_voltage_dominant_physical_vs_artifact_review_v1.csv",
+        ),
         "primary_artifact_kind": "detail_csv",
         "repro_command": BR067_REPRO,
         "key_result": "2 rows physical-leaning voltage-axis review, artifact/reference hold 0; no confirmed family or engine patch",
@@ -197,7 +219,11 @@ BRANCH_SPECS = [
         "judgment_role": "raw_waveform_support",
         "handoff_state": "indexed_for_review",
         "primary_doc_path": "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_068_RAW_WAVEFORM_PHYSICAL_SUPPORT_REVIEW_V1.md",
-        "primary_artifact_path": "/private/tmp/raw_waveform_physical_support_review_check/panel_day_engine_raw_waveform_physical_support_review_v1.csv",
+        "primary_artifact_path": handoff_artifact_path(
+            "BR-20260424-068",
+            "raw_waveform_physical_support_review",
+            "panel_day_engine_raw_waveform_physical_support_review_v1.csv",
+        ),
         "primary_artifact_kind": "detail_csv",
         "repro_command": BR068_REPRO,
         "key_result": "2 rows have low-voltage/current-preserved raw timestamp support; still not independent physical confirmation",
@@ -210,7 +236,11 @@ BRANCH_SPECS = [
         "judgment_role": "independent_confirmation_gap",
         "handoff_state": "blocked_pending_evidence",
         "primary_doc_path": "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_069_PHYSICAL_CONFIRMATION_REQUIREMENTS_REVIEW_V1.md",
-        "primary_artifact_path": "/private/tmp/physical_confirmation_requirements_review_check/panel_day_engine_physical_confirmation_requirements_review_v1.csv",
+        "primary_artifact_path": handoff_artifact_path(
+            "BR-20260424-069",
+            "physical_confirmation_requirements_review",
+            "panel_day_engine_physical_confirmation_requirements_review_v1.csv",
+        ),
         "primary_artifact_kind": "detail_csv",
         "repro_command": BR069_REPRO,
         "key_result": "2 rows remain raw_supported_confirmation_gap_hold; required independent axes met 0/2 for both rows",
@@ -223,7 +253,11 @@ BRANCH_SPECS = [
         "judgment_role": "evidence_acquisition_request",
         "handoff_state": "blocked_pending_evidence",
         "primary_doc_path": "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_070_PHYSICAL_EVIDENCE_REQUEST_PACKET_V1.md",
-        "primary_artifact_path": "/private/tmp/physical_evidence_request_packet_check/panel_day_engine_physical_evidence_request_packet_v1.csv",
+        "primary_artifact_path": handoff_artifact_path(
+            "BR-20260424-070",
+            "physical_evidence_request_packet",
+            "panel_day_engine_physical_evidence_request_packet_v1.csv",
+        ),
         "primary_artifact_kind": "detail_csv",
         "repro_command": BR070_REPRO,
         "key_result": "2 high-priority exact-panel evidence requests; promotion/engine/threshold patch sums 0",
@@ -236,7 +270,11 @@ BRANCH_SPECS = [
         "judgment_role": "regression_blocker_seed",
         "handoff_state": "indexed_as_safety_material",
         "primary_doc_path": "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_071_STRONG_COMMON_CAUSE_BLOCKER_REGRESSION_PACKET_V1.md",
-        "primary_artifact_path": "/private/tmp/strong_common_cause_blocker_regression_packet_check/panel_day_engine_strong_common_cause_blocker_regression_packet_v1.csv",
+        "primary_artifact_path": handoff_artifact_path(
+            "BR-20260424-071",
+            "strong_common_cause_blocker_regression_packet",
+            "panel_day_engine_strong_common_cause_blocker_regression_packet_v1.csv",
+        ),
         "primary_artifact_kind": "detail_csv",
         "repro_command": BR071_REPRO,
         "key_result": "50 strong common-cause hold rows packaged as blocker/regression seeds; panel-local promotion blocked sum 50",
@@ -249,7 +287,11 @@ BRANCH_SPECS = [
         "judgment_role": "candidate_reservoir_structural_blocker",
         "handoff_state": "indexed_as_non_closure",
         "primary_doc_path": "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_072_COMMON_CAUSE_EXACT_SEED_SEARCH_V1.md",
-        "primary_artifact_path": "/private/tmp/common_cause_exact_seed_search_check/panel_day_engine_common_cause_exact_seed_search_v1.csv",
+        "primary_artifact_path": handoff_artifact_path(
+            "BR-20260424-072",
+            "common_cause_exact_seed_search",
+            "panel_day_engine_common_cause_exact_seed_search_v1.csv",
+        ),
         "primary_artifact_kind": "detail_csv",
         "repro_command": BR072_REPRO,
         "key_result": "exact closure 0; 49 panels / 101 raw direct rows preserved as reservoir plus structural blockers",
@@ -262,7 +304,11 @@ BRANCH_SPECS = [
         "judgment_role": "structural_blocker_split",
         "handoff_state": "indexed_as_non_closure",
         "primary_doc_path": "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_073_COMMON_CAUSE_STRUCTURAL_BLOCKER_REVIEW_V1.md",
-        "primary_artifact_path": "/private/tmp/common_cause_structural_blocker_review_check/panel_day_engine_common_cause_structural_blocker_review_v1.csv",
+        "primary_artifact_path": handoff_artifact_path(
+            "BR-20260424-073",
+            "common_cause_structural_blocker_review",
+            "panel_day_engine_common_cause_structural_blocker_review_v1.csv",
+        ),
         "primary_artifact_kind": "detail_csv",
         "repro_command": BR073_REPRO,
         "key_result": "49 blockers split; only 2 manual trace targets, promotion/engine/threshold patch 0",
@@ -275,7 +321,11 @@ BRANCH_SPECS = [
         "judgment_role": "manual_trace_non_closure",
         "handoff_state": "indexed_as_non_closure",
         "primary_doc_path": "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_074_COMMON_CAUSE_MANUAL_TRACE_REVIEW_V1.md",
-        "primary_artifact_path": "/private/tmp/common_cause_manual_trace_review_check/panel_day_engine_common_cause_manual_trace_review_v1.csv",
+        "primary_artifact_path": handoff_artifact_path(
+            "BR-20260424-074",
+            "common_cause_manual_trace_review",
+            "panel_day_engine_common_cause_manual_trace_review_v1.csv",
+        ),
         "primary_artifact_kind": "detail_csv",
         "repro_command": BR074_REPRO,
         "key_result": "2 traces remain non-closure: raw-only near-anchor trace-only and post-current 71-day mismatch",
@@ -288,7 +338,11 @@ BRANCH_SPECS = [
         "judgment_role": "common_cause_semantic_gate",
         "handoff_state": "required_before_semantic_review",
         "primary_doc_path": "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_075_COMMON_CAUSE_SEMANTIC_PREPATCH_GATE_V1.md",
-        "primary_artifact_path": "/private/tmp/common_cause_semantic_prepatch_gate_check/panel_day_engine_common_cause_semantic_prepatch_gate_v1.csv",
+        "primary_artifact_path": handoff_artifact_path(
+            "BR-20260424-075",
+            "common_cause_semantic_prepatch_gate",
+            "panel_day_engine_common_cause_semantic_prepatch_gate_v1.csv",
+        ),
         "primary_artifact_kind": "gate_csv",
         "repro_command": BR075_REPRO,
         "key_result": "overall pass; 12 required gates, failed 0, warning 1; exact closure 0, raw direct rows 101",
@@ -301,7 +355,11 @@ BRANCH_SPECS = [
         "judgment_role": "combined_algorithm_prepatch_runbook",
         "handoff_state": "required_before_algorithm_review",
         "primary_doc_path": "docs/OPS_CONALOG_RUNTIME_BRANCH_BR_20260424_076_ALGORITHM_PREPATCH_RUNBOOK_COMMON_CAUSE_GATE_V1.md",
-        "primary_artifact_path": "/private/tmp/panel_engine_algorithm_prepatch_runbook_br076_check/panel_day_engine_algorithm_prepatch_runbook_v1.csv",
+        "primary_artifact_path": handoff_artifact_path(
+            "BR-20260424-076",
+            "algorithm_prepatch_runbook_common_cause_gate",
+            "panel_day_engine_algorithm_prepatch_runbook_v1.csv",
+        ),
         "primary_artifact_kind": "gate_csv",
         "repro_command": BR076_REPRO,
         "key_result": "overall pass; 3 gates passed, failed 0; panel-engine/fault-family/common-cause statuses pass",
@@ -349,6 +407,8 @@ def detect_owner_branch(repo_root: Path) -> str:
 
 
 def classify_artifact(path_text: str) -> str:
+    if path_text.startswith("${"):
+        return "parameterized"
     if path_text.startswith("/private/tmp/") or path_text.startswith("/tmp/") or path_text.startswith("/private/var/"):
         return "temp"
     return "repo"
@@ -368,7 +428,7 @@ def build_manifest(repo_root: Path) -> pd.DataFrame:
         artifact_path = resolve_path(repo_root, spec["primary_artifact_path"])
         artifact_location_type = classify_artifact(spec["primary_artifact_path"])
         artifact_exists = artifact_path.exists()
-        repro_required = int(artifact_location_type == "temp" and not artifact_exists)
+        repro_required = int(artifact_location_type in {"temp", "parameterized"} and not artifact_exists)
         rows.append(
             {
                 "branch_id": spec["branch_id"],
@@ -449,20 +509,20 @@ def write_note(output_dir: Path, owner_branch: str, detail_df: pd.DataFrame, sum
         "",
         "## Purpose",
         "- Refresh the BR-064 through BR-077 evidence/handoff map after BR-077.",
-        "- Keep temp artifact paths, repro commands, patch boundaries, and next actions readable from one manifest.",
+        "- Keep artifact paths, repro commands, patch boundaries, and next actions readable from one manifest.",
         "- This is handoff-only and does not change runtime semantics.",
         "",
         "## Snapshot",
         f"- owner_branch: `{owner_branch}`",
         f"- indexed branches: `{len(detail_df)}`",
         f"- repo docs missing: `{doc_missing}`",
-        f"- temp artifacts requiring repro if missing: `{temp_missing}`",
+        f"- parameterized/temp artifacts requiring repro if missing: `{temp_missing}`",
         f"- engine patch allowed sum: `{int(detail_df['engine_patch_allowed'].sum())}`",
         f"- threshold patch allowed sum: `{int(detail_df['threshold_patch_allowed'].sum())}`",
         f"- operator promotion allowed sum: `{int(detail_df['operator_promotion_allowed'].sum())}`",
         "",
         "## Interpretation",
-        "- Missing `/private/tmp` artifacts are not failures by themselves; they mean the row must be regenerated with its `repro_command`.",
+        "- Missing parameterized/temp artifacts are not failures by themselves; they mean the row must be regenerated with its `repro_command`.",
         "- A present gate or packet artifact is evidence for review, not approval for production semantics.",
         "- The current next action remains a latest manifest/handoff refresh before more scattered scans or algorithm proposals.",
         "",
