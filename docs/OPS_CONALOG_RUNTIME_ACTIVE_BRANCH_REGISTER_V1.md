@@ -9,7 +9,7 @@
 ## Current Branch
 | branch | status | scope | next decision |
 |---|---|---|---|
-| `BR-20260429-233` | `generated_handoff_post_br232_rescan_ready_for_review` | fresh scan after PR #166/#167 shows generated handoff/repro literals 50 -> 9; latest handoff rows 41 -> 0; remaining lanes are evidence manifest 7, episode note 1, validation output 1 | Next branch should plan the evidence manifest repro refresh; keep episode note deferred and validation output preserved |
+| `BR-20260429-234` | `evidence_manifest_repro_refresh_plan_ready_for_review` | maps the remaining evidence manifest repro literals: 7 plan rows across 4 command groups, old `/private/tmp` literals 7, proposed literals 0, manual/runtime/operator permission sums 0 | Next branch should generate an evidence manifest repro refresh dry-run before touching the source builder |
 
 ## Completed Runtime Branches
 | branch | status | key result | operator-facing change |
@@ -233,6 +233,7 @@
 | `BR-20260429-231` | `latest_handoff_manifest_repro_apply_generator_ready_for_review` | applies the BR-230 dry-run to the latest handoff generator: regenerated rows show 12 manifestized repro commands, 12 parameterized artifact paths, 2 repo-doc rows preserved, repro/artifact `/private/tmp` rows 0, patch authorization sums 0 | no |
 | `BR-20260429-232` | `latest_handoff_manifest_portability_closure_audit_ready_for_review` | regenerates and audits the latest handoff outputs after BR-231: generated rows 14, parameterized manifestized 12, repo-doc preserved 2, closure failures 0, generated note stale `/private/tmp` phrase 0 | no |
 | `BR-20260429-233` | `generated_handoff_post_br232_rescan_ready_for_review` | post-BR232 fresh scan confirms latest handoff closure: generated handoff/repro literals 9, latest handoff 0, evidence manifest 7, episode note 1, validation output 1, manual edit/runtime/operator sums 0 | no |
+| `BR-20260429-234` | `evidence_manifest_repro_refresh_plan_ready_for_review` | evidence manifest repro refresh plan maps 7 temp literals across runtime/report-entry/recovery/common-cause command groups; proposed `/private/tmp` literals 0, manual edit/runtime/operator sums 0 | no |
 
 ## Decision Locks
 - `trigger_only_to_precursor` is never promoted directly from secondary-window persistence alone.
