@@ -152,16 +152,18 @@ def main() -> None:
     single_manifest = load_single_manifest(repo_root)
     snapshot = {
         "snapshot_schema": "pvdiag_single_delivery_snapshot_v1",
-        "release_id": "pvdiag_single_br251_failure_ux_20260430",
+        "release_id": "pvdiag_single_br252_line_diet_20260430",
         "professor_deliverable_file_count": 1,
         "professor_deliverable_files": ["pvdiag_single.py"],
         "single_file": {
             "path": "release/conalog_full_runtime_v1/pvdiag_single.py",
             "bytes": single_source.stat().st_size,
+            "line_count": len(single_source.read_text(encoding="utf-8").splitlines()),
             "sha256": sha256_file(single_source),
         },
         "embedded_payload": {
             "payload_mode": str(single_manifest.get("payload_mode", "")),
+            "payload_container": str(single_manifest.get("payload_container", "")),
             "payload_file_count": int(single_manifest.get("payload_file_count", 0)),
             "payload_text_bytes": int(single_manifest.get("payload_text_bytes", 0)),
             "generated_at_utc": str(single_manifest.get("generated_at_utc", "")),
@@ -179,6 +181,7 @@ def main() -> None:
             "failure_ux_smoke_check": 1,
             "algorithm_semantics_changed": 0,
             "source_text_payload_without_base64_zip": int(single_manifest.get("payload_mode") == "source_text"),
+            "source_text_payload_chunked": int(single_manifest.get("payload_container") == "json_chunks"),
             "single_file_payload_trimmed": int(bool(single_manifest.get("excluded_single_file_payload_rels"))),
             "field_trial_csv_required_for_truth_label_evaluation": 1,
         },

@@ -271,6 +271,10 @@ def dependency_audit_md_path() -> Path:
     return package_root() / "artifacts" / "runtime_chain_dependency_audit_v1.md"
 
 
+def optional_artifact_path_text(path: Path) -> str:
+    return str(path) if path.exists() else ""
+
+
 def packaged_share_root() -> Path:
     return package_root() / "_share"
 
@@ -3407,16 +3411,16 @@ def main() -> None:
         "raw_only_chain": raw_only_chain_plan,
         "workspace_retention": args.workspace_retention,
         "shadow_compare_reference_path": str(baseline_core_digest_path()),
-        "fault6_provenance_path": str(fault6_provenance_path()),
-        "dependency_audit_json_path": str(dependency_audit_json_path()),
-        "dependency_audit_md_path": str(dependency_audit_md_path()),
+        "fault6_provenance_path": optional_artifact_path_text(fault6_provenance_path()),
+        "dependency_audit_json_path": optional_artifact_path_text(dependency_audit_json_path()),
+        "dependency_audit_md_path": optional_artifact_path_text(dependency_audit_md_path()),
         "shadow_compare_report_path": str(output_root / "shadow_compare_v1.json"),
         "workspace_cleanup_report_path": str(output_root / "workspace_cleanup_v1.json"),
         "dry_run": bool(args.dry_run),
         "note_ko": (
             "이 pack은 conalog/gangui/ktc_ess baseline sites에 대해 실제 panel_day_engine.py 를 실행하고, "
             "현재 frozen fault 결과표도 함께 export 한다. "
-            "fault6 결과표 provenance도 함께 남겨, 이 표가 frozen verdict+heuristic direct assembly인지 확인할 수 있다. "
+            "fault6 결과표 provenance가 package에 포함된 경우 해당 경로도 함께 남긴다. "
             "추가로 baseline core output shadow compare 경로를 남겨, same baseline 입력일 때 engine core output이 유지되는지도 점검한다. "
             "workspace_retention=result-only를 사용하면 재생성 가능한 대용량 site/workspace data copy를 실행 후 제거한다."
         ),

@@ -1,25 +1,32 @@
 {
   "snapshot_schema": "pvdiag_single_delivery_snapshot_v1",
-  "release_id": "pvdiag_single_br251_failure_ux_20260430",
+  "release_id": "pvdiag_single_br252_line_diet_20260430",
   "professor_deliverable_file_count": 1,
   "professor_deliverable_files": [
     "pvdiag_single.py"
   ],
   "single_file": {
     "path": "release/conalog_full_runtime_v1/pvdiag_single.py",
-    "bytes": 562302,
-    "sha256": "4ba6b62922af117491cffcf815a05c5519ebb69b743bab7fa891f5e1b77e67a4"
+    "bytes": 477767,
+    "line_count": 339,
+    "sha256": "5af8063d6d6cdeaa00161dafd06e0d07de1c831fdad263db2a68d1d31bc649c0"
   },
   "embedded_payload": {
     "payload_mode": "source_text",
-    "payload_file_count": 16,
-    "payload_text_bytes": 432286,
-    "generated_at_utc": "2026-04-29T18:08:54.880754+00:00",
+    "payload_container": "json_chunks",
+    "payload_file_count": 11,
+    "payload_text_bytes": 422550,
+    "generated_at_utc": "2026-04-29T18:33:17.625469+00:00",
     "excluded_runtime_windows_x64": true,
     "excluded_single_file_payload_rels": [
       "app/import_any_csv_root.py",
+      "artifacts/fault6_fixed_result_provenance_v1.json",
       "artifacts/ktc_fault2_label_and_algorithm_preview_v1.csv",
+      "artifacts/runtime_chain_dependency_audit_v1.json",
+      "artifacts/runtime_chain_dependency_audit_v1.md",
       "requirements.txt",
+      "research/__init__.py",
+      "research/prognostics/__init__.py",
       "research/prognostics/build_panel_day_engine_bootstrap_verdict_v1.py",
       "research/prognostics/build_panel_day_engine_cause_candidate_heuristics_v1.py",
       "research/prognostics/build_panel_day_engine_fault_panel_event_audit_v1.py",
@@ -49,6 +56,7 @@
     "failure_ux_smoke_check": 1,
     "algorithm_semantics_changed": 0,
     "source_text_payload_without_base64_zip": 1,
+    "source_text_payload_chunked": 1,
     "single_file_payload_trimmed": 1,
     "field_trial_csv_required_for_truth_label_evaluation": 1
   },

@@ -21,7 +21,12 @@ REQUIRED_PAYLOAD_PATHS = {
 EXCLUDED_PAYLOAD_PATHS = {
     "release/conalog_full_runtime_v1/package/app/import_any_csv_root.py",
     "release/conalog_full_runtime_v1/package/requirements.txt",
+    "release/conalog_full_runtime_v1/package/artifacts/fault6_fixed_result_provenance_v1.json",
     "release/conalog_full_runtime_v1/package/artifacts/ktc_fault2_label_and_algorithm_preview_v1.csv",
+    "release/conalog_full_runtime_v1/package/artifacts/runtime_chain_dependency_audit_v1.json",
+    "release/conalog_full_runtime_v1/package/artifacts/runtime_chain_dependency_audit_v1.md",
+    "release/conalog_full_runtime_v1/package/research/__init__.py",
+    "release/conalog_full_runtime_v1/package/research/prognostics/__init__.py",
     "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_bootstrap_verdict_v1.py",
     "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_fault_panel_event_audit_v1.py",
     "release/conalog_full_runtime_v1/package/research/prognostics/build_panel_day_engine_panel_multiaxis_verdict_v1.py",
@@ -74,9 +79,14 @@ def main() -> None:
         fail("manifest still includes single-file excluded payload paths:\n" + "\n".join(unexpected))
     if payload.get("payload_mode") != "source_text":
         fail(f"unexpected payload mode: {payload.get('payload_mode')}")
+    if payload.get("payload_container") != "json_chunks":
+        fail(f"unexpected payload container: {payload.get('payload_container')}")
     runtime_rows = sorted(path for path in files if "/runtime/windows_x64/" in path or path.endswith(".pyc"))
     if runtime_rows:
         fail("single payload contains excluded runtime/cache rows:\n" + "\n".join(runtime_rows[:20]))
+    single_line_count = len(single_text.splitlines())
+    if single_line_count > 1_000:
+        fail(f"single-file artifact is too line-heavy: {single_line_count} lines")
     if int(payload.get("payload_text_bytes", 0)) > 8_000_000:
         fail(f"payload too large: {payload.get('payload_text_bytes')}")
     if int(payload.get("payload_file_count", 0)) != len(files):
@@ -85,7 +95,7 @@ def main() -> None:
         )
     if "PAYLOAD_B64" in single_text or "import base64" in single_text or "import zipfile" in single_text:
         fail("single-file artifact still contains the old base64/zip payload path")
-    if "EMBEDDED_TEXT_FILES" not in single_text or "PAYLOAD_MODE = \"source_text\"" not in single_text:
+    if "EMBEDDED_TEXT_JSON_CHUNKS" not in single_text or "PAYLOAD_MODE = \"source_text\"" not in single_text:
         fail("single-file artifact does not expose the source-text payload markers")
 
     compile_proc = subprocess.run(
@@ -118,8 +128,10 @@ def main() -> None:
                 "single_file": str(single),
                 "manifest": str(manifest),
                 "payload_mode": str(payload.get("payload_mode")),
+                "payload_container": str(payload.get("payload_container")),
                 "payload_file_count": int(payload.get("payload_file_count", 0)),
                 "payload_text_bytes": int(payload.get("payload_text_bytes", 0)),
+                "single_line_count": single_line_count,
                 "excluded_runtime_windows_x64": bool(payload.get("excluded_runtime_windows_x64")),
                 "self_test_ran": int(not args.skip_self_test),
             },

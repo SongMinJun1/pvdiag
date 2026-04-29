@@ -27,6 +27,15 @@ SINGLE_FILE_EXCLUDE_RELS = {
     # KTC fault2 preview is a side preview artifact and is not copied/read by
     # the single-file runtime result path.
     "artifacts/ktc_fault2_label_and_algorithm_preview_v1.csv",
+    # These provenance/dependency sidecar artifacts are not read or copied by the
+    # one-file runtime path. Runtime metadata records them only when present.
+    "artifacts/fault6_fixed_result_provenance_v1.json",
+    "artifacts/runtime_chain_dependency_audit_v1.json",
+    "artifacts/runtime_chain_dependency_audit_v1.md",
+    # Python 3 namespace packages are sufficient for the extracted one-file
+    # runtime, and smoke coverage verifies imports without these empty markers.
+    "research/__init__.py",
+    "research/prognostics/__init__.py",
     # Frozen-share live-chain scripts cannot run in the one-file handoff because
     # the required package/_share support assets are intentionally not embedded.
     "research/prognostics/build_panel_day_engine_bootstrap_verdict_v1.py",
@@ -52,6 +61,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib.util
+import json
 import os
 import shutil
 import subprocess
@@ -68,7 +78,9 @@ PAYLOAD_TEXT_SHA256 = "__PAYLOAD_TEXT_SHA256__"
 PAYLOAD_TEXT_BYTES = __PAYLOAD_TEXT_BYTES__
 PAYLOAD_FILE_COUNT = __PAYLOAD_FILE_COUNT__
 
-__EMBEDDED_TEXT_FILES__
+__EMBEDDED_TEXT_JSON_CHUNKS__
+
+EMBEDDED_TEXT_FILES = json.loads("".join(EMBEDDED_TEXT_JSON_CHUNKS))
 
 __EMBEDDED_FILE_SHA256__
 
@@ -379,19 +391,13 @@ def payload_bytes_for_digest(payload: dict[str, str]) -> bytes:
     )
 
 
-def render_multiline_text_literal(text: str) -> list[str]:
-    if text == "":
-        return ["        ''"]
-    return [f"        {line!r}" for line in text.splitlines(keepends=True)]
-
-
-def render_embedded_text_files(payload: dict[str, str]) -> str:
-    rows = ["EMBEDDED_TEXT_FILES = {"]
-    for path, text in sorted(payload.items()):
-        rows.append(f"    {path!r}: (")
-        rows.extend(render_multiline_text_literal(text))
-        rows.append("    ),")
-    rows.append("}")
+def render_embedded_text_json_chunks(payload: dict[str, str]) -> str:
+    json_text = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    chunk_size = 8_000
+    rows = ["EMBEDDED_TEXT_JSON_CHUNKS = ("]
+    for index in range(0, len(json_text), chunk_size):
+        rows.append(f"    {json_text[index:index + chunk_size]!r},")
+    rows.append(")")
     return "\n".join(rows)
 
 
@@ -412,7 +418,7 @@ def render_single(payload: dict[str, str]) -> str:
         .replace("__PAYLOAD_TEXT_SHA256__", hashlib.sha256(payload_bytes).hexdigest())
         .replace("__PAYLOAD_TEXT_BYTES__", str(len(payload_bytes)))
         .replace("__PAYLOAD_FILE_COUNT__", str(len(payload)))
-        .replace("__EMBEDDED_TEXT_FILES__", render_embedded_text_files(payload))
+        .replace("__EMBEDDED_TEXT_JSON_CHUNKS__", render_embedded_text_json_chunks(payload))
         .replace("__EMBEDDED_FILE_SHA256__", render_embedded_file_sha256(payload))
     )
 
@@ -434,6 +440,7 @@ def write_manifest(path: Path, repo_root: Path, files: list[Path], payload: dict
         "generated_by": "tools/build_pvdiag_single_py.py",
         "delivery_artifact": DEFAULT_OUTPUT.as_posix(),
         "payload_mode": "source_text",
+        "payload_container": "json_chunks",
         "payload_file_count": len(files),
         "payload_text_bytes": len(payload_bytes),
         "payload_text_sha256": hashlib.sha256(payload_bytes).hexdigest(),
@@ -464,9 +471,11 @@ def main() -> None:
                 "output": str(output),
                 "manifest": str(manifest_output),
                 "payload_mode": "source_text",
+                "payload_container": "json_chunks",
                 "payload_file_count": len(files),
                 "payload_text_bytes": len(payload_bytes),
                 "single_file_bytes": output.stat().st_size,
+                "single_file_lines": len(output.read_text(encoding="utf-8").splitlines()),
                 "excluded_runtime_windows_x64": True,
             },
             ensure_ascii=False,

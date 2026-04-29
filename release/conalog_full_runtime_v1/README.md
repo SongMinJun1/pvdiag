@@ -62,6 +62,7 @@ BR-248 이후 단일 파일 payload는 zip/base64가 아니라 `EMBEDDED_TEXT_FI
 - 단일 파일 payload는 zip/base64를 쓰지 않고 source-text로 생성함.
 - 단일 파일 payload는 실제 one-file 실행 경로에 필요한 runtime/raw-only 자산 중심으로 줄이며, importer helper, package metadata, frozen-share live-chain-only builders는 제외함.
 - `--single-self-test`는 외부 패키지 없이 payload 무결성만 확인하고, 실제 실행에서는 패키지 누락과 `data-root` 오류를 분리해서 안내함.
+- source-text payload는 JSON chunk container로 저장하고, necessity audit을 통과한 11개 파일만 포함해서 generated file 줄 수와 payload를 줄임.
 
 생성 명령:
 
