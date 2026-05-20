@@ -12,6 +12,8 @@
 
 이 pack에 들어 있는 핵심 파일은 아래와 같음.
 
+- `pvdiag_single.py`
+- `README_SINGLE_DELIVERY.md`
 - `package/pv_ae/panel_day_engine.py`
 - `package/app/run_full_algorithm_pack.py`
 - `package/DASHBOARD_INTEGRATION.md`
@@ -46,6 +48,10 @@
 
 `fault6_fixed_result_table_v1.csv`는 현재 frozen verdict와 heuristic을 그대로 묶어, integrated table과 동일한 front-facing 표시명으로 다시 적재한 6개 고장 패널 결과표임.
 즉, 이 파일은 현재 합의된 고정 결과표를 유지하되, runtime pack 내부에서는 integrated snapshot 자체를 직접 의존하지 않도록 정리한 artifact임.
+
+`pvdiag_single.py`는 교수님/외부 시스템 전달용 단일 Python 파일임.
+상대 시스템이 이미 대시보드를 가지고 있는 경우, 이 파일은 UI를 대체하지 않고 raw CSV 폴더를 입력으로 받아 `result/fault_panel_result_current_preview_v1.csv` 등 dashboard-facing CSV를 생성하는 diagnosis engine 역할만 담당함.
+단일 파일 전달 계약, 입력 폴더 구조, 대시보드가 우선 읽을 CSV, 그리고 modular runner와의 비교 검증 방법은 `README_SINGLE_DELIVERY.md`에 별도로 고정함.
 
 `fault6_fixed_result_provenance_v1.json`은 위 결과표가 `frozen verdict + frozen heuristic + integrated display-name mapping` 조합으로 생성되었음을 적고, legacy integrated 6행과 exact match인지도 함께 남기는 provenance artifact임.
 즉, 지금 pack에서는 integrated snapshot을 직접 자르지 않지만, 결과 자체는 기존 6행과 같다는 근거를 파일로 같이 제공함.
