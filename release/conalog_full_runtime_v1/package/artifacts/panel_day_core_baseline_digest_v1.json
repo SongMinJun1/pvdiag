@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-04-20T05:06:42Z",
+  "generated_at_utc": "2026-05-20T06:40:02Z",
   "sites": {
     "conalog": {
       "columns": [
@@ -30,7 +30,7 @@
       "confirmed_fault_true_count": 428,
       "critical_fault_true_count": 76,
       "final_fault_true_count": 504,
-      "source_path": "/Users/b9gc/pvdiag/data/conalog/out/panel_day_core.csv"
+      "source_path": "data/conalog/out/panel_day_core.csv"
     },
     "gangui": {
       "columns": [
@@ -62,7 +62,7 @@
       "confirmed_fault_true_count": 255,
       "critical_fault_true_count": 616,
       "final_fault_true_count": 664,
-      "source_path": "/Users/b9gc/pvdiag/data/gangui/out/panel_day_core.csv"
+      "source_path": "data/gangui/out/panel_day_core.csv"
     },
     "ktc_ess": {
       "columns": [
@@ -92,7 +92,7 @@
       "confirmed_fault_true_count": 0,
       "critical_fault_true_count": 191,
       "final_fault_true_count": 122,
-      "source_path": "/Users/b9gc/pvdiag/data/ktc_ess/out/panel_day_core.csv"
+      "source_path": "data/ktc_ess/out/panel_day_core.csv"
     }
   },
   "note_ko": "이 digest는 baseline raw corpus에서 이미 산출된 panel_day_core.csv의 정규화 hash/reference다. runtime pack이 동일 baseline 입력으로 재실행될 때 engine core output이 같은지 shadow compare할 때 사용한다."

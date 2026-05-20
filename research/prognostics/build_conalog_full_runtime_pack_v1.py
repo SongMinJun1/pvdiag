@@ -16,13 +16,34 @@ import pandas as pd
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if __package__ in {None, ""}:
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from research.prognostics.heuristic_display_registry_v1 import (
+        DISPLAY_HEURISTIC_NAME_MAP,
+        display_heuristic_name as shared_display_heuristic_name,
+    )
+else:
+    from .heuristic_display_registry_v1 import (
+        DISPLAY_HEURISTIC_NAME_MAP,
+        display_heuristic_name as shared_display_heuristic_name,
+    )
+
 RELEASE_ROOT = REPO_ROOT / "release" / "conalog_full_runtime_v1"
 PACKAGE_ROOT = RELEASE_ROOT / "package"
 PACKAGE_APP_ROOT = PACKAGE_ROOT / "app"
+PACKAGE_README_PATH = PACKAGE_ROOT / "README.md"
+DASHBOARD_INTEGRATION_DOC_PATH = PACKAGE_ROOT / "DASHBOARD_INTEGRATION.md"
+EXTERNAL_DELIVERY_GUIDE_PATH = PACKAGE_ROOT / "EXTERNAL_DELIVERY_GUIDE.md"
+DELIVERY_QA_CHECKLIST_PATH = PACKAGE_ROOT / "DELIVERY_QA_CHECKLIST.md"
 ENGINE_SRC = REPO_ROOT / "pv_ae" / "panel_day_engine.py"
 ENGINE_DST = PACKAGE_ROOT / "pv_ae" / "panel_day_engine.py"
 IMPORT_ANY_CSV_SRC = REPO_ROOT / "research" / "prognostics" / "import_any_csv_root_v1.py"
 IMPORT_ANY_CSV_DST = PACKAGE_APP_ROOT / "import_any_csv_root.py"
+DASHBOARD_VERIFY_SRC = REPO_ROOT / "research" / "prognostics" / "verify_dashboard_outputs_v1.py"
+DASHBOARD_VERIFY_DST = PACKAGE_APP_ROOT / "verify_dashboard_outputs.py"
+DELIVERY_VERIFY_SRC = REPO_ROOT / "research" / "prognostics" / "verify_delivery_package_v1.py"
+DELIVERY_VERIFY_DST = PACKAGE_APP_ROOT / "verify_delivery_package.py"
 VERDICT_PATH = REPO_ROOT / "_share" / "panel_day_engine_panel_multiaxis_verdict_v1.csv"
 HEURISTIC_PATH = REPO_ROOT / "_share" / "panel_day_engine_cause_candidate_heuristics_v1.csv"
 LEGACY_INTEGRATED_TABLE_PATH = REPO_ROOT / "_share" / "panel_day_engine_integrated_result_table_v1.csv"
@@ -92,23 +113,16 @@ HEURISTIC_REQUIRED_COLS = [
     "원인후보_top2_ko",
     "원인후보_top3_ko",
 ]
-DISPLAY_HEURISTIC_NAME_MAP = {
-    "다이오드·서브스트링형": "다이오드·국소 회로 이상형",
-    "접속·부분개방형": "접촉 끊김 형",
-    "센서·피드백형": "장치 측정 이상형",
-    "제어응답형": "장치 응답 이상형",
-    "전력변환부형": "전력변환부 이상형",
-    "외부계통교란형": "외부 전원 흔들림형",
-}
-
 BASELINE_SITES = ["conalog", "gangui", "ktc_ess"]
 PREVIEW_OUTPUT_COLS = [
     "site",
     "panel_id",
     "전조날짜",
     "고장 기준일",
-    "최종고장양상",
     "운영 판정",
+    "급락 종결 관측",
+    "점진 저하 누적",
+    "사건 종결 요약",
     "상위 해석 후보",
     "기존 알고리즘 source",
 ]
@@ -177,6 +191,7 @@ REQUIRED_FAULT_EVENT_AUDIT_INPUTS = [
 ]
 PACKAGED_RUNTIME_CHAIN_SCRIPTS = [
     REPO_ROOT / "research" / "prognostics" / "runtime_rawonly_chain_common_v1.py",
+    REPO_ROOT / "research" / "prognostics" / "heuristic_display_registry_v1.py",
     REPO_ROOT / "research" / "prognostics" / "build_panel_day_engine_bootstrap_verdict_v1.py",
     REPO_ROOT / "research" / "prognostics" / "build_panel_day_engine_fault_panel_event_audit_v1.py",
     REPO_ROOT / "research" / "prognostics" / "build_panel_day_engine_panel_multiaxis_verdict_v1.py",
@@ -230,8 +245,7 @@ def validate_unique_keys(df: pd.DataFrame, name: str) -> None:
 
 
 def display_heuristic_name(raw_label: object) -> str:
-    normalized = normalize_text(raw_label)
-    return DISPLAY_HEURISTIC_NAME_MAP.get(normalized, normalized)
+    return shared_display_heuristic_name(raw_label)
 
 
 def choose_display_precursor_date(
@@ -279,6 +293,31 @@ def display_existing_algorithm_source(value: object) -> str:
     if text == "기존 알고리즘 미검출":
         return "미검출"
     return text
+
+
+def repo_relative_path(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def package_relative_path(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(PACKAGE_ROOT.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def event_summary_from_labels(event_type: object, terminal_pattern: object) -> str:
+    event = normalize_text(event_type)
+    terminal = normalize_text(terminal_pattern)
+    mapping = {
+        ("전조형 고장", "급격 종료"): "전조 후 급격 종료",
+        ("전조형 고장", "진행성 악화"): "전조 후 진행 악화",
+        ("급작 고장", "급작 발생"): "급작 발생",
+    }
+    return mapping.get((event, terminal), "")
 
 
 def build_fault6_artifact() -> pd.DataFrame:
@@ -438,8 +477,17 @@ def build_fault6_preview_artifact(fault_df: pd.DataFrame) -> pd.DataFrame:
                     strict_trigger_date=audit_row.get("strict_trigger_date"),
                     first_final_fault_date=audit_row.get("first_final_fault_date"),
                 ),
-                "최종고장양상": normalize_text(row["최종고장양상_ko"]),
                 "운영 판정": display_signal_grade(row),
+                "급락 종결 관측": "있음"
+                if normalize_text(row["최종고장양상_ko"]) in {"급격 종료", "급작 발생"}
+                else "없음",
+                "점진 저하 누적": "있음"
+                if normalize_text(verdict_row.get("사건유형_ko", row.get("사건유형_ko"))) == "전조형 고장"
+                else "없음",
+                "사건 종결 요약": event_summary_from_labels(
+                    verdict_row.get("사건유형_ko", row.get("사건유형_ko")),
+                    row.get("최종고장양상_ko"),
+                ),
                 "상위 해석 후보": normalize_text(row["1순위_의심원인_ko"]),
                 "기존 알고리즘 source": display_existing_algorithm_source(
                     MAIL_BUCKET_ALGORITHM_MAP.get((site, panel_id), "")
@@ -467,9 +515,9 @@ def build_fault6_provenance_payload(fault_df: pd.DataFrame) -> dict[str, object]
     payload: dict[str, object] = {
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source_chain_ko": "frozen verdict plus frozen heuristic with integrated display-name mapping",
-        "verdict_source_path": str(VERDICT_PATH),
-        "heuristic_source_path": str(HEURISTIC_PATH),
-        "legacy_integrated_source_path": str(LEGACY_INTEGRATED_TABLE_PATH),
+        "verdict_source_path": repo_relative_path(VERDICT_PATH),
+        "heuristic_source_path": repo_relative_path(HEURISTIC_PATH),
+        "legacy_integrated_source_path": repo_relative_path(LEGACY_INTEGRATED_TABLE_PATH),
         "fault_row_count": int(len(fault_df)),
         "display_name_map": DISPLAY_HEURISTIC_NAME_MAP,
         "legacy_integrated_exact_match": False,
@@ -562,7 +610,7 @@ def build_core_baseline_digest() -> dict[str, object]:
         df = pd.read_csv(path, low_memory=False)
         payload["sites"][site] = {
             **build_core_digest_payload(df, path.name),
-            "source_path": str(path),
+            "source_path": repo_relative_path(path),
         }
     return payload
 
@@ -666,6 +714,378 @@ def write_text_file(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def dashboard_integration_markdown() -> str:
+    return """# Dashboard Integration Contract V1
+
+## Purpose
+- 이 문서는 외부 대시보드 또는 운영 시스템이 본 runtime pack을 호출하고 결과 CSV를 읽는 최소 계약을 정리한다.
+- 상대 시스템이 보유한 raw CSV 형식은 기존 KTC ESS/conalog raw 형식과 동일하다는 전제를 둔다.
+- 따라서 별도 schema 변환기를 먼저 만들지 않고, raw 폴더를 runtime pack에 연결한 뒤 결과 CSV를 대시보드가 읽는 방식이 기본이다.
+
+## Recommended Integration Flow
+1. 상대 시스템은 raw CSV를 `data-root/<site>/raw/*.csv` 형태로 준비한다.
+2. runtime pack은 `package/app/run_full_algorithm_pack.py`를 실행한다.
+3. 대시보드는 `output-root/result/fault_panel_result_current_preview_v1.csv`를 1차 표시 CSV로 읽는다.
+4. 상세 확인이 필요하면 precursor, master report, detailed xlsx를 보조 자료로 읽는다.
+
+## Command
+```bash
+python package/app/run_full_algorithm_pack.py \\
+  --data-root "/path/to/data_root" \\
+  --output-root "/path/to/result_folder" \\
+  --sites ktc_ess
+```
+
+여러 site를 한 번에 실행할 때는 아래처럼 site 목록을 지정한다.
+
+```bash
+python package/app/run_full_algorithm_pack.py \\
+  --data-root "/path/to/data_root" \\
+  --output-root "/path/to/result_folder" \\
+  --sites conalog,gangui,ktc_ess
+```
+
+## Input Contract
+- 기본 구조: `data-root/<site>/raw/*.csv`
+- 예: `data-root/ktc_ess/raw/*.csv`
+- raw CSV 형식은 기존 KTC ESS/conalog 형식과 동일해야 한다.
+- 날짜 구간이 길어질수록 전조, 반복 이벤트, 장기 저하 판단이 안정된다.
+
+## Dashboard Primary Output
+대시보드는 우선 아래 파일을 읽는 것을 권장한다.
+
+```text
+output-root/result/fault_panel_result_current_preview_v1.csv
+```
+
+이 파일은 운영자가 바로 보기 위한 current preview이며, 핵심 컬럼은 아래와 같다.
+
+| Column | Meaning |
+| --- | --- |
+| `site` | site 이름 |
+| `panel_id` | 패널 식별자 |
+| `전조날짜` | 전조로 채택된 대표 onset 날짜. 없으면 `전조없음` |
+| `고장 기준일` | 고장 또는 runtime trigger 기준일 |
+| `운영 판정` | 확정, 고위험 관찰, 관찰 단계 등 운영용 판정 |
+| `급락 종결 관측` | 급락/종결성 신호 관측 여부 |
+| `점진 저하 누적` | 점진 저하 누적 여부 |
+| `사건 종결 요약` | 전조 후 급격 종료, 진행 악화, 급작 발생 등 사건 요약 |
+| `상위 해석 후보` | 알고리즘이 가장 가깝게 본 원인 후보 |
+| `기존 알고리즘 source` | 기존 알고리즘 또는 legacy source 태그 |
+
+## Support Outputs
+대시보드 또는 분석자가 추가로 참고할 수 있는 파일은 아래와 같다.
+
+| Output | Role |
+| --- | --- |
+| `result/fault_panel_result_current_v1.csv` | current 공식 결과의 상세 CSV |
+| `result/fault_panel_result_precursor_report_v1.csv` | 전조 후보와 근거를 더 자세히 보는 CSV |
+| `result/fault_panel_result_current_report_v1.md` | current 결과 설명 문서 |
+| `result/fault_panel_result_master_report_v1.md` | 전체 artifact와 판독 순서 안내 |
+| `result/fault_panel_result_detailed_report_v1.xlsx` | 상세 검토용 xlsx |
+| `result/live_chain/*` | frozen-support live chain 내부 산출물 |
+| `result/raw_only_chain/*` | raw-only strict/support chain 내부 산출물 |
+
+## Reading Policy
+- dashboard 1차 표시는 `fault_panel_result_current_preview_v1.csv`를 기본으로 한다.
+- `raw_only_chain`은 support/analyst 확인용으로 먼저 읽는다.
+- `live_chain`과 `_share` 내부 파일은 디버깅 또는 검증용이며, dashboard primary contract로 직접 노출하지 않는다.
+- `panel_id`와 `site`를 함께 key로 사용한다.
+- 같은 raw 형식에서는 별도 입력 변환 없이 실행할 수 있다.
+
+## Dependency Contract
+외부 Python 패키지는 별도 설치 전제로 둔다.
+
+- `pandas`
+- `numpy`
+- `torch`
+- `openpyxl`
+- `tqdm`
+
+Windows 전달 환경에서는 pack 안의 embedded Python/runtime wrapper를 우선 사용할 수 있다.
+
+## Validation Checklist
+전달 전 또는 상대 시스템 연동 전 아래를 확인한다.
+
+1. `package/app/run_full_algorithm_pack.py --dry-run`이 입력 경로를 정상 인식한다.
+2. 실행 후 `result/fault_panel_result_current_preview_v1.csv`가 생성된다.
+3. preview CSV에 `site`, `panel_id`, `운영 판정`, `상위 해석 후보`가 존재한다.
+4. `result/fault_panel_result_detailed_report_v1.xlsx`가 생성된다.
+5. 대시보드는 `_share` 또는 site별 engine 내부 output이 아니라 `result/` 아래 공식 artifact를 읽는다.
+
+실행이 끝난 뒤 아래 verifier로 dashboard contract를 한 번에 확인할 수 있다.
+
+```bash
+python package/app/verify_dashboard_outputs.py \\
+  --output-root "/path/to/result_folder"
+```
+
+검증이 통과하면 `dashboard_output_check_v1.json`이 생성된다.
+
+## Notes
+- 본 문서는 알고리즘 동작을 바꾸지 않는다.
+- 본 문서의 목적은 동일 raw 형식을 가진 외부 dashboard가 어떤 entrypoint를 호출하고 어떤 CSV를 읽어야 하는지 고정하는 것이다.
+- 실증 raw 날짜가 추가되면 같은 command로 재실행하고, row count와 schema만 다시 확인하면 된다.
+"""
+
+
+def external_delivery_guide_markdown() -> str:
+    return """# PV Diagnostics External Delivery Guide V1
+
+## 전달 목적
+본 package는 패널별 raw CSV를 입력으로 받아 PV 패널 고장/전조 진단 결과를 CSV와 리포트로 생성하는 실행용 알고리즘 package다.
+
+상대 시스템이 이미 대시보드를 가지고 있는 경우, 이 package는 UI를 대체하지 않고 아래 역할만 담당한다.
+
+1. raw CSV 폴더를 입력으로 받는다.
+2. 알고리즘을 실행한다.
+3. 대시보드가 읽을 수 있는 결과 CSV를 생성한다.
+
+## 실행에 필요한 것
+- Python 실행 환경
+- 입력 raw CSV 폴더
+- 아래 Python package
+  - `pandas`
+  - `numpy`
+  - `torch`
+  - `openpyxl`
+  - `tqdm`
+
+Windows 전달 환경에서는 package 내부의 embedded Python/runtime wrapper를 우선 사용할 수 있다.
+
+## 입력 폴더 구조
+기본 입력 구조는 아래와 같다.
+
+```text
+data_root/
+  ktc_ess/
+    raw/
+      *.csv
+```
+
+여러 site를 동시에 실행할 경우:
+
+```text
+data_root/
+  conalog/
+    raw/
+      *.csv
+  gangui/
+    raw/
+      *.csv
+  ktc_ess/
+    raw/
+      *.csv
+```
+
+raw CSV 형식은 기존 KTC ESS/conalog 형식과 동일하다는 전제로 실행한다.
+
+## 기본 실행 명령
+KTC ESS만 실행하는 경우:
+
+```bash
+python package/app/run_full_algorithm_pack.py \\
+  --data-root "/path/to/data_root" \\
+  --output-root "/path/to/output_root" \\
+  --sites ktc_ess
+```
+
+세 site를 함께 실행하는 경우:
+
+```bash
+python package/app/run_full_algorithm_pack.py \\
+  --data-root "/path/to/data_root" \\
+  --output-root "/path/to/output_root" \\
+  --sites conalog,gangui,ktc_ess
+```
+
+## 대시보드가 우선 읽을 CSV
+대시보드 1차 표시용 CSV는 아래 파일이다.
+
+```text
+output_root/result/fault_panel_result_current_preview_v1.csv
+```
+
+주요 컬럼:
+
+| 컬럼 | 의미 |
+| --- | --- |
+| `site` | site 이름 |
+| `panel_id` | 패널 식별자 |
+| `전조날짜` | 전조 onset 날짜. 없으면 `전조없음` |
+| `고장 기준일` | 고장 또는 runtime trigger 기준일 |
+| `운영 판정` | 확정, 고위험 관찰, 관찰 단계 등 운영 판정 |
+| `급락 종결 관측` | 급락/종결성 신호 관측 여부 |
+| `점진 저하 누적` | 점진 저하 누적 여부 |
+| `사건 종결 요약` | 전조 후 급격 종료, 진행 악화, 급작 발생 등 사건 요약 |
+| `상위 해석 후보` | 알고리즘의 1순위 원인 후보 |
+| `기존 알고리즘 source` | 기존 알고리즘 또는 legacy source 태그 |
+
+## 결과 검증 명령
+실행 후 아래 명령으로 dashboard-facing output이 정상 생성됐는지 확인한다.
+
+```bash
+python package/app/verify_dashboard_outputs.py \\
+  --output-root "/path/to/output_root"
+```
+
+검증이 통과하면 아래 JSON이 생성된다.
+
+```text
+output_root/dashboard_output_check_v1.json
+```
+
+## 보조 산출물
+상세 분석이 필요한 경우 아래 파일을 함께 확인한다.
+
+| 파일 | 용도 |
+| --- | --- |
+| `result/fault_panel_result_current_v1.csv` | current 공식 결과 상세 |
+| `result/fault_panel_result_precursor_report_v1.csv` | 전조 후보 및 근거 |
+| `result/fault_panel_result_current_report_v1.md` | current 결과 설명 |
+| `result/fault_panel_result_master_report_v1.md` | 전체 산출물 판독 순서 |
+| `result/fault_panel_result_detailed_report_v1.xlsx` | 상세 검토용 xlsx |
+
+## 판독 원칙
+- 대시보드는 `result/fault_panel_result_current_preview_v1.csv`를 먼저 읽는다.
+- `result/raw_only_chain/*`와 `result/live_chain/*`는 분석/검증용 보조 산출물이다.
+- `_share` 내부 파일은 디버깅 및 재현성 확인용이며, 대시보드 primary output으로 직접 쓰지 않는다.
+- `site`와 `panel_id`를 함께 key로 사용한다.
+
+## 실증 raw 추가 후 할 일
+실증 raw 날짜가 추가되면 같은 명령으로 재실행하고 아래만 다시 확인한다.
+
+1. `fault_panel_result_current_preview_v1.csv` 생성 여부
+2. row count
+3. schema
+4. `dashboard_output_check_v1.json`
+5. 주요 fault/event 결과
+"""
+
+
+def delivery_qa_checklist_markdown() -> str:
+    return """# Delivery QA Checklist V1
+
+## Scope
+이 checklist는 `conalog_full_runtime_v1/package`를 외부 전달 또는 dashboard 연동 검토용으로 넘기기 전 확인할 항목을 정리한다.
+
+## Send / Include
+아래 항목은 전달 package에 포함한다.
+
+| Path | Purpose |
+| --- | --- |
+| `app/run_full_algorithm_pack.py` | 실제 runtime 실행 entrypoint |
+| `app/verify_dashboard_outputs.py` | 실행 후 dashboard-facing output 검증 |
+| `app/verify_delivery_package.py` | 전달 package 자체의 데이터/로컬경로 오염 여부 검증 |
+| `app/import_any_csv_root.py` | 임의 CSV 폴더 staging helper |
+| `pv_ae/panel_day_engine.py` | 핵심 panel-day engine |
+| `research/prognostics/*` | package 내부 live/raw-only chain script |
+| `requirements.txt` | 외부 Python package 목록 |
+| `DASHBOARD_INTEGRATION.md` | dashboard 연동 계약 |
+| `EXTERNAL_DELIVERY_GUIDE.md` | 외부 실행 안내 |
+| `README.md` | runtime pack overview |
+| `bin/*.bat`, `bin/*.ps1` | Windows wrapper/staging script |
+| `artifacts/*.csv`, `artifacts/*.json`, `artifacts/*.md` | frozen preview/provenance/reference artifact |
+
+## Exclude By Default
+아래 항목은 기본 전달 package에 대용량 원본으로 포함하지 않는다.
+
+| Path / Pattern | Reason |
+| --- | --- |
+| `data/<site>/raw/*` | 상대 시스템이 raw를 보유함 |
+| `data/<site>/out/*` | 재실행 산출물이며 대용량일 수 있음 |
+| `/private/tmp/*` | 로컬 검증 임시 산출물 |
+| `outputs/*` | 내부 검증/개발 산출물 |
+| `.git/*` | source control metadata |
+
+## Pre-Delivery Commands
+전달 전 최소 확인 명령은 아래와 같다.
+
+```bash
+python -m py_compile pv_ae/panel_day_engine.py
+python -m py_compile research/prognostics/build_conalog_full_runtime_pack_v1.py
+python research/prognostics/build_conalog_full_runtime_pack_v1.py
+python release/conalog_full_runtime_v1/package/app/verify_delivery_package.py \\
+  --package-root release/conalog_full_runtime_v1/package
+python research/prognostics/smoke_test_conalog_full_runtime_pack_v1.py
+```
+
+## Runtime Commands For Receiver
+KTC ESS raw만 실행하는 경우:
+
+```bash
+python package/app/run_full_algorithm_pack.py \\
+  --data-root "/path/to/data_root" \\
+  --output-root "/path/to/output_root" \\
+  --sites ktc_ess
+```
+
+실행 후 output contract 확인:
+
+```bash
+python package/app/verify_dashboard_outputs.py \\
+  --output-root "/path/to/output_root"
+```
+
+## Primary Dashboard CSV
+대시보드가 우선 읽을 파일:
+
+```text
+output_root/result/fault_panel_result_current_preview_v1.csv
+```
+
+## Final Checks
+- [ ] `DASHBOARD_INTEGRATION.md`가 package 안에 있다.
+- [ ] `EXTERNAL_DELIVERY_GUIDE.md`가 package 안에 있다.
+- [ ] `app/verify_dashboard_outputs.py --help`가 동작한다.
+- [ ] `app/verify_delivery_package.py --package-root package`가 통과한다.
+- [ ] `pack_summary_v1.json`에 dashboard/doc/verifier 경로가 기록되어 있다.
+- [ ] smoke test가 통과한다.
+- [ ] 전달 범위에 raw 대용량 데이터가 섞이지 않았다.
+- [ ] dashboard primary output은 `_share`가 아니라 `result/fault_panel_result_current_preview_v1.csv`로 안내되어 있다.
+"""
+
+
+def package_readme_markdown() -> str:
+    return """# PV Diagnostics Runtime Package
+
+이 package는 패널별 raw CSV를 입력으로 받아 PV 패널 고장/전조 진단 결과를 생성하는 실행용 runtime package다.
+
+## Quick Start
+```bash
+python app/run_full_algorithm_pack.py \\
+  --data-root "/path/to/data_root" \\
+  --output-root "/path/to/output_root" \\
+  --sites ktc_ess
+```
+
+실행 후 대시보드가 우선 읽을 결과는 아래 파일이다.
+
+```text
+output_root/result/fault_panel_result_current_preview_v1.csv
+```
+
+## Verify
+실행 결과 검증:
+
+```bash
+python app/verify_dashboard_outputs.py \\
+  --output-root "/path/to/output_root"
+```
+
+전달 package 자체 검증:
+
+```bash
+python app/verify_delivery_package.py --package-root .
+```
+
+## Documents
+- `EXTERNAL_DELIVERY_GUIDE.md`: 외부 전달/실행 안내
+- `DASHBOARD_INTEGRATION.md`: 대시보드 연동 계약
+- `DELIVERY_QA_CHECKLIST.md`: 전달 전 포함/제외/검증 체크리스트
+"""
+
+
 def download_file(url: str, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     with urllib.request.urlopen(url) as response, destination.open("wb") as handle:
@@ -721,8 +1141,32 @@ def bundled_runtime_ready() -> bool:
 
 
 def materialize_windows_portable_runtime() -> dict[str, object]:
+    def portable_manifest(site_packages_dir: Path) -> dict[str, object]:
+        return {
+            "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "python_runtime_kind": "windows_embeddable_python",
+            "python_version": WINDOWS_EMBED_PYTHON_VERSION,
+            "python_exe_path": package_relative_path(WINDOWS_RUNTIME_PYTHON_ROOT / "python.exe"),
+            "python_embed_zip_url": WINDOWS_EMBED_ZIP_URL,
+            "wheelhouse_path": package_relative_path(WINDOWS_RUNTIME_WHEELHOUSE),
+            "site_packages_path": package_relative_path(site_packages_dir),
+            "primary_packages": WINDOWS_RUNTIME_PRIMARY_PACKAGES,
+            "wheel_count": len(list(WINDOWS_RUNTIME_WHEELHOUSE.glob("*.whl"))),
+            "note_ko": (
+                "이 runtime은 Windows embeddable Python 3.11.9와 필요한 win_amd64 wheel을 미리 포함해, "
+                "현장 PC에 별도 Python/pip 설치 없이 실행할 수 있도록 만든 포터블 런타임이다. "
+                "path 값은 package root 기준 상대경로다."
+            ),
+        }
+
     if bundled_runtime_ready():
-        return json.loads(WINDOWS_RUNTIME_MANIFEST_PATH.read_text(encoding="utf-8"))
+        site_packages_dir = WINDOWS_RUNTIME_PYTHON_ROOT / "Lib" / "site-packages"
+        manifest = portable_manifest(site_packages_dir)
+        WINDOWS_RUNTIME_MANIFEST_PATH.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return manifest
 
     WINDOWS_RUNTIME_ROOT.mkdir(parents=True, exist_ok=True)
     WINDOWS_RUNTIME_CACHE.mkdir(parents=True, exist_ok=True)
@@ -761,21 +1205,7 @@ def materialize_windows_portable_runtime() -> dict[str, object]:
     subprocess.run(download_cmd, check=True)
     extract_wheels_into_site_packages(WINDOWS_RUNTIME_WHEELHOUSE, site_packages_dir)
 
-    manifest = {
-        "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "python_runtime_kind": "windows_embeddable_python",
-        "python_version": WINDOWS_EMBED_PYTHON_VERSION,
-        "python_exe_path": str(WINDOWS_RUNTIME_PYTHON_ROOT / "python.exe"),
-        "python_embed_zip_url": WINDOWS_EMBED_ZIP_URL,
-        "wheelhouse_path": str(WINDOWS_RUNTIME_WHEELHOUSE),
-        "site_packages_path": str(site_packages_dir),
-        "primary_packages": WINDOWS_RUNTIME_PRIMARY_PACKAGES,
-        "wheel_count": len(list(WINDOWS_RUNTIME_WHEELHOUSE.glob("*.whl"))),
-        "note_ko": (
-            "이 runtime은 Windows embeddable Python 3.11.9와 필요한 win_amd64 wheel을 미리 포함해, "
-            "현장 PC에 별도 Python/pip 설치 없이 실행할 수 있도록 만든 포터블 런타임이다."
-        ),
-    }
+    manifest = portable_manifest(site_packages_dir)
     WINDOWS_RUNTIME_MANIFEST_PATH.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -809,6 +1239,12 @@ def materialize_runtime_chain_assets() -> None:
     if not IMPORT_ANY_CSV_SRC.exists():
         raise SystemExit(f"missing import helper source: {IMPORT_ANY_CSV_SRC}")
     shutil.copy2(IMPORT_ANY_CSV_SRC, IMPORT_ANY_CSV_DST)
+    if not DASHBOARD_VERIFY_SRC.exists():
+        raise SystemExit(f"missing dashboard verifier source: {DASHBOARD_VERIFY_SRC}")
+    shutil.copy2(DASHBOARD_VERIFY_SRC, DASHBOARD_VERIFY_DST)
+    if not DELIVERY_VERIFY_SRC.exists():
+        raise SystemExit(f"missing delivery verifier source: {DELIVERY_VERIFY_SRC}")
+    shutil.copy2(DELIVERY_VERIFY_SRC, DELIVERY_VERIFY_DST)
 
     PACKAGE_SHARE_ROOT.mkdir(parents=True, exist_ok=True)
     for filename in PACKAGED_RUNTIME_CHAIN_SHARE_INPUTS:
@@ -928,8 +1364,6 @@ if errorlevel 1 goto FAIL
 echo [100%%] 실행 완료. 결과 리포트를 엽니다.
 if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
@@ -1138,8 +1572,6 @@ echo [100%%] 실행 완료. 결과 리포트를 엽니다.
 
 if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
@@ -1212,8 +1644,6 @@ echo [100%%] 실행 완료. 결과 리포트를 엽니다.
 
 if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
@@ -1309,8 +1739,6 @@ echo [100%%] 실행 완료. 결과 리포트를 엽니다.
 
 if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
@@ -1394,8 +1822,6 @@ echo [100%%] 실행 완료. 결과 리포트를 엽니다.
 
 if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_preview_v1.csv"
-) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv" (
-  start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_raw_only_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md" (
   start "" "%OUTPUT_ROOT%\\result\\fault_panel_result_current_report_v1.md"
 ) else if exist "%OUTPUT_ROOT%\\result\\fault_panel_result_master_report_v1.md" (
@@ -1482,12 +1908,22 @@ def main() -> None:
         PACKAGE_ROOT / "requirements.txt",
         "\n".join(WINDOWS_RUNTIME_PRIMARY_PACKAGES) + "\n",
     )
+    write_text_file(DASHBOARD_INTEGRATION_DOC_PATH, dashboard_integration_markdown())
+    write_text_file(EXTERNAL_DELIVERY_GUIDE_PATH, external_delivery_guide_markdown())
+    write_text_file(DELIVERY_QA_CHECKLIST_PATH, delivery_qa_checklist_markdown())
+    write_text_file(PACKAGE_README_PATH, package_readme_markdown())
 
     summary = {
         "release_root": str(RELEASE_ROOT),
         "package_root": str(PACKAGE_ROOT),
+        "package_readme_path": str(PACKAGE_README_PATH),
         "engine_path": str(ENGINE_DST),
+        "dashboard_integration_doc_path": str(DASHBOARD_INTEGRATION_DOC_PATH),
+        "external_delivery_guide_path": str(EXTERNAL_DELIVERY_GUIDE_PATH),
+        "delivery_qa_checklist_path": str(DELIVERY_QA_CHECKLIST_PATH),
         "import_any_csv_path": str(IMPORT_ANY_CSV_DST),
+        "dashboard_output_verifier_path": str(DASHBOARD_VERIFY_DST),
+        "delivery_package_verifier_path": str(DELIVERY_VERIFY_DST),
         "windows_runtime_root": str(WINDOWS_RUNTIME_ROOT),
         "windows_runtime_manifest_path": str(WINDOWS_RUNTIME_MANIFEST_PATH),
         "windows_runtime_python_exe": runtime_manifest.get("python_exe_path", ""),
@@ -1515,6 +1951,7 @@ def main() -> None:
         "root_live_report_output_name": "fault_panel_result_current_report_v1.md",
         "root_master_report_output_name": "fault_panel_result_master_report_v1.md",
         "root_detailed_report_output_name": "fault_panel_result_detailed_report_v1.xlsx",
+        "root_fault_signal_report_output_name": "fault_panel_result_raw_only_fault_signal_report_v1.csv",
         "root_raw_only_fault_output_name": "fault_panel_result_raw_only_current_v1.csv",
         "root_raw_only_preview_output_name": "fault_panel_result_raw_only_current_preview_v1.csv",
         "root_raw_only_report_output_name": "fault_panel_result_raw_only_current_report_v1.md",

@@ -1,17 +1,17 @@
 {
-  "generated_at_utc": "2026-04-20T05:06:42Z",
+  "generated_at_utc": "2026-05-20T06:40:02Z",
   "source_chain_ko": "frozen verdict plus frozen heuristic with integrated display-name mapping",
-  "verdict_source_path": "/Users/b9gc/pvdiag/_share/panel_day_engine_panel_multiaxis_verdict_v1.csv",
-  "heuristic_source_path": "/Users/b9gc/pvdiag/_share/panel_day_engine_cause_candidate_heuristics_v1.csv",
-  "legacy_integrated_source_path": "/Users/b9gc/pvdiag/_share/panel_day_engine_integrated_result_table_v1.csv",
+  "verdict_source_path": "_share/panel_day_engine_panel_multiaxis_verdict_v1.csv",
+  "heuristic_source_path": "_share/panel_day_engine_cause_candidate_heuristics_v1.csv",
+  "legacy_integrated_source_path": "_share/panel_day_engine_integrated_result_table_v1.csv",
   "fault_row_count": 6,
   "display_name_map": {
-    "다이오드·서브스트링형": "다이오드·국소 회로 이상형",
-    "접속·부분개방형": "접촉 끊김 형",
-    "센서·피드백형": "장치 측정 이상형",
-    "제어응답형": "장치 응답 이상형",
+    "다이오드·서브스트링형": "다이오드·서브스트링 이상형",
+    "접속·부분개방형": "접속 불량·부분 개방형",
+    "센서·피드백형": "센서·계측 피드백 이상형",
+    "제어응답형": "제어 응답 이상형",
     "전력변환부형": "전력변환부 이상형",
-    "외부계통교란형": "외부 전원 흔들림형"
+    "외부계통교란형": "외부 계통 교란형"
   },
   "legacy_integrated_exact_match": true,
   "legacy_integrated_diff_columns": [],
