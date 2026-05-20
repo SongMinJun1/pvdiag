@@ -1,0 +1,53 @@
+﻿경로,존재여부,파일종류_ko,granularity_ko,panel_id_컬럼존재_flag,site_컬럼존재_flag,유형_컬럼존재_flag,점수_컬럼존재_flag,panel_attach_candidate_flag,current_panel_count,candidate_panel_count,overlap_panel_count,overlap_rate,attachability_note_ko,note_ko
+_share/gpvs_fault_family_eval_cases.csv,1,테이블,패널수준,1,1,1,0,1,25,14,12,0.48,site+panel_id direct match 가능,site+panel_id로 current panel table과 연결 가능한 panel-level GPVS reference file
+_share/external_gpvs_20260304_215400.zip,1,압축파일,불명확,0,0,0,0,0,,,,,,압축 보관본이라 직접 컬럼 검사 없이 inventory에만 포함
+_share/external_gpvs_20260304_215400/EXTERNAL_GPVS_METRICS.csv,1,테이블,집계수준,0,0,0,1,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+_share/external_gpvs_20260304_215400/EXTERNAL_GPVS_ONEPAGE.md,1,문서,집계수준,0,0,0,0,0,,,,,유형/집계 설명용 문서,문서형 요약 파일이라 panel direct attach source 아님
+_share/external_gpvs_20260304_215400/gpvs_window_scores.csv,1,테이블,에피소드수준,0,0,1,0,0,,,,,유형 label은 있지만 panel key가 없어 type-level/aggregate 해석만 가능,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+_share/final_all_20260304_215400/external_gpvs_20260304_215400.zip,1,압축파일,불명확,0,0,0,0,0,,,,,,압축 보관본이라 직접 컬럼 검사 없이 inventory에만 포함
+_share/gpvs_fault_family_confusion.csv,1,테이블,유형수준,0,0,1,0,0,,,,,유형 label은 있지만 panel key가 없어 type-level/aggregate 해석만 가능,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+_share/gpvs_fault_family_f1_summary.csv,1,테이블,유형수준,0,0,1,1,0,,,,,유형 label은 있지만 panel key가 없어 type-level/aggregate 해석만 가능,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+_share/panel_day_engine_gpv7_perf_summary_v1.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+_share/panel_day_engine_gpvs_panel_attach_candidates_v1.csv,1,테이블,패널수준,1,1,0,0,0,,,,,panel key는 있지만 유형 label이 없어 direct verdict attach source로는 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+_share/panel_day_engine_gpvs_panel_attach_feasibility_v1.csv,1,테이블,집계수준,0,0,0,1,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+_share/panel_day_engine_gpvs_panel_attach_inventory_v1.csv,1,테이블,집계수준,0,0,0,1,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files.zip,1,압축파일,불명확,0,0,0,0,0,,,,,,압축 보관본이라 직접 컬럼 검사 없이 inventory에만 포함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F0L.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F0M.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F1L.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F1M.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F2L.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F2M.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F3L.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F3M.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F4L.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F4M.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F5L.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F5M.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F6L.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F6M.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F7L.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/_download/GPVS_Faults/n76t439f65-1/CSV_Files/F7M.csv,1,테이블,불명확,0,0,0,0,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/out/EXTERNAL_GPVS_BYTYPE_METRICS.csv,1,테이블,유형수준,0,0,1,1,0,,,,,유형 label은 있지만 panel key가 없어 type-level/aggregate 해석만 가능,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/out/EXTERNAL_GPVS_BYTYPE_ONEPAGE.md,1,문서,유형수준,0,0,0,0,0,,,,,유형/집계 설명용 문서,문서형 요약 파일이라 panel direct attach source 아님
+data/gpvs/out/EXTERNAL_GPVS_ENSEMBLE2_BYTYPE_METRICS.csv,1,테이블,유형수준,0,0,1,1,0,,,,,유형 label은 있지만 panel key가 없어 type-level/aggregate 해석만 가능,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/out/EXTERNAL_GPVS_ENSEMBLE2_METRICS.csv,1,테이블,집계수준,0,0,0,1,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/out/EXTERNAL_GPVS_ENSEMBLE2_ONEPAGE.md,1,문서,집계수준,0,0,0,0,0,,,,,유형/집계 설명용 문서,문서형 요약 파일이라 panel direct attach source 아님
+data/gpvs/out/EXTERNAL_GPVS_ENSEMBLE3_BYTYPE_METRICS.csv,1,테이블,유형수준,0,0,1,1,0,,,,,유형 label은 있지만 panel key가 없어 type-level/aggregate 해석만 가능,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/out/EXTERNAL_GPVS_ENSEMBLE3_METRICS.csv,1,테이블,집계수준,0,0,0,1,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/out/EXTERNAL_GPVS_ENSEMBLE3_ONEPAGE.md,1,문서,집계수준,0,0,0,0,0,,,,,유형/집계 설명용 문서,문서형 요약 파일이라 panel direct attach source 아님
+data/gpvs/out/EXTERNAL_GPVS_ENSEMBLE_BYTYPE_METRICS.csv,1,테이블,유형수준,0,0,1,1,0,,,,,유형 label은 있지만 panel key가 없어 type-level/aggregate 해석만 가능,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/out/EXTERNAL_GPVS_ENSEMBLE_METRICS.csv,1,테이블,집계수준,0,0,0,1,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/out/EXTERNAL_GPVS_ENSEMBLE_ONEPAGE.md,1,문서,집계수준,0,0,0,0,0,,,,,유형/집계 설명용 문서,문서형 요약 파일이라 panel direct attach source 아님
+data/gpvs/out/EXTERNAL_GPVS_METRICS.csv,1,테이블,집계수준,0,0,0,1,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/out/EXTERNAL_GPVS_ONEPAGE.md,1,문서,집계수준,0,0,0,0,0,,,,,유형/집계 설명용 문서,문서형 요약 파일이라 panel direct attach source 아님
+data/gpvs/out/EXTERNAL_GPVS_SUPERVISED2_METRICS.csv,1,테이블,집계수준,0,0,0,1,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/out/EXTERNAL_GPVS_SUPERVISED2_ONEPAGE.md,1,문서,집계수준,0,0,0,0,0,,,,,유형/집계 설명용 문서,문서형 요약 파일이라 panel direct attach source 아님
+data/gpvs/out/EXTERNAL_GPVS_SUPERVISED3_METRICS.csv,1,테이블,집계수준,0,0,0,1,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/out/EXTERNAL_GPVS_SUPERVISED3_ONEPAGE.md,1,문서,집계수준,0,0,0,0,0,,,,,유형/집계 설명용 문서,문서형 요약 파일이라 panel direct attach source 아님
+data/gpvs/out/EXTERNAL_GPVS_SUPERVISED_METRICS.csv,1,테이블,집계수준,0,0,0,1,0,,,,,panel key와 유형 label이 모두 부족,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+data/gpvs/out/EXTERNAL_GPVS_SUPERVISED_ONEPAGE.md,1,문서,집계수준,0,0,0,0,0,,,,,유형/집계 설명용 문서,문서형 요약 파일이라 panel direct attach source 아님
+data/gpvs/out/gpvs_window_scores.csv,1,테이블,에피소드수준,0,0,1,0,0,,,,,유형 label은 있지만 panel key가 없어 type-level/aggregate 해석만 가능,current panel table에 직접 붙일 최소 key/label 요건을 충족하지 못함
+docs/OPS_GPVS_FAULT_FAMILY_F1.md,1,문서,유형수준,0,0,0,0,0,,,,,,문서형 요약 파일이라 panel direct attach source 아님
+docs/OPS_PANEL_DAY_ENGINE_GPVS_PANEL_ATTACH_AUDIT_V1.md,1,문서,불명확,0,0,0,0,0,,,,,,문서형 요약 파일이라 panel direct attach source 아님
+docs/reports/gpvs_final_summary.md,1,문서,집계수준,0,0,0,0,0,,,,,유형/집계 설명용 문서,문서형 요약 파일이라 panel direct attach source 아님

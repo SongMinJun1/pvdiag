@@ -1,0 +1,2 @@
+﻿recommended_next_handling,rationale_ko
+relabel_overlap_as_precursor_led_faults,overlap 2건 모두 precursor onset이 abrupt fault보다 앞서고 fault/episode 날짜가 이어져 같은 사건으로 읽는 편이 더 자연스럽다.

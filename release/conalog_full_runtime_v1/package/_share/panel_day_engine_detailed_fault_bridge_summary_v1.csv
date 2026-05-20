@@ -1,0 +1,2 @@
+﻿고장패널수,세부fault_부착수,세부fault_보류수,exact_date_match_패널수,exact_date_conflict_패널수,exact_date_miss_패널수,note_ko
+6,0,6,0,0,6,"세부 fault type은 PVFAULT_labels_day.csv exact-date consensus로만 붙인다. nearest-date heuristic은 쓰지 않고, file 간 conflict가 나면 보류한다. 이 축은 GPVS family attachment와 별개다."

@@ -1,0 +1,2 @@
+﻿GPVS_패널별_직접판정_가능여부,근거_ko,최선_후보_파일,overlap_panel_count,overlap_rate,다음권장조치_ko
+가능,_share/gpvs_fault_family_eval_cases.csv 에 site/panel_id와 GPVS family type이 함께 저장돼 있어 current panel table 25개 중 12개 panel에 direct attach가 가능하다. 다만 candidate panel 14개 전체가 current panel universe를 덮는 것은 아니므로 부분 attach로 읽어야 한다.,_share/gpvs_fault_family_eval_cases.csv,12,0.48,"겹치는 panel에는 GPVS reference type을 보조축으로 붙이고, 겹치지 않는 panel은 미부착으로 유지한다. type-level/aggregate GPVS summary는 계속 별도 해석용으로만 둔다."

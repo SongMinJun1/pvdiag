@@ -1,0 +1,2 @@
+﻿overlap_panel_count,same_event_count,distinct_event_count,ambiguous_count,current_unique_fault_panel_count,current_precursor_event_count,current_abrupt_event_count,corrected_precursor_led_fault_count,corrected_pure_abrupt_fault_count,note_ko
+2,2,0,0,6,2,6,2,4,"전조형/급작 overlap panel만 따로 떼어 event-level consistency를 봤다. current panel table의 고유 고장패널수는 그대로 두고, overlap이 같은 사건이면 precursor-led fault with abrupt ending으로 읽는 해석만 제안한다."

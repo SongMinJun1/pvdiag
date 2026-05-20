@@ -1,0 +1,10 @@
+﻿mlpe_official_fault_ko,canonical_gpvs_code,match_strength_ko,match_role_ko,evidence_basis_ko,current_real_fault_support_count,recommendation_ko
+정션박스 손상,F4,강,핵심참조,"F4는 PV 어레이 mismatch 계열이며 current real fault panel support=2건, scenario partial alignment=2건으로 panel/array imbalance 해석에 가장 직접적이다",2,reference layer에서 우선 확인하되 direct root-cause로 단정하지 않음
+케이블 접점불량(단선),F5,강,핵심참조,F5는 부분 개방회로 시나리오라 케이블 접점불량(단선)과 가장 가깝지만 current real fault panel support=0건이라 아직 candidate 성격이 크다,0,core reference candidate로 유지하고 현 패널셋 direct evidence가 쌓일 때까지 조건부 사용
+모듈 경년 열화,F4,중,보조참조,F4는 출력 불균형 방향을 포착하므로 경년 열화의 결과적 mismatch와 겹칠 수 있으나 one-to-one는 아니다; current support=2건,2,조건부 reference로만 사용
+모듈 내 누전 추적,,없음,비권장,current GPVS canonical code space에는 누전 추적을 직접 가리키는 row-level match가 없다,0,GPVS direct matching 사용 비권장
+인버터/스트링 동작 불량,F2,약,보조참조,F2 current support=4건이 있지만 scenario conflict=4건이라 direct fault명보다 제어·계측 이상 힌트로만 읽어야 한다,4,제어·계측 이상 힌트로만 사용
+인버터/스트링 동작 불량,F3,약,교란플래그,F3는 계통 교란 confounder code이며 current support=0건으로 fault classifier보다 disturbance flag 성격이 강하다,0,교란 플래그로만 유지
+인버터/스트링 동작 불량,F1,약,시스템보류,F1는 인버터/전력변환부 system-level scenario이며 current support=0건이라 MLPE panel verdict direct mapping을 보류한다,0,통합 결과표 후보축으로만 보류
+인버터/스트링 동작 불량,F6,약,시스템보류,F6는 제어기 gain 이상 system-level scenario이며 current support=0건이라 MLPE panel verdict direct mapping을 보류한다,0,통합 결과표 후보축으로만 보류
+인버터/스트링 동작 불량,F7,약,시스템보류,F7는 제어기 시정수 이상 system-level scenario이며 current support=0건이라 MLPE panel verdict direct mapping을 보류한다,0,통합 결과표 후보축으로만 보류

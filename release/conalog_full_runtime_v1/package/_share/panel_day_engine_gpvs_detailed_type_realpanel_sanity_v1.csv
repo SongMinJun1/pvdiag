@@ -1,0 +1,7 @@
+﻿site,panel_id,gpvs_family_label,gpvs_detailed_top1_fault_type,gpvs_detailed_top1_score,gpvs_detailed_top2_fault_type,gpvs_detailed_top2_score,gpvs_detailed_margin,family_vs_detail_consistency_ko,single_type_collapse_flag,attach_recommendation_ko
+conalog,7f7dd654-2760-4eb2-a197-3ebb72b85cda.2.0,전기적 고장 계열,F4L,0.7663980163772397,F2M,0.2312023817819903,0.5351956345952494,broad GPVS family 와 fine detailed type 사이 직접 충돌 근거는 현재 audit 자산에서 확인되지 않음,0,attach_ok
+conalog,c42997a6-5881-47e7-9035-7de8a2673b54.1.1,개방/장치이상 계열,F2M,0.9999684297851251,F4L,3.0448819189008488e-05,0.9999379809659361,broad GPVS family 와 fine detailed type 사이 직접 충돌 근거는 현재 audit 자산에서 확인되지 않음,0,attach_ok
+gangui,bf1a912f-6cf0-4f12-8e97-9d9d86576511.0.7,전기적 고장 계열,F2M,0.9983614102233517,F4L,0.0016307804894536396,0.996730629733898,broad GPVS family 와 fine detailed type 사이 직접 충돌 근거는 현재 audit 자산에서 확인되지 않음,0,attach_ok
+gangui,bf1a912f-6cf0-4f12-8e97-9d9d86576511.2.16,전기적 고장 계열,F2M,0.9909254812518792,F4L,0.009071427150722886,0.9818540541011563,broad GPVS family 와 fine detailed type 사이 직접 충돌 근거는 현재 audit 자산에서 확인되지 않음,0,attach_ok
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.12,불확실,F4L,0.8217373274556089,F2M,0.1167798589533898,0.7049574685022191,broad GPVS family 와 fine detailed type 사이 직접 충돌 근거는 현재 audit 자산에서 확인되지 않음,0,attach_ok
+ktc_ess,70ad2d87-cdb6-4842-81b7-71c7599bbf05.1.4,전기적 고장 계열,F2M,0.9632018904449849,F4L,0.036321501823062846,0.9268803886219221,broad GPVS family 와 fine detailed type 사이 직접 충돌 근거는 현재 audit 자산에서 확인되지 않음,0,attach_ok

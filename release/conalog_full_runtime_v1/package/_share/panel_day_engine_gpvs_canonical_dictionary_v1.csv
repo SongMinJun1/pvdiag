@@ -1,0 +1,9 @@
+﻿canonical_gpvs_code,current_usage_tier_ko,mlpe_reference_family_ko,mlpe_reference_name_ko,usage_rule_ko,current_real_fault_support_count,note_ko
+F0,baseline,정상 기준,정상 기준선,비고장 기준선과 drift 비교에만 사용,0,front-facing matching에서는 fault명이 아니라 baseline reference로만 노출
+F1,reserved_system_level,시스템/전력변환,인버터 전력변환부 시스템 시나리오,MLPE direct fault명이 아니라 통합 결과표 후보축으로만 보류,0,current panel set direct support가 없어 system-level reserve로만 유지
+F2,auxiliary_reference,제어·계측 힌트,제어/계측 이상 보조 힌트,direct root-cause가 아니라 제어·계측 이상 힌트로만 사용,4,real fault support 4건; panel agreement useful/caution/notrec=0/0/4
+F3,confounder_only,계통 교란,계통 교란 플래그,fault label이 아니라 confounder flag로만 사용,0,real-panel direct support가 없어 confounder-only로 유지
+F4,core_reference,패널·어레이 불균형,패널·어레이 mismatch 핵심 참조,MLPE 패널·어레이 불균형 해석의 핵심 reference로 사용,2,real fault support 2건; panel agreement useful/caution/notrec=0/2/0
+F5,core_reference_candidate,패널·어레이 불균형,부분 개방회로 계열 핵심 참조 후보,케이블 접점불량(단선) 가설의 핵심 reference candidate로 유지,0,current panel set direct support는 약하지만 semantics상 살려둘 가치가 큼
+F6,reserved_system_level,제어기/시스템,제어기 gain 이상 시스템 시나리오,MLPE direct fault명이 아니라 통합 결과표 후보축으로만 보류,0,system-level reserve code로만 유지
+F7,reserved_system_level,제어기/시스템,제어기 시정수 이상 시스템 시나리오,MLPE direct fault명이 아니라 통합 결과표 후보축으로만 보류,0,system-level reserve code로만 유지

@@ -1,0 +1,2 @@
+﻿recovered_model_exported_flag,recovered_feature_manifest_exported_flag,recovered_model_source_ko,parity_overall_status_ko,current_recovered_attachable_flag,note_ko
+1,1,gpvs_train_supervised selected primary path reuse,일치,1,"recovered export 는 gpvs_train_supervised selected primary path를 재사용해 만든 multiclass by-type artifact 다. recovered_model_used_flag=1, parity_overall_status_ko=일치, realpanel_collapse_flag=0, current_recovered_attachable_flag=1. do_not_attach 결론은 parity 와 real-panel collapse 둘 다 풀리기 전까지 유지해야 한다."

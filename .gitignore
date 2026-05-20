@@ -46,3 +46,16 @@ _release_tmp/
 
 _ops_release_tmp/
 _ops_runtime_logs/
+
+# Release runtime support assets are intentionally packaged.
+!release/conalog_full_runtime_v1/package/_share/
+!release/conalog_full_runtime_v1/package/_share/**
+!release/conalog_full_runtime_v1/package/runtime/windows_x64/python/python311.zip
+!release/conalog_full_runtime_v1/package/runtime/windows_x64/python/Lib/site-packages/torch/ao/pruning/_experimental/data_scheduler/
+!release/conalog_full_runtime_v1/package/runtime/windows_x64/python/Lib/site-packages/torch/ao/pruning/_experimental/data_scheduler/**
+!release/conalog_full_runtime_v1/package/runtime/windows_x64/python/Lib/site-packages/torch/ao/pruning/_experimental/data_sparsifier/
+!release/conalog_full_runtime_v1/package/runtime/windows_x64/python/Lib/site-packages/torch/ao/pruning/_experimental/data_sparsifier/**
+!release/conalog_full_runtime_v1/package/runtime/windows_x64/python/Lib/site-packages/torch/distributed/elastic/utils/data/
+!release/conalog_full_runtime_v1/package/runtime/windows_x64/python/Lib/site-packages/torch/distributed/elastic/utils/data/**
+!release/conalog_full_runtime_v1/package/runtime/windows_x64/python/Lib/site-packages/torch/utils/data/
+!release/conalog_full_runtime_v1/package/runtime/windows_x64/python/Lib/site-packages/torch/utils/data/**

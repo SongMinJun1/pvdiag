@@ -1,0 +1,7 @@
+﻿site,panel_id,사건유형_ko,최종고장양상_ko,커널로그_원인군_ko,GPVS_참고유형_ko,GPVS_외부참조시나리오명_ko,family_vs_kernellog_alignment_ko,scenario_vs_kernellog_alignment_ko,feature_shift_bucket_ko,overall_gpvs_reference_usefulness_ko,overall_gpvs_trust_note_ko
+conalog,7f7dd654-2760-4eb2-a197-3ebb72b85cda.2.0,전조형 고장,진행성 악화,다이오드형,전기적 고장 계열,PV 어레이 mismatch(부분 음영) 시나리오,일치,부분일치,strong_shift,주의참고,feature schema는 맞지만 training 대비 분포 이동이 커서 GPVS는 reference-only로만 읽는 편이 안전함
+conalog,c42997a6-5881-47e7-9035-7de8a2673b54.1.1,전조형 고장,급격 종료,개방/장치이상형,개방/장치이상 계열,제어 피드백 센서 이상 시나리오,일치,불일치,strong_shift,비권장,외부 GPVS scenario/family 방향성이 current kernel-log 원인군과 직접 충돌해 direct trust를 주기 어려움
+gangui,bf1a912f-6cf0-4f12-8e97-9d9d86576511.0.7,급작 고장,급작 발생,다이오드형,전기적 고장 계열,제어 피드백 센서 이상 시나리오,일치,불일치,strong_shift,비권장,외부 GPVS scenario/family 방향성이 current kernel-log 원인군과 직접 충돌해 direct trust를 주기 어려움
+gangui,bf1a912f-6cf0-4f12-8e97-9d9d86576511.2.16,급작 고장,급작 발생,다이오드형,전기적 고장 계열,제어 피드백 센서 이상 시나리오,일치,불일치,strong_shift,비권장,외부 GPVS scenario/family 방향성이 current kernel-log 원인군과 직접 충돌해 direct trust를 주기 어려움
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.12,급작 고장,급작 발생,다이오드형,불확실,PV 어레이 mismatch(부분 음영) 시나리오,비교곤란,부분일치,strong_shift,주의참고,feature schema는 맞지만 training 대비 분포 이동이 커서 GPVS는 reference-only로만 읽는 편이 안전함
+ktc_ess,70ad2d87-cdb6-4842-81b7-71c7599bbf05.1.4,전조형 고장,진행성 악화,모듈손상형,전기적 고장 계열,제어 피드백 센서 이상 시나리오,부분일치,불일치,strong_shift,비권장,외부 GPVS scenario/family 방향성이 current kernel-log 원인군과 직접 충돌해 direct trust를 주기 어려움

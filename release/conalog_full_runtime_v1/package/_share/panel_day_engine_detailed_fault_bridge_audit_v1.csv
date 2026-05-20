@@ -1,0 +1,7 @@
+﻿site,panel_id,reference_date,exact_match_file_count,matched_files_csv,matched_fault_type_values_csv,consensus_fault_type_code,attachable_flag,attach_reason_ko
+conalog,7f7dd654-2760-4eb2-a197-3ebb72b85cda.2.0,2024-11-26,0,,,,0,no_exact_date_match
+conalog,c42997a6-5881-47e7-9035-7de8a2673b54.1.1,2025-03-21,0,,,,0,no_exact_date_match
+gangui,bf1a912f-6cf0-4f12-8e97-9d9d86576511.0.7,2025-06-08,0,,,,0,no_exact_date_match
+gangui,bf1a912f-6cf0-4f12-8e97-9d9d86576511.2.16,2025-06-08,0,,,,0,no_exact_date_match
+ktc_ess,10305b40-b67e-40d1-9cd1-271b6642a3d9.2.12,2025-08-16,0,,,,0,no_exact_date_match
+ktc_ess,70ad2d87-cdb6-4842-81b7-71c7599bbf05.1.4,2025-02-02,0,,,,0,no_exact_date_match
