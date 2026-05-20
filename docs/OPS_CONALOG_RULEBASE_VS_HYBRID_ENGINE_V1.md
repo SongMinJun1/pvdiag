@@ -6,6 +6,11 @@
 - 여기서 hybrid engine은 panel multiaxis verdict, conalog, GPVS reference layer, heuristic triage layer, integrated table, validation/coverage/runtime foundation까지 포함한 현재 전체 운영 스택을 뜻한다.
 - 외부 공개 freeze 기준은 여전히 `project-main-freeze-v9` 로 두어야 하며, 본 문서는 그 이후 내부 foundation 정리 내용을 대외 설명용으로 재구성한 문서다.
 
+## 1A. 문서 경계
+- 본 문서는 `stable/handoff conalog rulebase`와 `현재 hybrid engine`을 비교하는 문서다.
+- runtime redesign gate 문서의 artifact/operator semantics 정책을 stable conalog contract에 그대로 덮어쓰는 문서가 아니다.
+- stable/handoff contract와 runtime redesign contract의 경계는 [OPS_CONALOG_STABLE_RUNTIME_MAPPING_NOTE_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_STABLE_RUNTIME_MAPPING_NOTE_V1.md), [OPS_CONALOG_RUNTIME_DECISION_LOG_DL_20260422_002_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_DECISION_LOG_DL_20260422_002_V1.md) 를 따른다.
+
 ## 2. 입력 데이터 범위 차이
 - conalog rulebase 경로는 외부 handoff 계약 관점에서 입력 범위를 좁게 유지한다. 현재 stable handoff pack은 `site`, `panel_id` 중심의 입력과 고정 config를 받아 stable output만 반환하도록 설계되어 있다.
 - 현재 hybrid engine은 같은 운영 입력 위에 panel multiaxis verdict, conalog interpretation, GPVS evidence pack, heuristic candidate summary, validation framework, coverage/performance report 같은 내부 보조층을 함께 읽는다.
