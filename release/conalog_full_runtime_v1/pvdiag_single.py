@@ -15,7 +15,7 @@ from pathlib import Path
 
 
 GENERATED_BY = "tools/build_pvdiag_single_py.py"
-GENERATED_AT_UTC = '2026-05-20T11:02:39.083185+00:00'
+GENERATED_AT_UTC = '2026-05-20T11:12:15.575055+00:00'
 PAYLOAD_MODE = "source_text"
 PAYLOAD_TEXT_SHA256 = '8a8445e538962b8aa3dfa07f3e54562f6a2cac811c78770279041b5a8420b8ac'
 PAYLOAD_TEXT_BYTES = 753998
@@ -403,6 +403,14 @@ REQUIRED_MODULES = {
     "openpyxl": "openpyxl",
     "tqdm": "tqdm",
 }
+RECOMMENDED_PACKAGE_VERSIONS = {
+    "pandas": "2.3.3",
+    "numpy": "2.3.4",
+    "torch": "2.9.1",
+    "openpyxl": "3.1.5",
+    "tqdm": "4.67.1",
+}
+MIN_PYTHON_VERSION = (3, 10)
 
 
 def script_dir() -> Path:
@@ -446,12 +454,48 @@ def missing_dependencies() -> list[str]:
     return missing
 
 
+def package_versions() -> dict[str, str]:
+    versions: dict[str, str] = {}
+    for module_name in REQUIRED_MODULES:
+        if importlib.util.find_spec(module_name) is None:
+            continue
+        module = __import__(module_name)
+        versions[module_name] = str(getattr(module, "__version__", "unknown"))
+    return versions
+
+
+def print_environment_summary() -> None:
+    print(
+        "[pvdiag_single] environment:",
+        f"python={sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        f"executable={sys.executable}",
+    )
+    versions = package_versions()
+    if versions:
+        print("[pvdiag_single] installed package versions:")
+        for module_name, version in versions.items():
+            recommended = RECOMMENDED_PACKAGE_VERSIONS.get(module_name, "")
+            suffix = f" (recommended {recommended})" if recommended and version != recommended else ""
+            print(f"  - {module_name}=={version}{suffix}")
+
+
+def python_version_supported() -> bool:
+    return sys.version_info >= MIN_PYTHON_VERSION
+
+
+def print_python_version_help() -> None:
+    required = ".".join(str(part) for part in MIN_PYTHON_VERSION)
+    current = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    print(f"[pvdiag_single] Python {required}+ is required. Current Python is {current}.")
+    print("[pvdiag_single] recommended: Python 3.11 with pandas/numpy/torch/openpyxl/tqdm installed.")
+
+
 def print_dependency_help(missing: list[str]) -> None:
     print("[pvdiag_single] missing required Python packages:")
     for package in missing:
         print(f"  - {package}")
     print("[pvdiag_single] install example:")
-    print("  pip install pandas numpy torch openpyxl tqdm")
+    print("  pip install pandas==2.3.3 numpy==2.3.4 torch==2.9.1 openpyxl==3.1.5 tqdm==4.67.1")
     print("[pvdiag_single] after installing packages, run the same command again.")
 
 
@@ -687,7 +731,14 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[pvdiag_single] payload_structure_note: {PAYLOAD_STRUCTURE_NOTE}")
             print(f"[pvdiag_single] runtime_root: {runtime_root}")
             print(f"[pvdiag_single] runner: {runner}")
+            print_environment_summary()
             return 0
+
+        if not python_version_supported():
+            print_python_version_help()
+            if args.single_keep_runtime:
+                print(f"[pvdiag_single] kept runtime: {runtime_root}")
+            return 2
 
         missing = missing_dependencies()
         if missing:
