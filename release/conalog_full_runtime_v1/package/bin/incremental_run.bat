@@ -34,7 +34,7 @@ set "OUTPUT_ROOT="
 for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; $dialog.Description='출력 폴더를 선택하십시오 (취소 시 기본값 사용)'; if ($dialog.ShowDialog() -eq 'OK') { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Output $dialog.SelectedPath }"`) do set "OUTPUT_ROOT=%%I"
 if "%OUTPUT_ROOT%"=="" set "OUTPUT_ROOT=%DEFAULT_OUTPUT%"
 
-set /p STABLE_MINUTES=안정화 대기 분을 입력하십시오 [기본값: 10]: 
+set /p STABLE_MINUTES=안정화 대기 분을 입력하십시오 [기본값: 10]:
 if "%STABLE_MINUTES%"=="" set "STABLE_MINUTES=10"
 
 set "IMPORT_ENV=%SNAPSHOT_ROOT%\import_env.bat"

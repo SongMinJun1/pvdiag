@@ -9,7 +9,7 @@ set "APP_PATH=%PACKAGE_ROOT%\app\run_full_algorithm_pack.py"
 call "%PACKAGE_ROOT%\bin\resolve_python.bat"
 if errorlevel 1 exit /b %errorlevel%
 
-set /p ARCHIVE_ROOT=archive_data 루트 경로를 입력하십시오 ^(예: D:\pvdiag\archive_data^): 
+set /p ARCHIVE_ROOT=archive_data 루트 경로를 입력하십시오 ^(예: D:\pvdiag\archive_data^):
 if "%ARCHIVE_ROOT%"=="" (
     echo archive_data 루트 경로를 다시 확인하십시오.
   exit /b 0
@@ -19,10 +19,10 @@ if not exist "%ARCHIVE_ROOT%" (
   exit /b 0
 )
 
-set /p RUNTIME_ROOT=runtime_data 경로를 입력하십시오 [기본값: %PACKAGE_ROOT%\..\runtime_data]: 
+set /p RUNTIME_ROOT=runtime_data 경로를 입력하십시오 [기본값: %PACKAGE_ROOT%\..\runtime_data]:
 if "%RUNTIME_ROOT%"=="" set "RUNTIME_ROOT=%PACKAGE_ROOT%\..\runtime_data"
 
-set /p OUTPUT_ROOT=출력 폴더 경로를 입력하십시오 [기본값: %PACKAGE_ROOT%\..\runtime_output\daily_run]: 
+set /p OUTPUT_ROOT=출력 폴더 경로를 입력하십시오 [기본값: %PACKAGE_ROOT%\..\runtime_output\daily_run]:
 if "%OUTPUT_ROOT%"=="" set "OUTPUT_ROOT=%PACKAGE_ROOT%\..\runtime_output\daily_run"
 
 echo [010%%] 최근 120일 raw staging 경로를 준비했습니다.
