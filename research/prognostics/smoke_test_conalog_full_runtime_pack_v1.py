@@ -107,6 +107,16 @@ EXPECTED_PREVIEW_DATE_ROWS = {
     ("ktc_ess", "70ad2d87-cdb6-4842-81b7-71c7599bbf05.1.4"): ("2025-01-25", "2025-02-02"),
 }
 
+
+def resolve_summary_path(value: object) -> Path:
+    if not isinstance(value, str) or not value.strip():
+        raise SystemExit(f"pack summary path value is empty: {value!r}")
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return RELEASE_ROOT / path
+
+
 def make_dummy_site(tmp_root: Path, site: str) -> None:
     raw_dir = tmp_root / site / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -245,18 +255,25 @@ def main() -> None:
             raise SystemExit("dry-run plan must expose prefer-existing-site-outs default=auto")
 
     summary_payload = json.loads(SUMMARY.read_text(encoding="utf-8"))
-    if summary_payload.get("dashboard_integration_doc_path") != str(DASHBOARD_INTEGRATION_DOC):
-        raise SystemExit("pack summary must expose dashboard integration doc path")
-    if summary_payload.get("package_readme_path") != str(PACKAGE_README):
-        raise SystemExit("pack summary must expose package README path")
-    if summary_payload.get("external_delivery_guide_path") != str(EXTERNAL_DELIVERY_GUIDE):
-        raise SystemExit("pack summary must expose external delivery guide path")
-    if summary_payload.get("delivery_qa_checklist_path") != str(DELIVERY_QA_CHECKLIST):
-        raise SystemExit("pack summary must expose delivery QA checklist path")
-    if summary_payload.get("dashboard_output_verifier_path") != str(DASHBOARD_VERIFIER):
-        raise SystemExit("pack summary must expose dashboard output verifier path")
-    if summary_payload.get("delivery_package_verifier_path") != str(DELIVERY_VERIFIER):
-        raise SystemExit("pack summary must expose delivery package verifier path")
+    local_path_needles = ("/Users/", "/private/tmp", "/private/var/folders/")
+    local_path_keys = [
+        key
+        for key, value in summary_payload.items()
+        if isinstance(value, str) and any(needle in value for needle in local_path_needles)
+    ]
+    if local_path_keys:
+        raise SystemExit(f"pack summary must not expose local absolute paths: {local_path_keys}")
+    expected_summary_paths = {
+        "dashboard_integration_doc_path": DASHBOARD_INTEGRATION_DOC,
+        "package_readme_path": PACKAGE_README,
+        "external_delivery_guide_path": EXTERNAL_DELIVERY_GUIDE,
+        "delivery_qa_checklist_path": DELIVERY_QA_CHECKLIST,
+        "dashboard_output_verifier_path": DASHBOARD_VERIFIER,
+        "delivery_package_verifier_path": DELIVERY_VERIFIER,
+    }
+    for key, expected_path in expected_summary_paths.items():
+        if resolve_summary_path(summary_payload.get(key)).resolve() != expected_path.resolve():
+            raise SystemExit(f"pack summary must expose {key}")
     dashboard_doc_text = DASHBOARD_INTEGRATION_DOC.read_text(encoding="utf-8-sig")
     if "fault_panel_result_current_preview_v1.csv" not in dashboard_doc_text:
         raise SystemExit("dashboard integration doc must name the primary preview CSV")
