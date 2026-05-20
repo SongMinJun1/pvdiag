@@ -55,6 +55,8 @@ REQUIRED_SHARE_INPUTS = [
 
 REQUIRED_RUNTIME_SENTINELS = [
     "runtime/windows_x64/python/python311.zip",
+    "runtime/windows_x64/python/Lib/site-packages/torch/lib/torch_cpu.dll",
+    "runtime/windows_x64/wheelhouse/torch-2.9.1-cp311-cp311-win_amd64.whl",
     "runtime/windows_x64/python/Lib/site-packages/torch/utils/data/__init__.py",
     "runtime/windows_x64/python/Lib/site-packages/torch/utils/data/dataloader.py",
     "runtime/windows_x64/python/Lib/site-packages/torch/utils/data/dataset.py",
@@ -62,6 +64,12 @@ REQUIRED_RUNTIME_SENTINELS = [
     "runtime/windows_x64/python/Lib/site-packages/torch/ao/pruning/_experimental/data_sparsifier/__init__.py",
     "runtime/windows_x64/python/Lib/site-packages/torch/distributed/elastic/utils/data/__init__.py",
 ]
+
+REQUIRED_RUNTIME_MIN_BYTES = {
+    "runtime/windows_x64/python/python311.zip": 1_000_000,
+    "runtime/windows_x64/python/Lib/site-packages/torch/lib/torch_cpu.dll": 200_000_000,
+    "runtime/windows_x64/wheelhouse/torch-2.9.1-cp311-cp311-win_amd64.whl": 100_000_000,
+}
 
 FORBIDDEN_DIR_NAMES = {
     ".git",
@@ -202,6 +210,27 @@ def find_missing_required_files(package_root: Path) -> list[str]:
     return [rel for rel in required if not (package_root / rel).exists()]
 
 
+def find_undersized_runtime_files(package_root: Path) -> list[dict[str, object]]:
+    hits: list[dict[str, object]] = []
+    for rel, min_bytes in REQUIRED_RUNTIME_MIN_BYTES.items():
+        path = package_root / rel
+        if not path.exists():
+            continue
+        size_bytes = path.stat().st_size
+        first_bytes = path.read_bytes()[:64]
+        is_lfs_pointer = first_bytes.startswith(b"version https://git-lfs.github.com/spec/")
+        if size_bytes < min_bytes or is_lfs_pointer:
+            hits.append(
+                {
+                    "path": rel,
+                    "size_bytes": int(size_bytes),
+                    "min_bytes": int(min_bytes),
+                    "lfs_pointer_detected": bool(is_lfs_pointer),
+                }
+            )
+    return hits
+
+
 def main() -> None:
     args = parse_args()
     package_root = (args.package_root or infer_package_root()).resolve()
@@ -212,6 +241,7 @@ def main() -> None:
     forbidden_dirs = find_forbidden_dirs(package_root)
     local_path_leaks = find_local_path_leaks(package_root)
     large_nonruntime_files = find_large_nonruntime_files(package_root)
+    undersized_runtime_files = find_undersized_runtime_files(package_root)
     pycache_dirs = sorted(
         relative_path(package_root, path)
         for path in package_root.rglob("__pycache__")
@@ -232,6 +262,9 @@ def main() -> None:
     if large_nonruntime_files:
         status = "fail"
         failures.append("large_nonruntime_files")
+    if undersized_runtime_files:
+        status = "fail"
+        failures.append("undersized_runtime_files")
 
     payload = {
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -241,6 +274,7 @@ def main() -> None:
         "forbidden_dirs": forbidden_dirs,
         "local_path_leaks": local_path_leaks,
         "large_nonruntime_files": large_nonruntime_files,
+        "undersized_runtime_files": undersized_runtime_files,
         "pycache_dirs_warning": pycache_dirs,
         "required_share_input_count": len(REQUIRED_SHARE_INPUTS),
         "required_runtime_sentinel_count": len(REQUIRED_RUNTIME_SENTINELS),
