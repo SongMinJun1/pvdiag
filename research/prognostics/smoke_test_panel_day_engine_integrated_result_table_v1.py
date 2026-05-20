@@ -11,6 +11,18 @@ import pandas as pd
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if __package__ in {None, ""}:
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from research.prognostics.heuristic_display_registry_v1 import (
+        DISPLAY_HEURISTIC_NAME_MAP,
+        LEGACY_HEURISTIC_DISPLAY_NAMES,
+    )
+else:
+    from .heuristic_display_registry_v1 import (
+        DISPLAY_HEURISTIC_NAME_MAP,
+        LEGACY_HEURISTIC_DISPLAY_NAMES,
+    )
 BUILD_SCRIPT = REPO_ROOT / "research/prognostics/build_panel_day_engine_integrated_result_table_v1.py"
 OUTPUT_TABLE = REPO_ROOT / "_share/panel_day_engine_integrated_result_table_v1.csv"
 OUTPUT_SUMMARY = REPO_ROOT / "_share/panel_day_engine_integrated_result_summary_v1.csv"
@@ -63,15 +75,6 @@ FORBIDDEN_VALUE_PATTERNS = [
     r"\bscore\b",
     r"\bmargin\b",
 ]
-
-DISPLAY_REMAP = {
-    "다이오드·서브스트링형": "다이오드·국소 회로 이상형",
-    "접속·부분개방형": "접촉 끊김 형",
-    "센서·피드백형": "장치 측정 이상형",
-    "제어응답형": "장치 응답 이상형",
-    "전력변환부형": "전력변환부 이상형",
-    "외부계통교란형": "외부 전원 흔들림형",
-}
 
 UNMAPPED_LABELS = {"부분음영형", "오염형", "열화형", "원인미확정"}
 
@@ -144,9 +147,9 @@ def main() -> None:
     ]
     assert_true(len(c429_row) == 1, "expected c429 row in integrated table")
     c429 = c429_row.iloc[0]
-    assert_true(normalize_text(c429["1순위_의심원인_ko"]) == "장치 측정 이상형", "c429 top1 display label mismatch")
-    assert_true(normalize_text(c429["2순위_의심원인_ko"]) == "접촉 끊김 형", "c429 top2 display label mismatch")
-    assert_true(normalize_text(c429["3순위_의심원인_ko"]) == "장치 응답 이상형", "c429 top3 display label mismatch")
+    assert_true(normalize_text(c429["1순위_의심원인_ko"]) == "센서·계측 피드백 이상형", "c429 top1 display label mismatch")
+    assert_true(normalize_text(c429["2순위_의심원인_ko"]) == "접속 불량·부분 개방형", "c429 top2 display label mismatch")
+    assert_true(normalize_text(c429["3순위_의심원인_ko"]) == "제어 응답 이상형", "c429 top3 display label mismatch")
 
     row_10305 = table_df.loc[
         table_df["site"].eq("ktc_ess")
@@ -154,9 +157,9 @@ def main() -> None:
     ]
     assert_true(len(row_10305) == 1, "expected 10305 row in integrated table")
     row_10305_data = row_10305.iloc[0]
-    assert_true(normalize_text(row_10305_data["1순위_의심원인_ko"]) == "다이오드·국소 회로 이상형", "10305 top1 display label mismatch")
+    assert_true(normalize_text(row_10305_data["1순위_의심원인_ko"]) == "다이오드·서브스트링 이상형", "10305 top1 display label mismatch")
     assert_true(normalize_text(row_10305_data["2순위_의심원인_ko"]) == "부분음영형", "10305 top2 should stay unrenamed")
-    assert_true(normalize_text(row_10305_data["3순위_의심원인_ko"]) == "접촉 끊김 형", "10305 top3 display label mismatch")
+    assert_true(normalize_text(row_10305_data["3순위_의심원인_ko"]) == "접속 불량·부분 개방형", "10305 top3 display label mismatch")
 
     row_70ad = table_df.loc[
         table_df["site"].eq("ktc_ess")
@@ -165,17 +168,19 @@ def main() -> None:
     assert_true(len(row_70ad) == 1, "expected 70ad row in integrated table")
     row_70ad_data = row_70ad.iloc[0]
     assert_true(normalize_text(row_70ad_data["1순위_의심원인_ko"]) == "열화형", "70ad top1 should stay unrenamed")
-    assert_true(normalize_text(row_70ad_data["2순위_의심원인_ko"]) == "장치 측정 이상형", "70ad top2 display label mismatch")
-    assert_true(normalize_text(row_70ad_data["3순위_의심원인_ko"]) == "다이오드·국소 회로 이상형", "70ad top3 display label mismatch")
+    assert_true(normalize_text(row_70ad_data["2순위_의심원인_ko"]) == "센서·계측 피드백 이상형", "70ad top2 display label mismatch")
+    assert_true(normalize_text(row_70ad_data["3순위_의심원인_ko"]) == "다이오드·서브스트링 이상형", "70ad top3 display label mismatch")
 
     display_values = [normalize_text(value) for value in table_df[["1순위_의심원인_ko", "2순위_의심원인_ko", "3순위_의심원인_ko"]].stack().tolist()]
-    for raw_label, display_label in DISPLAY_REMAP.items():
+    for raw_label, display_label in DISPLAY_HEURISTIC_NAME_MAP.items():
         assert_true(raw_label not in display_values, f"raw heuristic label must not appear in integrated table display: {raw_label}")
         if display_label in display_values:
             continue
         if raw_label in {"전력변환부형", "외부계통교란형"}:
             continue
         raise SystemExit(f"expected display-renamed label missing from integrated table: {display_label}")
+    for legacy_label in LEGACY_HEURISTIC_DISPLAY_NAMES:
+        assert_true(legacy_label not in display_values, f"legacy softened heuristic label must not appear: {legacy_label}")
     for label in UNMAPPED_LABELS:
         if label in {"부분음영형", "열화형"}:
             assert_true(label in display_values, f"unmapped heuristic label should stay visible: {label}")

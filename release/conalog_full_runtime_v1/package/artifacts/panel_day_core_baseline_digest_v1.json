@@ -1,0 +1,99 @@
+{
+  "generated_at_utc": "2026-05-20T06:51:16Z",
+  "sites": {
+    "conalog": {
+      "columns": [
+        "date",
+        "panel_id",
+        "confirmed_fault",
+        "critical_fault",
+        "critical_source",
+        "final_fault",
+        "anom_level",
+        "anom_subtype"
+      ],
+      "row_count": 155723,
+      "digest_sha256": "f8a5640a480d098bf791f21936345ff5c990470be27418be02eec9a00cbb9309",
+      "critical_source_counts": {
+        "legacy": 69,
+        "none": 155323,
+        "vdrop": 295,
+        "vdrop_suspect": 36
+      },
+      "anom_level_counts": {
+        "confirmed_fault": 504,
+        "degraded_or_shadow": 58,
+        "fault_like": 46,
+        "normal": 155096,
+        "shadow_like": 19
+      },
+      "confirmed_fault_true_count": 428,
+      "critical_fault_true_count": 76,
+      "final_fault_true_count": 504,
+      "source_path": "data/conalog/out/panel_day_core.csv"
+    },
+    "gangui": {
+      "columns": [
+        "date",
+        "panel_id",
+        "confirmed_fault",
+        "critical_fault",
+        "critical_source",
+        "final_fault",
+        "anom_level",
+        "anom_subtype"
+      ],
+      "row_count": 57608,
+      "digest_sha256": "fb0837562dc01943a6bf3aa22b9467635f4cd50bef276954b05ac213eac4123d",
+      "critical_source_counts": {
+        "legacy": 393,
+        "none": 56528,
+        "vdrop": 664,
+        "vdrop_suspect": 23
+      },
+      "anom_level_counts": {
+        "confirmed_fault": 664,
+        "degraded_or_shadow": 74,
+        "fault_like": 65,
+        "group_off_like": 91,
+        "normal": 56710,
+        "shadow_like": 4
+      },
+      "confirmed_fault_true_count": 255,
+      "critical_fault_true_count": 616,
+      "final_fault_true_count": 664,
+      "source_path": "data/gangui/out/panel_day_core.csv"
+    },
+    "ktc_ess": {
+      "columns": [
+        "date",
+        "panel_id",
+        "confirmed_fault",
+        "critical_fault",
+        "critical_source",
+        "final_fault",
+        "anom_level",
+        "anom_subtype"
+      ],
+      "row_count": 86688,
+      "digest_sha256": "e7e3a6a335122ad36f820984953086dd35b4bbfb2d113bef96fa996a756acab5",
+      "critical_source_counts": {
+        "legacy": 2,
+        "none": 86379,
+        "vdrop": 307
+      },
+      "anom_level_counts": {
+        "confirmed_fault": 122,
+        "degraded_or_shadow": 231,
+        "fault_like": 31,
+        "normal": 86297,
+        "shadow_like": 7
+      },
+      "confirmed_fault_true_count": 0,
+      "critical_fault_true_count": 191,
+      "final_fault_true_count": 122,
+      "source_path": "data/ktc_ess/out/panel_day_core.csv"
+    }
+  },
+  "note_ko": "이 digest는 baseline raw corpus에서 이미 산출된 panel_day_core.csv의 정규화 hash/reference다. runtime pack이 동일 baseline 입력으로 재실행될 때 engine core output이 같은지 shadow compare할 때 사용한다."
+}

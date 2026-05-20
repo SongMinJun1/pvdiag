@@ -17,7 +17,7 @@ KNOWN_OPERATIONAL_SITES = ["conalog", "gangui", "ktc_ess", "sinhyo"]
 DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 
 VERDICT_NAME = "panel_day_engine_panel_multiaxis_verdict_v1.csv"
-INTEGRATED_NAME = "panel_day_engine_integrated_result_table_v1.csv"
+HEURISTIC_NAME = "panel_day_engine_cause_candidate_heuristics_v1.csv"
 
 PANEL_RESULT_NAME = "panel_result_v1.csv"
 SITE_DAY_SUMMARY_NAME = "site_day_summary_v1.csv"
@@ -104,12 +104,12 @@ VERDICT_REQUIRED_COLS = [
     "커널로그_원인군_ko",
 ]
 
-INTEGRATED_REQUIRED_COLS = [
+HEURISTIC_REQUIRED_COLS = [
     "site",
     "panel_id",
-    "1순위_의심원인_ko",
-    "2순위_의심원인_ko",
-    "3순위_의심원인_ko",
+    "원인후보_top1_ko",
+    "원인후보_top2_ko",
+    "원인후보_top3_ko",
 ]
 
 
@@ -249,7 +249,7 @@ def date_range_days(start_date: pd.Timestamp, end_date: pd.Timestamp) -> list[st
 
 def build_panel_result_preview(
     verdict_df: pd.DataFrame,
-    integrated_df: pd.DataFrame,
+    heuristic_df: pd.DataFrame,
     *,
     selected_sites: list[str],
     start_date: str,
@@ -261,12 +261,12 @@ def build_panel_result_preview(
         return pd.DataFrame(columns=PANEL_RESULT_COLS)
 
     ensure_columns(verdict_df, VERDICT_REQUIRED_COLS, VERDICT_NAME)
-    integrated_lookup: dict[tuple[str, str], dict[str, str]] = {}
-    if not integrated_df.empty:
-        ensure_columns(integrated_df, INTEGRATED_REQUIRED_COLS, INTEGRATED_NAME)
-        for row in integrated_df.to_dict(orient="records"):
+    heuristic_lookup: dict[tuple[str, str], dict[str, str]] = {}
+    if not heuristic_df.empty:
+        ensure_columns(heuristic_df, HEURISTIC_REQUIRED_COLS, HEURISTIC_NAME)
+        for row in heuristic_df.to_dict(orient="records"):
             key = (normalize_text(row["site"]), normalize_text(row["panel_id"]))
-            integrated_lookup[key] = {column: normalize_text(value) for column, value in row.items()}
+            heuristic_lookup[key] = {column: normalize_text(value) for column, value in row.items()}
 
     filtered_verdict = verdict_df.loc[verdict_df["site"].map(normalize_text).isin(selected_sites)].copy()
     result_source = "stable_snapshot_preview_dry_run" if dry_run else "stable_snapshot_placeholder_run"
@@ -278,11 +278,11 @@ def build_panel_result_preview(
     rows: list[dict[str, str]] = []
     for row in filtered_verdict.to_dict(orient="records"):
         key = (normalize_text(row["site"]), normalize_text(row["panel_id"]))
-        preview = integrated_lookup.get(key, {})
+        preview = heuristic_lookup.get(key, {})
         if gpvs_attach_flag == "on":
-            top1 = normalize_text(preview.get("1순위_의심원인_ko", ""))
-            top2 = normalize_text(preview.get("2순위_의심원인_ko", ""))
-            top3 = normalize_text(preview.get("3순위_의심원인_ko", ""))
+            top1 = normalize_text(preview.get("원인후보_top1_ko", ""))
+            top2 = normalize_text(preview.get("원인후보_top2_ko", ""))
+            top3 = normalize_text(preview.get("원인후보_top3_ko", ""))
         else:
             top1 = ""
             top2 = ""
@@ -527,11 +527,11 @@ def build_outputs(args: argparse.Namespace) -> tuple[Path, dict[str, object]]:
 
     share_dir = input_root / "_share"
     verdict_df = read_optional_csv(share_dir / VERDICT_NAME)
-    integrated_df = read_optional_csv(share_dir / INTEGRATED_NAME)
+    heuristic_df = read_optional_csv(share_dir / HEURISTIC_NAME)
 
     panel_result_df = build_panel_result_preview(
         verdict_df,
-        integrated_df,
+        heuristic_df,
         selected_sites=selected_sites,
         start_date=start_date.date().isoformat(),
         end_date=end_date.date().isoformat(),

@@ -23,7 +23,6 @@ HANDOFF_EXAMPLE_INPUT = REPO_ROOT / "delivery/conalog_handoff_v1/examples/input_
 WATCH_OUTPUTS = [
     REPO_ROOT / "_share/panel_day_engine_panel_multiaxis_verdict_v1.csv",
     REPO_ROOT / "_share/panel_day_engine_gpvs_evidence_pack_v1.csv",
-    REPO_ROOT / "_share/panel_day_engine_integrated_result_table_v1.csv",
     REPO_ROOT / "_share/panel_day_engine_cause_candidate_heuristics_v1.csv",
 ]
 
@@ -31,8 +30,6 @@ EXPECTED_LATEST_FILES = [
     "conalog_panel_result_v1.csv",
     "conalog_site_summary_v1.csv",
     "conalog_run_metadata_v1.json",
-    "integrated_result_table_v1.csv",
-    "integrated_result_summary_v1.csv",
     "daily_report_v1.md",
     "runtime_log_v1.jsonl",
     "failure_log_v1.jsonl",

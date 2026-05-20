@@ -23,8 +23,8 @@
 - `package/config/runtime.yaml`
 - stable handoff pack
 - stable output 계약과 integrated result schema
-- stable CLI 는 현재 delivery pack 기준으로 검증된 진입점임
-- demo/one-click foundation 도 최소 setup 기준으로 바로 시연 가능하도록 정리하였음
+- stable CLI 는 현재 delivery pack 기준으로 검증된 기본 진입점임
+- demo/real batch wrapper 는 현재 `package/app/run_conalog_infer.py` 위의 thin wrapper 임
 - Python 3 설치는 여전히 필요함
 - git executable 이 없어도 stable dry-run/demo flow 는 계속 수행 가능함
 - git metadata 가 대상 장비에서 unavailable 일 수 있으나, 이는 stable dry-run 또는 stable output generation 을 막지 않음
@@ -42,5 +42,5 @@
 ## 권장 사용 순서
 1. `package/bin/run_demo.bat`
 2. `package/bin/run_real.bat`
-3. 필요 시 `package/app/app_streamlit.py`
-4. dashboard / system integration 은 `package/app/run_conalog_infer.py` 또는 `package/app/run_oneclick.py` 를 직접 호출해야 하며, 문서를 scraping 하면 안 됨
+3. dashboard / system integration 은 우선 `package/app/run_conalog_infer.py` 를 직접 호출해야 함
+4. one-click / Streamlit 은 optional foundation utility 이며 이번 hotfix scope 에 포함되지 않음

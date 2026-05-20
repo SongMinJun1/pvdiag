@@ -1,0 +1,21 @@
+{
+  "generated_at_utc": "2026-05-20T06:51:16Z",
+  "source_chain_ko": "frozen verdict plus frozen heuristic with integrated display-name mapping",
+  "verdict_source_path": "_share/panel_day_engine_panel_multiaxis_verdict_v1.csv",
+  "heuristic_source_path": "_share/panel_day_engine_cause_candidate_heuristics_v1.csv",
+  "legacy_integrated_source_path": "_share/panel_day_engine_integrated_result_table_v1.csv",
+  "fault_row_count": 6,
+  "display_name_map": {
+    "다이오드·서브스트링형": "다이오드·서브스트링 이상형",
+    "접속·부분개방형": "접속 불량·부분 개방형",
+    "센서·피드백형": "센서·계측 피드백 이상형",
+    "제어응답형": "제어 응답 이상형",
+    "전력변환부형": "전력변환부 이상형",
+    "외부계통교란형": "외부 계통 교란형"
+  },
+  "legacy_integrated_exact_match": true,
+  "legacy_integrated_diff_columns": [],
+  "note_ko": "이 provenance는 runtime pack의 fault6 고정 결과표가 더 이상 integrated snapshot을 직접 절단하지 않고, frozen verdict와 frozen heuristic를 현재 integrated builder와 동일한 표시명 매핑으로 다시 조합해 만든 것임을 설명한다.",
+  "legacy_fault_row_count": 6,
+  "legacy_integrated_compare_status_ko": "exact match"
+}

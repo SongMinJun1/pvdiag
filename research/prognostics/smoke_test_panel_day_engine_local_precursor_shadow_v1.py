@@ -48,6 +48,8 @@ GATE_COLUMNS = [
     "site_event_hard",
     "group_off_date",
     "prefault_B",
+    "prefault_B_common_cause_overlap",
+    "prefault_B_effective",
     "pre_alarm",
     "prefault_cond_mid",
     "prefault_cond_ae",
@@ -178,7 +180,7 @@ def build_fixture_root(tmp_root: Path) -> None:
         ],
     )
     write_csv(
-        tmp_root / "data" / "conalog" / "out" / "ae_simple_prefault_B_daily.csv",
+        tmp_root / "data" / "conalog" / "out" / "ae_simple_prefault_option_b_daily.csv",
         [
             {"date": "2025-01-02", "panel_id": "panel.a"},
         ],
@@ -238,6 +240,8 @@ def build_fixture_root(tmp_root: Path) -> None:
                 "site_event_hard": 0,
                 "group_off_date": 0,
                 "prefault_B": 0,
+                "prefault_B_common_cause_overlap": 0,
+                "prefault_B_effective": 0,
                 "pre_alarm": 0,
                 "prefault_cond_mid": 0,
                 "prefault_cond_ae": 0,
@@ -264,6 +268,8 @@ def build_fixture_root(tmp_root: Path) -> None:
                 "site_event_hard": 0,
                 "group_off_date": 0,
                 "prefault_B": 1,
+                "prefault_B_common_cause_overlap": 1,
+                "prefault_B_effective": 0,
                 "pre_alarm": 0,
                 "prefault_cond_mid": 1,
                 "prefault_cond_ae": 1,
@@ -290,6 +296,8 @@ def build_fixture_root(tmp_root: Path) -> None:
                 "site_event_hard": 0,
                 "group_off_date": 0,
                 "prefault_B": 1,
+                "prefault_B_common_cause_overlap": 1,
+                "prefault_B_effective": 0,
                 "pre_alarm": 0,
                 "prefault_cond_mid": 1,
                 "prefault_cond_ae": 1,
@@ -316,6 +324,8 @@ def build_fixture_root(tmp_root: Path) -> None:
                 "site_event_hard": 0,
                 "group_off_date": 0,
                 "prefault_B": 0,
+                "prefault_B_common_cause_overlap": 0,
+                "prefault_B_effective": 0,
                 "pre_alarm": 1,
                 "prefault_cond_mid": 0,
                 "prefault_cond_ae": 1,
@@ -342,6 +352,8 @@ def build_fixture_root(tmp_root: Path) -> None:
                 "site_event_hard": 0,
                 "group_off_date": 0,
                 "prefault_B": 0,
+                "prefault_B_common_cause_overlap": 0,
+                "prefault_B_effective": 0,
                 "pre_alarm": 0,
                 "prefault_cond_mid": 0,
                 "prefault_cond_ae": 0,
@@ -440,6 +452,14 @@ def main() -> None:
 
         assert_true(int(jan1["ews_warning_flag"]) == 1, "ews helper should join at the day level")
         assert_true(int(jan2["prefault_B_flag"]) == 1, "prefault helper should join at the day level")
+        assert_true(
+            int(jan2["prefault_B_common_cause_overlap_flag"]) == 1,
+            "prefault common-cause overlap flag should persist",
+        )
+        assert_true(
+            int(jan2["prefault_B_effective_flag"]) == 0,
+            "prefault effective flag should fall when common-cause overlap exists",
+        )
         assert_true(int(jan3["pre_alarm_flag"]) == 1, "pre_alarm helper should anchor to pre_alarm_start date")
         assert_true(int(jan1["data_bad"]) == 0, "data_bad should persist")
         assert_true(int(jan1["cond_var"]) == 1, "cond_var should persist")
@@ -452,19 +472,30 @@ def main() -> None:
         assert_true(int(jan1["ews_warning"]) == 1, "ews_warning should persist from gate helper")
         assert_true(int(jan2["site_event_soft"]) == 1, "site_event suppression should persist")
         assert_true(int(jan2["prefault_B"]) == 1, "prefault_B should persist from gate helper")
+        assert_true(
+            int(jan2["prefault_B_common_cause_overlap"]) == 1,
+            "prefault_B_common_cause_overlap should persist",
+        )
+        assert_true(
+            int(jan2["prefault_B_effective"]) == 0,
+            "prefault_B_effective should persist",
+        )
         assert_true(int(jan2["prefault_cond_mid"]) == 1, "prefault gate conditions should persist")
         assert_true(int(jan2["prefault_cond_ews"]) == 1, "prefault cond_ews should persist")
         assert_true(int(jan3["pre_alarm"]) == 1, "pre_alarm should persist from gate helper")
         assert_true(int(jan3["prealarm_cond_hs_mid_or_hi"]) == 1, "pre_alarm gate conditions should persist")
-        assert_true(int(jan1["local_precursor_any_flag"]) == 1, "local_precursor_any_flag should be max of helper flags")
+        assert_true(
+            int(jan1["local_precursor_any_flag"]) == 1,
+            "local_precursor_any_flag should be max of ews/effective-prefault/pre_alarm flags",
+        )
         assert_true(jan1["first_local_precursor_date_per_panel"] == "2025-01-01", "first_local_precursor_date_per_panel should be earliest local precursor date")
         assert_true(int(float(jan1["lead_days_to_final_fault"])) == 4, "lead_days should count from precursor row to first later final fault")
-        assert_true(int(float(jan2["lead_days_to_final_fault"])) == 3, "lead_days should update per precursor row")
+        assert_true(pd.isna(jan2["lead_days_to_final_fault"]), "common-cause-overlapped prefault rows should not count as effective local precursor days")
         assert_true(int(float(jan3["lead_days_to_final_fault"])) == 2, "pre_alarm lead_days should be correct")
         assert_true(pd.isna(jan5["lead_days_to_final_fault"]), "non-precursor rows should keep blank lead days")
 
         assert_true(jan1["alert_pattern"] == "ews_only", "single ews row should classify as ews_only")
-        assert_true(jan2["alert_pattern"] == "prefault_only", "single prefault row should classify as prefault_only")
+        assert_true(jan2["alert_pattern"] == "no_local_precursor", "common-cause-overlapped prefault row should not classify as effective local precursor")
         assert_true(
             jan3["alert_pattern"] == "ews_and_pre_alarm",
             "pre_alarm day should also reflect persisted ews_warning when gate helper is present",
@@ -489,7 +520,7 @@ def main() -> None:
         assert_true(int(conalog_summary["ews_warning_day_count"]) == 2, "summary should count persisted ews days")
         assert_true(int(conalog_summary["prefault_B_day_count"]) == 1, "summary should count prefault days")
         assert_true(int(conalog_summary["pre_alarm_day_count"]) == 1, "summary should count pre_alarm days")
-        assert_true(int(conalog_summary["local_precursor_any_day_count"]) == 3, "summary should count any precursor days")
+        assert_true(int(conalog_summary["local_precursor_any_day_count"]) == 2, "summary should count only effective precursor days")
         assert_true(int(conalog_summary["panels_with_any_local_precursor_count"]) == 1, "summary should count panels with any precursor")
         assert_true(int(conalog_summary["final_fault_panel_count"]) == 1, "summary should count final fault panels")
         assert_true(

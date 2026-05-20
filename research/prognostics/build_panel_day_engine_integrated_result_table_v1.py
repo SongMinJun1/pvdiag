@@ -2,12 +2,23 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import pandas as pd
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if __package__ in {None, ""}:
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from research.prognostics.heuristic_display_registry_v1 import (
+        display_heuristic_name as shared_display_heuristic_name,
+    )
+else:
+    from .heuristic_display_registry_v1 import (
+        display_heuristic_name as shared_display_heuristic_name,
+    )
 
 VERDICT_NAME = "panel_day_engine_panel_multiaxis_verdict_v1.csv"
 EVIDENCE_PACK_NAME = "panel_day_engine_gpvs_evidence_pack_v1.csv"
@@ -102,19 +113,8 @@ def validate_unique_keys(df: pd.DataFrame, name: str) -> None:
         raise SystemExit(f"{name} must be unique by (site, panel_id): {dup.to_dict(orient='records')[:5]}")
 
 
-DISPLAY_HEURISTIC_NAME_MAP = {
-    "다이오드·서브스트링형": "다이오드·국소 회로 이상형",
-    "접속·부분개방형": "접촉 끊김 형",
-    "센서·피드백형": "장치 측정 이상형",
-    "제어응답형": "장치 응답 이상형",
-    "전력변환부형": "전력변환부 이상형",
-    "외부계통교란형": "외부 전원 흔들림형",
-}
-
-
 def display_heuristic_name(raw_label: str) -> str:
-    normalized = normalize_text(raw_label)
-    return DISPLAY_HEURISTIC_NAME_MAP.get(normalized, normalized)
+    return shared_display_heuristic_name(raw_label)
 
 
 def build_integrated_rows(
