@@ -6,8 +6,6 @@ set "SCRIPT_DIR=%~dp0"
 for %%I in ("%SCRIPT_DIR%..") do set "PACKAGE_ROOT=%%~fI"
 set "APP_PATH=%PACKAGE_ROOT%\app\run_full_algorithm_pack.py"
 set "IMPORT_APP=%PACKAGE_ROOT%\app\import_any_csv_root.py"
-set "DEFAULT_OUTPUT=%PACKAGE_ROOT%\real_output_imported"
-
 call "%PACKAGE_ROOT%\bin\resolve_python.bat"
 if errorlevel 1 goto FAIL
 
@@ -18,39 +16,49 @@ if errorlevel 1 (
 )
 
 set "DATA_ROOT="
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; $dialog.Description='CSV가 들어 있는 임의 루트 폴더를 선택하십시오'; if ($dialog.ShowDialog() -eq 'OK') { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Output $dialog.SelectedPath }"`) do set "DATA_ROOT=%%I"
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; $dialog.Description='CSV 파일이 들어 있는 상위 폴더를 선택하십시오'; if ($dialog.ShowDialog() -eq 'OK') { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Output $dialog.SelectedPath }"`) do set "DATA_ROOT=%%I"
 
 if "%DATA_ROOT%"=="" (
   echo 입력 폴더 경로를 다시 확인하십시오.
   goto CANCEL
 )
 
-echo [005%%] 입력 폴더 선택 완료: %DATA_ROOT%
+set "RUN_TS="
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Get-Date -Format yyyyMMdd_HHmmss"`) do set "RUN_TS=%%I"
+if "%RUN_TS%"=="" set "RUN_TS=manual"
 
-set "OUTPUT_ROOT="
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; $dialog.Description='출력 폴더를 선택하십시오 (취소 시 기본값 사용)'; if ($dialog.ShowDialog() -eq 'OK') { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Output $dialog.SelectedPath }"`) do set "OUTPUT_ROOT=%%I"
-if "%OUTPUT_ROOT%"=="" set "OUTPUT_ROOT=%DEFAULT_OUTPUT%"
+set "OUTPUT_ROOT=%PACKAGE_ROOT%\showcase_runs\run_%RUN_TS%"
+echo [005%%] 입력 폴더 선택 완료
+echo [010%%] 결과 폴더 자동 생성: %OUTPUT_ROOT%
 
+set "EFFECTIVE_DATA_ROOT=%DATA_ROOT%"
+set "EFFECTIVE_SITES=conalog,gangui,ktc_ess"
+
+if exist "%DATA_ROOT%\conalog\raw" if exist "%DATA_ROOT%\gangui\raw" if exist "%DATA_ROOT%\ktc_ess\raw" goto RUN_ENGINE
+if exist "%DATA_ROOT%\data\conalog\raw" if exist "%DATA_ROOT%\data\gangui\raw" if exist "%DATA_ROOT%\data\ktc_ess\raw" (
+  set "EFFECTIVE_DATA_ROOT=%DATA_ROOT%\data"
+  goto RUN_ENGINE
+)
+
+echo [020%%] CSV 구조를 점검하고 자동 staging을 준비합니다.
 set "IMPORT_STAGE_ROOT=%OUTPUT_ROOT%\imported_data"
 set "IMPORT_ENV=%IMPORT_STAGE_ROOT%\import_env.bat"
 set "IMPORT_MANIFEST=%IMPORT_STAGE_ROOT%\import_any_csv_manifest_v1.json"
-
-echo [010%%] 결과 폴더 준비 완료: %OUTPUT_ROOT%
-echo [020%%] CSV 파일을 재귀 수집해 실행 구조로 staging합니다.
 
 %PYTHON_CMD% "%IMPORT_APP%" --input-root "%DATA_ROOT%" --output-root "%IMPORT_STAGE_ROOT%" --clear-output --manifest-path "%IMPORT_MANIFEST%" --env-bat-path "%IMPORT_ENV%"
 if errorlevel 1 goto FAIL
 
 call "%IMPORT_ENV%"
 if errorlevel 1 goto FAIL
+set "EFFECTIVE_DATA_ROOT=%IMPORTED_DATA_ROOT%"
+set "EFFECTIVE_SITES=%IMPORTED_SITES%"
 
+:RUN_ENGINE
 echo [040%%] 학습/추론 및 결과표 생성을 시작합니다.
-
-%PYTHON_CMD% "%APP_PATH%" --data-root "%IMPORTED_DATA_ROOT%" --output-root "%OUTPUT_ROOT%" --sites "%IMPORTED_SITES%"
+%PYTHON_CMD% "%APP_PATH%" --data-root "%EFFECTIVE_DATA_ROOT%" --output-root "%OUTPUT_ROOT%" --sites "%EFFECTIVE_SITES%"
 if errorlevel 1 goto FAIL
 
 echo [100%%] 실행 완료. 결과 리포트를 엽니다.
-
 if exist "%OUTPUT_ROOT%\result\fault_panel_result_current_preview_v1.csv" (
   start "" "%OUTPUT_ROOT%\result\fault_panel_result_current_preview_v1.csv"
 ) else if exist "%OUTPUT_ROOT%\result\fault_panel_result_current_report_v1.md" (
@@ -60,6 +68,7 @@ if exist "%OUTPUT_ROOT%\result\fault_panel_result_current_preview_v1.csv" (
 ) else if exist "%OUTPUT_ROOT%\result" (
   start "" "%OUTPUT_ROOT%\result"
 )
+echo 결과 폴더: %OUTPUT_ROOT%
 goto SUCCESS
 
 :CANCEL

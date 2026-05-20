@@ -12,6 +12,80 @@
 - `mixed_like`
 - `unknown`
 
+## 실증 전 준비 체크리스트
+
+이 섹션은 ktc_ess 실증 CSV와 이벤트 기록이 오기 전에 준비해야 할 항목을 잠근다.
+목적은 현장 요청 문구를 복잡하게 만들지 않으면서, 내부 검증축은 빠뜨리지 않는 것이다.
+
+### 범위 잠금
+
+- [ ] 외부 요청서는 이벤트 기록만 요구한다.
+  - 최소 필드: `event_id`, `fault_type`, `panel_id`, `start_time`, `end_time`, `severity_or_condition`, `intentional_or_observed`, `operator_note`
+- [ ] ktc_ess CSV 형식은 기존과 같다고 보고, `panel_id`와 이벤트 시간 범위로 내부 분석 구간을 추출한다.
+- [ ] 외부 요청서에는 내부 분석용 root/group, conalog 상태, MLPE 상태 같은 별도 개념을 요구하지 않는다.
+- [ ] field label이 들어오기 전에는 cause candidate를 확정 진단으로 승격하지 않는다.
+- [ ] 실증 전 패치는 shadow/evidence/report 레이어까지만 허용하고, production verdict 의미 변경은 보류한다.
+
+### 라벨 레이어 구분
+
+현재 문서에는 두 종류의 라벨 레이어가 함께 존재한다.
+둘을 섞으면 실증 데이터가 들어왔을 때 평가 단위가 흔들리므로 아래처럼 분리한다.
+
+| 레이어 | 용도 | 현재 상태 | 핵심 키 |
+| --- | --- | --- | --- |
+| `field_truth_template` | 운영 후보 패널 단위 리뷰와 leadtime/phenotype 비교 | 구현됨 | `site`, `panel_id`, `review_group`, `representative_date` |
+| `field_event_label` | 실증에서 주입/관측한 이벤트 단위 비교 | 준비 필요 | `event_id`, `fault_type`, `panel_id`, `start_time`, `end_time` |
+
+정책:
+- `build_field_truth_template.py`와 `evaluate_field_truth.py`는 현재 `field_truth_template` 레이어만 다룬다.
+- `field_event_label`은 별도 template/compare artifact로 구현해야 한다.
+- `field_event_label`을 추가하더라도 기존 `field_truth_template` 컬럼을 억지로 바꾸지 않는다.
+- 최종 비교 리포트에서만 두 레이어를 나란히 읽는다.
+
+### 실증 fault / 이상 / 반례 universe
+
+| 우선순위 | 이벤트 조건 | 알고리즘을 흔드는 지점 | 내부 확인 축 |
+| --- | --- | --- | --- |
+| P0 | 한 패널 부분 음영 | panel-local 저하와 공통 저하 분리 | localness, V/I/P signature, recovery |
+| P0 | 한 패널 균일 커버 또는 오염 | 부분 음영과 균일 저하 분리 | sustained low, P drop shape, peer contrast |
+| P0 | 케이블 단선 / 부분개방 / 완전개방 | 급작 고장과 회복 이벤트 확인 | abruptness, open-like V/I pattern, recovery |
+| P0 | 커넥터/접속부 이상 유사 이벤트 | 전조형 접촉 불안정과 급작 종료 구분 | recurrence, intermittency, terminal pattern |
+| P0 | RSD 이벤트 | 장비 상태 전환을 고장으로 오인하지 않는지 확인 | simultaneous drop, control-event negative case |
+| P0 | 통신 끊김 / 값 멈춤 / 값 반복 | 데이터 이상을 물리 고장으로 승격하지 않는지 확인 | stale score, timestamp/data-quality gate |
+| P0 | 여러 패널 동시 저하 | 개별 패널 고장과 공통 원인 분리 | common-cause score, site/group simultaneity |
+| P1 | 다이오드 / 서브스트링 손실 유사 | 음영/개방과 V/I 형태로 구분 | V/I ratio pattern, substring-like signature |
+| P1 | 패널 파손 / 국소 모듈 손상 유사 | 국소 손상 후보를 다이오드/열화와 분리 | persistent local loss, recovery absence |
+| P1 | BSTR/MPPT/전력변환부 이상 | 패널 물리 문제와 제어 응답 문제 분리 | plateau/clipping, response instability |
+| P2 | 장기 열화 / PID 유사 | 단발 episode와 장기 진행성 분리 | duration, recurrence, trend slope |
+| P2 | 복합 상황 | 단일 원인 강제 대신 복합/경합으로 남기는지 확인 | top-k competition, overclaim guard |
+
+### 실증 전 내부 구현 준비
+
+- [ ] fault signature dictionary를 만든다.
+  - 각 이벤트 조건별 기대되는 P/V/I, 지속성, 회복성, 동시성, 데이터 품질 패턴을 정의한다.
+- [ ] shadow V/I/P signature feature extractor를 만든다.
+  - production verdict는 바꾸지 않고, 이벤트 단위 특징만 별도 산출한다.
+- [ ] shadow fault candidate scorer를 만든다.
+  - top1/top3 후보, 경합 여부, 원인미확정 사유를 별도 산출한다.
+- [ ] field event label compare report를 만든다.
+  - `event_id`, `fault_type`, `panel_id`, `start_time`, `end_time` 기준으로 알고리즘 산출물과 매칭한다.
+- [ ] 평가 지표를 잠근다.
+  - `detection_hit`
+  - `timing_error`
+  - `scope_hit`
+  - `top1_hit`
+  - `top3_hit`
+  - `false_positive_guard`
+  - `false_reason`
+- [ ] single-file delivery와 release pack에 어떤 검증 산출물을 포함할지 따로 결정한다.
+
+### 실증 전 금지 항목
+
+- [ ] field label 없이 원인 후보를 확정 고장명으로 노출하지 않는다.
+- [ ] shadow score만으로 precursor threshold나 hard evidence precedence를 바꾸지 않는다.
+- [ ] RSD, 통신 이상, 동시 저하 같은 반례를 확인하기 전에는 급작 고장 rule을 공격적으로 넓히지 않는다.
+- [ ] 외부 요청 문서에 내부 분석자의 불확실성이나 포맷 우려를 섞지 않는다.
+
 ## 생성 절차
 
 1. 최신 운영 출력이 생성된 뒤 template를 만든다.

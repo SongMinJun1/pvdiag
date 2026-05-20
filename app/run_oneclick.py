@@ -16,10 +16,6 @@ DAILY_REPORT_BUILDER = REPO_ROOT / "research/prognostics/build_daily_report_v1.p
 LATEST_DIRNAME = "latest"
 RUNTIME_LOG_NAME = "runtime_log_v1.jsonl"
 FAILURE_LOG_NAME = "failure_log_v1.jsonl"
-FROZEN_EXPORTS = {
-    "integrated_result_table_v1.csv": REPO_ROOT / "_share/panel_day_engine_integrated_result_table_v1.csv",
-    "integrated_result_summary_v1.csv": REPO_ROOT / "_share/panel_day_engine_integrated_result_summary_v1.csv",
-}
 EXPERIMENTAL_EXPORTS = {
     "gpvs_evidence_pack_v1.csv": REPO_ROOT / "_share/panel_day_engine_gpvs_evidence_pack_v1.csv",
     "cause_candidate_heuristics_v1.csv": REPO_ROOT / "_share/panel_day_engine_cause_candidate_heuristics_v1.csv",
@@ -121,16 +117,13 @@ def validate_foundations(input_root: Path, output_root: Path, config_path: Path)
         raise FileNotFoundError(f"missing config: {config_path}")
     parse_simple_yaml(config_path)
     output_root.mkdir(parents=True, exist_ok=True)
-    for path in FROZEN_EXPORTS.values():
-        if not path.exists():
-            raise FileNotFoundError(f"missing frozen export dependency: {path}")
 
 
 def build_plan(args: argparse.Namespace) -> dict[str, object]:
     latest_output_dir = latest_dir(args.output_root.expanduser())
     steps = [
         "stable conalog runtime wrapper 실행",
-        "frozen integrated result snapshot export 복사",
+        "stable latest output 구조 유지",
     ]
     if args.include_experimental == "on":
         steps.append("experimental/reference snapshot export 복사")
@@ -214,8 +207,6 @@ def record_failure(
 
 def copy_exports(target_latest_dir: Path, include_experimental: str) -> None:
     target_latest_dir.mkdir(parents=True, exist_ok=True)
-    for target_name, source_path in FROZEN_EXPORTS.items():
-        shutil.copy2(source_path, target_latest_dir / target_name)
     if include_experimental == "on":
         for target_name, source_path in EXPERIMENTAL_EXPORTS.items():
             shutil.copy2(source_path, target_latest_dir / target_name)

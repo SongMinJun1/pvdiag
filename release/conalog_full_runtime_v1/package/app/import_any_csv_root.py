@@ -99,7 +99,7 @@ def write_env_bat(path: Path, payload: dict[str, object]) -> None:
         f'set "IMPORTED_MANIFEST_PATH={payload["manifest_path"]}"',
     ]
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path.write_text("\r\n".join(lines) + "\r\n", encoding="utf-8-sig")
 
 
 def main() -> None:

@@ -14,6 +14,7 @@
 
 - `package/pv_ae/panel_day_engine.py`
 - `package/app/run_full_algorithm_pack.py`
+- `package/DASHBOARD_INTEGRATION.md`
 - `package/research/prognostics/build_panel_day_engine_bootstrap_verdict_v1.py`
 - `package/research/prognostics/build_panel_day_engine_fault_panel_event_audit_v1.py`
 - `package/research/prognostics/build_panel_day_engine_panel_multiaxis_verdict_v1.py`
@@ -60,12 +61,14 @@
 - `전조날짜` : 전조형 고장으로 해석된 경우의 대표 onset 날짜
 - 급작 고장처럼 전조가 채택되지 않은 경우는 `전조없음`으로 표시
 - `고장 기준일` : 최종 fault 기준일 또는 runtime trigger 기준일
-- `최종고장양상` : 진행성 악화 / 급격 종료 / 급작 발생
 - `운영 판정` : 이 row가 확정인지, 고위험 관찰인지, 관찰 단계인지를 구분하는 값
+- `급락 종결 관측` : final/fault 급락 종결이 실제로 관측됐는지 먼저 보여주는 값
+- `점진 저하 누적` : 전조/점진 저하가 누적된 사건으로 읽히는지 먼저 보여주는 값
+- `사건 종결 요약` : 확정 row에서만 채워지는 사건 요약(`전조 후 급격 종료`, `전조 후 진행 악화`, `급작 발생`)
 - `상위 해석 후보` : 현재 알고리즘이 가장 가깝다고 본 원인 후보 1순위
 - `기존 알고리즘 source` : legacy source 태그가 있으면 그대로, 없으면 `미검출`
 
-즉, 이 preview는 전조/고장 시점, 운영 판정, 상위 후보, legacy source를 한 번에 비교해 보는 용도임.
+즉, 이 preview는 전조/고장 시점, 현재 신호 단계, 관측 플래그, 사건 요약, 원인 후보, legacy source를 한 번에 비교해 보는 용도임.
 
 추가로 이제 package는 Windows portable runtime도 같이 포함함.
 
@@ -100,7 +103,7 @@ USB 시연 동선은 아래처럼 단순하게 가져가면 됨.
    - CSV가 들어 있는 상위 폴더만 고르면 됨
    - 출력 폴더는 `package\\showcase_runs\\run_YYYYMMDD_HHMMSS` 형태로 자동 생성함
    - 콘솔에 `[005%]`, `[020%]`, `[040%]`, `[100%]` 식 진행률 문구를 보여줌
-   - 실행이 끝나면 `fault_panel_result_current_preview_v1.csv`를 우선해서 엶
+   - 실행이 끝나면 `fault_panel_result_current_preview_v1.csv`를 우선해서 열고, 없으면 `fault_panel_result_current_report_v1.md`, 그 다음 `fault_panel_result_master_report_v1.md` 순으로 엶
    - 시연 중 콘솔 창이 바로 닫히지 않도록 마지막에 `pause`를 둠
 
 3. `package\\bin\\run_real.bat`
@@ -110,7 +113,7 @@ USB 시연 동선은 아래처럼 단순하게 가져가면 됨.
    - 그 구조가 아니어도 `import_any_csv_root.py`로 CSV를 재귀 수집해 자동 staging 후 실행함
    - 출력 폴더도 선택 가능하며, 취소하면 기본값 `package\\real_output`을 사용함
    - 실행 중 콘솔에 단계별 진행률 문구를 보여줌
-   - 실행이 끝나면 `result` 폴더를 자동으로 엶
+   - 실행이 끝나면 `fault_panel_result_current_preview_v1.csv`를 먼저 열고, 없으면 `fault_panel_result_current_report_v1.md`, 그 다음 `fault_panel_result_master_report_v1.md`, 마지막으로 `result` 폴더를 엶
    - 실행 후 `shadow_compare_v1.json`도 함께 남음
 
 4. `package\\bin\\run_imported_real.bat`
@@ -132,6 +135,11 @@ python package/app/run_full_algorithm_pack.py \
   --data-root "C:\\path\\to\\data_root" \
   --output-root "C:\\path\\to\\result_folder"
 ```
+
+외부 dashboard 또는 운영 시스템이 결과 CSV를 직접 읽는 경우에는
+`package/DASHBOARD_INTEGRATION.md`를 우선 참고하면 됨.
+raw CSV 형식이 기존 KTC ESS/conalog 형식과 동일한 경우 별도 변환기 없이
+`result/fault_panel_result_current_preview_v1.csv`를 dashboard 1차 표시 CSV로 읽는 것을 권장함.
 
 `data-root/<site>/out`가 이미 있고 그 `panel_day_core.csv`가 raw보다 최신이면, runner는 기본값 `--prefer-existing-site-outs auto`에 따라 그 출력을 자동 재사용하고 engine 재실행을 건너뜀.
 즉 baseline 검증이나 재시연에서는 같은 data 루트를 다시 연결해도 훨씬 빠르게 `live_chain`과 current 결과표를 다시 만들 수 있음.
@@ -191,8 +199,8 @@ python package/app/run_full_algorithm_pack.py \
 - `run_plan_v1.json` 또는 `run_metadata_v1.json`
 - `shadow_compare_v1.json`
 
-`fault_panel_result_current_preview_v1.csv`, `fault_panel_result_raw_only_current_preview_v1.csv`, `fault6_label_and_algorithm_preview_v1.csv`는 모두 `site, panel_id, 전조날짜, 고장 기준일, 최종고장양상, 운영 판정, 상위 해석 후보, 기존 알고리즘 source` 형식의 단순 preview 표를 제공함.
-즉 운영자는 preview 시트만 열어도 전조 onset, 기준일, 운영 판정, 원인 후보, legacy source를 바로 확인할 수 있음.
+`fault_panel_result_current_preview_v1.csv`, `fault_panel_result_raw_only_current_preview_v1.csv`, `fault6_label_and_algorithm_preview_v1.csv`는 모두 `site, panel_id, 전조날짜, 고장 기준일, 운영 판정, 급락 종결 관측, 점진 저하 누적, 사건 종결 요약, 상위 해석 후보, 기존 알고리즘 source` 형식의 preview 표를 제공함.
+즉 운영자는 preview 시트만 열어도 전조 onset, 기준일, 현재 신호 단계, 관측 플래그, 사건 요약, 원인 후보, legacy source를 바로 확인할 수 있음.
 
 `fault_panel_result_precursor_report_v1.csv`는 위 preview와 달리 `신호 기준일` 컬럼을 사용함.
 이 값은 사람이 확정한 고장일이 아니라, runtime signal 기준으로 이상/고장 신호가 기준선을 넘은 날짜를 뜻함.
@@ -266,7 +274,8 @@ package\bin\incremental_run.bat
 - 반복 운영: `daily_run.bat`
 - MLPE 실증 incremental 실행: `incremental_run.bat`
 
-`run_guided_real.bat`, `run_real.bat`, `daily_run.bat`, `incremental_run.bat`는 실행이 끝나면 `result/fault_panel_result_current_preview_v1.csv`를 가장 먼저 열고, 없으면 `raw_only current preview`, 그 다음 current report, 마지막으로 master report 또는 `result` 폴더를 엶.
+`run_guided_real.bat`, `run_real.bat`, `run_imported_real.bat`, `daily_run.bat`, `incremental_run.bat`는 실행이 끝나면 `result/fault_panel_result_current_preview_v1.csv`를 가장 먼저 열고, 없으면 `fault_panel_result_current_report_v1.md`, 그 다음 `fault_panel_result_master_report_v1.md`, 마지막으로 `result` 폴더를 엶.
+`result/fault_panel_result_raw_only_current_preview_v1.csv`는 자동 오픈 기본값이 아니라 analyst/support용 보조 preview로 남기며, 필요 시 result 폴더 또는 master report 안내를 통해 수동으로 연다.
 
 `result/fault_panel_result_detailed_report_v1.xlsx`는 실행이 끝날 때 자동으로 생성되는 상세 리포트임.
 이 파일에는 아래 시트가 포함됨.
@@ -288,7 +297,8 @@ package\bin\incremental_run.bat
 - `result/fault_panel_result_raw_only_current_*`는 raw-only candidate 전체를 그대로 노출하지 않음.
 - 이 current 표는 `운영해석등급_ko=확정`인 strict subset만 보여줌.
 - 전체 candidate universe는 `result/raw_only_chain/*`와 상세 리포트의 `raw_only_*` 시트에서 계속 확인 가능함.
-- preview 표의 `운영 판정`은 신호 단계이고, `상위 해석 후보`는 원인 후보임. 둘은 같은 의미가 아님.
+- preview 표의 `운영 판정`은 현재 신호 단계이고, `사건 종결 요약`은 확정 row에서만 채워지는 사건 요약임.
+- `급락 종결 관측`과 `점진 저하 누적`은 관측 플래그라서, 요약보다 먼저 읽는 것이 안전함.
 - precursor report의 `판정 근거`와 `패턴 설명`을 함께 보면 왜 그렇게 판단했는지 더 직접적으로 읽을 수 있음.
 - precursor report의 `신호 기준일`은 라벨 고장일이 아니라 signal trigger 기준일임.
 

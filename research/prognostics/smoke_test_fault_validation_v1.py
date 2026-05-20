@@ -30,15 +30,14 @@ REQUIRED_COLS = [
 WATCH_OUTPUTS = [
     REPO_ROOT / "_share/panel_day_engine_panel_multiaxis_verdict_v1.csv",
     REPO_ROOT / "_share/panel_day_engine_gpvs_evidence_pack_v1.csv",
-    REPO_ROOT / "_share/panel_day_engine_integrated_result_table_v1.csv",
     REPO_ROOT / "_share/panel_day_engine_cause_candidate_heuristics_v1.csv",
 ]
 
 REQUIRED_SURROGATE_IDS = {
     "surrogate::부분음영형",
-    "surrogate::접촉끊김형",
-    "surrogate::장치측정이상형",
-    "surrogate::장치응답이상형",
+    "surrogate::접속불량·부분개방형",
+    "surrogate::센서·계측피드백이상형",
+    "surrogate::제어응답이상형",
     "surrogate::gpvs_attach_on_off_fallback",
     "surrogate::sparse_conalog",
 }

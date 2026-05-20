@@ -24,11 +24,17 @@ CORE_OUTPUT_COLS = [
     "final_fault",
     "group_off_like",
     "shadow_like",
+    "base_day_panel_count",
+    "base_day_degraded_panel_count",
+    "subgroup_common_cause_candidate",
 ]
 OUTPUT_COLS = CORE_OUTPUT_COLS + [
     "ews_warning_flag",
     "prefault_B_flag",
+    "prefault_B_common_cause_overlap_flag",
+    "prefault_B_effective_flag",
     "pre_alarm_flag",
+    "subgroup_common_cause_candidate_flag",
     "data_bad",
     "cond_var",
     "cond_evt",
@@ -42,6 +48,8 @@ OUTPUT_COLS = CORE_OUTPUT_COLS + [
     "site_event_hard",
     "group_off_date",
     "prefault_B",
+    "prefault_B_common_cause_overlap",
+    "prefault_B_effective",
     "pre_alarm",
     "prefault_cond_mid",
     "prefault_cond_ae",
@@ -94,6 +102,8 @@ GATE_BOOL_COLS = [
     "site_event_hard",
     "group_off_date",
     "prefault_B",
+    "prefault_B_common_cause_overlap",
+    "prefault_B_effective",
     "pre_alarm",
     "prefault_cond_mid",
     "prefault_cond_ae",
@@ -121,6 +131,8 @@ GATE_COLS = [
     "site_event_hard",
     "group_off_date",
     "prefault_B",
+    "prefault_B_common_cause_overlap",
+    "prefault_B_effective",
     "pre_alarm",
     "prefault_cond_mid",
     "prefault_cond_ae",
@@ -129,6 +141,10 @@ GATE_COLS = [
     "prealarm_cond_ae_mid_or_hi",
     "prealarm_cond_dtw_mid_or_hi",
     "prealarm_cond_hs_mid_or_hi",
+]
+PREFAULT_OPTION_B_DAILY_NAME = "ae_simple_prefault_option_b_daily.csv"
+LEGACY_PREFAULT_OPTION_B_DAILY_NAMES = [
+    "ae_simple_prefault_B_daily.csv",
 ]
 
 
@@ -215,6 +231,14 @@ def load_site_core(root: Path, site: str) -> pd.DataFrame:
     df["date"] = df["date"].map(normalize_date)
     df["_row_order"] = range(len(df))
 
+    for col in ["base_day_panel_count", "base_day_degraded_panel_count"]:
+        if col not in df.columns:
+            df[col] = 0
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
+    if "subgroup_common_cause_candidate" not in df.columns:
+        df["subgroup_common_cause_candidate"] = 0
+    df["subgroup_common_cause_candidate"] = df["subgroup_common_cause_candidate"].map(to_int_flag).astype(int)
+
     for col in ["recon_error", "dtw_dist", "hs_score", "mid_ratio", "mid_v_ratio", "mid_i_ratio", "v_drop"]:
         df[col] = normalize_numeric(df[col])
     for col in ["confirmed_fault", "critical_fault", "final_fault", "group_off_like", "shadow_like"]:
@@ -266,6 +290,17 @@ def load_day_flag_helper(path: Path, flag_name: str, site: str) -> pd.DataFrame:
     )
 
 
+def resolve_helper_alias(out_dir: Path, canonical_name: str, legacy_names: list[str]) -> Path:
+    canonical_path = out_dir / canonical_name
+    if canonical_path.exists():
+        return canonical_path
+    for legacy_name in legacy_names:
+        legacy_path = out_dir / legacy_name
+        if legacy_path.exists():
+            return legacy_path
+    return canonical_path
+
+
 def to_nullable_int_flag(value: object) -> object:
     if normalize_text(value) == "":
         return pd.NA
@@ -308,9 +343,11 @@ def load_gate_helper(path: Path, site: str) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame(columns=[*KEY_COLS, *GATE_COLS])
     df = read_csv(path)
-    required = ["date", "panel_id", *GATE_COLS]
-    ensure_columns(df, required, path.name)
+    ensure_columns(df, ["date", "panel_id"], path.name)
     df = df.copy()
+    for col in GATE_COLS:
+        if col not in df.columns:
+            df[col] = pd.NA
     if "site" not in df.columns:
         df["site"] = site
     df["site"] = df["site"].map(normalize_text)
@@ -353,7 +390,7 @@ def load_pre_alarm_helper(path: Path, site: str) -> pd.DataFrame:
 def alert_pattern(row: pd.Series) -> str:
     flags = {
         "ews": int(row["ews_warning_flag"]) == 1,
-        "prefault": int(row["prefault_B_flag"]) == 1,
+        "prefault": int(row["prefault_B_effective_flag"]) == 1,
         "pre_alarm": int(row["pre_alarm_flag"]) == 1,
     }
     if not any(flags.values()):
@@ -379,7 +416,11 @@ def build_site_rows(root: Path, site: str) -> pd.DataFrame:
 
     gate_df = load_gate_helper(out_dir / "ae_simple_local_precursor_gate_daily.csv", site)
     ews_df = load_day_flag_helper(out_dir / "ae_simple_ews_warnings.csv", "ews_warning_flag", site)
-    prefault_df = load_day_flag_helper(out_dir / "ae_simple_prefault_B_daily.csv", "prefault_B_flag", site)
+    prefault_df = load_day_flag_helper(
+        resolve_helper_alias(out_dir, PREFAULT_OPTION_B_DAILY_NAME, LEGACY_PREFAULT_OPTION_B_DAILY_NAMES),
+        "prefault_B_flag",
+        site,
+    )
     pre_alarm_df = load_pre_alarm_helper(out_dir / "ae_simple_panel_alarms.csv", site)
 
     merged = base.merge(gate_df, on=KEY_COLS, how="left")
@@ -411,9 +452,25 @@ def build_site_rows(root: Path, site: str) -> pd.DataFrame:
         .fillna(0)
         .astype(int)
     )
+    merged["prefault_B_common_cause_overlap_flag"] = (
+        pd.to_numeric(merged.get("prefault_B_common_cause_overlap"), errors="coerce")
+        .fillna(0)
+        .astype(int)
+    )
+    merged["prefault_B_effective_flag"] = (
+        pd.to_numeric(merged.get("prefault_B_effective"), errors="coerce")
+        .fillna(merged["prefault_B_flag"] - merged["prefault_B_common_cause_overlap_flag"])
+        .clip(lower=0)
+        .astype(int)
+    )
     merged["pre_alarm_flag"] = (
         pd.to_numeric(merged.get("pre_alarm"), errors="coerce")
         .fillna(pd.to_numeric(merged.get("_legacy_pre_alarm_flag"), errors="coerce"))
+        .fillna(0)
+        .astype(int)
+    )
+    merged["subgroup_common_cause_candidate_flag"] = (
+        pd.to_numeric(merged.get("subgroup_common_cause_candidate"), errors="coerce")
         .fillna(0)
         .astype(int)
     )
@@ -430,7 +487,7 @@ def build_site_rows(root: Path, site: str) -> pd.DataFrame:
             merged[col] = pd.to_numeric(merged[col], errors="coerce").astype("Int64")
 
     merged["local_precursor_any_flag"] = (
-        merged[["ews_warning_flag", "prefault_B_flag", "pre_alarm_flag"]].max(axis=1).astype(int)
+        merged[["ews_warning_flag", "prefault_B_effective_flag", "pre_alarm_flag"]].max(axis=1).astype(int)
     )
 
     merged["date_ts"] = pd.to_datetime(merged["date"], errors="coerce")

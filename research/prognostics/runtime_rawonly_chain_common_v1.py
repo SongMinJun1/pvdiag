@@ -6,6 +6,26 @@ from pathlib import Path
 
 import pandas as pd
 
+if __package__ in {None, ""}:
+    import sys
+
+    REPO_ROOT = Path(__file__).resolve().parents[2]
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from research.prognostics.heuristic_display_registry_v1 import (
+        DISPLAY_HEURISTIC_NAME_MAP,
+        HEURISTIC_DISPLAY_NOTE_MAP,
+        display_heuristic_name as shared_display_heuristic_name,
+        display_heuristic_note as shared_display_heuristic_note,
+    )
+else:
+    from .heuristic_display_registry_v1 import (
+        DISPLAY_HEURISTIC_NAME_MAP,
+        HEURISTIC_DISPLAY_NOTE_MAP,
+        display_heuristic_name as shared_display_heuristic_name,
+        display_heuristic_note as shared_display_heuristic_note,
+    )
+
 
 RUNTIME_AUDIT_OUTPUT_NAME = "panel_day_engine_runtime_fault_event_audit_v1.csv"
 RUNTIME_AUDIT_SUMMARY_NAME = "panel_day_engine_runtime_fault_event_audit_summary_v1.csv"
@@ -14,7 +34,7 @@ RUNTIME_VERDICT_SUMMARY_NAME = "panel_day_engine_runtime_final_verdict_summary_v
 RUNTIME_HEURISTIC_OUTPUT_NAME = "panel_day_engine_runtime_cause_candidate_heuristics_v1.csv"
 RUNTIME_HEURISTIC_SUMMARY_NAME = "panel_day_engine_runtime_cause_candidate_summary_v1.csv"
 
-RUNTIME_FAULT_OUTPUT_COLS = [
+RUNTIME_DECISION_COMPARE_COLS = [
     "site",
     "panel_id",
     "패널고장여부_ko",
@@ -24,6 +44,11 @@ RUNTIME_FAULT_OUTPUT_COLS = [
     "1순위_의심원인_ko",
     "2순위_의심원인_ko",
     "3순위_의심원인_ko",
+]
+RUNTIME_FAULT_OUTPUT_COLS = [
+    *RUNTIME_DECISION_COMPARE_COLS,
+    "전조날짜",
+    "고장날짜",
 ]
 RUNTIME_PREVIEW_OUTPUT_COLS = [
     "site",
@@ -31,6 +56,8 @@ RUNTIME_PREVIEW_OUTPUT_COLS = [
     "패널고장여부_ko",
     "사건유형_ko",
     "최종고장양상_ko",
+    "전조날짜",
+    "고장날짜",
     "커널로그_원인군_ko",
     "1순위_의심원인_ko",
     "2순위_의심원인_ko",
@@ -38,22 +65,12 @@ RUNTIME_PREVIEW_OUTPUT_COLS = [
     "커널로그 기존 알고리즘",
 ]
 
-DISPLAY_HEURISTIC_NAME_MAP = {
-    "다이오드·서브스트링형": "다이오드·국소 회로 이상형",
-    "접속·부분개방형": "접촉 끊김 형",
-    "센서·피드백형": "장치 측정 이상형",
-    "제어응답형": "장치 응답 이상형",
-    "전력변환부형": "전력변환부 이상형",
-    "외부계통교란형": "외부 전원 흔들림형",
-}
-
 PRIMARY_WARNING_COLS = [
     "ews_warning",
     "pre_alarm",
 ]
 SECONDARY_WARNING_COLS = [
     "pre_ews",
-    "prefault_B",
     "prefault_cond_mid",
     "prefault_cond_ae",
     "prefault_cond_dtw",
@@ -66,6 +83,8 @@ ALL_WARNING_COLS = PRIMARY_WARNING_COLS + SECONDARY_WARNING_COLS
 PRIMARY_WARNING_MAX_GAP_DAYS = 120
 SECONDARY_WARNING_MIN_GAP_DAYS = 7
 SECONDARY_WARNING_MAX_GAP_DAYS = 120
+PREFERRED_PREFAULT_B_WARNING_COLS = ["prefault_B_effective", "prefault_B"]
+PROXIMAL_COMMON_CAUSE_WINDOW_DAYS = 3
 DEGRADATION_ONSET_BACKDATE_GUARD_NAME = "G1_extreme_longgap_one_day"
 DEGRADATION_ONSET_BACKDATE_GUARD_MIN_GAP_DAYS = 30
 DEGRADATION_ONSET_BACKDATE_GUARD_MAX_DEGRADE_DAYS = 1
@@ -104,13 +123,30 @@ class PanelRuntimeMetrics:
     degradation_onset_backdate_guard_name: str
     degradation_onset_backdate_guard_reason: str
     degradation_onset_backdate_guard_degrade_days: int
+    secondary_window_candidate_flag: bool
+    secondary_window_selected_onset_date: str
+    secondary_window_selected_marker: str
+    secondary_window_selected_gap_days: int
+    secondary_window_qualified_count: int
+    secondary_window_too_early_count: int
+    secondary_window_change_class: str
+    secondary_window_review_tier: str
+    secondary_window_reason: str
+    common_cause_anchor_date: str
+    common_cause_anchor_kind: str
     has_final_fault: bool
     has_critical_fault: bool
     has_fault_like: bool
     has_degradation: bool
     has_shadow: bool
     has_vdrop: bool
+    has_site_event: bool
     has_group_off: bool
+    has_subgroup_common_cause: bool
+    has_common_cause_history: bool
+    has_strict_trigger_proximal_common_cause: bool
+    has_warning_proximal_common_cause: bool
+    has_trigger_proximal_common_cause: bool
 
 
 def normalize_text(value: object) -> str:
@@ -170,6 +206,18 @@ def first_true_date(df: pd.DataFrame, column: str) -> pd.Timestamp | None:
     return None if ts.empty else ts.min().normalize()
 
 
+def true_date_set(df: pd.DataFrame, columns: list[str]) -> set[pd.Timestamp]:
+    if df.empty or "date" not in df.columns:
+        return set()
+    dates: set[pd.Timestamp] = set()
+    for column in columns:
+        if column not in df.columns:
+            continue
+        working = pd.to_datetime(df.loc[truthy_mask(df[column]), "date"], errors="coerce").dropna()
+        dates.update(pd.Timestamp(ts).normalize() for ts in working.tolist())
+    return dates
+
+
 def first_true_marker(df: pd.DataFrame, columns: list[str]) -> tuple[pd.Timestamp | None, str]:
     candidates: list[tuple[pd.Timestamp, str]] = []
     for column in columns:
@@ -180,6 +228,55 @@ def first_true_marker(df: pd.DataFrame, columns: list[str]) -> tuple[pd.Timestam
         return None, ""
     candidates.sort(key=lambda item: (item[0], item[1]))
     return candidates[0]
+
+
+def true_marker_candidates(df: pd.DataFrame, columns: list[str]) -> list[tuple[pd.Timestamp, str]]:
+    candidates: list[tuple[pd.Timestamp, str]] = []
+    if df.empty or "date" not in df.columns:
+        return candidates
+    for column in dict.fromkeys(columns):
+        if column not in df.columns:
+            continue
+        dates = pd.to_datetime(df.loc[truthy_mask(df[column]), "date"], errors="coerce").dropna()
+        candidates.extend((pd.Timestamp(ts).normalize(), column) for ts in dates.tolist())
+    candidates.sort(key=lambda item: (item[0], item[1]))
+    return candidates
+
+
+def first_true_marker_in_gap_window(
+    df: pd.DataFrame,
+    columns: list[str],
+    strict_trigger: pd.Timestamp | None,
+    min_gap_days: int,
+    max_gap_days: int,
+) -> tuple[pd.Timestamp | None, str, int, int, int]:
+    if strict_trigger is None:
+        return None, "", 0, 0, 0
+
+    qualified: list[tuple[pd.Timestamp, str, int]] = []
+    too_early_count = 0
+    for ts, marker in true_marker_candidates(df, columns):
+        if ts >= strict_trigger:
+            continue
+        gap_days = int((strict_trigger - ts).days)
+        if min_gap_days <= gap_days <= max_gap_days:
+            qualified.append((ts, marker, gap_days))
+        elif gap_days > max_gap_days:
+            too_early_count += 1
+
+    if not qualified:
+        return None, "", 0, 0, too_early_count
+    qualified.sort(key=lambda item: (item[0], item[1]))
+    selected_ts, selected_marker, selected_gap = qualified[0]
+    return selected_ts, selected_marker, selected_gap, len(qualified), too_early_count
+
+
+def resolve_secondary_warning_cols(df: pd.DataFrame) -> list[str]:
+    prefault_col = next(
+        (column for column in PREFERRED_PREFAULT_B_WARNING_COLS if column in df.columns),
+        "prefault_B",
+    )
+    return list(dict.fromkeys(["pre_ews", prefault_col, *SECONDARY_WARNING_COLS]))
 
 
 def discover_sites(root: Path) -> list[str]:
@@ -245,6 +342,141 @@ def representative_row(panel_core: pd.DataFrame) -> pd.Series:
     return panel_core.sort_values("date").iloc[-1]
 
 
+def has_subgroup_common_cause_history(
+    panel_core: pd.DataFrame,
+    panel_gate: pd.DataFrame,
+    core_df: pd.DataFrame,
+) -> bool:
+    if "subgroup_common_cause_candidate" in panel_core.columns:
+        return first_true_date(panel_core, "subgroup_common_cause_candidate") is not None
+    required_core = {"date", "panel_id", "group_key_base", "degraded_candidate"}
+    if panel_core.empty or not required_core.issubset(core_df.columns):
+        return False
+
+    working = panel_core.loc[:, ["date", "panel_id", "group_key_base", "degraded_candidate"]].copy()
+    working["degraded_candidate"] = truthy_mask(working["degraded_candidate"])
+    working = working.loc[working["degraded_candidate"]].copy()
+    if working.empty:
+        return False
+
+    same_base_counts = (
+        core_df.loc[:, ["date", "group_key_base", "degraded_candidate"]]
+        .assign(degraded_candidate=lambda df: truthy_mask(df["degraded_candidate"]))
+        .loc[lambda df: df["degraded_candidate"]]
+        .groupby(["date", "group_key_base"], dropna=False)
+        .size()
+        .rename("base_day_degraded_panel_count")
+        .reset_index()
+    )
+    working = working.merge(same_base_counts, on=["date", "group_key_base"], how="left")
+
+    if not panel_gate.empty:
+        gate_flags = panel_gate.loc[:, ["date", "panel_id"]].copy()
+        for col in ["site_event_soft", "site_event_hard", "group_off_date", "group_off_like"]:
+            gate_flags[col] = truthy_mask(panel_gate[col]) if col in panel_gate.columns else False
+        working = working.merge(gate_flags, on=["date", "panel_id"], how="left")
+    else:
+        for col in ["site_event_soft", "site_event_hard", "group_off_date", "group_off_like"]:
+            working[col] = False
+
+    for col in ["site_event_soft", "site_event_hard", "group_off_date", "group_off_like"]:
+        working[col] = working[col].fillna(False).astype(bool)
+    working["base_day_degraded_panel_count"] = pd.to_numeric(
+        working["base_day_degraded_panel_count"], errors="coerce"
+    ).fillna(0)
+
+    candidate = (
+        working["base_day_degraded_panel_count"].ge(3)
+        & (~working["site_event_soft"])
+        & (~working["site_event_hard"])
+        & (~working["group_off_date"])
+        & (~working["group_off_like"])
+    )
+    return bool(candidate.any())
+
+
+def subgroup_common_cause_date_set(
+    panel_core: pd.DataFrame,
+    panel_gate: pd.DataFrame,
+    core_df: pd.DataFrame,
+) -> set[pd.Timestamp]:
+    if "subgroup_common_cause_candidate" in panel_core.columns:
+        return true_date_set(panel_core, ["subgroup_common_cause_candidate"])
+    required_core = {"date", "panel_id", "group_key_base", "degraded_candidate"}
+    if panel_core.empty or not required_core.issubset(core_df.columns):
+        return set()
+
+    working = panel_core.loc[:, ["date", "panel_id", "group_key_base", "degraded_candidate"]].copy()
+    working["degraded_candidate"] = truthy_mask(working["degraded_candidate"])
+    working = working.loc[working["degraded_candidate"]].copy()
+    if working.empty:
+        return set()
+
+    same_base_counts = (
+        core_df.loc[:, ["date", "group_key_base", "degraded_candidate"]]
+        .assign(degraded_candidate=lambda df: truthy_mask(df["degraded_candidate"]))
+        .loc[lambda df: df["degraded_candidate"]]
+        .groupby(["date", "group_key_base"], dropna=False)
+        .size()
+        .rename("base_day_degraded_panel_count")
+        .reset_index()
+    )
+    working = working.merge(same_base_counts, on=["date", "group_key_base"], how="left")
+
+    if not panel_gate.empty:
+        gate_flags = panel_gate.loc[:, ["date", "panel_id"]].copy()
+        for col in ["site_event_soft", "site_event_hard", "group_off_date", "group_off_like"]:
+            gate_flags[col] = truthy_mask(panel_gate[col]) if col in panel_gate.columns else False
+        working = working.merge(gate_flags, on=["date", "panel_id"], how="left")
+    else:
+        for col in ["site_event_soft", "site_event_hard", "group_off_date", "group_off_like"]:
+            working[col] = False
+
+    for col in ["site_event_soft", "site_event_hard", "group_off_date", "group_off_like"]:
+        working[col] = working[col].fillna(False).astype(bool)
+    working["base_day_degraded_panel_count"] = pd.to_numeric(
+        working["base_day_degraded_panel_count"], errors="coerce"
+    ).fillna(0)
+
+    candidate = (
+        working["base_day_degraded_panel_count"].ge(3)
+        & (~working["site_event_soft"])
+        & (~working["site_event_hard"])
+        & (~working["group_off_date"])
+        & (~working["group_off_like"])
+    )
+    return {
+        pd.Timestamp(ts).normalize()
+        for ts in pd.to_datetime(working.loc[candidate, "date"], errors="coerce").dropna().tolist()
+    }
+
+
+def panel_abnormal_date_set(panel_core: pd.DataFrame, panel_gate: pd.DataFrame) -> set[pd.Timestamp]:
+    core_dates = true_date_set(
+        panel_core,
+        [
+            "degraded_candidate",
+            "fault_like_day",
+            "critical_fault",
+            "final_fault",
+            "shadow_like",
+            "group_off_like",
+        ],
+    )
+    gate_dates = true_date_set(
+        panel_gate,
+        [
+            "ews_warning",
+            "pre_alarm",
+            "pre_ews",
+            "prefault_B",
+            "prefault_B_effective",
+            "prefault_B_common_cause_overlap",
+        ],
+    )
+    return core_dates | gate_dates
+
+
 def count_degradation_days_between(
     panel_core: pd.DataFrame,
     onset: pd.Timestamp | None,
@@ -267,6 +499,20 @@ def count_degradation_days_between(
 
     matched_dates = dates.loc[window_mask & (degrade_mask | subtype_mask)].dt.normalize().dropna()
     return int(matched_dates.nunique())
+
+
+def first_available_anchor(
+    strict_trigger: pd.Timestamp | None,
+    earliest_warning: pd.Timestamp | None,
+    retrospective_onset: pd.Timestamp | None,
+) -> tuple[pd.Timestamp | None, str]:
+    if strict_trigger is not None:
+        return strict_trigger, "strict_trigger"
+    if earliest_warning is not None:
+        return earliest_warning, "earliest_warning"
+    if retrospective_onset is not None:
+        return retrospective_onset, "retrospective_onset"
+    return None, ""
 
 
 def choose_algorithm_family(
@@ -310,7 +556,23 @@ def compute_panel_metrics(
     first_fault_like = first_true_date(panel_core, "fault_like_day")
     strict_trigger = min_ts([first_critical_fault, first_final_fault, first_fault_like])
     first_primary_warning, first_primary_marker = first_true_marker(panel_gate, PRIMARY_WARNING_COLS)
-    first_secondary_warning, first_secondary_marker = first_true_marker(panel_gate, SECONDARY_WARNING_COLS)
+    first_secondary_warning, first_secondary_marker = first_true_marker(
+        panel_gate,
+        resolve_secondary_warning_cols(panel_gate),
+    )
+    (
+        secondary_window_onset,
+        secondary_window_marker,
+        secondary_window_gap_days,
+        secondary_window_qualified_count,
+        secondary_window_too_early_count,
+    ) = first_true_marker_in_gap_window(
+        panel_gate,
+        resolve_secondary_warning_cols(panel_gate),
+        strict_trigger,
+        SECONDARY_WARNING_MIN_GAP_DAYS,
+        SECONDARY_WARNING_MAX_GAP_DAYS,
+    )
 
     has_degradation = panel_core["anom_subtype"].astype(str).str.contains("degradation", case=False, na=False).any()
     has_shadow = panel_core["anom_subtype"].astype(str).str.contains("shadow", case=False, na=False).any()
@@ -319,10 +581,19 @@ def compute_panel_metrics(
     representative_level = normalize_text(representative.get("anom_level"))
     representative_subtype = normalize_text(representative.get("anom_subtype"))
     has_vdrop = representative_source in {"vdrop", "vdrop_suspect"} or "vdrop" in representative_subtype
+    abnormal_dates = panel_abnormal_date_set(panel_core, panel_gate)
+    site_event_dates = true_date_set(panel_gate, ["site_event_soft", "site_event_hard"])
+    site_event_overlap_dates = abnormal_dates & site_event_dates
+    group_off_overlap_dates = abnormal_dates & true_date_set(panel_gate, ["group_off_date", "group_off_like"])
     has_group_off = (
         (not panel_gate.empty and first_true_date(panel_gate, "group_off_date") is not None)
         or panel_core["anom_level"].astype(str).str.contains("group_off", case=False, na=False).any()
     )
+    subgroup_common_cause_dates = subgroup_common_cause_date_set(panel_core, panel_gate, core_df)
+    has_site_event = bool(site_event_overlap_dates)
+    has_subgroup_common_cause = bool(subgroup_common_cause_dates)
+    common_cause_dates = site_event_overlap_dates | group_off_overlap_dates | subgroup_common_cause_dates
+    has_common_cause_history = bool(common_cause_dates)
 
     earliest_warning = first_primary_warning
     earliest_marker = first_primary_marker
@@ -331,15 +602,21 @@ def compute_panel_metrics(
         earliest_marker = first_secondary_marker
 
     retrospective_onset = None
+    primary_gap_days = (strict_trigger - first_primary_warning).days if (
+        strict_trigger is not None and first_primary_warning is not None
+    ) else None
+    secondary_gap_days = (strict_trigger - first_secondary_warning).days if (
+        strict_trigger is not None and first_secondary_warning is not None
+    ) else None
+    primary_warning_accepted = (
+        first_primary_warning is not None
+        and strict_trigger is not None
+        and first_primary_warning < strict_trigger
+        and primary_gap_days is not None
+        and primary_gap_days <= PRIMARY_WARNING_MAX_GAP_DAYS
+    )
     if strict_trigger is not None:
-        primary_gap_days = (strict_trigger - first_primary_warning).days if first_primary_warning is not None else None
-        secondary_gap_days = (strict_trigger - first_secondary_warning).days if first_secondary_warning is not None else None
-        if (
-            first_primary_warning is not None
-            and first_primary_warning < strict_trigger
-            and primary_gap_days is not None
-            and primary_gap_days <= PRIMARY_WARNING_MAX_GAP_DAYS
-        ):
+        if primary_warning_accepted:
             retrospective_onset = first_primary_warning
         elif (
             first_secondary_warning is not None
@@ -393,6 +670,36 @@ def compute_panel_metrics(
             f"{DEGRADATION_ONSET_BACKDATE_GUARD_MAX_DEGRADE_DAYS}"
         )
 
+    common_cause_anchor_ts, common_cause_anchor_kind = first_available_anchor(
+        strict_trigger,
+        earliest_warning,
+        retrospective_onset,
+    )
+    has_strict_trigger_proximal_common_cause = False
+    has_warning_proximal_common_cause = False
+    has_trigger_proximal_common_cause = False
+    if common_cause_dates:
+        if strict_trigger is not None:
+            has_strict_trigger_proximal_common_cause = any(
+                abs(int((date - strict_trigger).days)) <= PROXIMAL_COMMON_CAUSE_WINDOW_DAYS
+                for date in common_cause_dates
+            )
+        elif earliest_warning is not None:
+            has_warning_proximal_common_cause = any(
+                abs(int((date - earliest_warning).days)) <= PROXIMAL_COMMON_CAUSE_WINDOW_DAYS
+                for date in common_cause_dates
+            )
+        elif common_cause_anchor_ts is not None:
+            has_trigger_proximal_common_cause = any(
+                abs(int((date - common_cause_anchor_ts).days)) <= PROXIMAL_COMMON_CAUSE_WINDOW_DAYS
+                for date in common_cause_dates
+            )
+    has_trigger_proximal_common_cause = (
+        has_trigger_proximal_common_cause
+        or has_strict_trigger_proximal_common_cause
+        or has_warning_proximal_common_cause
+    )
+
     precursor_flag = int(fault_status == "고장" and retrospective_onset is not None)
     abrupt_flag = int(fault_status == "고장" and not precursor_flag)
     precursor_eval_flag = precursor_flag
@@ -425,6 +732,68 @@ def compute_panel_metrics(
         onset_method = "runtime_trigger_only"
         current_needs_correction = 0
 
+    secondary_window_candidate_flag = (
+        strict_trigger is not None
+        and not primary_warning_accepted
+        and secondary_window_onset is not None
+        and (
+            format_date(secondary_window_onset) != format_date(retrospective_onset)
+            or secondary_window_marker != onset_method
+            or onset_method == "runtime_trigger_only"
+        )
+    )
+    secondary_window_change_class = ""
+    if secondary_window_candidate_flag:
+        selected_onset_date = format_date(secondary_window_onset)
+        current_onset_date = format_date(retrospective_onset)
+        if (
+            event_type == "전조형 고장"
+            and selected_onset_date == current_onset_date
+            and secondary_window_marker != onset_method
+        ):
+            secondary_window_change_class = "method_provenance_only_primary_marker_mismatch"
+        elif onset_method == "anom_subtype:degradation":
+            secondary_window_change_class = (
+                "g1_degradation_fallback_replaced_by_secondary"
+                if degradation_guard_flag
+                else "degradation_fallback_replaced_by_secondary"
+            )
+        elif onset_method == "runtime_trigger_only" and fault_status == "고장":
+            secondary_window_change_class = "trigger_only_to_precursor"
+        elif event_type == "전조형 고장" and selected_onset_date != current_onset_date:
+            secondary_window_change_class = "onset_date_shift_without_event_flip"
+        else:
+            secondary_window_change_class = "secondary_window_candidate"
+
+    secondary_window_review_tier = ""
+    if secondary_window_change_class == "trigger_only_to_precursor":
+        if (
+            has_strict_trigger_proximal_common_cause
+            or has_site_event
+            or has_subgroup_common_cause
+        ):
+            secondary_window_review_tier = "review_supported_context"
+        elif secondary_window_qualified_count >= 30:
+            secondary_window_review_tier = "review_persistent_secondary_only"
+        else:
+            secondary_window_review_tier = "review_sparse_secondary_only"
+    elif secondary_window_change_class == "method_provenance_only_primary_marker_mismatch":
+        secondary_window_review_tier = "audit_provenance_only"
+    elif secondary_window_change_class:
+        secondary_window_review_tier = "audit_no_event_flip"
+
+    secondary_window_reason = ""
+    if secondary_window_candidate_flag:
+        secondary_window_reason = (
+            "BR004_secondary_warning_window_shadow: "
+            f"first_secondary_gap_days={secondary_gap_days if secondary_gap_days is not None else ''}, "
+            f"selected_gap_days={secondary_window_gap_days}, "
+            f"qualified_secondary_count={secondary_window_qualified_count}, "
+            f"too_early_secondary_count={secondary_window_too_early_count}, "
+            f"change_class={secondary_window_change_class}, "
+            f"review_tier={secondary_window_review_tier}"
+        )
+
     algorithm_family, algorithm_symptom, detailed_code, detailed_label = choose_algorithm_family(
         representative_source=representative_source,
         representative_subtype=representative_subtype,
@@ -444,8 +813,12 @@ def compute_panel_metrics(
         evidence_bits.append(f"anom_subtype={representative_subtype}")
     if gap_days:
         evidence_bits.append(f"precursor_gap_days={gap_days}")
+    if has_site_event:
+        evidence_bits.append("site_event_signal=1")
     if has_group_off:
         evidence_bits.append("group_off_signal=1")
+    if has_subgroup_common_cause:
+        evidence_bits.append("subgroup_common_cause=1")
 
     return PanelRuntimeMetrics(
         site=site,
@@ -481,19 +854,75 @@ def compute_panel_metrics(
         ),
         degradation_onset_backdate_guard_reason=degradation_guard_reason,
         degradation_onset_backdate_guard_degrade_days=degradation_guard_degrade_days,
+        secondary_window_candidate_flag=secondary_window_candidate_flag,
+        secondary_window_selected_onset_date=(
+            format_date(secondary_window_onset) if secondary_window_candidate_flag else ""
+        ),
+        secondary_window_selected_marker=secondary_window_marker if secondary_window_candidate_flag else "",
+        secondary_window_selected_gap_days=(
+            secondary_window_gap_days if secondary_window_candidate_flag else 0
+        ),
+        secondary_window_qualified_count=secondary_window_qualified_count,
+        secondary_window_too_early_count=secondary_window_too_early_count,
+        secondary_window_change_class=secondary_window_change_class,
+        secondary_window_review_tier=secondary_window_review_tier,
+        secondary_window_reason=secondary_window_reason,
+        common_cause_anchor_date=format_date(common_cause_anchor_ts),
+        common_cause_anchor_kind=common_cause_anchor_kind,
         has_final_fault=has_final,
         has_critical_fault=has_critical,
         has_fault_like=has_fault_like,
         has_degradation=has_degradation,
         has_shadow=has_shadow,
         has_vdrop=has_vdrop,
+        has_site_event=has_site_event,
         has_group_off=has_group_off,
+        has_subgroup_common_cause=has_subgroup_common_cause,
+        has_common_cause_history=has_common_cause_history,
+        has_strict_trigger_proximal_common_cause=has_strict_trigger_proximal_common_cause,
+        has_warning_proximal_common_cause=has_warning_proximal_common_cause,
+        has_trigger_proximal_common_cause=has_trigger_proximal_common_cause,
     )
 
 
 def display_heuristic_name(value: object) -> str:
+    return shared_display_heuristic_name(value)
+
+
+def display_heuristic_note(value: object) -> str:
+    return shared_display_heuristic_note(value)
+
+
+def display_family_name(value: object) -> str:
     text = normalize_text(value)
-    return DISPLAY_HEURISTIC_NAME_MAP.get(text, text)
+    if text == "불충분":
+        return ""
+    return text
+
+
+def choose_display_precursor_date(
+    event_type_ko: object,
+    interpreted_onset_date: object,
+    first_warning_date: object,
+) -> str:
+    if normalize_text(event_type_ko) != "전조형 고장":
+        return ""
+    onset_date = normalize_text(interpreted_onset_date)
+    if onset_date:
+        return onset_date
+    return normalize_text(first_warning_date)
+
+
+def choose_display_fault_date(
+    fault_date: object,
+    strict_trigger_date: object,
+    first_final_fault_date: object,
+) -> str:
+    for candidate in [fault_date, strict_trigger_date, first_final_fault_date]:
+        text = normalize_text(candidate)
+        if text:
+            return text
+    return ""
 
 
 def load_runtime_core_from_workspace(workspace_root: Path, site: str) -> pd.DataFrame:
@@ -524,8 +953,10 @@ def build_fault_table_from_outputs(
 ) -> pd.DataFrame:
     verdict_path = workspace_root / "_share" / verdict_name
     heuristic_path = workspace_root / "_share" / heuristic_name
+    audit_path = workspace_root / "_share" / RUNTIME_AUDIT_OUTPUT_NAME
     verdict_df = read_csv(verdict_path)
     heuristic_df = read_csv(heuristic_path)
+    audit_df = read_csv(audit_path)
     ensure_columns(
         verdict_df,
         ["site", "panel_id", "패널고장여부_ko", "사건유형_ko", "최종고장양상_ko", "커널로그_원인군_ko"],
@@ -536,9 +967,18 @@ def build_fault_table_from_outputs(
         ["site", "panel_id", "원인후보_top1_ko", "원인후보_top2_ko", "원인후보_top3_ko"],
         heuristic_path.name,
     )
+    ensure_columns(
+        audit_df,
+        ["site", "panel_id", "earliest_warning_date", "strict_trigger_date", "first_final_fault_date"],
+        audit_path.name,
+    )
     heuristic_lookup = {
         (normalize_text(row["site"]), normalize_text(row["panel_id"])): row
         for row in heuristic_df.to_dict(orient="records")
+    }
+    audit_lookup = {
+        (normalize_text(row["site"]), normalize_text(row["panel_id"])): row
+        for row in audit_df.to_dict(orient="records")
     }
     rows: list[dict[str, str]] = []
     fault_rows = verdict_df.loc[verdict_df["패널고장여부_ko"].map(normalize_text).eq("고장")].copy()
@@ -547,6 +987,7 @@ def build_fault_table_from_outputs(
         heuristic_row = heuristic_lookup.get(key)
         if heuristic_row is None:
             raise SystemExit(f"missing heuristic row for runtime fault panel: {key}")
+        audit_row = audit_lookup.get(key, {})
         rows.append(
             {
                 "site": key[0],
@@ -554,10 +995,20 @@ def build_fault_table_from_outputs(
                 "패널고장여부_ko": normalize_text(row["패널고장여부_ko"]),
                 "사건유형_ko": normalize_text(row["사건유형_ko"]),
                 "최종고장양상_ko": normalize_text(row["최종고장양상_ko"]),
-                "커널로그_원인군_ko": normalize_text(row["커널로그_원인군_ko"]),
+                "커널로그_원인군_ko": display_family_name(row["커널로그_원인군_ko"]),
                 "1순위_의심원인_ko": display_heuristic_name(heuristic_row["원인후보_top1_ko"]),
                 "2순위_의심원인_ko": display_heuristic_name(heuristic_row["원인후보_top2_ko"]),
                 "3순위_의심원인_ko": display_heuristic_name(heuristic_row["원인후보_top3_ko"]),
+                "전조날짜": choose_display_precursor_date(
+                    event_type_ko=row.get("사건유형_ko"),
+                    interpreted_onset_date=row.get("사건해석상전조시작일"),
+                    first_warning_date=audit_row.get("earliest_warning_date"),
+                ),
+                "고장날짜": choose_display_fault_date(
+                    fault_date=row.get("세부fault_기준일"),
+                    strict_trigger_date=audit_row.get("strict_trigger_date"),
+                    first_final_fault_date=audit_row.get("first_final_fault_date"),
+                ),
             }
         )
     return pd.DataFrame(rows).reindex(columns=RUNTIME_FAULT_OUTPUT_COLS).sort_values(["site", "panel_id"]).reset_index(drop=True)
@@ -579,7 +1030,9 @@ def build_fault_preview(workspace_root: Path, fault_df: pd.DataFrame) -> pd.Data
                 "패널고장여부_ko": normalize_text(row["패널고장여부_ko"]),
                 "사건유형_ko": normalize_text(row["사건유형_ko"]),
                 "최종고장양상_ko": normalize_text(row["최종고장양상_ko"]),
-                "커널로그_원인군_ko": normalize_text(row["커널로그_원인군_ko"]),
+                "전조날짜": normalize_text(row.get("전조날짜")),
+                "고장날짜": normalize_text(row.get("고장날짜")),
+                "커널로그_원인군_ko": display_family_name(row["커널로그_원인군_ko"]),
                 "1순위_의심원인_ko": normalize_text(row["1순위_의심원인_ko"]),
                 "2순위_의심원인_ko": normalize_text(row["2순위_의심원인_ko"]),
                 "3순위_의심원인_ko": normalize_text(row["3순위_의심원인_ko"]),
@@ -618,7 +1071,7 @@ def compare_fault_table_to_reference(fault_df: pd.DataFrame, reference_path: Pat
     if len(reference_df) != len(candidate_df):
         diff_columns.append("__row_count__")
     else:
-        for column in RUNTIME_FAULT_OUTPUT_COLS:
+        for column in RUNTIME_DECISION_COMPARE_COLS:
             if column not in reference_df.columns:
                 diff_columns.append(f"missing_reference:{column}")
                 continue
@@ -635,7 +1088,7 @@ def compare_fault_table_to_reference(fault_df: pd.DataFrame, reference_path: Pat
     overlap = reference_df.merge(candidate_df, on=["site", "panel_id"], how="inner", suffixes=("_reference", "_candidate"))
     overlap_diff_columns: list[str] = []
     if not overlap.empty:
-        for column in RUNTIME_FAULT_OUTPUT_COLS[2:]:
+        for column in RUNTIME_DECISION_COMPARE_COLS[2:]:
             left = overlap[f"{column}_reference"].fillna("").astype(str)
             right = overlap[f"{column}_candidate"].fillna("").astype(str)
             if not left.equals(right):
