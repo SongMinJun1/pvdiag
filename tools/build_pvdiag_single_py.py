@@ -13,7 +13,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 RELEASE_ROOT = REPO_ROOT / "release" / "conalog_full_runtime_v1"
 PACKAGE_ROOT = RELEASE_ROOT / "package"
 DEFAULT_OUTPUT = RELEASE_ROOT / "pvdiag_single.py"
-DEFAULT_DELIVERY_COPY = Path.home() / "Desktop" / "pvdiag_professor_delivery" / "pvdiag_single.py"
+DEFAULT_DELIVERY_COPY = (
+    Path.home()
+    / "Desktop"
+    / "pvdiag_algorithm_delivery_pack"
+    / "release"
+    / "conalog_full_runtime_v1"
+    / "pvdiag_single.py"
+)
 DELIVERY_README = RELEASE_ROOT / "README_SINGLE_DELIVERY.md"
 
 
@@ -596,7 +603,10 @@ def parse_args() -> argparse.Namespace:
         "--delivery-copy",
         type=Path,
         default=None,
-        help="Optional extra copy path, e.g. ~/Desktop/pvdiag_professor_delivery/pvdiag_single.py.",
+        help=(
+            "Optional extra copy path, e.g. "
+            "~/Desktop/pvdiag_algorithm_delivery_pack/release/conalog_full_runtime_v1/pvdiag_single.py."
+        ),
     )
     parser.add_argument(
         "--copy-to-default-delivery",
