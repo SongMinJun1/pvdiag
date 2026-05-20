@@ -14,6 +14,7 @@ RELEASE_ROOT = REPO_ROOT / "release" / "conalog_full_runtime_v1"
 PACKAGE_ROOT = RELEASE_ROOT / "package"
 DEFAULT_OUTPUT = RELEASE_ROOT / "pvdiag_single.py"
 DEFAULT_DELIVERY_COPY = Path.home() / "Desktop" / "pvdiag_professor_delivery" / "pvdiag_single.py"
+DELIVERY_README = RELEASE_ROOT / "README_SINGLE_DELIVERY.md"
 
 
 ROLE_BY_RELATIVE_PATH = {
@@ -625,6 +626,10 @@ def main() -> int:
         shutil.copy2(output, target)
         target.chmod(0o755)
         print(f"[OK] copied {target}")
+        if DELIVERY_README.exists():
+            readme_target = target.parent / DELIVERY_README.name
+            shutil.copy2(DELIVERY_README, readme_target)
+            print(f"[OK] copied {readme_target}")
     return 0
 
 
