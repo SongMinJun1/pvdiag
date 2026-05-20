@@ -21,6 +21,48 @@ REQUIRED_PACKAGE_FILES = [
     "runtime/windows_x64/runtime_manifest_v1.json",
 ]
 
+REQUIRED_SHARE_INPUTS = [
+    "_share/panel_day_engine_operator_workflow_default_v1.csv",
+    "_share/panel_day_engine_abrupt6_symptom_map_v1.csv",
+    "_share/panel_day_engine_kernellog_project_mapping_v1.csv",
+    "_share/panel_day_engine_gpv7_perf_summary_v1.csv",
+    "_share/panel_day_engine_project_final_decision_pack_v1.csv",
+    "_share/panel_day_engine_precursor_onset_truth_v1.csv",
+    "_share/panel_day_engine_non_precursor_performance_cases_v1.csv",
+    "_share/panel_day_engine_common_cause_descriptive_retrofit_cases_v1.csv",
+    "_share/panel_day_engine_gpvs_panel_attach_inventory_v1.csv",
+    "_share/panel_day_engine_gpvs_panel_attach_feasibility_v1.csv",
+    "_share/panel_day_engine_gpvs_panel_attach_candidates_v1.csv",
+    "_share/panel_day_engine_precursor_abrupt_consistency_cases_v1.csv",
+    "_share/panel_day_engine_precursor_abrupt_consistency_summary_v1.csv",
+    "_share/panel_day_engine_precursor_abrupt_consistency_recommendation_v1.csv",
+    "_share/panel_day_engine_c42997_1_1_forensic_summary_v1.csv",
+    "_share/panel_day_engine_fault_panel_event_audit_v1.csv",
+    "_share/panel_day_engine_detailed_fault_bridge_audit_v1.csv",
+    "_share/panel_day_engine_detailed_fault_bridge_summary_v1.csv",
+    "_share/panel_day_engine_gpvs_bytype_rebuild_summary_v1.csv",
+    "_share/panel_day_engine_gpvs_detailed_type_inference_audit_v1.csv",
+    "_share/panel_day_engine_gpvs_detailed_type_realpanel_sanity_v1.csv",
+    "_share/panel_day_engine_gpvs_mlpe_panel_agreement_v1.csv",
+    "_share/panel_day_engine_gpvs_canonical_dictionary_v1.csv",
+    "_share/panel_day_engine_gpvs_mlpe_fault_matching_table_v1.csv",
+    "_share/panel_day_engine_gpvs_mlpe_compatibility_summary_v1.csv",
+    "_share/panel_day_engine_gpvs_mlpe_fault_matching_summary_v1.csv",
+    "_share/panel_day_engine_gpvs_evidence_pack_v1.csv",
+    "_share/panel_day_engine_panel_multiaxis_verdict_v1.csv",
+    "_share/panel_date_reaudit_working.csv",
+]
+
+REQUIRED_RUNTIME_SENTINELS = [
+    "runtime/windows_x64/python/python311.zip",
+    "runtime/windows_x64/python/Lib/site-packages/torch/utils/data/__init__.py",
+    "runtime/windows_x64/python/Lib/site-packages/torch/utils/data/dataloader.py",
+    "runtime/windows_x64/python/Lib/site-packages/torch/utils/data/dataset.py",
+    "runtime/windows_x64/python/Lib/site-packages/torch/utils/data/sampler.py",
+    "runtime/windows_x64/python/Lib/site-packages/torch/ao/pruning/_experimental/data_sparsifier/__init__.py",
+    "runtime/windows_x64/python/Lib/site-packages/torch/distributed/elastic/utils/data/__init__.py",
+]
+
 FORBIDDEN_DIR_NAMES = {
     ".git",
     ".venv",
@@ -156,7 +198,8 @@ def find_large_nonruntime_files(package_root: Path) -> list[dict[str, object]]:
 
 
 def find_missing_required_files(package_root: Path) -> list[str]:
-    return [rel for rel in REQUIRED_PACKAGE_FILES if not (package_root / rel).exists()]
+    required = REQUIRED_PACKAGE_FILES + REQUIRED_SHARE_INPUTS + REQUIRED_RUNTIME_SENTINELS
+    return [rel for rel in required if not (package_root / rel).exists()]
 
 
 def main() -> None:
@@ -199,9 +242,12 @@ def main() -> None:
         "local_path_leaks": local_path_leaks,
         "large_nonruntime_files": large_nonruntime_files,
         "pycache_dirs_warning": pycache_dirs,
+        "required_share_input_count": len(REQUIRED_SHARE_INPUTS),
+        "required_runtime_sentinel_count": len(REQUIRED_RUNTIME_SENTINELS),
         "note_ko": (
-            "전달 package에 필수 실행 파일, 대시보드 문서, verifier가 있는지와 "
-            "raw/out/data/tmp/local path 흔적이 섞이지 않았는지 확인한다."
+            "전달 package에 필수 실행 파일, 대시보드 문서, frozen share 입력, "
+            "Windows runtime sentinel 파일이 있는지와 raw/out/data/tmp/local path 흔적이 "
+            "섞이지 않았는지 확인한다."
         ),
     }
 
