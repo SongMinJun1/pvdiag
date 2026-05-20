@@ -1542,7 +1542,7 @@ set "APP_PATH=%PACKAGE_ROOT%\\app\\run_full_algorithm_pack.py"
 call "%PACKAGE_ROOT%\\bin\\resolve_python.bat"
 if errorlevel 1 exit /b %errorlevel%
 
-set /p ARCHIVE_ROOT=archive_data 루트 경로를 입력하십시오 ^(예: D:\\pvdiag\\archive_data^): 
+set /p ARCHIVE_ROOT=archive_data 루트 경로를 입력하십시오 ^(예: D:\\pvdiag\\archive_data^):
 if "%ARCHIVE_ROOT%"=="" (
     echo archive_data 루트 경로를 다시 확인하십시오.
   exit /b 0
@@ -1552,10 +1552,10 @@ if not exist "%ARCHIVE_ROOT%" (
   exit /b 0
 )
 
-set /p RUNTIME_ROOT=runtime_data 경로를 입력하십시오 [기본값: %PACKAGE_ROOT%\\..\\runtime_data]: 
+set /p RUNTIME_ROOT=runtime_data 경로를 입력하십시오 [기본값: %PACKAGE_ROOT%\\..\\runtime_data]:
 if "%RUNTIME_ROOT%"=="" set "RUNTIME_ROOT=%PACKAGE_ROOT%\\..\\runtime_data"
 
-set /p OUTPUT_ROOT=출력 폴더 경로를 입력하십시오 [기본값: %PACKAGE_ROOT%\\..\\runtime_output\\daily_run]: 
+set /p OUTPUT_ROOT=출력 폴더 경로를 입력하십시오 [기본값: %PACKAGE_ROOT%\\..\\runtime_output\\daily_run]:
 if "%OUTPUT_ROOT%"=="" set "OUTPUT_ROOT=%PACKAGE_ROOT%\\..\\runtime_output\\daily_run"
 
 echo [010%%] 최근 120일 raw staging 경로를 준비했습니다.
@@ -1620,7 +1620,7 @@ set "OUTPUT_ROOT="
 for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; $dialog.Description='출력 폴더를 선택하십시오 (취소 시 기본값 사용)'; if ($dialog.ShowDialog() -eq 'OK') { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Output $dialog.SelectedPath }"`) do set "OUTPUT_ROOT=%%I"
 if "%OUTPUT_ROOT%"=="" set "OUTPUT_ROOT=%DEFAULT_OUTPUT%"
 
-set /p STABLE_MINUTES=안정화 대기 분을 입력하십시오 [기본값: 10]: 
+set /p STABLE_MINUTES=안정화 대기 분을 입력하십시오 [기본값: 10]:
 if "%STABLE_MINUTES%"=="" set "STABLE_MINUTES=10"
 
 set "IMPORT_ENV=%SNAPSHOT_ROOT%\\import_env.bat"

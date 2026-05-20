@@ -1357,11 +1357,11 @@ echo Python 3가 필요합니다. Python을 설치한 뒤 다시 실행하십시
 exit /b 1
 
 :have_python
-set /p INPUT_ROOT=입력 폴더 경로를 입력하십시오: 
+set /p INPUT_ROOT=입력 폴더 경로를 입력하십시오:
 if "%INPUT_ROOT%"=="" goto invalid_input
 if not exist "%INPUT_ROOT%" goto invalid_input
 
-set /p OUTPUT_ROOT=출력 폴더 경로를 입력하십시오(빈칸이면 기본값 사용): 
+set /p OUTPUT_ROOT=출력 폴더 경로를 입력하십시오(빈칸이면 기본값 사용):
 if "%OUTPUT_ROOT%"=="" set OUTPUT_ROOT=%DEFAULT_OUTPUT_ROOT%
 
 where py >nul 2>nul

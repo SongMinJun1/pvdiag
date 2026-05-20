@@ -19,9 +19,9 @@
 | runtime redesign / hybrid | [run_full_algorithm_pack.py](/Users/b9gc/pvdiag/release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py) | `fault_panel_result_current_v1.csv`, `fault_panel_result_precursor_report_v1.csv`, `fault_panel_result_raw_only_fault_signal_report_v1.csv`, `fault_panel_result_master_report_v1.md`, `fault_panel_result_detailed_report_v1.xlsx` | 운영자, 분석가, 내부 triage 사용자 | MLPE runtime/hybrid artifact를 분리해 읽는 내부 운영/분석 계약 |
 
 ## 4. 왜 둘을 같은 계약으로 읽으면 안 되는가
-- stable/handoff 경로는 `site`, `panel_id`, `패널고장여부_ko`, `사건유형_ko`, `최종고장양상_ko`, `conalog_원인군_ko`를 stable six-field contract로 직접 반환한다.  
+- stable/handoff 경로는 `site`, `panel_id`, `패널고장여부_ko`, `사건유형_ko`, `최종고장양상_ko`, `conalog_원인군_ko`를 stable six-field contract로 직접 반환한다.
   근거: [app/run_conalog_infer.py](/Users/b9gc/pvdiag/app/run_conalog_infer.py), [OPS_CONALOG_HANDOFF_PACK_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_HANDOFF_PACK_V1.md)
-- runtime redesign 경로는 `official current`, `precursor`, `raw-only current`, `raw-only fault signal report`, `master/detailed`를 artifact별로 분리한다.  
+- runtime redesign 경로는 `official current`, `precursor`, `raw-only current`, `raw-only fault signal report`, `master/detailed`를 artifact별로 분리한다.
   근거: [run_full_algorithm_pack.py](/Users/b9gc/pvdiag/release/conalog_full_runtime_v1/package/app/run_full_algorithm_pack.py), [OPS_CONALOG_RUNTIME_GATE5_OUTPUT_POLICY_V1.md](/Users/b9gc/pvdiag/docs/OPS_CONALOG_RUNTIME_GATE5_OUTPUT_POLICY_V1.md)
 - stable/handoff 문서군은 direct operational interpretation을 설명하지만, runtime redesign 문서군은 operator-facing headline과 analyst-facing explanation을 다시 분리한다.
 - 따라서 같은 용어가 두 경로에 모두 등장하더라도, 자동으로 같은 headline policy나 같은 artifact policy를 공유한다고 보면 안 된다.
